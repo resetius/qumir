@@ -1,6 +1,8 @@
 #include "lexer.h"
+#include "qumir/location.h"
 
 #include <map>
+#include <string>
 #include <variant>
 
 namespace NQumir {
@@ -96,40 +98,72 @@ std::optional<TToken> TTokenStream::Next() {
 
 void TTokenStream::Read() {
     char ch = 0;
-    std::variant<uint64_t,double,std::monostate> number = std::monostate();
+    char prev = 0; // for 2-char operators
+    std::variant<int64_t,double,std::string,std::monostate> token = std::monostate();
     int frac = 10;
     bool repeat = false;
+    TLocation tokenLocation = CurrentLocation;
 
     auto flush =[&]() {
-        if (!std::holds_alternative<std::monostate>(number)) {
-            TToken::UPrimitive value;
-            bool isFloat = false;
-            if (std::holds_alternative<uint64_t>(number)) {
-                value.u64 = std::get<uint64_t>(number);
-            } else {
-                value.f64 = std::get<double>(number);
-                isFloat = true;
-            }
+        if (std::holds_alternative<int64_t>(token)) {
             Tokens.emplace_back(TToken {
-                .Value = value,
-                .Type = isFloat ? TToken::Float : TToken::Integer,
-                .Location = CurrentLocation
+                .Value = {.i64 = std::get<int64_t>(token)},
+                .Type = TToken::Integer,
+                .Location = tokenLocation
             });
-            number = std::monostate();
-            frac = 10;
+        } else if (std::holds_alternative<double>(token)) {
+            Tokens.emplace_back(TToken {
+                .Value = {.f64 = std::get<double>(token)},
+                .Type = TToken::Float,
+                .Location = tokenLocation
+            });
+        } else if (std::holds_alternative<std::string>(token)) {
+            auto& str = std::get<std::string>(token);
+            auto maybeKeyword = KeywordMapRu.find(str);
+            if (maybeKeyword != KeywordMapRu.end()) {
+                Tokens.emplace_back(TToken {
+                    .Value = {.i64 = (int64_t)maybeKeyword->second},
+                    .Type = TToken::Keyword,
+                    .Location = tokenLocation
+                });
+            } else {
+                Tokens.emplace_back(TToken {
+                    .Name = str,
+                    .Type = TToken::Identifier,
+                    .Location = tokenLocation
+                });
+            }
         }
 
         State = Start;
         repeat = true;
+        tokenLocation = CurrentLocation;
+        token = std::monostate();
+        frac = 10;
+    };
+
+    // single char operators:
+    // /, +, -, =, ), [, ], :, ,
+    // ( - prefix for comments
+    auto isSingleCharOperator = [](char ch) {
+        return ch == ')'
+            || ch == '+'
+            || ch == '/'
+            || ch == '='
+            || ch == ','
+            || ch == ':'
+            || ch == '['
+            || ch == ']';
+    };
+
+    auto isOperatorPrefix = [](char ch) {
+        return ch == '*'  // *, **
+            || ch == '<'  // <, <=, <>
+            || ch == '>'; // >, >=
     };
 
     while ((Tokens.empty() || State != Start) && In.get(ch)) {
         if (ch == '\n') {
-            Tokens.emplace_back(TToken {
-                .Value = {.u64 = (uint64_t)EOperator::Eol},
-                .Type = TToken::Operator,
-                .Location = CurrentLocation
-            });
             CurrentLocation.Line++;
             CurrentLocation.Column = 0;
             continue;
@@ -139,29 +173,125 @@ void TTokenStream::Read() {
 
         do {
             repeat = false;
+            // TODO: we don't support 'не' in the middle of an identifier so far
+            // e.g. in 'true' kumir 'оно не истина' could be tokenized as 'не' 'оно истина'
+            // if 'оно истина' is a variable name
             switch (State) {
                 case Start:
-                    if (std::isdigit(ch)) {
+                    if (ch == '\n') {
+                        Tokens.emplace_back(TToken {
+                            .Value = {.i64 = (int64_t)EOperator::Eol},
+                            .Type = TToken::Operator,
+                            .Location = tokenLocation
+                        });
+                        tokenLocation = CurrentLocation;
+                    } else if (std::isdigit(ch)) {
                         State = InNumber;
-                        number = (uint64_t)(ch - '0');
+                        token = (int64_t)(ch - '0');
+                    } else if (ch == '-') {
+                        State = InMaybeNumber;
+                    } else if (ch == '(') {
+                        State = InMaybeComment;
+                    } else if (isOperatorPrefix(ch)) {
+                        prev = ch;
+                        State = InMaybeOperator; // reuse this state for 2-char operators
+                    } else if (isSingleCharOperator(ch)) {
+                        Tokens.emplace_back(TToken {
+                            .Value = {.i64 = (int64_t)OperatorMap.at(std::string(1, ch))},
+                            .Type = TToken::Operator,
+                            .Location = tokenLocation
+                        });
+                        tokenLocation = CurrentLocation;
                     } else {
                         throw std::runtime_error("unexpected character");
                     }
+                    break;
+                case InMaybeOperator: {
+                    std::string opStr;
+                    opStr += prev;
+                    opStr += ch;
+                    auto it = OperatorMap.find(opStr);
+                    if (it != OperatorMap.end()) {
+                        Tokens.emplace_back(TToken {
+                            .Value = {.i64 = (int64_t)it->second},
+                            .Type = TToken::Operator,
+                            .Location = tokenLocation
+                        });
+                        tokenLocation = CurrentLocation;
+                        State = Start;
+                    } else {
+                        // not a 2-char operator, just the first char
+                        Tokens.emplace_back(TToken {
+                            .Value = {.i64 = (int64_t)OperatorMap.at(std::string(1, prev))},
+                            .Type = TToken::Operator,
+                            .Location = tokenLocation
+                        });
+                        tokenLocation = CurrentLocation;
+                        State = Start;
+                        repeat = true;
+                    }
+                    break;
+                }
+                case InMaybeNumber:
+                    if (std::isdigit(ch)) {
+                        State = InNumber;
+                        token = (int64_t)(-(ch - '0'));
+                    } else if (ch == '.') {
+                        State = InNumber;
+                        token = (double)(-0.0);
+                    } else {
+                        // Not a negative number, just a '-' operator followed by something else
+                        Tokens.emplace_back(TToken {
+                            .Value = {.i64 = (int64_t)OperatorMap.at(std::string(1, '-'))},
+                            .Type = TToken::Operator,
+                            .Location = tokenLocation
+                        });
+                        tokenLocation = CurrentLocation;
+                        State = Start;
+                        repeat = true;
+                    }
+                    break;
+                case InMaybeComment:
+                    // Comments: (* ... *) for block comments
+                    if (ch == '*') {
+                        State = InBlockComment;
+                    } else {
+                        // Not a comment, just a '(' operator followed by something else
+                        Tokens.emplace_back(TToken {
+                            .Value = {.i64 = (int64_t)OperatorMap.at(std::string(1, '('))},
+                            .Type = TToken::Operator,
+                            .Location = tokenLocation
+                        });
+                        tokenLocation = CurrentLocation;
+                        State = Start;
+                        repeat = true;
+                    }
+                    break;
+                case InBlockComment:
+                    if (ch == '*') {
+                        State = InBlockCommentEnd;
+                    }
+                    break;
+                case InBlockCommentEnd:
+                    if (ch == ')') {
+                        State = Start;
+                    }
+                    break;
                 case InNumber:
                     if (std::isdigit(ch)) {
-                        if (std::holds_alternative<double>(number)) {
-                            number = (double)(std::get<double>(number) * frac + (ch - '0')) / frac;
+                        if (std::holds_alternative<double>(token)) {
+                            token = (double)(std::get<double>(token) * frac + (ch - '0')) / frac;
                             frac *= 10;
                         } else {
-                            number = (uint64_t)(std::get<uint64_t>(number) * 10 + (ch - '0'));
+                            token = (int64_t)(std::get<int64_t>(token) * 10 + (ch - '0'));
                         }
                     } else if (ch == '.') {
                         // TODO: support scientific notation i.e. 1e10
-                        if (std::holds_alternative<double>(number)) {
+                        if (std::holds_alternative<double>(token)) {
                             // Second dot in a number
                             flush();
                         } else {
-                            number = (double)(std::get<uint64_t>(number));
+                            token = (double)(std::get<int64_t>(token));
                         }
                     } else {
                         flush();

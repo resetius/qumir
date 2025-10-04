@@ -100,7 +100,7 @@ struct TToken {
 
     // everything except string fits in 8 bytes
     union UPrimitive {
-        uint64_t u64;
+        int64_t i64;
         double f64;
     };
     UPrimitive Value; // valid for Integer, Float, Operator, Keyword
@@ -126,6 +126,8 @@ private:
         InNumber,
         InString,
         InMaybeComment,
+        InMaybeNumber,
+        InMaybeOperator,
         InBlockComment,
         InBlockCommentEnd
     };
