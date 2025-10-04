@@ -1,6 +1,6 @@
 add_library(qumir
-    paser/lexer.h
-    paser/lexer.cpp
+    parser/lexer.h
+    parser/lexer.cpp
     location.h
     optional.h
 )
