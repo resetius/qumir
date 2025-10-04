@@ -168,6 +168,7 @@ void TTokenStream::Read() {
     char prev = 0; // for 2-char operators
     std::variant<int64_t,double,TIdentifierList,TStringLiteral,std::monostate> token = std::monostate();
     int frac = 10;
+    int sign = 1; // for floats
     bool repeat = false;
     bool unescape = false;
     TLocation tokenLocation = CurrentLocation;
@@ -206,7 +207,7 @@ void TTokenStream::Read() {
             });
         } else if (std::holds_alternative<double>(token)) {
             Tokens.emplace_back(TToken {
-                .Value = {.f64 = std::get<double>(token)},
+                .Value = {.f64 = sign ? std::get<double>(token) : -std::get<double>(token)},
                 .Type = TToken::Float,
                 .Location = tokenLocation
             });
@@ -244,6 +245,7 @@ void TTokenStream::Read() {
 
         state = Start;
         repeat = true;
+        sign = 1;
         unescape = false;
         tokenLocation = CurrentLocation;
         token = std::monostate();
@@ -373,7 +375,8 @@ void TTokenStream::Read() {
                         token = (int64_t)(-(ch - '0'));
                     } else if (ch == '.') {
                         state = InNumber;
-                        token = (double)(-0.0);
+                        token = (double)(0.0);
+                        sign = 0;
                     } else {
                         // Not a negative number, just a '-' operator followed by something else
                         emitOperator(EOperator::Minus);

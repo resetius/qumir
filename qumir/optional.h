@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <concepts>
 
-namespace NOz {
+namespace NQumir {
 
 struct TNonePropagate : std::exception {
     const char* what() const noexcept override {

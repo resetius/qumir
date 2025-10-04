@@ -280,7 +280,7 @@ struct TVarStmt : TExpr {
 
     std::string Name;
 
-    TVarStmt(TLocation loc, bool m, std::string name, TExprPtr expr, NAst::TTypePtr type)
+    TVarStmt(TLocation loc, std::string name, NAst::TTypePtr type)
         : TExpr(std::move(loc), std::move(type))
         , Name(std::move(name))
     { }

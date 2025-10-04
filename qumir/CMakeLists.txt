@@ -5,8 +5,12 @@ add_library(qumir
     parser/lexer.cpp
     parser/operator.h
     parser/operator.cpp
+    parser/parser.h
+    parser/parser.cpp
     parser/type.h
     parser/type.cpp
+    error.h
+    error.cpp
     location.h
     optional.h
 )

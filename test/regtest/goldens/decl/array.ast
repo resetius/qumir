@@ -1,0 +1,5 @@
+(Block
+  (Var $й:<Array [Int; 0..10]>)
+  (Var $ц:<Array [Int; 0..20]>)
+  (Var $l:<Array [Float; -1..234]>)
+  (Var $тт:<Array [Bool; -10..10]>))

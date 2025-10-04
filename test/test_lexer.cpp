@@ -39,6 +39,14 @@ namespace {
         EXPECT_EQ(value->Value.i64, (v)); \
     } while(0);
 
+#define ExpectFloat(t, v) \
+    do { \
+        auto value = (t); \
+        ASSERT_TRUE(value.has_value()); \
+        EXPECT_EQ(value->Type, TToken::Float); \
+        EXPECT_EQ(value->Value.f64, (v)); \
+    } while(0);
+
 } // namespace
 
 TEST(LexerTest, Numbers) {
@@ -48,6 +56,20 @@ TEST(LexerTest, Numbers) {
     ExpectInt(tokens.Next(), 42);
     ExpectOp(tokens.Next(), EOperator::Plus);
     ExpectInt(tokens.Next(), 23);
+}
+
+TEST(LexerTest, NegativeInt) {
+    std::istringstream input("-1");
+    TTokenStream tokens(input);
+
+    ExpectInt(tokens.Next(), -1);
+}
+
+TEST(LexerTest, NegativeFloat) {
+    std::istringstream input("-.1");
+    TTokenStream tokens(input);
+
+    ExpectFloat(tokens.Next(), -.1);
 }
 
 TEST(LexerTest, Assignment) {
