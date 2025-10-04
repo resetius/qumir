@@ -12,6 +12,8 @@ namespace NAst {
 namespace {
 
 std::map<std::string, EKeyword> KeywordMapRu = {
+    {"ложь", EKeyword::False},
+    {"истина", EKeyword::True},
     {"алг", EKeyword::Alg},
     {"нач", EKeyword::Begin},
     {"кон", EKeyword::End},
@@ -121,17 +123,22 @@ struct TStringLiteral {
 struct TIdentifierList {
     std::vector<std::string> Words;
 
-    void Append(char ch) {
+    bool Append(char ch) {
         if (std::isspace(ch)) {
             if (!Words.empty() && !Words.back().empty()) {
                 Words.emplace_back();
             }
-            return;
+            return true;
         }
         if (Words.empty()) {
             Words.emplace_back();
         }
+        if (std::isdigit(ch) && Words.back().empty()) {
+            // identifier cannot start with a digit
+            return false;
+        }
         Words.back() += ch;
+        return true;
     }
 };
 
@@ -380,7 +387,10 @@ void TTokenStream::Read() {
                 case InIdentifier: {
                     if (!isIdentifierStop(ch)) {
                         TIdentifierList& lst = std::get<TIdentifierList>(token);
-                        lst.Append(ch);
+                        if (!lst.Append(ch)) {
+                            // invalid character in identifier
+                            flush();
+                        }
                     } else {
                         flush();
                     }
@@ -486,8 +496,9 @@ void TTokenStream::Read() {
                     } else {
                         flush();
                     }
+                    break;
                 default:
-                    throw std::runtime_error("invalid lexer state");
+                    throw std::runtime_error("invalid lexer state: " + std::to_string(state) + " at " + CurrentLocation.ToString() + " after '" + std::string(1, ch) + "'");
             };
         } while (repeat);
     }

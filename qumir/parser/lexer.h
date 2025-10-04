@@ -17,6 +17,8 @@ namespace NAst {
 // для, от, до, шаг, раз, и, или, не, div, mod
 
 enum class EKeyword : uint8_t {
+    False,
+    True,
     Alg,
     Begin,
     End,

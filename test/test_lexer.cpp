@@ -2,7 +2,280 @@
 #include <qumir/parser/lexer.h>
 #include <sstream>
 
-using namespace NQumir;
+using namespace NQumir::NAst;
+
+namespace {
+
+// --- helpers ----------------------------------------------------------------
+void ExpectKeyword(const std::optional<TToken>& t, EKeyword kw) {
+    ASSERT_TRUE(t.has_value());
+    EXPECT_EQ(t->Type, TToken::Keyword);
+    EXPECT_EQ(t->Value.i64, (int64_t)kw);
+}
+
+void ExpectOp(const std::optional<TToken>& t, EOperator op) {
+    ASSERT_TRUE(t.has_value());
+    EXPECT_EQ(t->Type, TToken::Operator);
+    EXPECT_EQ(t->Value.i64, (int64_t)op);
+}
+
+void ExpectIdent(const std::optional<TToken>& t, const std::string& name) {
+    ASSERT_TRUE(t.has_value());
+    EXPECT_EQ(t->Type, TToken::Identifier);
+    EXPECT_EQ(t->Name, name);
+}
+
+void ExpectInt(const std::optional<TToken>& t, int v) {
+    ASSERT_TRUE(t.has_value());
+    EXPECT_EQ(t->Type, TToken::Integer);
+    EXPECT_EQ(t->Value.i64, v);
+}
+
+} // namespace
+
+TEST(LexerTest, Numbers) {
+    std::istringstream input("42 + 23");
+    TTokenStream tokens(input);
+
+    ExpectInt(tokens.Next(), 42);
+    ExpectOp(tokens.Next(), EOperator::Plus);
+    ExpectInt(tokens.Next(), 23);
+}
+
+TEST(LexerTest, Assignment) {
+    std::istringstream input("x := 23");
+    TTokenStream tokens(input);
+
+    ExpectIdent(tokens.Next(), "x");
+    ExpectOp(tokens.Next(), EOperator::Assign);
+    ExpectInt(tokens.Next(), 23);
+}
+
+// --- multi-word identifiers --------------------------------------------------
+TEST(LexerTest, MultiWordIdentifierDeclarationAndUse) {
+    std::istringstream input(
+        "цел длина отрезка\n"
+        "длина отрезка := 5\n"
+    );
+    TTokenStream tokens(input);
+
+    // "цел длина отрезка"
+    ExpectKeyword(tokens.Next(), EKeyword::Int);
+    ExpectIdent(tokens.Next(), "длина отрезка");
+    ExpectOp(tokens.Next(), EOperator::Eol);
+
+    // "длина отрезка := 5"
+    ExpectIdent(tokens.Next(), "длина отрезка");
+    ExpectOp(tokens.Next(), EOperator::Assign);
+    ExpectInt(tokens.Next(), 5);
+}
+
+// --- 'не' as identifier on LHS, and as operator in expression ---------------
+TEST(LexerTest, NotAsIdentifierAndOperator) {
+    std::istringstream input(
+        "лог не\n"
+        "не := ложь\n"
+        "если не x то\n"
+    );
+    TTokenStream tokens(input);
+
+    // "лог не"
+    ExpectKeyword(tokens.Next(), EKeyword::Bool);
+    ExpectIdent(tokens.Next(), "не");
+    ExpectOp(tokens.Next(), EOperator::Eol);
+
+    // "не := ложь"
+    ExpectIdent(tokens.Next(), "не");
+    ExpectOp(tokens.Next(), EOperator::Assign);
+    ExpectKeyword(tokens.Next(), EKeyword::False);
+    ExpectOp(tokens.Next(), EOperator::Eol);
+
+    // "если не x то"
+    ExpectKeyword(tokens.Next(), EKeyword::If);
+    ExpectKeyword(tokens.Next(), EKeyword::Not); // 'не' как оператор
+    ExpectIdent(tokens.Next(), "x");
+    ExpectKeyword(tokens.Next(), EKeyword::Then);
+}
+
+// --- 'не готов' (multi-word starting with 'не ') ----------------------------
+TEST(LexerTest, NotWordChainAsLhsAndInExpr) {
+    std::istringstream input(
+        "лог не готов\n"
+        "не готов := истина\n"
+        "если не готов то\n"
+    );
+    TTokenStream tokens(input);
+
+    // Declaration "лог не готов"
+    ExpectKeyword(tokens.Next(), EKeyword::Bool);
+    ExpectIdent(tokens.Next(), "не готов");
+    ExpectOp(tokens.Next(), EOperator::Eol);
+
+    // Assignment "не готов := истина"
+    ExpectIdent(tokens.Next(), "не готов");
+    ExpectOp(tokens.Next(), EOperator::Assign);
+    ExpectKeyword(tokens.Next(), EKeyword::True);
+    ExpectOp(tokens.Next(), EOperator::Eol);
+
+    // Expression "если не готов то"  (в Expr наш фильтр трактует как NOT + IDENT("готов"))
+    ExpectKeyword(tokens.Next(), EKeyword::If);
+    ExpectKeyword(tokens.Next(), EKeyword::Not);
+    ExpectIdent(tokens.Next(), "готов");
+    ExpectKeyword(tokens.Next(), EKeyword::Then);
+}
+
+// --- keywords inside identifiers on LHS -------------------------------------
+TEST(LexerTest, KeywordsInsideIdentifierLhs) {
+    std::istringstream input("цел если число\nесли число := 10\n");
+    TTokenStream tokens(input);
+    ExpectKeyword(tokens.Next(), EKeyword::Int);
+    ExpectIdent(tokens.Next(), "если число");
+    ExpectOp(tokens.Next(), EOperator::Eol);
+    ExpectIdent(tokens.Next(), "если число");
+    ExpectOp(tokens.Next(), EOperator::Assign);
+    ExpectInt(tokens.Next(), 10);
+}
+
+// --- ввод/вывод lists expect identifiers after commas -----------------------
+TEST(LexerTest, InputOutputListsWithMultiWordIdentifiers) {
+    std::istringstream input(
+        "ввод длина отрезка, ширина прямоугольника\n"
+        "вывод длина отрезка, нс\n"
+    );
+    TTokenStream tokens(input);
+    // ввод ...
+    ExpectKeyword(tokens.Next(), EKeyword::Input);
+    ExpectIdent(tokens.Next(), "длина отрезка");
+    ExpectOp(tokens.Next(), EOperator::Comma);
+    ExpectIdent(tokens.Next(), "ширина прямоугольника");
+    ExpectOp(tokens.Next(), EOperator::Eol);
+    // вывод ...
+    ExpectKeyword(tokens.Next(), EKeyword::Output);
+    ExpectIdent(tokens.Next(), "длина отрезка");
+    ExpectOp(tokens.Next(), EOperator::Comma);
+    // "нс" как keyword переноса строки (если у тебя так заведено) — иначе можно ожидать Identifier("нс")
+    auto t = tokens.Next();
+    ASSERT_TRUE(t.has_value());
+    EXPECT_EQ(t->Type, TToken::Keyword) << "ожидался keyword 'нс' или адаптируй под свою реализацию";
+    ExpectOp(tokens.Next(), EOperator::Eol);
+}
+
+TEST(LexerTest, DivModOperatorVsIdentifier) {
+    // как оператор
+    {
+        std::istringstream input("10 div 3, 10 mod 3");
+        TTokenStream tokens(input);
+        ExpectInt(tokens.Next(), 10);
+        ExpectKeyword(tokens.Next(), EKeyword::Div);
+        ExpectInt(tokens.Next(), 3);
+        ExpectOp(tokens.Next(), EOperator::Comma);
+        ExpectInt(tokens.Next(), 10);
+        ExpectKeyword(tokens.Next(), EKeyword::Mod);
+        ExpectInt(tokens.Next(), 3);
+    }
+    // как имя на LHS
+    {
+        std::istringstream input("div := 5\nmod := 7\n");
+        TTokenStream tokens(input);
+        ExpectIdent(tokens.Next(), "div");
+        ExpectOp(tokens.Next(), EOperator::Assign);
+        ExpectInt(tokens.Next(), 5);
+        ExpectOp(tokens.Next(), EOperator::Eol);
+        ExpectIdent(tokens.Next(), "mod");
+        ExpectOp(tokens.Next(), EOperator::Assign);
+        ExpectInt(tokens.Next(), 7);
+    }
+}
+
+// --- Indexing and brackets ---------------------------------------------------
+TEST(LexerTest, IndexingBrackets) {
+    std::istringstream input("t[i] := 1");
+    TTokenStream tokens(input);
+    ExpectIdent(tokens.Next(), "t");
+    ExpectOp(tokens.Next(), EOperator::LSqBr);
+    ExpectIdent(tokens.Next(), "i");
+    ExpectOp(tokens.Next(), EOperator::RSqBr);
+    ExpectOp(tokens.Next(), EOperator::Assign);
+    ExpectInt(tokens.Next(), 1);
+}
+
+// --- Two-char operators and comparisons -------------------------------------
+TEST(LexerTest, TwoCharOperators) {
+    std::istringstream input("a <= b, c >= d, e <> f, x ** 2");
+    TTokenStream tokens(input);
+    ExpectIdent(tokens.Next(), "a");
+    ExpectOp(tokens.Next(), EOperator::Leq);
+    ExpectIdent(tokens.Next(), "b");
+    ExpectOp(tokens.Next(), EOperator::Comma);
+    ExpectIdent(tokens.Next(), "c");
+    ExpectOp(tokens.Next(), EOperator::Geq);
+    ExpectIdent(tokens.Next(), "d");
+    ExpectOp(tokens.Next(), EOperator::Comma);
+    ExpectIdent(tokens.Next(), "e");
+    ExpectOp(tokens.Next(), EOperator::Neq);
+    ExpectIdent(tokens.Next(), "f");
+    ExpectOp(tokens.Next(), EOperator::Comma);
+    ExpectIdent(tokens.Next(), "x");
+    ExpectOp(tokens.Next(), EOperator::Pow);
+    ExpectInt(tokens.Next(), 2);
+}
+
+// --- Strings and comments ----------------------------------------------------
+TEST(LexerTest, StringLiteralAndComments) {
+    std::istringstream input(
+        "вывод \"Привет\", нс  (* комментарий *)\n"
+        "-- ещё комментарий до конца строки\n"
+        "вывод \"OK\""
+    );
+    TTokenStream tokens(input);
+
+    ExpectKeyword(tokens.Next(), EKeyword::Output);
+    auto t = tokens.Next(); // "Привет"
+    ASSERT_TRUE(t.has_value());
+    EXPECT_EQ(t->Type, TToken::String);
+    EXPECT_EQ(t->Name, std::string("Привет"));
+    ExpectOp(tokens.Next(), EOperator::Comma);
+    // "нс" — как keyword (или идентификатор — см. реализацию)
+    t = tokens.Next();
+    ASSERT_TRUE(t.has_value());
+    EXPECT_EQ(t->Type, TToken::Keyword) << "ожидался keyword 'нс' или адаптируй под свою реализацию";
+    ExpectOp(tokens.Next(), EOperator::Eol);
+
+    // комментарии должны быть съедены, далее снова "вывод"
+    ExpectKeyword(tokens.Next(), EKeyword::Output);
+    t = tokens.Next();
+    ASSERT_TRUE(t.has_value());
+    EXPECT_EQ(t->Type, TToken::String);
+    EXPECT_EQ(t->Name, std::string("OK"));
+}
+
+TEST(LexerTest, EolBetweenStatements) {
+    std::istringstream input("x := 1\ny := 2");
+    TTokenStream tokens(input);
+    ExpectIdent(tokens.Next(), "x");
+    ExpectOp(tokens.Next(), EOperator::Assign);
+    ExpectInt(tokens.Next(), 1);
+    ExpectOp(tokens.Next(), EOperator::Eol); // \n
+    ExpectIdent(tokens.Next(), "y");
+    ExpectOp(tokens.Next(), EOperator::Assign);
+    ExpectInt(tokens.Next(), 2);
+}
+
+// --- "иначе если" should be two keywords in control flow --------------------
+TEST(LexerTest, ElseIfAsTwoKeywords) {
+    std::istringstream input("если x то\nиначе если y то\nвсе\n");
+    TTokenStream tokens(input);
+    ExpectKeyword(tokens.Next(), EKeyword::If);
+    ExpectIdent(tokens.Next(), "x");
+    ExpectKeyword(tokens.Next(), EKeyword::Then);
+    ExpectOp(tokens.Next(), EOperator::Eol);
+    ExpectKeyword(tokens.Next(), EKeyword::Else);
+    ExpectKeyword(tokens.Next(), EKeyword::If);
+    ExpectIdent(tokens.Next(), "y");
+    ExpectKeyword(tokens.Next(), EKeyword::Then);
+    ExpectOp(tokens.Next(), EOperator::Eol);
+    ExpectKeyword(tokens.Next(), EKeyword::All);
+}
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
