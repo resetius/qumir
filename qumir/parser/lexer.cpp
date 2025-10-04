@@ -196,6 +196,9 @@ void TTokenStream::Read() {
     };
 
     auto emitIdentifier = [&](const std::string& name) {
+        if (name.substr(0, 2) == "__") {
+            throw std::runtime_error("identifiers starting with '__' are reserved");
+        }
         Tokens.emplace_back(TToken {
             .Name = name,
             .Type = TToken::Identifier,

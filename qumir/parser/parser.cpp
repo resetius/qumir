@@ -413,6 +413,66 @@ TAstTask fun_decl(TTokenStream& stream) {
 }
 
 /*
+  ForLoop ::= identifier 'от' expr 'до' expr ('шаг' expr)?
+*/
+TAstTask for_loop(TTokenStream& stream) {
+    auto location = stream.GetLocation();
+
+    auto varTok = co_await stream.Next();
+    if (varTok.Type != TToken::Identifier) {
+        co_return TError(varTok.Location, "ожидался идентификатор переменной в операторе 'для'");
+    }
+
+    auto fromTok = co_await stream.Next();
+    if (!(fromTok.Type == TToken::Keyword && static_cast<EKeyword>(fromTok.Value.i64) == EKeyword::From)) {
+        co_return TError(fromTok.Location, "ожидалось 'от' в операторе 'для'");
+    }
+
+    auto fromExpr = co_await expr(stream);
+
+    auto toTok = co_await stream.Next();
+    if (!(toTok.Type == TToken::Keyword && static_cast<EKeyword>(toTok.Value.i64) == EKeyword::To)) {
+        co_return TError(toTok.Location, "ожидалось 'до' в операторе 'для'");
+    }
+
+    auto toExpr = co_await expr(stream);
+
+    TExprPtr stepExpr = nullptr;
+    auto stepTok = co_await stream.Next();
+    if (stepTok.Type == TToken::Keyword && static_cast<EKeyword>(stepTok.Value.i64) == EKeyword::Step) {
+        stepExpr = co_await expr(stream);
+    } else {
+        stepExpr = num(stream.GetLocation(), (int64_t)1); // default step = 1
+        stream.Unget(stepTok);
+    }
+
+    auto block = std::make_shared<TBlockExpr>(location, std::vector<TExprPtr>{});
+
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__toVar", std::make_shared<TIntegerType>()));
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__stepVar", std::make_shared<TIntegerType>()));
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(varTok.Location, varTok.Name, fromExpr)); // init
+
+    // step >= 0 => (var+step) > to
+    // step < 0 =>  (var+step) < to
+    auto plus = binary(location,
+        MakeOperator(EOperator::Plus),
+        ident(location, varTok.Name),
+        ident(location, "__stepVar"));
+    auto cond = binary(location,
+        MakeOperator(EOperator::Leq),
+        ident(location, varTok.Name),
+        ident(location, "__toVar"));
+    // var := var + step
+    auto preBody = std::make_shared<TAssignExpr>(location, varTok.Name,
+        binary(location, MakeOperator(EOperator::Plus), ident(location, varTok.Name), stepExpr));
+    auto body = co_await stmt_list(stream, { EKeyword::LoopEnd });
+
+    block->Stmts.push_back(std::make_shared<TLoopStmtExpr>(location, cond, nullptr, preBody, body));
+
+    co_return block;
+}
+
+/*
 If ::= 'если' Expr EOL* 'то' EOL* StmtList OptElse 'все'
 OptElse ::= EOL* 'иначе' EOL* StmtList | ε
 // Примечания:
@@ -663,6 +723,13 @@ TAstTask stmt(TTokenStream& stream) {
         }
         auto value = co_await expr(stream);
         co_return std::make_shared<TReturnExpr>(first->Location, value);
+    } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::LoopStart) {
+        auto next = co_await stream.Next();
+        if (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::For) {
+            co_return co_await for_loop(stream);
+        } else {
+            co_return TError(next.Location, "ожидалось 'для' после 'цикл'");
+        }
     } else if (first->Type == TToken::Identifier) {
         auto next = co_await stream.Next();
         if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Assign) {

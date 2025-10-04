@@ -255,23 +255,21 @@ struct TIfExpr : TExpr {
 struct TLoopStmtExpr : TExpr {
     static constexpr const char* NodeId = "Loop";
 
-    TExprPtr Init; // like for (i = 0 /* init */; i < 10; i = i + 1)
-    TExprPtr PerCond; // like for (i = 0; i < 10 /* per-iteration condition */; i = i + 1)
+    TExprPtr PreCond; // like for (i = 0; i < 10 /* per-iteration condition */; i = i + 1)
     TExprPtr PostCond; // like do ... while (post-condition)
     TExprPtr PreBody; // executed before each iteration, like for (...; ...; pre-body) ...
     TExprPtr Body; // main loop body
 
-    TLoopStmtExpr(TLocation loc, TExprPtr i, TExprPtr p, TExprPtr b, TExprPtr pb, TExprPtr pc)
+    TLoopStmtExpr(TLocation loc, TExprPtr p, TExprPtr b, TExprPtr pb, TExprPtr pc)
         : TExpr(std::move(loc))
-        , Init(std::move(i))
-        , PerCond(std::move(p))
+        , PreCond(std::move(p))
         , PostCond(std::move(pc))
         , PreBody(std::move(pb))
         , Body(std::move(b))
     { }
 
     std::vector<TExprPtr> Children() const override {
-        return { Init, PerCond, PostCond, PreBody, Body };
+        return { PreCond, PostCond, PreBody, Body };
     }
 
     const std::string_view NodeName() const override {
