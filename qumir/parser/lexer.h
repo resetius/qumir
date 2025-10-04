@@ -4,6 +4,7 @@
 
 #include <string>
 #include <deque>
+#include <set>
 #include <optional>
 #include <istream>
 #include <cstdint>
@@ -121,20 +122,8 @@ public:
 private:
     void Read();
 
-    enum EState {
-        Start,
-        InNumber,
-        InString,
-        InMaybeComment,
-        InMaybeNumber,
-        InMaybeOperator,
-        InBlockComment,
-        InBlockCommentEnd
-    };
-
     std::istream& In;
     std::deque<TToken> Tokens;
-    EState State = Start;
     TLocation CurrentLocation;
 };
 
