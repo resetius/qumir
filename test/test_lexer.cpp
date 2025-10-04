@@ -108,29 +108,23 @@ TEST(LexerTest, NotAsIdentifierAndOperator) {
         "если не x то\n"
     );
     TTokenStream tokens(input);
-    //std::cerr << (int)tokens.Next()->Type << "\n";
-    //std::cerr << (int)tokens.Next()->Type << "\n";
-    //std::cerr << (int)tokens.Next()->Type << "\n";
-    //std::cerr << (int)tokens.Next()->Type << "\n";
 
     // "лог не"
     ExpectKeyword(tokens.Next(), EKeyword::Bool);
-    ExpectKeyword(tokens.Next(), EKeyword::Not);
+    ExpectOp(tokens.Next(), EOperator::Not);
     ExpectOp(tokens.Next(), EOperator::Eol);
 
-#if 0
     // "не := ложь"
-    ExpectKeyword(tokens.Next(), EKeyword::Not);
+    ExpectOp(tokens.Next(), EOperator::Not);
     ExpectOp(tokens.Next(), EOperator::Assign);
     ExpectKeyword(tokens.Next(), EKeyword::False);
     ExpectOp(tokens.Next(), EOperator::Eol);
 
     // "если не x то"
     ExpectKeyword(tokens.Next(), EKeyword::If);
-    ExpectKeyword(tokens.Next(), EKeyword::Not); // 'не' как оператор
+    ExpectOp(tokens.Next(), EOperator::Not); // 'не' как оператор
     ExpectIdent(tokens.Next(), "x");
     ExpectKeyword(tokens.Next(), EKeyword::Then);
-#endif
 }
 
 // --- 'не готов' (multi-word starting with 'не ') ----------------------------
@@ -144,12 +138,12 @@ TEST(LexerTest, NotWordChainAsLhsAndInExpr) {
 
     // Declaration "лог не готов"
     ExpectKeyword(tokens.Next(), EKeyword::Bool);
-    ExpectKeyword(tokens.Next(), EKeyword::Not);
+    ExpectOp(tokens.Next(), EOperator::Not);
     ExpectIdent(tokens.Next(), "готов");
     ExpectOp(tokens.Next(), EOperator::Eol);
 
     // Assignment "не готов := истина"
-    ExpectKeyword(tokens.Next(), EKeyword::Not);
+    ExpectOp(tokens.Next(), EOperator::Not);
     ExpectIdent(tokens.Next(), "готов");
     ExpectOp(tokens.Next(), EOperator::Assign);
     ExpectKeyword(tokens.Next(), EKeyword::True);
@@ -157,7 +151,7 @@ TEST(LexerTest, NotWordChainAsLhsAndInExpr) {
 
     // Expression "если не готов то"  (в Expr наш фильтр трактует как NOT + IDENT("готов"))
     ExpectKeyword(tokens.Next(), EKeyword::If);
-    ExpectKeyword(tokens.Next(), EKeyword::Not);
+    ExpectOp(tokens.Next(), EOperator::Not);
     ExpectIdent(tokens.Next(), "готов");
     ExpectKeyword(tokens.Next(), EKeyword::Then);
 }
@@ -206,22 +200,22 @@ TEST(LexerTest, DivModOperatorVsIdentifier) {
         std::istringstream input("10 div 3, 10 mod 3");
         TTokenStream tokens(input);
         ExpectInt(tokens.Next(), 10);
-        ExpectKeyword(tokens.Next(), EKeyword::Div);
+        ExpectOp(tokens.Next(), EOperator::Div);
         ExpectInt(tokens.Next(), 3);
         ExpectOp(tokens.Next(), EOperator::Comma);
         ExpectInt(tokens.Next(), 10);
-        ExpectKeyword(tokens.Next(), EKeyword::Mod);
+        ExpectOp(tokens.Next(), EOperator::Mod);
         ExpectInt(tokens.Next(), 3);
     }
     // как имя на LHS
     {
         std::istringstream input("div := 5\nmod := 7\n");
         TTokenStream tokens(input);
-        ExpectKeyword(tokens.Next(), EKeyword::Div);
+        ExpectOp(tokens.Next(), EOperator::Div);
         ExpectOp(tokens.Next(), EOperator::Assign);
         ExpectInt(tokens.Next(), 5);
         ExpectOp(tokens.Next(), EOperator::Eol);
-        ExpectKeyword(tokens.Next(), EKeyword::Mod);
+        ExpectOp(tokens.Next(), EOperator::Mod);
         ExpectOp(tokens.Next(), EOperator::Assign);
         ExpectInt(tokens.Next(), 7);
     }

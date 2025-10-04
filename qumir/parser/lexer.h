@@ -47,11 +47,7 @@ enum class EKeyword : uint8_t {
     InArg,
     OutArg,
     Return,
-    And,
-    Or,
-    Not,
-    Div,
-    Mod,
+
     Sqrt,
     Abs,
     Iabs,
@@ -93,6 +89,13 @@ enum class EOperator : uint8_t {
     Colon, // :
     // Special operators
     Eol, // \n
+    // Logical operators
+    And,
+    Or,
+    Not,
+    // Integer division and modulus
+    Div,
+    Mod,
 };
 
 struct TToken {

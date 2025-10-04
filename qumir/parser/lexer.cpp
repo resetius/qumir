@@ -38,9 +38,6 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"до", EKeyword::To},
     {"шаг", EKeyword::Step},
     {"раз", EKeyword::Times},
-    {"и", EKeyword::And},
-    {"или", EKeyword::Or},
-    {"не", EKeyword::Not},
     {"выбор", EKeyword::Switch},
     {"при", EKeyword::Case},
     {"нс", EKeyword::NewLine},
@@ -49,8 +46,6 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"знач", EKeyword::Return},
 
     // math functions
-    {"div", EKeyword::Div},
-    {"mod", EKeyword::Mod},
     {"sqrt", EKeyword::Sqrt},
     {"abs", EKeyword::Abs},
     {"iabs", EKeyword::Iabs},
@@ -87,6 +82,12 @@ std::map<std::string, EOperator> OperatorMap = {
     {"]", EOperator::RSqBr},
     {":", EOperator::Colon},
     {",", EOperator::Comma},
+
+    {"и", EOperator::And},
+    {"или", EOperator::Or},
+    {"не", EOperator::Not},
+    {"div", EOperator::Div},
+    {"mod", EOperator::Mod},
 };
 
 enum class ELexMode {
@@ -221,13 +222,20 @@ void TTokenStream::Read() {
                 if (word.empty()) {
                     continue;
                 }
-                auto it = KeywordMapRu.find(word);
-                if (it != KeywordMapRu.end()) {
+                auto maybeKw = KeywordMapRu.find(word);
+                auto maybeOp = OperatorMap.find(word);
+                if (maybeKw != KeywordMapRu.end()) {
                     if (!logIdentifier.empty()) {
                         emitIdentifier(logIdentifier);
                         logIdentifier.clear();
                     }
-                    emitKeyword(it->second);
+                    emitKeyword(maybeKw->second);
+                } else if (maybeOp != OperatorMap.end()) {
+                    if (!logIdentifier.empty()) {
+                        emitIdentifier(logIdentifier);
+                        logIdentifier.clear();
+                    }
+                    emitOperator(maybeOp->second);
                 } else {
                     if (!logIdentifier.empty()) {
                         logIdentifier += " ";
