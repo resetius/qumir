@@ -224,6 +224,91 @@ TAstTask var_decl(TTokenStream& stream, TTypePtr scalarType, bool isArray) {
     co_return var;
 }
 
+TAstTask var_decl_list(TTokenStream& stream) {
+    auto first = co_await stream.Next();
+
+    // Parse one or more names
+    std::vector<TExprPtr> decls;
+    TTypePtr scalarType;
+    switch (static_cast<EKeyword>(first.Value.i64)) {
+        case EKeyword::Int:
+            scalarType = std::make_shared<TIntegerType>();
+            break;
+        case EKeyword::Float:
+            scalarType = std::make_shared<TFloatType>();
+            break;
+        case EKeyword::Bool:
+            scalarType = std::make_shared<TBoolType>();
+            break;
+        case EKeyword::String:
+            scalarType = std::make_shared<TStringType>();
+            break;
+        default:
+            co_return TError(first.Location, "неизвестный тип переменной");
+    }
+    // опциональный признак массива после базового типа: 'таб'
+    bool isArray = false;
+    if (auto t = stream.Next()) {
+        if (t->Type == TToken::Keyword && static_cast<EKeyword>(t->Value.i64) == EKeyword::Array) {
+            isArray = true;
+        } else {
+            stream.Unget(*t);
+        }
+    }
+    while (true) {
+        decls.push_back(co_await var_decl(stream, scalarType, isArray));
+
+        auto t = stream.Next();
+        if (!t) {
+            // EOF ends the statement
+            break;
+        }
+        if (t->Type == TToken::Operator) {
+            auto op = static_cast<EOperator>(t->Value.i64);
+            if (op == EOperator::Comma) {
+                // после запятой может идти либо следующее имя, либо новый базовый тип —
+                // в последнем случае завершаем текущий стейтмент
+                auto look = stream.Next();
+                if (look && look->Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(look->Value.i64))) {
+                    // новый стейтмент начинается с базового типа
+                    stream.Unget(*look);
+                    break;
+                }
+                if (look) stream.Unget(*look);
+                continue;
+            }
+            if (op == EOperator::Eol) {
+                // end of declaration statement
+                break;
+            }
+            // Unexpected operator
+            co_return TError(t->Location, "ожидалась ',' или перевод строки после имени переменной");
+        } else {
+            // Something else after name — error for now
+            co_return TError(t->Location, "недопустимый токен после имени переменной");
+        }
+    }
+
+    co_return std::make_shared<TBlockExpr>(first.Location, std::move(decls));
+}
+
+
+/*
+FunDecl ::= 'алг' EOL? 'нач' EOL? StmtList 'кон'                   // main: имя пропущено; EOL после 'алг' допустим
+         | 'алг' Ident OptSignature EOL? 'нач' EOL? StmtList 'кон' // именованная; EOL между 'алг' и именем не допускается
+OptSignature ::= '(' ParamList? ')'
+ParamList ::= Param (',' Param)*
+Param ::= 'рез' TypeSpec IdentList | 'арг' TypeSpec IdentList
+TypeSpec ::= TypeKw ArrayMark?
+TypeKw ::= 'цел' | 'вещ' | 'лог' | 'лит'
+ArrayMark ::= 'таб'  [массивные параметры, если используются]
+IdentList ::= Ident (',' Ident)*
+*/
+TAstTask fun_decl(TTokenStream& stream) {
+    co_return {};
+}
+
+
 /*
 Stmt ::= VarDecl
     | Assign
@@ -249,69 +334,10 @@ TAstTask stmt(TTokenStream& stream) {
     }
 
     if (first->Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(first->Value.i64))) {
-        // Parse one or more names
-        std::vector<TExprPtr> decls;
-        TTypePtr scalarType;
-        switch (static_cast<EKeyword>(first->Value.i64)) {
-            case EKeyword::Int:
-                scalarType = std::make_shared<TIntegerType>();
-                break;
-            case EKeyword::Float:
-                scalarType = std::make_shared<TFloatType>();
-                break;
-            case EKeyword::Bool:
-                scalarType = std::make_shared<TBoolType>();
-                break;
-            case EKeyword::String:
-                scalarType = std::make_shared<TStringType>();
-                break;
-            default:
-                co_return TError(first->Location, "неизвестный тип переменной");
-        }
-        // опциональный признак массива после базового типа: 'таб'
-        bool isArray = false;
-        if (auto t = stream.Next()) {
-            if (t->Type == TToken::Keyword && static_cast<EKeyword>(t->Value.i64) == EKeyword::Array) {
-                isArray = true;
-            } else {
-                stream.Unget(*t);
-            }
-        }
-        while (true) {
-            decls.push_back(co_await var_decl(stream, scalarType, isArray));
-
-            auto t = stream.Next();
-            if (!t) {
-                // EOF ends the statement
-                break;
-            }
-            if (t->Type == TToken::Operator) {
-                auto op = static_cast<EOperator>(t->Value.i64);
-                if (op == EOperator::Comma) {
-                    // после запятой может идти либо следующее имя, либо новый базовый тип —
-                    // в последнем случае завершаем текущий стейтмент
-                    auto look = stream.Next();
-                    if (look && look->Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(look->Value.i64))) {
-                        // новый стейтмент начинается с базового типа
-                        stream.Unget(*look);
-                        break;
-                    }
-                    if (look) stream.Unget(*look);
-                    continue;
-                }
-                if (op == EOperator::Eol) {
-                    // end of declaration statement
-                    break;
-                }
-                // Unexpected operator
-                co_return TError(t->Location, "ожидалась ',' или перевод строки после имени переменной");
-            } else {
-                // Something else after name — error for now
-                co_return TError(t->Location, "недопустимый токен после имени переменной");
-            }
-        }
-
-        co_return std::make_shared<TBlockExpr>(first->Location, std::move(decls));
+        stream.Unget(*first);
+        co_return co_await var_decl_list(stream);
+    } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Alg) {
+        co_return co_await fun_decl(stream);
     } else {
         // Not a variable declaration; put token back for future handlers when added
         stream.Unget(*first);
