@@ -613,6 +613,15 @@ TAstTask stmt(TTokenStream& stream) {
         co_return co_await fun_decl(stream);
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::If) {
         co_return co_await if_expr(stream);
+    } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Return) {
+        // skip ':='
+        auto next = co_await stream.Next();
+        if (!(next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Assign)) {
+            stream.Unget(next);
+            co_return TError(stream.GetLocation(), "ожидался ':=' после 'знач'");
+        }
+        auto value = co_await expr(stream);
+        co_return std::make_shared<TReturnExpr>(first->Location, value);
     } else if (first->Type == TToken::Identifier) {
         auto next = co_await stream.Next();
         if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Assign) {

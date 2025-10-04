@@ -1,6 +1,8 @@
 (Block
   (FunDecl $f ($x: <Float>) -> <Float>
-    (Block))
+    (Block
+      (return
+        (1.000000:<Float>))))
   (FunDecl $функция () -> <Void>
     (Block
       (Var $i:<Int>)
