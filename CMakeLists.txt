@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.30)
-project(ozlang)
+project(qumir)
 enable_testing()
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_subdirectory(qumir)
 add_subdirectory(test)

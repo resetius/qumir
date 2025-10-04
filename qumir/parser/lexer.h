@@ -12,7 +12,7 @@ namespace NQumir {
 namespace NAst {
 
 // алг, нач, кон, если, то, иначе, все, нц, кц, кц_при,
-// ввод, вывод, цел, вещ, лог, лит, таб,
+// ввод, вывод, цел, вещ, лог, лит, таб, выбор, при
 // для, от, до, шаг, раз, и, или, не, div, mod
 
 enum class EKeyword : uint8_t {
@@ -23,6 +23,8 @@ enum class EKeyword : uint8_t {
     Then,
     Else,
     All,
+    Switch,
+    Case,
     LoopStart,
     LoopEnd,
     LoopEndWhen,
@@ -43,6 +45,21 @@ enum class EKeyword : uint8_t {
     Not,
     Div,
     Mod,
+    Sqrt,
+    Abs,
+    Iabs,
+    Sign,
+    Sin,
+    Cos,
+    Tan,
+    Ctg,
+    Ln,
+    Lg,
+    Min,
+    Max,
+    Exp,
+    IntFunc,
+    Rnd,
 };
 
 enum class EOperator : uint8_t {
@@ -116,7 +133,7 @@ private:
     std::istream& In;
     std::deque<TToken> Tokens;
     EState State = Start;
-    TLocation CurrentLoc;
+    TLocation CurrentLocation;
 };
 
 } // namespace NAst
