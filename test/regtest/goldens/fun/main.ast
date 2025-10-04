@@ -1,0 +1,3 @@
+(Block
+  (FunDecl $<main> () -> <Void>
+    (Block)))

@@ -8,6 +8,8 @@ namespace NQumir {
 namespace NAst {
 
 struct TType {
+    bool Mutable = true;
+
     virtual ~TType() = default;
     virtual std::string ToString() const { return ""; }
     virtual const std::string_view TypeName() const = 0;
@@ -131,6 +133,24 @@ struct TArrayType : TType {
 
     const std::string_view TypeName() const override {
         return TArrayType::TypeId;
+    }
+};
+
+struct TPointerType : TType {
+    static constexpr const char* TypeId = "Ptr";
+
+    TTypePtr PointeeType;
+
+    explicit TPointerType(TTypePtr pt)
+        : PointeeType(std::move(pt))
+    {}
+
+    std::string ToString() const override {
+        return "*" + (PointeeType ? std::string(PointeeType->TypeName()) : "unknown");
+    }
+
+    const std::string_view TypeName() const override {
+        return TPointerType::TypeId;
     }
 };
 

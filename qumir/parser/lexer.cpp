@@ -44,6 +44,9 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"выбор", EKeyword::Switch},
     {"при", EKeyword::Case},
     {"нс", EKeyword::NewLine},
+    {"арг", EKeyword::InArg},
+    {"рез", EKeyword::OutArg},
+    {"знач", EKeyword::Return},
 
     // math functions
     {"div", EKeyword::Div},

@@ -1,0 +1,9 @@
+(Block
+  (FunDecl $функция () -> <Void>
+    (Block
+      (Var $i:<Int>)
+      (Var $j:<Int>)
+      (Var $k:<Int>)
+      (Var $a:<Float>)
+      (Var $b:<Float>)
+      (Var $c:<Float>))))

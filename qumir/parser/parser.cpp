@@ -22,6 +22,7 @@ inline TExprPtr list(TLocation loc, std::vector<TExprPtr> elements) {
 using TAstTask = TExpectedTask<TExprPtr, TError, TLocation>;
 TAstTask stmt(TTokenStream& stream);
 TAstTask stmt_list(TTokenStream& stream);
+TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes = false, bool isMutable = true);
 
 // Convert a keyword token to its textual form (RU) so it can be part of an identifier name
 inline std::string KeywordToString(EKeyword kw) {
@@ -79,7 +80,14 @@ inline std::string KeywordToString(EKeyword kw) {
 }
 
 inline bool IsTypeKeyword(EKeyword kw) {
-    return kw == EKeyword::Int || kw == EKeyword::Float || kw == EKeyword::Bool || kw == EKeyword::String || kw == EKeyword::Array;
+    return kw == EKeyword::Int
+        || kw == EKeyword::Float
+        || kw == EKeyword::Bool
+        || kw == EKeyword::String
+        || kw == EKeyword::Array
+        || kw == EKeyword::InArg // for function parameter declarations
+        || kw == EKeyword::OutArg // for function parameter declarations
+        ;
 }
 
 // Read a variable name possibly consisting of multiple tokens (identifiers and/or keywords),
@@ -142,8 +150,13 @@ TAstTask stmt_list(TTokenStream& stream) {
         }
         (void)skipped;
 
-        // EOF?
+        // Stop conditions: EOF or block terminator 'кон' (End)
         if (auto t = stream.Next()) {
+            if (t->Type == TToken::Keyword && static_cast<EKeyword>(t->Value.i64) == EKeyword::End) {
+                // Leave 'кон' for the caller (e.g., fun_decl) to consume
+                stream.Unget(*t);
+                break;
+            }
             stream.Unget(*t);
         } else {
             break; // EOF
@@ -151,9 +164,9 @@ TAstTask stmt_list(TTokenStream& stream) {
 
         auto s = co_await stmt(stream);
         // Flatten if stmt returned a Block of multiple declarations
-        if (auto blk = TMaybeNode<TBlockExpr>(s)) {
+        if (auto blk = TMaybeNode<TVarsBlockExpr>(s)) {
             auto be = blk.Cast();
-            for (auto& ch : be->Stmts) {
+            for (auto& ch : be->Vars) {
                 stmts.push_back(ch);
             }
         } else {
@@ -169,7 +182,7 @@ TypeKw  ::= 'цел' | 'вещ' | 'лог' | 'лит' | 'таб'
 Name    ::= NamePart (' ' NamePart)*
 NamePart::= Identifier | Keyword
 */
-TAstTask var_decl(TTokenStream& stream, TTypePtr scalarType, bool isArray) {
+TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStream& stream, TTypePtr scalarType, bool isArray, bool isPointer) {
     auto nameTok = co_await stream.Next();
     if (nameTok.Type != TToken::Identifier) {
         // Если здесь пошёл новый тип — пусть внешняя логика разрулит (мы вернём ошибку)
@@ -220,32 +233,56 @@ TAstTask var_decl(TTokenStream& stream, TTypePtr scalarType, bool isArray) {
         }
     }
 
+    if (isPointer) {
+        varType = std::make_shared<TPointerType>(varType);
+    }
+
     auto var = std::make_shared<TVarStmt>(nameTok.Location, name, varType);
     co_return var;
 }
 
-TAstTask var_decl_list(TTokenStream& stream) {
+TTypePtr getScalarType(EKeyword kw) {
+    switch (kw) {
+        case EKeyword::Int:
+            return std::make_shared<TIntegerType>();
+        case EKeyword::Float:
+            return std::make_shared<TFloatType>();
+        case EKeyword::Bool:
+            return std::make_shared<TBoolType>();
+        case EKeyword::String:
+            return std::make_shared<TStringType>();
+        default:
+            return nullptr;
+    }
+}
+
+TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes, bool isMutable) {
     auto first = co_await stream.Next();
 
-    // Parse one or more names
-    std::vector<TExprPtr> decls;
-    TTypePtr scalarType;
-    switch (static_cast<EKeyword>(first.Value.i64)) {
-        case EKeyword::Int:
-            scalarType = std::make_shared<TIntegerType>();
-            break;
-        case EKeyword::Float:
-            scalarType = std::make_shared<TFloatType>();
-            break;
-        case EKeyword::Bool:
-            scalarType = std::make_shared<TBoolType>();
-            break;
-        case EKeyword::String:
-            scalarType = std::make_shared<TStringType>();
-            break;
-        default:
-            co_return TError(first.Location, "неизвестный тип переменной");
+    bool isPointer = false;
+    if (parseAttributes) {
+        if (first.Type == TToken::Keyword && static_cast<EKeyword>(first.Value.i64) == EKeyword::OutArg) {
+            isPointer = true;
+            isMutable = true; // mutability of underlying data is implied by being an out-parameter
+            first = co_await stream.Next();
+        }
+        else if (first.Type == TToken::Keyword && static_cast<EKeyword>(first.Value.i64) == EKeyword::InArg) {
+            // skip
+            first = co_await stream.Next();
+        }
     }
+
+    if (! (first.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(first.Value.i64)))) {
+        co_return TError(first.Location, "ожидается тип переменной");
+    }
+
+    // Parse one or more names
+    std::vector<std::shared_ptr<TVarStmt>> decls;
+    TTypePtr scalarType = getScalarType(static_cast<EKeyword>(first.Value.i64));
+    if (!scalarType) {
+        co_return TError(first.Location, "неизвестный тип переменной");
+    }
+    scalarType->Mutable = isMutable;
     // опциональный признак массива после базового типа: 'таб'
     bool isArray = false;
     if (auto t = stream.Next()) {
@@ -256,7 +293,7 @@ TAstTask var_decl_list(TTokenStream& stream) {
         }
     }
     while (true) {
-        decls.push_back(co_await var_decl(stream, scalarType, isArray));
+        decls.push_back(co_await var_decl(stream, scalarType, isArray, isPointer));
 
         auto t = stream.Next();
         if (!t) {
@@ -281,6 +318,11 @@ TAstTask var_decl_list(TTokenStream& stream) {
                 // end of declaration statement
                 break;
             }
+            if (op == EOperator::RParen) {
+                // Likely end of parameter list in function declaration
+                stream.Unget(*t);
+                break;
+            }
             // Unexpected operator
             co_return TError(t->Location, "ожидалась ',' или перевод строки после имени переменной");
         } else {
@@ -289,7 +331,7 @@ TAstTask var_decl_list(TTokenStream& stream) {
         }
     }
 
-    co_return std::make_shared<TBlockExpr>(first.Location, std::move(decls));
+    co_return decls;
 }
 
 
@@ -305,9 +347,67 @@ ArrayMark ::= 'таб'  [массивные параметры, если исп�
 IdentList ::= Ident (',' Ident)*
 */
 TAstTask fun_decl(TTokenStream& stream) {
-    co_return {};
-}
+    auto next = co_await stream.Next();
+    TTypePtr returnType = std::make_shared<TVoidType>();
+    std::vector<std::shared_ptr<TVarStmt>> args;
+    std::string name = "<main>";
 
+    if (next.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(next.Value.i64))) {
+        // function return type
+        returnType = getScalarType(static_cast<EKeyword>(next.Value.i64));
+        next = co_await stream.Next();
+    }
+
+    if (next.Type == TToken::Identifier) {
+        name = next.Name;
+
+        // parse signature
+        next = co_await stream.Next();
+        if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::LParen) {
+            // '(' ... ')'
+            while (true) {
+                next = co_await stream.Next();
+                if (next.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(next.Value.i64))) {
+                    stream.Unget(next);
+                    auto tmpArgs = co_await var_decl_list(stream, true, false);
+                    args.insert(args.end(), tmpArgs.begin(), tmpArgs.end());
+                } else {
+                    break;
+                }
+            }
+
+            if (! (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::RParen)) {
+                co_return TError(next.Location, "ожидалась закрывающая скобка ')' после списка параметров функции");
+            }
+
+            next = co_await stream.Next();
+        }
+        // else: no signature (empty parameter list)
+    }
+
+    if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Eol) {
+        // optional EOL after 'алг' or after return type
+        next = co_await stream.Next();
+    }
+
+    if (! (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::Begin)) {
+        co_return TError(next.Location, "ожидалось 'нач' после заголовка функции");
+    }
+
+    auto body = co_await stmt_list(stream);
+
+    next = co_await stream.Next();
+    if (! (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::End)) {
+        co_return TError(next.Location, "ожидалось 'кон' в конце функции");
+    }
+
+    if (auto maybeBlock = TMaybeNode<TBlockExpr>(body)) {
+        // ok
+        co_return std::make_shared<TFunDecl>(next.Location, name, std::move(args), std::move(maybeBlock.Cast()), returnType);
+    } else {
+        co_return TError(body->Location, "ожидался блок операторов в теле функции");
+    }
+}
 
 /*
 Stmt ::= VarDecl
@@ -335,11 +435,11 @@ TAstTask stmt(TTokenStream& stream) {
 
     if (first->Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(first->Value.i64))) {
         stream.Unget(*first);
-        co_return co_await var_decl_list(stream);
+        auto decls = co_await var_decl_list(stream);
+        co_return std::make_shared<TVarsBlockExpr>(first->Location, decls);
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Alg) {
         co_return co_await fun_decl(stream);
     } else {
-        // Not a variable declaration; put token back for future handlers when added
         stream.Unget(*first);
         co_return TError(stream.GetLocation(), "неизвестный стейтмент (пока поддерживаются только объявления переменных)");
     }

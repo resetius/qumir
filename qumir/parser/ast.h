@@ -29,15 +29,15 @@ struct TMaybeNode {
 };
 
 struct TExpr {
-    TLocation Loc;
+    TLocation Location;
     TTypePtr Type = nullptr;
 
     TExpr() = default;
     TExpr(TLocation loc)
-        : Loc(std::move(loc))
+        : Location(std::move(loc))
     { }
     TExpr(TLocation loc, TTypePtr type)
-        : Loc(std::move(loc))
+        : Location(std::move(loc))
         , Type(std::move(type))
     { }
     virtual ~TExpr() = default;
@@ -291,6 +291,22 @@ struct TVarStmt : TExpr {
 
     const std::string ToString() const override {
         return std::string(NodeName()) + " $" + Name;
+    }
+};
+
+struct TVarsBlockExpr : TExpr {
+    // like TBlockExpr but without scope, used during parsing
+    static constexpr const char* NodeId = "VarsBlock";
+
+    std::vector<std::shared_ptr<TVarStmt>> Vars;
+
+    explicit TVarsBlockExpr(TLocation loc, std::vector<std::shared_ptr<TVarStmt>> vars)
+        : TExpr(std::move(loc))
+        , Vars(std::move(vars))
+    { }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
     }
 };
 
