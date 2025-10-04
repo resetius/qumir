@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.30)
+project(ozlang)
+enable_testing()
+add_subdirectory(qumir)
+add_subdirectory(test)
