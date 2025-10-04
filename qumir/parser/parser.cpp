@@ -34,6 +34,10 @@ inline TExprPtr num(TLocation loc, double v) {
     return std::make_shared<TNumberExpr>(std::move(loc), v);
 }
 
+inline TExprPtr num(TLocation loc, bool v) {
+    return std::make_shared<TNumberExpr>(std::move(loc), v);
+}
+
 inline TExprPtr ident(TLocation loc, std::string n) {
     return std::make_shared<TIdentExpr>(loc, std::move(n));
 }
@@ -457,6 +461,9 @@ TAstTask factor(TTokenStream& stream) {
         } else {
             co_return TError(stream.GetLocation(), std::string("неожиданный оператор"));
         }
+    } else if (token.Type == TToken::Keyword && ((EKeyword)token.Value.i64 == EKeyword::True || (EKeyword)token.Value.i64 == EKeyword::False)) {
+        bool v = (EKeyword)token.Value.i64 == EKeyword::True;
+        co_return num(token.Location, v);
     } else {
         co_return TError(stream.GetLocation(), std::string("ожидалось число или '('"));
     }

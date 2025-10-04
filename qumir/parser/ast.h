@@ -110,13 +110,19 @@ struct TNumberExpr : TExpr {
     bool IsFloat = false;
     explicit TNumberExpr(TLocation loc, bool v)
         : TExpr(std::move(loc)), IntValue(v)
-    { }
+    {
+        Type = std::make_shared<TBoolType>();
+    }
     explicit TNumberExpr(TLocation loc, int64_t v)
         : TExpr(std::move(loc)), IntValue(v)
-    { }
+    {
+        Type = std::make_shared<TIntegerType>();
+    }
     explicit TNumberExpr(TLocation loc, double v)
         : TExpr(std::move(loc)), FloatValue(v), IsFloat(true)
-    { }
+    {
+        Type = std::make_shared<TFloatType>();
+    }
 
     const std::string_view NodeName() const override {
         return NodeId;
