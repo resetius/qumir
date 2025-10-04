@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <variant>
+#include <iostream>
 
 namespace NQumir {
 namespace NAst {
@@ -41,6 +42,7 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"не", EKeyword::Not},
     {"выбор", EKeyword::Switch},
     {"при", EKeyword::Case},
+    {"нс", EKeyword::NewLine},
 
     // math functions
     {"div", EKeyword::Div},
@@ -97,6 +99,7 @@ enum EState {
     InMaybeComment,
     InMaybeNumber,
     InMaybeOperator,
+    InLineComment,
     InBlockComment,
     InBlockCommentEnd
 };
@@ -167,9 +170,7 @@ void TTokenStream::Read() {
     bool repeat = false;
     bool unescape = false;
     TLocation tokenLocation = CurrentLocation;
-    ELexMode mode = ELexMode::LValueStart;
     EState state = Start;
-    bool inIOList = false; // inside input(...) or output(...)
 
     auto emitKeyword = [&](EKeyword kw) {
         Tokens.emplace_back(TToken {
@@ -177,36 +178,6 @@ void TTokenStream::Read() {
             .Type = TToken::Keyword,
             .Location = tokenLocation
         });
-
-        switch (kw) {
-            case EKeyword::If:
-            case EKeyword::LoopStart:
-            case EKeyword::For:
-            case EKeyword::From:
-            case EKeyword::To:
-            case EKeyword::Step:
-                mode = ELexMode::Expr;
-                break;
-            case EKeyword::Input:
-            case EKeyword::Output:
-                inIOList = true;
-                mode = ELexMode::LValueStart;
-                break;
-            case EKeyword::Int:
-            case EKeyword::Float:
-            case EKeyword::Bool:
-            case EKeyword::String:
-            case EKeyword::Array:
-                mode = ELexMode::Decl;
-                break;
-            case EKeyword::Then:
-            case EKeyword::Else:
-            case EKeyword::All:
-                mode = ELexMode::LValueStart;
-                break;
-            default:
-                break;
-        }
     };
 
     auto emitOperator = [&](EOperator op) {
@@ -215,24 +186,6 @@ void TTokenStream::Read() {
             .Type = TToken::Operator,
             .Location = tokenLocation
         });
-        switch (op) {
-            case EOperator::Eol:
-                mode = ELexMode::LValueStart;
-                inIOList = false;
-                break;
-            case EOperator::Assign:
-                mode = ELexMode::Expr;  // left side of := always expression
-                break;
-            case EOperator::Comma:
-                // in input(...) and output(...) lists, and declarations after a comma, we expect a name again
-                if (inIOList || mode == ELexMode::Decl) {
-                    mode = ELexMode::LValueStart;
-                }
-                break;
-            default:
-                // most operators leave the mode as Expr
-                break;
-        }
     };
 
     auto emitIdentifier = [&](const std::string& name) {
@@ -241,7 +194,6 @@ void TTokenStream::Read() {
             .Type = TToken::Identifier,
             .Location = tokenLocation
         });
-        // if after identifier in declaration until EOL we stay in DECL/LValue, otherwise — nothing
     };
 
     auto flush =[&]() {
@@ -258,49 +210,28 @@ void TTokenStream::Read() {
                 .Location = tokenLocation
             });
         } else if (std::holds_alternative<TIdentifierList>(token)) {
-            // parse multi-word identifiers and keywords
-
-            const auto& lst = std::get<TIdentifierList>(token).Words;
-            std::string glued;
-            for (size_t i = 0; i < lst.size(); ++i) {
-                if (lst[i].empty()) continue;
-                if (!glued.empty()) glued.push_back(' ');
-                glued += lst[i];
-            }
-            // if empty? do nothing
-            if (!glued.empty()) {
-                // exact match with keyword
-                if (auto it = KeywordMapRu.find(glued); it != KeywordMapRu.end()) {
-                    // special case 'не': depends on mode
-                    if (it->second == EKeyword::Not) {
-                        if (mode == ELexMode::Expr) {
-                            emitKeyword(EKeyword::Not);
-                        } else {
-                            // in LHS/DECL we treat as identifier
-                            emitIdentifier(glued);
-                        }
-                    } else {
-                        emitKeyword(it->second);
-                    }
-                } else {
-                    // начинается с "не " ?
-                    if (glued.find("не ") == 0) {
-                        // simplistically: ASCII path — if the string literally "не ...":
-                        if (glued.rfind("не ", 0) == 0) {
-                            if (mode == ELexMode::Expr) {
-                                emitKeyword(EKeyword::Not);
-                                // tail as separate identifier
-                                emitIdentifier(glued.substr(std::string("не ").size()));
-                            } else {
-                                emitIdentifier(glued);
-                            }
-                        } else {
-                            emitIdentifier(glued);
-                        }
-                    } else {
-                        emitIdentifier(glued);
-                    }
+            auto idList = std::get<TIdentifierList>(token);
+            std::string logIdentifier;
+            for (auto& word : idList.Words) {
+                if (word.empty()) {
+                    continue;
                 }
+                auto it = KeywordMapRu.find(word);
+                if (it != KeywordMapRu.end()) {
+                    if (!logIdentifier.empty()) {
+                        emitIdentifier(logIdentifier);
+                        logIdentifier.clear();
+                    }
+                    emitKeyword(it->second);
+                } else {
+                    if (!logIdentifier.empty()) {
+                        logIdentifier += " ";
+                    }
+                    logIdentifier += word;
+                }
+            }
+            if (!logIdentifier.empty()) {
+                emitIdentifier(logIdentifier);
             }
         } else if (std::holds_alternative<TStringLiteral>(token)) {
             Tokens.emplace_back(TToken {
@@ -339,14 +270,13 @@ void TTokenStream::Read() {
     };
 
     auto isIdentifierStop = [&](char ch) {
-        return isSingleCharOperator(ch) || isOperatorPrefix(ch) || ch == '(' || ch == '-' || ch == '"';
+        return isSingleCharOperator(ch) || isOperatorPrefix(ch) || ch == '(' || ch == '-' || ch == '"' || ch == '\n';
     };
 
     while ((Tokens.empty() || state != Start) && In.get(ch)) {
         if (ch == '\n') {
             CurrentLocation.Line++;
             CurrentLocation.Column = 0;
-            continue;
         } else {
             CurrentLocation.Column++;
         }
@@ -399,6 +329,7 @@ void TTokenStream::Read() {
                 case InString: {
                     if (ch == '"') {
                         flush();
+                        repeat = false; // need to skip '"'
                     } else if (ch == '\\') {
                         unescape = true;
                     } else {
@@ -433,7 +364,10 @@ void TTokenStream::Read() {
                     break;
                 }
                 case InMaybeNumber:
-                    if (std::isdigit(ch)) {
+                    if (ch == '-') {
+                        // multiline comment: -- ...
+                        state = InLineComment;
+                    } else if (std::isdigit(ch)) {
                         state = InNumber;
                         token = (int64_t)(-(ch - '0'));
                     } else if (ch == '.') {
@@ -441,14 +375,15 @@ void TTokenStream::Read() {
                         token = (double)(-0.0);
                     } else {
                         // Not a negative number, just a '-' operator followed by something else
-                        Tokens.emplace_back(TToken {
-                            .Value = {.i64 = (int64_t)OperatorMap.at(std::string(1, '-'))},
-                            .Type = TToken::Operator,
-                            .Location = tokenLocation
-                        });
+                        emitOperator(EOperator::Minus);
                         tokenLocation = CurrentLocation;
                         state = Start;
                         repeat = true;
+                    }
+                    break;
+                case InLineComment:
+                    if (ch == '\n') {
+                        state = Start;
                     }
                     break;
                 case InMaybeComment:
@@ -457,11 +392,7 @@ void TTokenStream::Read() {
                         state = InBlockComment;
                     } else {
                         // Not a comment, just a '(' operator followed by something else
-                        Tokens.emplace_back(TToken {
-                            .Value = {.i64 = (int64_t)OperatorMap.at(std::string(1, '('))},
-                            .Type = TToken::Operator,
-                            .Location = tokenLocation
-                        });
+                        emitOperator(EOperator::LParen);
                         tokenLocation = CurrentLocation;
                         state = Start;
                         repeat = true;

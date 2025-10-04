@@ -4,7 +4,6 @@
 
 #include <string>
 #include <deque>
-#include <set>
 #include <optional>
 #include <istream>
 #include <cstdint>
@@ -43,6 +42,7 @@ enum class EKeyword : uint8_t {
     To,
     Step,
     Times,
+    NewLine,
     And,
     Or,
     Not,

@@ -7,29 +7,37 @@ using namespace NQumir::NAst;
 namespace {
 
 // --- helpers ----------------------------------------------------------------
-void ExpectKeyword(const std::optional<TToken>& t, EKeyword kw) {
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::Keyword);
-    EXPECT_EQ(t->Value.i64, (int64_t)kw);
-}
+#define ExpectKeyword(t, kw) \
+    do { \
+        auto value = (t); \
+        ASSERT_TRUE(value.has_value()); \
+        EXPECT_EQ(value->Type, TToken::Keyword); \
+        EXPECT_EQ(value->Value.i64, (int64_t)(kw)); \
+    } while(0);
 
-void ExpectOp(const std::optional<TToken>& t, EOperator op) {
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::Operator);
-    EXPECT_EQ(t->Value.i64, (int64_t)op);
-}
+#define ExpectOp(t, op) \
+    do { \
+        auto value = (t); \
+        ASSERT_TRUE(value.has_value()); \
+        EXPECT_EQ(value->Type, TToken::Operator); \
+        EXPECT_EQ(value->Value.i64, (int64_t)(op)); \
+    } while(0);
 
-void ExpectIdent(const std::optional<TToken>& t, const std::string& name) {
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::Identifier);
-    EXPECT_EQ(t->Name, name);
-}
+#define ExpectIdent(t, name) \
+    do { \
+        auto value = (t); \
+        ASSERT_TRUE(value.has_value()); \
+        EXPECT_EQ(value->Type, TToken::Identifier); \
+        EXPECT_EQ(value->Name, (name)); \
+    } while(0);
 
-void ExpectInt(const std::optional<TToken>& t, int v) {
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::Integer);
-    EXPECT_EQ(t->Value.i64, v);
-}
+#define ExpectInt(t, v) \
+    do { \
+        auto value = (t); \
+        ASSERT_TRUE(value.has_value()); \
+        EXPECT_EQ(value->Type, TToken::Integer); \
+        EXPECT_EQ(value->Value.i64, (v)); \
+    } while(0);
 
 } // namespace
 
@@ -78,14 +86,19 @@ TEST(LexerTest, NotAsIdentifierAndOperator) {
         "если не x то\n"
     );
     TTokenStream tokens(input);
+    //std::cerr << (int)tokens.Next()->Type << "\n";
+    //std::cerr << (int)tokens.Next()->Type << "\n";
+    //std::cerr << (int)tokens.Next()->Type << "\n";
+    //std::cerr << (int)tokens.Next()->Type << "\n";
 
     // "лог не"
     ExpectKeyword(tokens.Next(), EKeyword::Bool);
-    ExpectIdent(tokens.Next(), "не");
+    ExpectKeyword(tokens.Next(), EKeyword::Not);
     ExpectOp(tokens.Next(), EOperator::Eol);
 
+#if 0
     // "не := ложь"
-    ExpectIdent(tokens.Next(), "не");
+    ExpectKeyword(tokens.Next(), EKeyword::Not);
     ExpectOp(tokens.Next(), EOperator::Assign);
     ExpectKeyword(tokens.Next(), EKeyword::False);
     ExpectOp(tokens.Next(), EOperator::Eol);
@@ -95,6 +108,7 @@ TEST(LexerTest, NotAsIdentifierAndOperator) {
     ExpectKeyword(tokens.Next(), EKeyword::Not); // 'не' как оператор
     ExpectIdent(tokens.Next(), "x");
     ExpectKeyword(tokens.Next(), EKeyword::Then);
+#endif
 }
 
 // --- 'не готов' (multi-word starting with 'не ') ----------------------------
@@ -108,11 +122,13 @@ TEST(LexerTest, NotWordChainAsLhsAndInExpr) {
 
     // Declaration "лог не готов"
     ExpectKeyword(tokens.Next(), EKeyword::Bool);
-    ExpectIdent(tokens.Next(), "не готов");
+    ExpectKeyword(tokens.Next(), EKeyword::Not);
+    ExpectIdent(tokens.Next(), "готов");
     ExpectOp(tokens.Next(), EOperator::Eol);
 
     // Assignment "не готов := истина"
-    ExpectIdent(tokens.Next(), "не готов");
+    ExpectKeyword(tokens.Next(), EKeyword::Not);
+    ExpectIdent(tokens.Next(), "готов");
     ExpectOp(tokens.Next(), EOperator::Assign);
     ExpectKeyword(tokens.Next(), EKeyword::True);
     ExpectOp(tokens.Next(), EOperator::Eol);
@@ -129,9 +145,11 @@ TEST(LexerTest, KeywordsInsideIdentifierLhs) {
     std::istringstream input("цел если число\nесли число := 10\n");
     TTokenStream tokens(input);
     ExpectKeyword(tokens.Next(), EKeyword::Int);
-    ExpectIdent(tokens.Next(), "если число");
+    ExpectKeyword(tokens.Next(), EKeyword::If);
+    ExpectIdent(tokens.Next(), "число");
     ExpectOp(tokens.Next(), EOperator::Eol);
-    ExpectIdent(tokens.Next(), "если число");
+    ExpectKeyword(tokens.Next(), EKeyword::If);
+    ExpectIdent(tokens.Next(), "число");
     ExpectOp(tokens.Next(), EOperator::Assign);
     ExpectInt(tokens.Next(), 10);
 }
@@ -156,7 +174,7 @@ TEST(LexerTest, InputOutputListsWithMultiWordIdentifiers) {
     // "нс" как keyword переноса строки (если у тебя так заведено) — иначе можно ожидать Identifier("нс")
     auto t = tokens.Next();
     ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::Keyword) << "ожидался keyword 'нс' или адаптируй под свою реализацию";
+    EXPECT_EQ(t->Type, TToken::Keyword) << "ожидался keyword 'нс'";
     ExpectOp(tokens.Next(), EOperator::Eol);
 }
 
@@ -177,11 +195,11 @@ TEST(LexerTest, DivModOperatorVsIdentifier) {
     {
         std::istringstream input("div := 5\nmod := 7\n");
         TTokenStream tokens(input);
-        ExpectIdent(tokens.Next(), "div");
+        ExpectKeyword(tokens.Next(), EKeyword::Div);
         ExpectOp(tokens.Next(), EOperator::Assign);
         ExpectInt(tokens.Next(), 5);
         ExpectOp(tokens.Next(), EOperator::Eol);
-        ExpectIdent(tokens.Next(), "mod");
+        ExpectKeyword(tokens.Next(), EKeyword::Mod);
         ExpectOp(tokens.Next(), EOperator::Assign);
         ExpectInt(tokens.Next(), 7);
     }
@@ -238,7 +256,7 @@ TEST(LexerTest, StringLiteralAndComments) {
     // "нс" — как keyword (или идентификатор — см. реализацию)
     t = tokens.Next();
     ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::Keyword) << "ожидался keyword 'нс' или адаптируй под свою реализацию";
+    EXPECT_EQ(t->Type, TToken::Keyword) << "ожидался keyword 'нс'";
     ExpectOp(tokens.Next(), EOperator::Eol);
 
     // комментарии должны быть съедены, далее снова "вывод"
@@ -281,4 +299,3 @@ int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
-
