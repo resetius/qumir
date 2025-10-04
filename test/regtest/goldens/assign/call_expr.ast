@@ -1,0 +1,14 @@
+(Block
+  (FunDecl $f ($x: <Float>) -> <Float>
+    (Block))
+  (FunDecl $функция () -> <Void>
+    (Block
+      (Var $i:<Int>)
+      ($i =
+        (*
+          (Call
+            ($f)
+            (+
+              (3.000000:<Float>)
+              (5.000000:<Float>)))
+          (10:<Int>))))))

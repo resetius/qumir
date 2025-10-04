@@ -474,6 +474,10 @@ TAstTask call_expr(TTokenStream& stream) {
     auto base = co_await factor(stream);
     while (auto tok = stream.Next()) {
         if (tok->Type == TToken::Operator && (EOperator)tok->Value.i64 == EOperator::LParen) {
+            // Разрешаем вызов функции только если базовое выражение — идентификатор
+            if (!TMaybeNode<TIdentExpr>(base)) {
+                co_return TError(tok->Location, "ожидалось имя функции перед '('");
+            }
             auto args = co_await parse_arg_list_opt(stream);
             base = std::make_shared<TCallExpr>(tok->Location, std::move(base), std::move(args));
             continue;
