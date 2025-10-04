@@ -1,0 +1,14 @@
+(Block
+  (FunDecl $функция () -> <Void>
+    (Block
+      (Var $i:<Int>)
+      ($i =
+        (%
+          (*
+            (+
+              (2:<Int>)
+              (3:<Int>))
+            (7:<Int>))
+          (^
+            (4:<Int>)
+            (4:<Int>)))))))

@@ -484,6 +484,23 @@ TAstTask call_expr(TTokenStream& stream) {
     co_return base;
 }
 
+// Forward declaration for mutual recursion with power_expr
+TAstTask unary_expr(TTokenStream& stream);
+
+// power_expr ::= call_expr ( '**' unary_expr )?
+// Right-associative: a ** b ** c == a ** (b ** c)
+TAstTask power_expr(TTokenStream& stream) {
+    auto base = co_await call_expr(stream);
+    auto tok = stream.Next();
+    if (tok && tok->Type == TToken::Operator && (EOperator)tok->Value.i64 == EOperator::Pow) {
+        // RHS allows unary sign, e.g., 2 ** -3
+        auto rhs = co_await unary_expr(stream);
+        co_return binary(tok->Location, MakeOperator(EOperator::Pow), std::move(base), std::move(rhs));
+    }
+    if (tok) stream.Unget(*tok);
+    co_return base;
+}
+
 // unary ::= call_expr | '+' unary | '-' unary
 TAstTask unary_expr(TTokenStream& stream) {
     auto tok = co_await stream.Next();
@@ -496,7 +513,8 @@ TAstTask unary_expr(TTokenStream& stream) {
         }
     }
     stream.Unget(tok);
-    co_return co_await call_expr(stream);
+    // Exponentiation has higher precedence than unary: -2**2 == -(2**2)
+    co_return co_await power_expr(stream);
 }
 
 template<typename Func, typename... TOps>
@@ -523,7 +541,7 @@ MulExpr ::= Factor
 */
 TAstTask mul_expr(TTokenStream& stream) {
     co_return co_await binary_op_helper(stream, unary_expr
-        , EOperator::Mul, EOperator::Div, EOperator::FDiv);
+        , EOperator::Mul, EOperator::Div, EOperator::FDiv, EOperator::Mod);
 }
 
 /*
