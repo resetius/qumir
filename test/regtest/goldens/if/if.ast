@@ -1,0 +1,10 @@
+(Block
+  (FunDecl $<main> () -> <Void>
+    (Block
+      (Var $i:<Int>)
+      (If
+        (1:<Bool>)
+        (Block
+          ($i =
+            (1:<Int>)))
+        nil))))

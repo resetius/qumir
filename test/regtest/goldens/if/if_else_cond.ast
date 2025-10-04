@@ -1,0 +1,19 @@
+(Block
+  (FunDecl $<main> () -> <Void>
+    (Block
+      (Var $i:<Int>)
+      (Var $j:<Int>)
+      ($i =
+        (1:<Int>))
+      ($j =
+        (2:<Int>))
+      (If
+        (!=
+          ($i)
+          ($j))
+        (Block
+          ($i =
+            (1:<Int>)))
+        (Block
+          ($i =
+            (2:<Int>)))))))

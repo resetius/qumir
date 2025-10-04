@@ -22,6 +22,7 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"то", EKeyword::Then},
     {"иначе", EKeyword::Else},
     {"все", EKeyword::Break},
+    {"всё", EKeyword::Break},
     {"далее", EKeyword::Continue},
     {"нц", EKeyword::LoopStart},
     {"кц", EKeyword::LoopEnd},

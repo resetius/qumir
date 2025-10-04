@@ -7,6 +7,7 @@
 #include <qumir/parser/ast.h>
 #include <qumir/parser/operator.h>
 
+#include <set>
 #include <iostream>
 
 namespace NQumir {
@@ -44,9 +45,21 @@ inline TExprPtr ident(TLocation loc, std::string n) {
 
 using TAstTask = TExpectedTask<TExprPtr, TError, TLocation>;
 TAstTask stmt(TTokenStream& stream);
-TAstTask stmt_list(TTokenStream& stream);
+TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators);
 TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes = false, bool isMutable = true);
 TAstTask expr(TTokenStream& stream);
+
+void SkipEols(TTokenStream& stream) {
+    while (true) {
+        auto t = stream.Next();
+        if (!t) break;
+        if (t->Type == TToken::Operator && static_cast<EOperator>(t->Value.i64) == EOperator::Eol) {
+            continue;
+        }
+        stream.Unget(*t);
+        break;
+    }
+}
 
 /*
 enum class EOperator : uint8_t {
@@ -124,7 +137,7 @@ inline bool IsTypeKeyword(EKeyword kw) {
 /*
 StmtList ::= Stmt*
 */
-TAstTask stmt_list(TTokenStream& stream) {
+TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators) {
     std::vector<TExprPtr> stmts;
     while (true) {
         // Skip standalone EOLs between statements
@@ -143,8 +156,7 @@ TAstTask stmt_list(TTokenStream& stream) {
 
         // Stop conditions: EOF or block terminator 'кон' (End)
         if (auto t = stream.Next()) {
-            if (t->Type == TToken::Keyword && static_cast<EKeyword>(t->Value.i64) == EKeyword::End) {
-                // Leave 'кон' for the caller (e.g., fun_decl) to consume
+            if (t->Type == TToken::Keyword && terminators.contains(static_cast<EKeyword>(t->Value.i64))) {
                 stream.Unget(*t);
                 break;
             }
@@ -385,7 +397,7 @@ TAstTask fun_decl(TTokenStream& stream) {
         co_return TError(next.Location, "ожидалось 'нач' после заголовка функции");
     }
 
-    auto body = co_await stmt_list(stream);
+    auto body = co_await stmt_list(stream, { EKeyword::End });
 
     next = co_await stream.Next();
     if (! (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::End)) {
@@ -409,7 +421,36 @@ OptElse ::= EOL* 'иначе' EOL* StmtList | ε
 // - Примеры допускают как серию на той же строке после 'то'/'иначе', так и на следующих строках.
 */
 TAstTask if_expr(TTokenStream& stream) {
-    co_return TError(stream.GetLocation(), "оператор 'если' пока не реализован");
+    auto location = stream.GetLocation();
+    auto cond = co_await expr(stream);
+    SkipEols(stream);
+
+    auto thenTok = co_await stream.Next();
+    if (!(thenTok.Type == TToken::Keyword && static_cast<EKeyword>(thenTok.Value.i64) == EKeyword::Then)) {
+        co_return TError(thenTok.Location, "ожидалось 'то' после условия в операторе 'если'");
+    }
+
+    auto thenBranch = co_await stmt_list(stream, { EKeyword::Else, EKeyword::Break });
+
+    SkipEols(stream);
+    auto elseTok = co_await stream.Next();
+    if (elseTok.Type == TToken::Keyword && static_cast<EKeyword>(elseTok.Value.i64) == EKeyword::Break) {
+        // if without else
+        co_return std::make_shared<TIfExpr>(location, cond, thenBranch, nullptr);
+    }
+
+    if (elseTok.Type == TToken::Keyword && static_cast<EKeyword>(elseTok.Value.i64) != EKeyword::Else) {
+        co_return TError(elseTok.Location, "ожидалось 'иначе' или 'все' после ветки 'то' в операторе 'если'");
+    }
+
+    auto elseBranch = co_await stmt_list(stream, { EKeyword::Break });
+
+    auto endTok = co_await stream.Next();
+    if (endTok.Type == TToken::Keyword && static_cast<EKeyword>(endTok.Value.i64) != EKeyword::Break) {
+        co_return TError(endTok.Location, "ожидалось 'все' в конце оператора 'если'");
+    }
+
+    co_return std::make_shared<TIfExpr>(location, cond, thenBranch, elseBranch);
 }
 
 // Parse optional argument list after '(' then ')'
@@ -634,6 +675,7 @@ TAstTask stmt(TTokenStream& stream) {
             co_return TError(stream.GetLocation(), "неизвестный стейтмент (пока поддерживаются только объявления переменных)");
         }
     } else {
+        // std::cerr << "Debug " << (int)first->Type << " " << first->Name << " " << first->Value.i64 << "\n";
         stream.Unget(*first);
         co_return TError(stream.GetLocation(), "неизвестный стейтмент (пока поддерживаются только объявления переменных)");
     }
@@ -643,7 +685,7 @@ TAstTask stmt(TTokenStream& stream) {
 
 std::expected<TExprPtr, TError> TParser::parse(TTokenStream& stream)
 {
-    auto task = stmt_list(stream);
+    auto task = stmt_list(stream, {});
     return task.result();
 }
 
