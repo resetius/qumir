@@ -273,7 +273,7 @@ void TTokenStream::Read() {
     };
 
     auto isIdentifierStop = [&](char ch) {
-        return isSingleCharOperator(ch) || isOperatorPrefix(ch) || ch == '(' || ch == '-' || ch == '"' || ch == '\n';
+        return isSingleCharOperator(ch) || isOperatorPrefix(ch) || ch == '(' || ch == '-' || ch == '"' || ch == '\n' || ch == ';';
     };
 
     while ((Tokens.empty() || state != Start) && In.get(ch)) {
@@ -291,7 +291,7 @@ void TTokenStream::Read() {
             // if 'оно истина' is a variable name
             switch (state) {
                 case Start:
-                    if (ch == '\n') {
+                    if (ch == '\n' || ch == ';') {
                         emitOperator(EOperator::Eol);
                         tokenLocation = CurrentLocation;
                     } else if (std::isdigit(ch)) {
