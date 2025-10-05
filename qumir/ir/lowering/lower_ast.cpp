@@ -24,7 +24,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         co_return co_await LowerRepeatLoop(loop, scope);
     }
 
-    co_return TError(loop->Location, "only while-style loops are supported");
+    // Otherwise treat as for-style loop
+    co_return co_await LowerForLoop(loop, scope);
 }
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerWhileLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope)
@@ -69,7 +70,90 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerForLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope)
 {
-    co_return TError(loop->Location, "for loops are not yet implemented");
+    // for semantics:
+    // entry -> cond -> (true) -> preBody -> body -> postBody -> cond
+    //                    (false) -> end
+    // continue should jump to PostBody (or cond if PostBody is absent)
+
+    if (loop->PreCond == nullptr) {
+        co_return TError(loop->Location, "for loop must have a pre-condition");
+    }
+
+    auto entryId = Builder.CurrentBlockIdx();
+    auto [condLabel, condId] = Builder.NewBlock();
+    auto [preLabel, preId] = Builder.NewBlock();
+    auto [bodyLabel, bodyId] = Builder.NewBlock();
+    auto [postLabel, postId] = Builder.NewBlock();
+    auto endLabel = Builder.NewLabel();
+
+    // Jump to condition first
+    Builder.SetCurrentBlock(entryId);
+    Builder.Emit0("jmp"_op, {condLabel});
+
+    // Condition
+    Builder.SetCurrentBlock(condId);
+    {
+        auto cond = co_await Lower(loop->PreCond, scope);
+        if (!cond.Value) co_return TError(loop->PreCond->Location, "for condition must be a number");
+        // If true -> pre or body depending on PreBody presence; if false -> end
+        auto trueTarget = (loop->PreBody ? preLabel : bodyLabel);
+        Builder.Emit0("cmp"_op, {*cond.Value, trueTarget, endLabel});
+    }
+
+    // PreBody (if present)
+    Builder.SetCurrentBlock(preId);
+    if (loop->PreBody) {
+        auto continueTarget = (loop->PostBody ? postLabel : condLabel);
+        co_await Lower(loop->PreBody, TBlockScope{
+            .FuncIdx = scope.FuncIdx,
+            .Id = scope.Id,
+            .BreakLabel = endLabel,
+            .ContinueLabel = continueTarget
+        });
+        if (!Builder.IsCurrentBlockTerminated()) {
+            Builder.Emit0("jmp"_op, {bodyLabel});
+        }
+    } else {
+        // If no PreBody, fall through to body
+        Builder.Emit0("jmp"_op, {bodyLabel});
+    }
+
+    // Body
+    Builder.SetCurrentBlock(bodyId);
+    {
+        auto continueTarget = (loop->PostBody ? postLabel : condLabel);
+        co_await Lower(loop->Body, TBlockScope{
+            .FuncIdx = scope.FuncIdx,
+            .Id = scope.Id,
+            .BreakLabel = endLabel,
+            .ContinueLabel = continueTarget
+        });
+        if (!Builder.IsCurrentBlockTerminated()) {
+            Builder.Emit0("jmp"_op, { loop->PostBody ? postLabel : condLabel });
+        }
+    }
+
+    // PostBody (if present), then back to condition
+    Builder.SetCurrentBlock(postId);
+    if (loop->PostBody) {
+        co_await Lower(loop->PostBody, TBlockScope{
+            .FuncIdx = scope.FuncIdx,
+            .Id = scope.Id,
+            .BreakLabel = endLabel,
+            // Inside post body, continue should proceed to condition
+            .ContinueLabel = condLabel
+        });
+        if (!Builder.IsCurrentBlockTerminated()) {
+            Builder.Emit0("jmp"_op, {condLabel});
+        }
+    } else {
+        // No post body: directly go back to condition
+        Builder.Emit0("jmp"_op, {condLabel});
+    }
+
+    // End block
+    Builder.NewBlock(endLabel);
+    co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
 }
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerRepeatLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope)
