@@ -9,6 +9,8 @@ add_library(qumir
     parser/parser.cpp
     parser/type.h
     parser/type.cpp
+    runner/runner_ir.h
+    runner/runner_ir.cpp
     ir/lowering/lower_ast.h
     ir/lowering/lower_ast.cpp
     ir/builder.h
