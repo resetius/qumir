@@ -232,7 +232,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto entryId = Builder.CurrentBlockIdx();
         auto [condLabel, condId] = Builder.NewBlock();
         auto [bodyLabel, bodyId] = Builder.NewBlock();
-        auto [endLabel, endId]  = Builder.NewBlock();
+        // Reserve end label now; place the actual end block at the end
+        auto endLabel = Builder.NewLabel();
 
         // Jump to condition check first
         Builder.SetCurrentBlock(entryId);
@@ -256,8 +257,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!Builder.IsCurrentBlockTerminated())
             Builder.Emit0("jmp"_op, {condLabel});
 
-        // End: just continue
-        Builder.SetCurrentBlock(endId);
+        // End: materialize the end block at the very end
+        Builder.NewBlock(endLabel);
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
 
     } else if (NAst::TMaybeNode<NAst::TBreakStmt>(expr)) {
