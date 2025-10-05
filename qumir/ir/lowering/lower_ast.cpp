@@ -78,6 +78,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     if (loop->PreCond == nullptr) {
         co_return TError(loop->Location, "for loop must have a pre-condition");
     }
+    if (loop->PreBody == nullptr) {
+        co_return TError(loop->Location, "for loop must have a pre-body");
+    }
+    if (loop->PostBody == nullptr) {
+        co_return TError(loop->Location, "for loop must have a post-body");
+    }
 
     auto entryId = Builder.CurrentBlockIdx();
     auto [condLabel, condId] = Builder.NewBlock();
@@ -92,62 +98,49 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
     // Condition
     Builder.SetCurrentBlock(condId);
-    {
-        auto cond = co_await Lower(loop->PreCond, scope);
-        if (!cond.Value) co_return TError(loop->PreCond->Location, "for condition must be a number");
-        // If true -> pre or body depending on PreBody presence; if false -> end
-        auto trueTarget = (loop->PreBody ? preLabel : bodyLabel);
-        Builder.Emit0("cmp"_op, {*cond.Value, trueTarget, endLabel});
-    }
+    auto cond = co_await Lower(loop->PreCond, scope);
+    if (!cond.Value) co_return TError(loop->PreCond->Location, "for condition must be a number");
+    // If true -> pre or body depending on PreBody presence; if false -> end
+    auto trueTarget = preLabel;
+    Builder.Emit0("cmp"_op, {*cond.Value, trueTarget, endLabel});
 
     // PreBody (if present)
     Builder.SetCurrentBlock(preId);
-    if (loop->PreBody) {
-        auto continueTarget = (loop->PostBody ? postLabel : condLabel);
-        co_await Lower(loop->PreBody, TBlockScope{
-            .FuncIdx = scope.FuncIdx,
-            .Id = scope.Id,
-            .BreakLabel = endLabel,
-            .ContinueLabel = continueTarget
-        });
-        if (!Builder.IsCurrentBlockTerminated()) {
-            Builder.Emit0("jmp"_op, {bodyLabel});
-        }
-    } else {
-        // If no PreBody, fall through to body
+    auto continueTarget = postLabel;
+    co_await Lower(loop->PreBody, TBlockScope{
+        .FuncIdx = scope.FuncIdx,
+        .Id = scope.Id,
+        .BreakLabel = endLabel,
+        .ContinueLabel = continueTarget
+    });
+
+    if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {bodyLabel});
     }
 
     // Body
     Builder.SetCurrentBlock(bodyId);
-    {
-        auto continueTarget = (loop->PostBody ? postLabel : condLabel);
-        co_await Lower(loop->Body, TBlockScope{
-            .FuncIdx = scope.FuncIdx,
-            .Id = scope.Id,
-            .BreakLabel = endLabel,
-            .ContinueLabel = continueTarget
-        });
-        if (!Builder.IsCurrentBlockTerminated()) {
-            Builder.Emit0("jmp"_op, { loop->PostBody ? postLabel : condLabel });
-        }
+    co_await Lower(loop->Body, TBlockScope{
+        .FuncIdx = scope.FuncIdx,
+        .Id = scope.Id,
+        .BreakLabel = endLabel,
+        .ContinueLabel = continueTarget
+    });
+    if (!Builder.IsCurrentBlockTerminated()) {
+        Builder.Emit0("jmp"_op, { loop->PostBody ? postLabel : condLabel });
     }
 
-    // PostBody (if present), then back to condition
+    // PostBody, then back to condition
     Builder.SetCurrentBlock(postId);
-    if (loop->PostBody) {
-        co_await Lower(loop->PostBody, TBlockScope{
-            .FuncIdx = scope.FuncIdx,
-            .Id = scope.Id,
-            .BreakLabel = endLabel,
-            // Inside post body, continue should proceed to condition
-            .ContinueLabel = condLabel
-        });
-        if (!Builder.IsCurrentBlockTerminated()) {
-            Builder.Emit0("jmp"_op, {condLabel});
-        }
-    } else {
-        // No post body: directly go back to condition
+    co_await Lower(loop->PostBody, TBlockScope{
+        .FuncIdx = scope.FuncIdx,
+        .Id = scope.Id,
+        .BreakLabel = endLabel,
+        // Inside post body, continue should proceed to condition
+        .ContinueLabel = condLabel
+    });
+
+    if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {condLabel});
     }
 
