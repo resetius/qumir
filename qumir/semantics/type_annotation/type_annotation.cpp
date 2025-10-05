@@ -320,6 +320,18 @@ TTask AnnotateIf(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver& con
     co_return ifExpr;
 }
 
+TTask AnnotateLoop(std::shared_ptr<TLoopStmtExpr> loop, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    loop->Type = std::make_shared<TVoidType>();
+
+    for (auto& child : loop->Children()) {
+        if (child && !child->Type) {
+            child = co_await DoAnnotate(child, context, scopeId);
+        }
+    }
+
+    co_return loop;
+}
+
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     if (expr->Type) {
         for (auto& child : expr->Children()) {
@@ -356,6 +368,9 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
     } else if (TMaybeNode<TContinueStmt>(expr)) {
         expr->Type = std::make_shared<TVoidType>();
         co_return expr;
+    } else if (auto maybeLoop = TMaybeNode<TLoopStmtExpr>(expr)) {
+        auto loop = maybeLoop.Cast();
+        co_return co_await AnnotateLoop(loop, context, scopeId);
     } else {
         co_return TError(expr->Location,
             std::string("unknown expression type for type annotation: ") + std::string(expr->NodeName()));

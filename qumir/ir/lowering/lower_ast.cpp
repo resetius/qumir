@@ -212,6 +212,54 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         Builder.UnifyTypes(res, elseRes.Value->Tmp);
         Builder.UnifyTypes(res, thenRes.Value->Tmp);
         co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
+
+    } else if (auto maybeLoop = NAst::TMaybeNode<NAst::TLoopStmtExpr>(expr)) {
+        auto loop = maybeLoop.Cast();
+
+        if (loop->PreCond == nullptr) {
+            co_return TError(loop->Location, "only while-style loops are supported");
+        }
+        if (loop->PreBody != nullptr) {
+            co_return TError(loop->Location, "only while-style loops are supported");
+        }
+        if (loop->PostBody != nullptr) {
+            co_return TError(loop->Location, "only while-style loops are supported");
+        }
+        if (loop->PostCond != nullptr) {
+            co_return TError(loop->Location, "only while-style loops are supported");
+        }
+
+        auto entryId = Builder.CurrentBlockIdx();
+        auto [condLabel, condId] = Builder.NewBlock();
+        auto [bodyLabel, bodyId] = Builder.NewBlock();
+        auto [endLabel, endId]  = Builder.NewBlock();
+
+        // Jump to condition check first
+        Builder.SetCurrentBlock(entryId);
+        Builder.Emit0("jmp"_op, {condLabel});
+
+        // Condition check
+        Builder.SetCurrentBlock(condId);
+        auto cond = co_await Lower(loop->PreCond, scope);
+        if (!cond.Value) co_return TError(loop->PreCond->Location, "while condition must be a number");
+        Builder.Emit0("cmp"_op, {*cond.Value, bodyLabel, endLabel});
+
+        // Body
+        Builder.SetCurrentBlock(bodyId);
+        co_await Lower(loop->Body, TBlockScope {
+            .FuncIdx = scope.FuncIdx,
+            .Id = scope.Id,
+            .BreakLabel = endLabel,
+            .ContinueLabel = condLabel
+        });
+        // After body, go back to condition if body didn't already jump/return
+        if (!Builder.IsCurrentBlockTerminated())
+            Builder.Emit0("jmp"_op, {condLabel});
+
+        // End: just continue
+        Builder.SetCurrentBlock(endId);
+        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+
     } else if (NAst::TMaybeNode<NAst::TBreakStmt>(expr)) {
         if (!scope.BreakLabel) {
             co_return TError(expr->Location, "break not in a loop");
