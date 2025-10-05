@@ -1,5 +1,8 @@
 #include "type.h"
 
+#include <iostream>
+#include <sstream>
+
 namespace NQumir {
 namespace NAst {
 
