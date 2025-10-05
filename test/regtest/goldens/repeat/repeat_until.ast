@@ -1,0 +1,19 @@
+(Block
+  (FunDecl $<main> () -> <Void>
+    (Block
+      (Var $ф:<Int>)
+      ($ф =
+        (0:<Int>))
+      (Loop
+        nil
+        (!
+          (==
+            ($ф)
+            (10:<Int>)))
+        nil
+        (Block
+          ($ф =
+            (+
+              ($ф)
+              (1:<Int>))))
+        nil))))

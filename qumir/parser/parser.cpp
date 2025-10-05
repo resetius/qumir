@@ -509,6 +509,40 @@ TAstTask while_loop(TTokenStream& stream) {
 }
 
 /*
+  нц
+    body
+  кц_при условие
+  or
+  нц
+    body
+  кц при условие
+*/
+TAstTask repeat_until_loop(TTokenStream& stream) {
+    auto location = stream.GetLocation();
+
+    auto body = co_await stmt_list(stream, { EKeyword::LoopEndWhen, EKeyword::LoopEnd });
+
+    auto untilTok = co_await stream.Next();
+    // кц при or кц_при
+    if (!(untilTok.Type == TToken::Keyword && (static_cast<EKeyword>(untilTok.Value.i64) == EKeyword::LoopEndWhen || static_cast<EKeyword>(untilTok.Value.i64) == EKeyword::LoopEnd))) {
+        co_return TError(untilTok.Location, "ожидалось 'кц' или 'кц_при' в конце оператора 'нц'");
+    }
+    // one more token if 'кц'
+    if (static_cast<EKeyword>(untilTok.Value.i64) == EKeyword::LoopEnd) {
+        untilTok = co_await stream.Next();
+        if (!(untilTok.Type == TToken::Keyword && static_cast<EKeyword>(untilTok.Value.i64) == EKeyword::Case)) {
+            co_return TError(untilTok.Location, "ожидалось 'кц_при' в конце оператора 'нц'");
+        }
+    }
+
+    auto cond = co_await expr(stream);
+    // cond = ! cond
+    cond = unary(location, TOperator("!"), cond);
+
+    co_return std::make_shared<TLoopStmtExpr>(location, nullptr, nullptr, body, nullptr, cond);
+}
+
+/*
 If ::= 'если' Expr EOL* 'то' EOL* StmtList OptElse 'все'
 OptElse ::= EOL* 'иначе' EOL* StmtList | ε
 // Примечания:
@@ -765,6 +799,8 @@ TAstTask stmt(TTokenStream& stream) {
             co_return co_await for_loop(stream);
         } else if (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::While) {
             co_return co_await while_loop(stream);
+        } else if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Eol) {
+            co_return co_await repeat_until_loop(stream);
         } else {
             co_return TError(next.Location, "ожидалось 'для' после 'цикл'");
         }
