@@ -29,6 +29,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto r = co_await Lower(s, newScope);
             last = r.Value;
         }
+        // TODO: return only if function block and last is 'return'
         co_return TValueWithBlock{ last, Builder.CurrentBlockLabel() };
     } else if (auto maybeUnary = NAst::TMaybeNode<NAst::TUnaryExpr>(expr)) {
         auto unary = maybeUnary.Cast();
@@ -242,7 +243,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
         }
         Builder.Emit0("stre"_op, {storeSlot, *rhs.Value});
-        co_return TValueWithBlock{ rhs.Value, Builder.CurrentBlockLabel() };
+        // store does not produce a value
+        co_return TValueWithBlock{ {}, Builder.CurrentBlockLabel() };
     } else if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(expr)) {
         auto ident = maybeIdent.Cast();
         auto sidOpt = Context.Lookup(ident->Name, scope.Id);
@@ -305,7 +307,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.Emit0("ret"_op, {});
         }
         Builder.SetCurrentFunction(currentFuncIdx);
-        co_return TValueWithBlock{ TImm(sidOpt->Id), Builder.CurrentBlockLabel() };
+        // Function declaration does not produce a value
+        co_return TValueWithBlock{ {}, Builder.CurrentBlockLabel() };
     } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(expr)) {
         auto call = maybeCall.Cast();
         // Evaluate callee and perform a function call.
@@ -368,27 +371,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(expr->Location, "Function not found in module");
         }
 
-        if (returnType) {
-            if (NAst::TMaybeType<NAst::TVoidType>(returnType)) {
-                returnsValue = false;
-            } else {
-                returnsValue = true;
-            }
+        if (NAst::TMaybeType<NAst::TVoidType>(returnType)) {
+            returnsValue = false;
         } else {
-            // backward compatibility: inspect function body for return instructions
-            // does not support recursion
-            for (const auto& block : Module.Functions[maybeFunIdx->second].Blocks) {
-                for (const auto& instr : block.Instrs) {
-                    if (instr.Op == TOp("ret") && instr.OperandCount > 0) {
-                        returnsValue = true;
-                        break;
-                    }
-                    if (instr.Op == TOp("ret") && instr.OperandCount == 0) {
-                        returnsValue = false;
-                        break;
-                    }
-                }
-            }
+            returnsValue = true;
         }
 
         if (returnsValue) {

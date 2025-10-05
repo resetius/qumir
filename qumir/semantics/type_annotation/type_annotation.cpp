@@ -248,7 +248,7 @@ TTask AnnotateAssign(std::shared_ptr<TAssignExpr> assign, NSemantics::TNameResol
     if (!assign->Value->Type) {
         co_return TError(assign->Location, "cannot assign untyped value to: " + assign->Name);
     }
-    assign->Type = assign->Value->Type;
+    assign->Type = std::make_shared<NAst::TVoidType>();
     co_return assign;
 }
 
