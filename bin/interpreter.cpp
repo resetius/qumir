@@ -130,10 +130,13 @@ int main(int argc, char ** argv) {
 
     if (!r) {
         errStr = r.error().ToString();
-    } else {
-        irValue = std::move(r.value());
-        lastEvalUs = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+        std::cerr << "Error: " << errStr << std::endl;
+        return 1;
     }
+
+    irValue = std::move(r.value());
+    lastEvalUs = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+
 
     PrintResultIR(irValue);
     if (printEvalTimeUs) {
