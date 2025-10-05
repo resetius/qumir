@@ -29,7 +29,7 @@ public:
         , Lowerer(Module, Builder, Resolver)
         , Annotator(Resolver)
         , Options(std::move(options))
-        , Interpreter(Module, Runtime)
+        , Interpreter(Module, Runtime, Out)
     {}
 
     // Parses, resolves, lowers to IR and interprets the code from input.
@@ -37,6 +37,7 @@ public:
     std::expected<std::optional<std::string>, TError> Run(std::istream& input);
 
 private:
+    std::ostringstream Out;
     NIR::TModule Module;
     NIR::TRuntime Runtime;
     NIR::TBuilder Builder;

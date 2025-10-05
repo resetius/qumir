@@ -37,12 +37,12 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
         std::cerr << "============================\n\n";
     }
 
-    // Lower to IR: we build a fresh __repl function chunk per call
-    auto lowerRes = Lowerer.LowerTopRepl(ast);
+    auto lowerRes = Lowerer.LowerTop(ast);
     if (!lowerRes) {
         return std::unexpected(lowerRes.error());
     }
-    auto* fun = lowerRes.value();
+    auto* initFun = lowerRes.value();
+    auto* mainFun = Module.GetFunctionByName("<main>");
 
     if (Options.PrintIr) {
         std::cerr << "=========== IR: ============\n";
@@ -56,10 +56,27 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
         std::cerr << "============================\n\n";
     }
 
-    // Interpret
-    auto res = Interpreter.Eval(*fun, {});
+    if (!mainFun) {
+        return std::unexpected(TError(TLocation(), "no <main> function found"));
+    }
 
-    // Return the raw numeric result, or std::nullopt if no value
+    Out.clear();
+    Out.str("");
+
+    // Interpret
+    auto res = Interpreter.Eval(*initFun, {});
+    res = Interpreter.Eval(*mainFun, {});
+
+    auto output = Out.str();
+    if (!output.empty()) {
+        if (res) {
+            *res += "\n";
+            *res += output;
+        } else {
+            res = output;
+        }
+    }
+
     return res;
 }
 

@@ -1,6 +1,7 @@
 #include "lower_ast.h"
 #include "qumir/ir/builder.h"
 #include "qumir/parser/parser.h"
+#include "qumir/parser/type.h"
 
 #include <iostream>
 #include <sstream>
@@ -19,6 +20,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         } else {
             co_return TValueWithBlock{ TImm{.Value = num->IntValue, .IsFloat = false}, Builder.CurrentBlockLabel() };
         }
+    } else if (auto maybeStringLiteral = NAst::TMaybeNode<NAst::TStringLiteralExpr>(expr)) {
+        auto str = maybeStringLiteral.Cast();
+        auto ptr = Builder.StringLiteral(str->Value);
+        // TODO: type is 'pointer to char'
+        co_return TValueWithBlock{ TImm{.Value = (int64_t)(intptr_t)ptr, .IsFloat = false}, Builder.CurrentBlockLabel() };
     } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
         // Evaluate a block: value is the value of the last statement (or void if none)
         std::optional<TOperand> last;
@@ -385,6 +391,24 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.Emit0("call"_op, {TImm{calleeSymId}});
             co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
         }
+    } else if (auto maybeOutput = NAst::TMaybeNode<NAst::TOutputExpr>(expr)) {
+        auto output = maybeOutput.Cast();
+        for (auto& arg : output->Args) {
+            auto av = co_await Lower(arg, scope);
+            if (!av.Value) co_return TError(arg->Location, "invalid argument to output");
+            auto type = arg->Type;
+            if (NAst::TMaybeType<NAst::TFloatType>(type)) {
+                Builder.Emit0("outf"_op, {*av.Value});
+            } else if (NAst::TMaybeType<NAst::TIntegerType>(type)) {
+                Builder.Emit0("outi"_op, {*av.Value});
+            } else if (NAst::TMaybeType<NAst::TStringType>(type)) {
+                Builder.Emit0("outs"_op, {*av.Value});
+            } else {
+                co_return TError(arg->Location, "output argument must be int, float, or string");
+            }
+        }
+        // output has no value
+        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else {
         std::ostringstream oss;
         oss << *expr;
@@ -393,8 +417,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     }
 }
 
-std::expected<TFunction*, TError> TAstLowerer::LowerTopRepl(const NAst::TExprPtr& expr) {
-    std::string funcName = std::string("__repl") + std::to_string(NextReplChunk++);
+std::expected<TFunction*, TError> TAstLowerer::LowerTop(const NAst::TExprPtr& expr) {
+    std::string funcName = std::string("__init") + std::to_string(NextReplChunk++);
     auto symbolId = Context.DeclareFunction(
         funcName,
         expr);

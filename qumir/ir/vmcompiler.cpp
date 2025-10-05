@@ -334,6 +334,21 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 out.Op = EVMOp::Store64;
                 break;
             }
+            case "outi"_op: {
+                require(ins, -1, 1);
+                out.Op = EVMOp::OutI64;
+                break;
+            }
+            case "outf"_op: {
+                require(ins, -1, 1);
+                out.Op = EVMOp::OutF64;
+                break;
+            }
+            case "outs"_op: {
+                require(ins, -1, 1);
+                out.Op = EVMOp::OutS;
+                break;
+            }
             default:
                 throw std::runtime_error("Unknown instruction in CompileUltraLow: " + ins.Op.ToString());
         }

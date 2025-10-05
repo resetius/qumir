@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <memory>
 #include <cstddef>
+#include <set>
 
 #include "type.h"
 
@@ -148,6 +149,7 @@ struct TFunction {
     std::vector<TSlot> Slots;
     std::vector<TBlock> Blocks;
     std::vector<int> TmpTypes; // TmpId -> TypeId
+    std::set<std::string> StringLiterals; // unique string literals used in the function
     int ReturnTypeId = -1;
 
     int SymId;
@@ -179,6 +181,8 @@ struct TModule {
         }
         return SlotTypes[slotId];
     }
+
+    TFunction* GetFunctionByName(const std::string& name);
     void Print(std::ostream& out) const;
 };
 
@@ -203,6 +207,7 @@ public:
     void UnifyTypes(TTmp left, TTmp right);
     void SetReturnType(int typeId);
     void Emit0(TOp op, std::initializer_list<TOperand> operands);
+    void* StringLiteral(const std::string& str);
 
     // Returns true if the last instruction in the current block unconditionally
     // or conditionally transfers control (e.g., jmp, ret, cmp), so no more

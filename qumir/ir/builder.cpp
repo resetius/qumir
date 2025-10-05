@@ -115,6 +115,16 @@ void TModule::Print(std::ostream& out) const
     }
 }
 
+TFunction* TModule::GetFunctionByName(const std::string& name)
+{
+    for (auto& f : Functions) {
+        if (f.Name == name) {
+            return &f;
+        }
+    }
+    return nullptr;
+}
+
 TBuilder::TBuilder(TModule& m)
     : Module(m)
 {
@@ -333,6 +343,14 @@ void TBuilder::SetReturnType(int typeId) {
         throw std::runtime_error("No current function");
     }
     CurrentFunction->ReturnTypeId = typeId;
+}
+
+void* TBuilder::StringLiteral(const std::string& str) {
+    if (!CurrentFunction) {
+        throw std::runtime_error("No current function");
+    }
+    auto [it, _] = CurrentFunction->StringLiterals.emplace(str);
+    return (void*)it->c_str();
 }
 
 } // namespace NIR

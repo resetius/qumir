@@ -2,5 +2,5 @@
   (FunDecl $<main> () -> <Void>
     (Block
       (Var $i:<Int>)
-      (Input
+      (Input:<Void>
         ($i)))))

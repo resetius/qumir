@@ -63,6 +63,11 @@ enum class EVMOp : uint8_t {
     Call,
     Ret,
     RetVoid,
+
+    // input/output
+    OutI64,
+    OutF64,
+    OutS, // c-string literal
 };
 
 struct TUntypedImm {

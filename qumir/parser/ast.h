@@ -470,7 +470,9 @@ struct TInputExpr : TExpr {
     TInputExpr(TLocation loc, std::vector<TExprPtr> a)
         : TExpr(std::move(loc))
         , Args(std::move(a))
-    { }
+    {
+        Type = std::make_shared<TVoidType>();
+    }
 
     std::vector<TExprPtr> Children() const override {
         std::vector<TExprPtr> result;
@@ -493,7 +495,9 @@ struct TOutputExpr : TExpr {
     TOutputExpr(TLocation loc, std::vector<TExprPtr> a)
         : TExpr(std::move(loc))
         , Args(std::move(a))
-    { }
+    {
+        Type = std::make_shared<TVoidType>();
+    }
 
     std::vector<TExprPtr> Children() const override {
         std::vector<TExprPtr> result;

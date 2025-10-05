@@ -18,7 +18,7 @@ public:
         : Module(module), Builder(builder), Context(ctx)
     {}
 
-    std::expected<TFunction*, TError> LowerTopRepl(const NAst::TExprPtr& expr); // always returns `__repl` function
+    std::expected<TFunction*, TError> LowerTop(const NAst::TExprPtr& expr);
 
 private:
     struct TBlockScope {

@@ -5,6 +5,7 @@
 #include <cassert>
 #include <sstream>
 #include <cstring>
+#include <iomanip>
 
 namespace NQumir {
 namespace NIR {
@@ -48,8 +49,8 @@ inline int64_t EvalAlu(TFrame& f, const TVMInstr& instr, T lambda) {
 
 } // namespace
 
-TInterpreter::TInterpreter(TModule& module, TRuntime& runtime)
-    : Module(module), Runtime(runtime), Compiler(module)
+TInterpreter::TInterpreter(TModule& module, TRuntime& runtime, std::ostream& out)
+    : Module(module), Runtime(runtime), Compiler(module), Out(out)
 { }
 
 std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<int64_t> args) {
@@ -352,6 +353,25 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                 if (retVal.has_value()) {
                     linkFrame.Tmps[link.CallerDst] = *retVal;
                 }
+            }
+            break;
+        }
+        case EVMOp::OutI64: {
+            int64_t val = ReadOperand(frame, instr.Operands[0]);
+            Out << val;
+            break;
+        }
+        case EVMOp::OutF64: {
+            double val = ReadOperand<double>(frame, instr.Operands[0]);
+            Out << std::setprecision(15) << val;
+            break;
+        }
+        case EVMOp::OutS: {
+            int64_t ptr = ReadOperand<int64_t>(frame, instr.Operands[0]);
+            if (ptr != 0) {
+                Out << (const char*)(intptr_t)ptr;
+            } else {
+                Out << "(null)";
             }
             break;
         }

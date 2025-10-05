@@ -7,7 +7,7 @@
         (1:<Int>))
       ($j =
         (2:<Int>))
-      (Output
+      (Output:<Void>
         ($i)
         (" ":<String>)
         ("\n":<String>)))))

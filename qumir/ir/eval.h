@@ -4,6 +4,7 @@
 #include "vmcompiler.h"
 
 #include <cstdint>
+#include <ostream>
 #include <vector>
 
 namespace NQumir {
@@ -40,13 +41,14 @@ struct TReturnLink {
 
 class TInterpreter {
 public:
-    TInterpreter(TModule& module, TRuntime& runtime);
+    TInterpreter(TModule& module, TRuntime& runtime, std::ostream& out);
 
     std::optional<std::string> Eval(TFunction& function, std::vector<int64_t> args);
 
 private:
     //TExecFunc Compile(TFunction& function);
 
+    std::ostream& Out;
     TModule& Module;
     TRuntime& Runtime;
     TVMCompiler Compiler;

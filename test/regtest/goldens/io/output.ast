@@ -4,5 +4,5 @@
       (Var $i:<Int>)
       ($i =
         (1:<Int>))
-      (Output
+      (Output:<Void>
         ($i)))))
