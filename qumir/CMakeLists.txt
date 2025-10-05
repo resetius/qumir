@@ -11,6 +11,8 @@ add_library(qumir
     parser/type.cpp
     semantics/name_resolution/name_resolver.h
     semantics/name_resolution/name_resolver.cpp
+    semantics/type_annotation/type_annotation.h
+    semantics/type_annotation/type_annotation.cpp
     error.h
     error.cpp
     location.h
