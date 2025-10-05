@@ -9,6 +9,18 @@ add_library(qumir
     parser/parser.cpp
     parser/type.h
     parser/type.cpp
+    ir/lowering/lower_ast.h
+    ir/lowering/lower_ast.cpp
+    ir/builder.h
+    ir/builder.cpp
+    ir/eval.h
+    ir/eval.cpp
+    ir/type.h
+    ir/type.cpp
+    ir/vmcompiler.h
+    ir/vmcompiler.cpp
+    ir/vminstr.h
+    ir/vminstr.cpp
     semantics/name_resolution/name_resolver.h
     semantics/name_resolution/name_resolver.cpp
     semantics/type_annotation/type_annotation.h

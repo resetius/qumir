@@ -1,0 +1,436 @@
+#include "lower_ast.h"
+#include "qumir/ir/builder.h"
+#include "qumir/parser/parser.h"
+
+#include <iostream>
+#include <sstream>
+#include <cassert>
+
+namespace NQumir {
+namespace NIR {
+
+using namespace NLiterals;
+
+TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& expr, TBlockScope scope) {
+    if (auto maybeNum = NAst::TMaybeNode<NAst::TNumberExpr>(expr)) {
+        auto num = maybeNum.Cast();
+        if (num->IsFloat) {
+            co_return TValueWithBlock{ TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .IsFloat = true}, Builder.CurrentBlockLabel() };
+        } else {
+            co_return TValueWithBlock{ TImm{.Value = num->IntValue, .IsFloat = false}, Builder.CurrentBlockLabel() };
+        }
+    } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
+        // Evaluate a block: value is the value of the last statement (or void if none)
+        std::optional<TOperand> last;
+        auto block = maybeBlock.Cast();
+        auto newScope = scope;
+        newScope.Id = NSemantics::TScopeId{block->Scope};
+        for (auto& s : block->Stmts) {
+            auto r = co_await Lower(s, newScope);
+            last = r.Value;
+        }
+        co_return TValueWithBlock{ last, Builder.CurrentBlockLabel() };
+    } else if (auto maybeUnary = NAst::TMaybeNode<NAst::TUnaryExpr>(expr)) {
+        auto unary = maybeUnary.Cast();
+        auto operand = co_await Lower(unary->Operand, scope);
+        if (!operand.Value) co_return TError(unary->Operand->Location, "operand of unary must be a number");
+        if (unary->Operator == '-') {
+            auto tmp = Builder.Emit1("neg"_op, {*operand.Value});
+            Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
+            co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
+        }
+        co_return TValueWithBlock{ operand.Value, operand.ProducingLabel };
+    } else if (auto maybeBinary = NAst::TMaybeNode<NAst::TBinaryExpr>(expr)) {
+        auto binary = maybeBinary.Cast();
+        bool isLazy = (binary->Operator == "&&"_op || binary->Operator == "||"_op);
+        auto leftRes = co_await Lower(binary->Left, scope);
+        auto leftNum = leftRes.Value;
+
+        std::optional<TOperand> rightNum;
+        if (!isLazy) {
+            auto rres = co_await Lower(binary->Right, scope);
+            rightNum = rres.Value;
+        }
+        if (!leftNum) co_return TError(binary->Location, "binary operands must be numbers");
+        if (!isLazy && !rightNum) co_return TError(binary->Location, "binary operands must be numbers");
+
+        switch ((uint64_t)binary->Operator) {
+            case "&&"_op: {
+                // Short-circuit AND using single end block + phi2 with real producing blocks.
+                // Evaluate left expression first (already done: leftNum) and capture its producing block.
+                auto leftProducingLabel = leftRes.ProducingLabel; // block where left value was produced
+
+                // Normalize left operand to a register if it's an immediate.
+                if (leftNum->Type == TOperand::EType::Imm) {
+                    *leftNum = Builder.Emit1("cmov"_op, {*leftNum});
+                    Builder.SetType(leftNum->Tmp, FromAstType(expr->Type, Module.Types));
+                }
+
+                // Create blocks for RHS evaluation and the end/merge.
+                auto [rhsLabel, rhsId] = Builder.NewBlock();
+                auto endLabel = Builder.NewLabel();
+
+                // Emit branch on left: if true -> rhs; if false -> end.
+                Builder.SetCurrentBlock(leftProducingLabel);
+                Builder.Emit0("cmp"_op, {*leftNum, rhsLabel, endLabel});
+                auto leftEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left is false
+
+                // RHS path
+                Builder.SetCurrentBlock(rhsId);
+                auto r = co_await Lower(binary->Right, scope);
+                if (!r.Value) co_return TError(binary->Right->Location, "binary operands must be numbers");
+                if (r.Value->Type == TOperand::EType::Imm) {
+                    *r.Value = Builder.Emit1("cmov"_op, {*r.Value});
+                    Builder.SetType(r.Value->Tmp, FromAstType(expr->Type, Module.Types));
+                }
+                // Record truth of RHS (both edges go to end)
+                Builder.Emit0("cmp"_op, {*r.Value, endLabel, endLabel});
+                auto rightEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was true
+
+                // End/merge block and phi2 selecting left(on false) vs right(on true)
+                Builder.NewBlock(endLabel);
+                auto res = Builder.Emit1("phi2"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
+                Builder.SetType(res, FromAstType(expr->Type, Module.Types));
+                Builder.UnifyTypes(res, leftNum->Tmp);
+                Builder.UnifyTypes(res, r.Value->Tmp);
+                co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
+            }
+            case "||"_op: {
+                // Short-circuit OR using single end block + phi2 with real producing blocks.
+                auto leftProducingLabel = leftRes.ProducingLabel;
+                if (leftNum->Type == TOperand::EType::Imm) {
+                    *leftNum = Builder.Emit1("cmov"_op, {*leftNum});
+                    Builder.SetType(leftNum->Tmp, FromAstType(expr->Type, Module.Types));
+                }
+
+                auto [rhsLabel, rhsId] = Builder.NewBlock();
+                auto endLabel = Builder.NewLabel();
+
+                // If left is true -> end; else -> rhs
+                Builder.SetCurrentBlock(leftProducingLabel);
+                Builder.Emit0("cmp"_op, {*leftNum, endLabel, rhsLabel});
+                auto leftEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was true
+
+                Builder.SetCurrentBlock(rhsId);
+                auto r = co_await Lower(binary->Right, scope);
+                if (!r.Value) co_return TError(binary->Right->Location, "binary operands must be numbers");
+                if (r.Value->Type == TOperand::EType::Imm) {
+                    *r.Value = Builder.Emit1("cmov"_op, {*r.Value});
+                    Builder.SetType(r.Value->Tmp, FromAstType(expr->Type, Module.Types));
+                }
+                Builder.Emit0("cmp"_op, {*r.Value, endLabel, endLabel});
+                auto rightEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was false
+
+                Builder.NewBlock(endLabel);
+                Builder.UnifyTypes(leftNum->Tmp, r.Value->Tmp);
+                auto res = Builder.Emit1("phi2"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
+                Builder.SetType(res, FromAstType(expr->Type, Module.Types));
+                Builder.UnifyTypes(res, leftNum->Tmp);
+                Builder.UnifyTypes(res, r.Value->Tmp);
+                co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
+            }
+            default:
+                {
+                    if (leftNum->Type == TOperand::EType::Tmp && rightNum->Type == TOperand::EType::Tmp) {
+                        auto leftType = Builder.GetType(leftNum->Tmp);
+                        auto rightType = Builder.GetType(rightNum->Tmp);
+                        if (leftType != rightType) {
+                            // unify types
+                            auto unified = Module.Types.Unify(leftType, rightType);
+                            // tf64 : int -> float64
+                            // tf32 : int -> float32
+                            if (!Module.Types.IsFloat(leftType) && Module.Types.IsFloat(unified)) {
+                                auto casted = Builder.Emit1("i2f"_op, {*leftNum});
+                                Builder.SetType(casted, unified);
+                                leftNum = casted;
+                            }
+                            if (!Module.Types.IsFloat(rightType) && Module.Types.IsFloat(unified)) {
+                                auto casted = Builder.Emit1("i2f"_op, {*rightNum});
+                                Builder.SetType(casted, unified);
+                                rightNum = casted;
+                            }
+                        }
+                    }
+                    auto tmp = Builder.Emit1((uint32_t)binary->Operator.Value /* ast op to ir op mapping */, {*leftNum, *rightNum});
+                    Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
+                    co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
+                }
+        }
+    } else if (auto maybeIfe = NAst::TMaybeNode<NAst::TIfExpr>(expr)) {
+        auto ife = maybeIfe.Cast();
+        auto cond = co_await Lower(ife->Cond, scope);
+        if (!cond.Value) co_return TError(ife->Cond->Location, "if condition must be a number");
+
+        auto entryId = Builder.CurrentBlockIdx();
+        auto currentLabel = Builder.CurrentBlockLabel();
+        auto [thenLabel, thenId] = Builder.NewBlock();
+        auto [elseLabel, elseId] = Builder.NewBlock();
+
+        auto endLabel = Builder.NewLabel();
+
+        // Branch on condition
+        Builder.SetCurrentBlock(entryId);
+        Builder.Emit0("cmp"_op, {*cond.Value, thenLabel, elseLabel});
+
+        // Then branch
+        Builder.SetCurrentBlock(thenId);
+        auto thenRes = co_await Lower(ife->Then, scope);
+        if (!thenRes.Value) co_return TError(ife->Then->Location, "if-then must produce a value");
+        if (thenRes.Value->Type == TOperand::EType::Imm) {
+            *thenRes.Value = Builder.Emit1("cmov"_op, {*thenRes.Value});
+            Builder.SetType(thenRes.Value->Tmp, FromAstType(expr->Type, Module.Types));
+        }
+        if (!Builder.IsCurrentBlockTerminated()) {
+            Builder.Emit0("jmp"_op, {endLabel});
+        }
+        auto thenProducing = Builder.CurrentBlockLabel();
+
+        // Else branch
+        Builder.SetCurrentBlock(elseId);
+        auto elseRes = co_await Lower(ife->Else, scope);
+        if (!elseRes.Value) co_return TError(ife->Else->Location, "if-else must produce a value");
+        if (elseRes.Value->Type == TOperand::EType::Imm) {
+            *elseRes.Value = Builder.Emit1("cmov"_op, {*elseRes.Value});
+            Builder.SetType(elseRes.Value->Tmp, FromAstType(expr->Type, Module.Types));
+        }
+        if (!Builder.IsCurrentBlockTerminated()) {
+            Builder.Emit0("jmp"_op, {endLabel});
+        }
+        auto elseProducing = Builder.CurrentBlockLabel();
+
+        // End: phi2(elseVal, thenVal) with preds [elseBB, thenBB]
+        Builder.NewBlock(endLabel);
+        auto res = Builder.Emit1("phi2"_op, {*elseRes.Value, elseProducing, *thenRes.Value, thenProducing});
+        Builder.SetType(res, FromAstType(expr->Type, Module.Types));
+        Builder.UnifyTypes(res, elseRes.Value->Tmp);
+        Builder.UnifyTypes(res, thenRes.Value->Tmp);
+        co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
+    } else if (NAst::TMaybeNode<NAst::TBreakStmt>(expr)) {
+        if (!scope.BreakLabel) {
+            co_return TError(expr->Location, "break not in a loop");
+        }
+        // terminate current block by jumping to the break target
+        Builder.Emit0("jmp"_op, {*scope.BreakLabel});
+        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+    } else if (NAst::TMaybeNode<NAst::TContinueStmt>(expr)) {
+        if (!scope.ContinueLabel) {
+            co_return TError(expr->Location, "continue not in a loop");
+        }
+        // terminate current block by jumping to the continue target
+        Builder.Emit0("jmp"_op, {*scope.ContinueLabel});
+        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+    } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(expr)) {
+        auto asg = maybeAsg.Cast();
+        auto rhs = co_await Lower(asg->Value, scope);
+        if (!rhs.Value) co_return TError(asg->Value->Location, "right-hand side of assignment must be a number");
+        auto sidOpt = Context.Lookup(asg->Name, scope.Id);
+        if (!sidOpt) co_return TError(asg->Location, "assignment to undefined");
+
+        auto storeSlot = TSlot{sidOpt->Id};
+        auto node = Context.GetSymbolNode(*sidOpt);
+        auto slotType = FromAstType(node->Type, Module.Types);
+        Builder.SetType(storeSlot, slotType);
+
+        if (rhs.Value->Type == TOperand::EType::Imm) {
+            // cast immediate to a register before storing (for cast)
+            if (rhs.Value->Imm.IsFloat && Module.Types.IsInteger(slotType)) {
+                *rhs.Value = Builder.Emit1("cmov"_op, {*rhs.Value});
+                Builder.SetType(rhs.Value->Tmp, FromAstType(expr->Type, Module.Types));
+            } else if (rhs.Value->Imm.IsFloat == false && Module.Types.IsFloat(slotType)) {
+                *rhs.Value = Builder.Emit1("i2f"_op, {*rhs.Value});
+                Builder.SetType(rhs.Value->Tmp, FromAstType(expr->Type, Module.Types));
+            }
+        }
+        Builder.Emit0("stre"_op, {storeSlot, *rhs.Value});
+        co_return TValueWithBlock{ rhs.Value, Builder.CurrentBlockLabel() };
+    } else if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(expr)) {
+        auto ident = maybeIdent.Cast();
+        auto sidOpt = Context.Lookup(ident->Name, scope.Id);
+        if (!sidOpt) co_return TError(ident->Location, std::string("undefined name: ") + ident->Name);
+
+        auto loadSlot = TSlot{sidOpt->Id};
+        auto node = Context.GetSymbolNode(*sidOpt);
+        // we don't set type of loadSlot here, as it was typed on store
+        auto tmp = Builder.Emit1("load"_op, {loadSlot});
+        Builder.SetType(tmp, FromAstType(node->Type, Module.Types));
+        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
+    } else if (NAst::TMaybeNode<NAst::TVarStmt>(expr)) {
+        // do nothing
+        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+    } else if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(expr)) {
+        auto fun = maybeFun.Cast();
+        auto name = fun->Name;
+        if (scope.Id.Id != 0) {
+            // Nested function: qualify name with scope id to avoid collisions
+            name += "@s" + std::to_string(scope.Id.Id);
+        }
+        auto params = fun->Params;
+        auto body = fun->Body;
+        auto type = NAst::TMaybeType<NAst::TFunctionType>(fun->Type).Cast();
+        // Explicit symbol lookup (synchronous) instead of co_await on optionals.
+        // Prefer direct decl binding (robust for nested functions where scope.Id may not be the decl scope).
+        auto sidOpt = Context.Lookup(fun->Name, scope.Id);
+        if (!sidOpt) {
+            co_return TError(fun->Location, std::string("unbound function symbol '") + fun->Name + "' in scope " + std::to_string(scope.Id.Id) );
+        }
+        auto funScope = fun->Body->Scope;
+        std::vector<TSlot> paramSlots; paramSlots.reserve(params.size());
+        int i = 0;
+        for (auto& p : params) {
+            auto psid = Context.Lookup(p->Name, NSemantics::TScopeId{funScope});
+            if (!psid) {
+                co_return TError(p->Location, "parameter has no binding");
+            }
+            auto slot = TSlot{ psid->Id };
+            if (type) {
+                Builder.SetType(slot, FromAstType(type->ParamTypes[i], Module.Types));
+            }
+            paramSlots.push_back(slot);
+            i++;
+        }
+
+        auto currentFuncIdx = Builder.CurrentFunctionIdx();
+        auto funcIdx = Builder.NewFunction(name, paramSlots, sidOpt->Id);
+        Builder.SetReturnType(FromAstType(fun->RetType, Module.Types));
+
+        auto loweredBody = co_await Lower(body, TBlockScope {
+            .FuncIdx = funcIdx,
+            .Id = NSemantics::TScopeId{funScope},
+            .BreakLabel = std::nullopt,
+            .ContinueLabel = std::nullopt
+        });
+        if (loweredBody.Value) {
+            Builder.Emit0("ret"_op, {*loweredBody.Value});
+        } else {
+            Builder.Emit0("ret"_op, {});
+        }
+        Builder.SetCurrentFunction(currentFuncIdx);
+        co_return TValueWithBlock{ TImm(sidOpt->Id), Builder.CurrentBlockLabel() };
+    } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(expr)) {
+        auto call = maybeCall.Cast();
+        // Evaluate callee and perform a function call.
+
+        int32_t calleeSymId = -1;
+        if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(call->Callee)) {
+            auto ident = maybeIdent.Cast();
+            auto sidOpt = Context.Lookup(ident->Name, scope.Id);
+            if (!sidOpt) co_return TError(ident->Location, std::string("undefined function: ") + ident->Name);
+            calleeSymId = sidOpt->Id;
+            // Ensure it's a function
+            const auto& syms = Context.GetSymbols();
+            if (sidOpt->Id < 0 || static_cast<size_t>(sidOpt->Id) >= syms.size()) co_return TError(ident->Location, "invalid function");
+            if (!NAst::TMaybeNode<NAst::TFunDecl>(syms[sidOpt->Id].Node)) {
+                co_return TError(ident->Location, "not a function");
+            }
+            // get args and prepare func call
+        } else {
+            auto sid = co_await Lower(call->Callee, scope);
+            if (!sid.Value) co_return TError(call->Callee->Location, "invalid lambda function");
+            assert(sid.Value->Type == TOperand::EType::Imm && "lambda lowering must yield Imm(id)");
+            calleeSymId = sid.Value->Imm.Value;
+        }
+
+        auto funDecl = NAst::TMaybeNode<NAst::TFunDecl>(Context.GetSymbolNode(NSemantics::TSymbolId{calleeSymId})).Cast();
+        NAst::TTypePtr returnType = funDecl->RetType;
+        std::vector<NAst::TTypePtr>* argTypes = nullptr;
+        if (auto maybeFuncType = NAst::TMaybeType<NAst::TFunctionType>(funDecl->Type)) {
+            argTypes = &maybeFuncType.Cast()->ParamTypes;
+        }
+
+        std::vector<TOperand> argv;
+        argv.reserve(call->Args.size());
+        int i = 0;
+        for (auto& a : call->Args) {
+            auto av = co_await Lower(a, scope);
+            if (!av.Value) co_return TError(a->Location, "invalid argument");
+            if (argTypes) {
+                const auto& argType = (*argTypes)[i++];
+                if (av.Value->Type == TOperand::EType::Imm) {
+                    auto maybeFloat = NAst::TMaybeType<NAst::TFloatType>(argType);
+                    if (maybeFloat && av.Value->Imm.IsFloat == false) {
+                        // Argument is a float but was lowered to int: convert
+                        double tmp = static_cast<double>(av.Value->Imm.Value);
+                        av.Value = TImm{.Value = std::bit_cast<int64_t>(tmp), .IsFloat = true};
+                    }
+                }
+            } else {
+                // untyped arg: accept as-is (unit tests)
+            }
+            argv.push_back(*av.Value);
+        }
+        for (auto arg : argv) {
+            Builder.Emit0("arg"_op, {arg});
+        }
+        // Decide if callee returns a value (non-void). If void -> Emit0
+        bool returnsValue = false;
+        auto maybeFunIdx = Module.SymIdToFuncIdx.find(calleeSymId);
+        if (maybeFunIdx == Module.SymIdToFuncIdx.end()) {
+            co_return TError(expr->Location, "Function not found in module");
+        }
+
+        if (returnType) {
+            if (NAst::TMaybeType<NAst::TVoidType>(returnType)) {
+                returnsValue = false;
+            } else {
+                returnsValue = true;
+            }
+        } else {
+            // backward compatibility: inspect function body for return instructions
+            // does not support recursion
+            for (const auto& block : Module.Functions[maybeFunIdx->second].Blocks) {
+                for (const auto& instr : block.Instrs) {
+                    if (instr.Op == TOp("ret") && instr.OperandCount > 0) {
+                        returnsValue = true;
+                        break;
+                    }
+                    if (instr.Op == TOp("ret") && instr.OperandCount == 0) {
+                        returnsValue = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (returnsValue) {
+            auto tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
+            Builder.SetType(tmp, FromAstType(returnType, Module.Types));
+            co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
+        } else {
+            Builder.Emit0("call"_op, {TImm{calleeSymId}});
+            co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+        }
+    } else {
+        std::ostringstream oss;
+        oss << *expr;
+        co_return TError(expr->Location,
+            std::string("not implemented: lowering for this AST node: ") + oss.str());
+    }
+}
+
+std::expected<TFunction*, TError> TAstLowerer::LowerTopRepl(const NAst::TExprPtr& expr) {
+    std::string funcName = std::string("__repl") + std::to_string(NextReplChunk++);
+    auto symbolId = Context.DeclareFunction(
+        funcName,
+        expr);
+
+    auto idx = Builder.NewFunction(funcName, {}, symbolId.Id);
+    Builder.SetReturnType(FromAstType(expr->Type, Module.Types));
+    const auto& result = Lower(expr, TBlockScope {
+        .FuncIdx = idx,
+        .Id = NSemantics::TScopeId{0}
+    }).result();
+    if (!result) {
+        return std::unexpected(result.error());
+    }
+    auto maybeOperand = result.value().Value;
+    if (maybeOperand) {
+        Builder.Emit0(TOp("ret"), {*maybeOperand});
+    } else {
+        Builder.Emit0("ret"_op, {});
+    }
+    return &Module.Functions[idx];
+}
+
+
+} // namespace NIR
+} // namespace NQumir
