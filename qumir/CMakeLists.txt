@@ -9,6 +9,8 @@ add_library(qumir
     parser/parser.cpp
     parser/type.h
     parser/type.cpp
+    semantics/name_resolution/name_resolver.h
+    semantics/name_resolution/name_resolver.cpp
     error.h
     error.cpp
     location.h
