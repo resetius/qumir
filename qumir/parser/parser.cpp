@@ -489,6 +489,26 @@ TAstTask for_loop(TTokenStream& stream) {
 }
 
 /*
+  нц пока условие
+    body
+  кц
+ */
+TAstTask while_loop(TTokenStream& stream) {
+    auto location = stream.GetLocation();
+
+    auto cond = co_await expr(stream);
+
+    auto body = co_await stmt_list(stream, { EKeyword::LoopEnd });
+
+    auto endTok = co_await stream.Next();
+    if (!(endTok.Type == TToken::Keyword && static_cast<EKeyword>(endTok.Value.i64) == EKeyword::LoopEnd)) {
+        co_return TError(endTok.Location, "ожидалось 'кц' в конце оператора 'пока'");
+    }
+
+    co_return std::make_shared<TLoopStmtExpr>(location, cond, nullptr, body, nullptr, nullptr);
+}
+
+/*
 If ::= 'если' Expr EOL* 'то' EOL* StmtList OptElse 'все'
 OptElse ::= EOL* 'иначе' EOL* StmtList | ε
 // Примечания:
@@ -743,6 +763,8 @@ TAstTask stmt(TTokenStream& stream) {
         auto next = co_await stream.Next();
         if (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::For) {
             co_return co_await for_loop(stream);
+        } else if (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::While) {
+            co_return co_await while_loop(stream);
         } else {
             co_return TError(next.Location, "ожидалось 'для' после 'цикл'");
         }

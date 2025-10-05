@@ -35,6 +35,7 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"лит", EKeyword::String},
     {"таб", EKeyword::Array},
     {"для", EKeyword::For},
+    {"пока", EKeyword::While},
     {"от", EKeyword::From},
     {"до", EKeyword::To},
     {"шаг", EKeyword::Step},

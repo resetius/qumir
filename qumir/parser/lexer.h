@@ -39,6 +39,7 @@ enum class EKeyword : uint8_t {
     String,
     Array,
     For,
+    While,
     From,
     To,
     Step,
