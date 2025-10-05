@@ -1,0 +1,13 @@
+(Block
+  (FunDecl $<main> () -> <Void>
+    (Block
+      (Var $i:<Int>)
+      (Var $j:<Int>)
+      ($i =
+        (1:<Int>))
+      ($j =
+        (2:<Int>))
+      (Output
+        ($i)
+        (" ":<String>)
+        ("\n":<String>)))))

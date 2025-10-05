@@ -155,6 +155,42 @@ struct TNumberExpr : TExpr {
     }
 };
 
+// c-style const char* string literal
+struct TStringLiteralExpr : TExpr {
+    static constexpr const char* NodeId = "StringLiteral";
+
+    std::string Value;
+    explicit TStringLiteralExpr(TLocation loc, std::string v)
+        : TExpr(std::move(loc)), Value(std::move(v))
+    {
+        Type = std::make_shared<TStringType>();
+    }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+
+    const std::string ToString() const override {
+        // For simplicity, output escaped string:
+        std::string escaped; escaped.reserve(Value.size());
+        // Escape special characters
+        for (size_t i = 0; i < Value.size(); ++i) {
+            if (Value[i] == '\"') {
+                escaped.insert(i, "\\");
+            } else if (Value[i] == '\\') {
+                escaped.insert(i, "\\");
+            } else if (Value[i] == '\n') {
+                escaped.insert(i, "\\n");
+            } else if (Value[i] == '\t') {
+                escaped.insert(i, "\\t");
+            } else {
+                escaped.push_back(Value[i]);
+            }
+        }
+        return "\"" + escaped + "\"";
+    }
+};
+
 struct TUnaryExpr : TExpr {
     static constexpr const char* NodeId = "Unary";
 
@@ -416,6 +452,52 @@ struct TCallExpr : TExpr {
         std::vector<TExprPtr> result;
         result.reserve(1 + Args.size());
         result.push_back(Callee);
+        for (const auto& arg : Args) {
+            result.push_back(arg);
+        }
+        return result;
+    }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+};
+
+struct TInputExpr : TExpr {
+    static constexpr const char* NodeId = "Input";
+
+    std::vector<TExprPtr> Args;
+    TInputExpr(TLocation loc, std::vector<TExprPtr> a)
+        : TExpr(std::move(loc))
+        , Args(std::move(a))
+    { }
+
+    std::vector<TExprPtr> Children() const override {
+        std::vector<TExprPtr> result;
+        result.reserve(Args.size());
+        for (const auto& arg : Args) {
+            result.push_back(arg);
+        }
+        return result;
+    }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+};
+
+struct TOutputExpr : TExpr {
+    static constexpr const char* NodeId = "Output";
+
+    std::vector<TExprPtr> Args;
+    TOutputExpr(TLocation loc, std::vector<TExprPtr> a)
+        : TExpr(std::move(loc))
+        , Args(std::move(a))
+    { }
+
+    std::vector<TExprPtr> Children() const override {
+        std::vector<TExprPtr> result;
+        result.reserve(Args.size());
         for (const auto& arg : Args) {
             result.push_back(arg);
         }

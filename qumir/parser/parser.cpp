@@ -688,6 +688,33 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_arg_list_opt(TToke
     co_return args;
 }
 
+// Parse input/output operator list - i.e. arguments for 'ввод'/'вывод' separated by commas, without surrounding parentheses
+TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_io_arg_list_opt(TTokenStream& stream) {
+    std::vector<TExprPtr> args;
+    auto tok = co_await stream.Next();
+    if (tok.Type == TToken::Operator && (EOperator)tok.Value.i64 == EOperator::Eol) {
+        co_return args; // empty
+    }
+    stream.Unget(tok);
+    // first expr
+    auto e = co_await expr(stream);
+    args.push_back(std::move(e));
+    while (true) {
+        auto t = co_await stream.Next();
+        if (t.Type == TToken::Operator && (EOperator)t.Value.i64 == EOperator::Eol) {
+            break;
+        }
+        if (t.Type == TToken::Operator && (EOperator)t.Value.i64 == EOperator::Comma) {
+            auto e2 = co_await expr(stream);
+            args.push_back(std::move(e2));
+            continue;
+        }
+        stream.Unget(t);
+        co_return TError(stream.GetLocation(), "ожидается ',' или конец строки в списке аргументов ввода/вывода");
+    }
+    co_return args;
+}
+
 /*
 Factor/Primary ::= Number | Ident | ( Expr ) | fun
 */
@@ -697,6 +724,10 @@ TAstTask factor(TTokenStream& stream) {
         co_return num(token.Location, token.Value.i64);
     } else if (token.Type == TToken::Float) {
         co_return num(token.Location, token.Value.f64);
+    } else if (token.Type == TToken::Keyword && static_cast<EKeyword>(token.Value.i64) == EKeyword::NewLine) {
+        co_return std::make_shared<TStringLiteralExpr>(token.Location, "\n");
+    } else if (token.Type == TToken::String) {
+        co_return std::make_shared<TStringLiteralExpr>(token.Location, token.Name);
     } else if (token.Type == TToken::Identifier) {
         co_return ident(token.Location, token.Name);
     } else if (token.Type == TToken::Operator) {
@@ -884,6 +915,16 @@ TAstTask stmt(TTokenStream& stream) {
         }
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Switch) {
         co_return co_await switch_expr(stream);
+    } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Input) {
+        auto args = co_await parse_io_arg_list_opt(stream);
+        co_return std::make_shared<TInputExpr>(first->Location, std::move(args));
+    } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Output) {
+        auto args = co_await parse_io_arg_list_opt(stream);
+        co_return std::make_shared<TOutputExpr>(first->Location, std::move(args));
+    } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Break) {
+        co_return std::make_shared<TBreakStmt>(first->Location);
+    } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Continue) {
+        co_return std::make_shared<TContinueStmt>(first->Location);
     } else if (first->Type == TToken::Identifier) {
         auto next = co_await stream.Next();
         if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Assign) {
