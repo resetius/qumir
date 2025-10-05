@@ -8,6 +8,7 @@
 
 #include <qumir/parser/lexer.h>
 #include <qumir/parser/parser.h>
+#include <qumir/semantics/name_resolution/name_resolver.h>
 
 using namespace NQumir;
 namespace fs = std::filesystem;
@@ -66,6 +67,11 @@ std::string BuildAst(NAst::TTokenStream& ts) {
     auto parsed = p.parse(ts);
     if (!parsed) {
         return "Error: " + parsed.error().ToString() + "\n";
+    }
+    NSemantics::TNameResolver nr;
+    auto res = nr.Resolve(*parsed);
+    if (res) {
+        return "Name resolution error: " + res->ToString() + "\n";
     }
 
     std::ostringstream out;

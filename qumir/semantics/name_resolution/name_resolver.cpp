@@ -50,6 +50,7 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope) {
     }
 
     for (const auto& child : node->Children()) {
+        if (child == nullptr) continue; // LoopExpr may have null children
         co_await Resolve(child, scope);
     }
 
