@@ -37,6 +37,29 @@ std::ostream& Print_(std::ostream& out, const TImm& i, int, const TTypeTable& tt
     out << "imm(" << i.Value << ")";
     return out;
 }
+
+std::string Escape(const std::string& s) {
+    std::string res;
+    for (char c : s) {
+        switch (c) {
+            case '\n': res += "\\n"; break;
+            case '\t': res += "\\t"; break;
+            case '\r': res += "\\r"; break;
+            case '\"': res += "\\\""; break;
+            case '\\': res += "\\\\"; break;
+            default:
+                if (isprint(static_cast<unsigned char>(c))) {
+                    res += c;
+                } else {
+                    char buf[5];
+                    snprintf(buf, sizeof(buf), "\\x%02x", static_cast<unsigned char>(c));
+                    res += buf;
+                }
+        }
+    }
+    return res;
+}
+
 } // namespace
 
 std::ostream& operator<<(std::ostream& out, TOp op) {
@@ -68,6 +91,13 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
     out << ") { ; " << SymId << " ";
     module.Types.Print(out, ReturnTypeId);
     out << "\n";
+    if (!StringLiterals.empty()) {
+        out << "  strings {\n";
+        for (const auto& s : StringLiterals) {
+            out << "    " << (intptr_t)s.c_str() << ": \"" << Escape(s) << "\"\n";
+        }
+        out << "  }\n";
+    }
 
     auto typeId = [&](auto idx, auto& cache) -> int {
         if (idx < 0) return -1;
