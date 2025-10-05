@@ -124,6 +124,10 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             std::memcpy(&frame.Tmps[instr.Operands[0].Tmp.Idx], &tmp, sizeof(double));
             break;
         }
+        case EVMOp::INot:
+            assert(instr.Operands[0].Tmp.Idx >= 0);
+            frame.Tmps[instr.Operands[0].Tmp.Idx] = !ReadOperand(frame, instr.Operands[1]);
+            break;
 
         case EVMOp::IAdd:
             assert(instr.Operands[0].Tmp.Idx >= 0);

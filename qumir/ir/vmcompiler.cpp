@@ -248,6 +248,15 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 }
                 break;
             }
+            case "!"_op: {
+                require(ins, 1, 1);
+                if (Module.Types.IsFloat(typeId(out.Operands[0].Tmp))) {
+                    throw std::runtime_error("Logical not '!' is not defined for float types");
+                } else {
+                    out.Op = EVMOp::INot;
+                }
+                break;
+            }
             case "jmp"_op: {
                 require(ins, -1, 1);
                 out.Op = EVMOp::Jmp;

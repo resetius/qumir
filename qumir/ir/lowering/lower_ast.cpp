@@ -12,6 +12,107 @@ namespace NIR {
 
 using namespace NLiterals;
 
+TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope)
+{
+    if (loop->PreBody == nullptr && loop->PostBody == nullptr && loop->PostCond == nullptr) {
+        // while-style loop
+        co_return co_await LowerWhileLoop(loop, scope);
+    }
+
+    if (loop->PreBody == nullptr && loop->PostBody == nullptr && loop->PreCond == nullptr) {
+        // repeat-until style loop
+        co_return co_await LowerRepeatLoop(loop, scope);
+    }
+
+    co_return TError(loop->Location, "only while-style loops are supported");
+}
+
+TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerWhileLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope)
+{
+    if (loop->PreCond == nullptr) {
+        co_return TError(loop->Location, "while loop must have a condition");
+    }
+
+    auto entryId = Builder.CurrentBlockIdx();
+    auto [condLabel, condId] = Builder.NewBlock();
+    auto [bodyLabel, bodyId] = Builder.NewBlock();
+    // Reserve end label now; place the actual end block at the end
+    auto endLabel = Builder.NewLabel();
+
+    // Jump to condition check first
+    Builder.SetCurrentBlock(entryId);
+    Builder.Emit0("jmp"_op, {condLabel});
+
+    // Condition check
+    Builder.SetCurrentBlock(condId);
+    auto cond = co_await Lower(loop->PreCond, scope);
+    if (!cond.Value) co_return TError(loop->PreCond->Location, "while condition must be a number");
+    Builder.Emit0("cmp"_op, {*cond.Value, bodyLabel, endLabel});
+
+    // Body
+    Builder.SetCurrentBlock(bodyId);
+    co_await Lower(loop->Body, TBlockScope {
+        .FuncIdx = scope.FuncIdx,
+        .Id = scope.Id,
+        .BreakLabel = endLabel,
+        .ContinueLabel = condLabel
+    });
+    // After body, go back to condition if body didn't already jump/return
+    if (!Builder.IsCurrentBlockTerminated()) {
+        Builder.Emit0("jmp"_op, {condLabel});
+    }
+
+    // End: materialize the end block at the very end
+    Builder.NewBlock(endLabel);
+    co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+}
+
+TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerForLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope)
+{
+    co_return TError(loop->Location, "for loops are not yet implemented");
+}
+
+TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerRepeatLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope)
+{
+    if (loop->PostCond == nullptr) {
+        co_return TError(loop->Location, "repeat-until loop must have a condition");
+    }
+
+    // Create blocks for body and condition
+    auto entryId = Builder.CurrentBlockIdx();
+    auto [bodyLabel, bodyId] = Builder.NewBlock();
+    auto [condLabel, condId] = Builder.NewBlock();
+    auto endLabel = Builder.NewLabel();
+
+    // Jump to body first (do-while: body executes at least once)
+    Builder.SetCurrentBlock(entryId);
+    Builder.Emit0("jmp"_op, {bodyLabel});
+
+    // Body block
+    Builder.SetCurrentBlock(bodyId);
+    co_await Lower(loop->Body, TBlockScope {
+        .FuncIdx = scope.FuncIdx,
+        .Id = scope.Id,
+        .BreakLabel = endLabel,
+        .ContinueLabel = condLabel
+    });
+    if (!Builder.IsCurrentBlockTerminated()) {
+        Builder.Emit0("jmp"_op, {condLabel});
+    }
+
+    // Condition block
+    Builder.SetCurrentBlock(condId);
+    auto cond = co_await Lower(loop->PostCond, scope);
+    if (!cond.Value) co_return TError(loop->PostCond->Location, "repeat-until condition must be a number");
+    // If condition is true, repeat; if false, exit
+    Builder.Emit0("cmp"_op, {*cond.Value, bodyLabel, endLabel});
+
+    // End block
+    Builder.NewBlock(endLabel);
+    co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+}
+
+
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& expr, TBlockScope scope) {
     if (auto maybeNum = NAst::TMaybeNode<NAst::TNumberExpr>(expr)) {
         auto num = maybeNum.Cast();
@@ -43,6 +144,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!operand.Value) co_return TError(unary->Operand->Location, "operand of unary must be a number");
         if (unary->Operator == '-') {
             auto tmp = Builder.Emit1("neg"_op, {*operand.Value});
+            Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
+            co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
+        } else if (unary->Operator == '!'_op) {
+            auto tmp = Builder.Emit1("!"_op, {*operand.Value});
             Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
             co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
         }
@@ -215,52 +320,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
     } else if (auto maybeLoop = NAst::TMaybeNode<NAst::TLoopStmtExpr>(expr)) {
         auto loop = maybeLoop.Cast();
-
-        if (loop->PreCond == nullptr) {
-            co_return TError(loop->Location, "only while-style loops are supported");
-        }
-        if (loop->PreBody != nullptr) {
-            co_return TError(loop->Location, "only while-style loops are supported");
-        }
-        if (loop->PostBody != nullptr) {
-            co_return TError(loop->Location, "only while-style loops are supported");
-        }
-        if (loop->PostCond != nullptr) {
-            co_return TError(loop->Location, "only while-style loops are supported");
-        }
-
-        auto entryId = Builder.CurrentBlockIdx();
-        auto [condLabel, condId] = Builder.NewBlock();
-        auto [bodyLabel, bodyId] = Builder.NewBlock();
-        // Reserve end label now; place the actual end block at the end
-        auto endLabel = Builder.NewLabel();
-
-        // Jump to condition check first
-        Builder.SetCurrentBlock(entryId);
-        Builder.Emit0("jmp"_op, {condLabel});
-
-        // Condition check
-        Builder.SetCurrentBlock(condId);
-        auto cond = co_await Lower(loop->PreCond, scope);
-        if (!cond.Value) co_return TError(loop->PreCond->Location, "while condition must be a number");
-        Builder.Emit0("cmp"_op, {*cond.Value, bodyLabel, endLabel});
-
-        // Body
-        Builder.SetCurrentBlock(bodyId);
-        co_await Lower(loop->Body, TBlockScope {
-            .FuncIdx = scope.FuncIdx,
-            .Id = scope.Id,
-            .BreakLabel = endLabel,
-            .ContinueLabel = condLabel
-        });
-        // After body, go back to condition if body didn't already jump/return
-        if (!Builder.IsCurrentBlockTerminated())
-            Builder.Emit0("jmp"_op, {condLabel});
-
-        // End: materialize the end block at the very end
-        Builder.NewBlock(endLabel);
-        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
-
+        co_return co_await LowerLoop(loop, scope);
     } else if (NAst::TMaybeNode<NAst::TBreakStmt>(expr)) {
         if (!scope.BreakLabel) {
             co_return TError(expr->Location, "break not in a loop");

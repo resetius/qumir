@@ -10,6 +10,7 @@ enum class EVMOp : uint8_t {
     // TODO: add variants imm op const for simpler decoding
     // integer ALU ops
     INeg, // unary -
+    INot, // unary !
     IAdd, // +
     ISub, // -
     IMulS, // * signed

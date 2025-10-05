@@ -35,6 +35,11 @@ private:
 
     TExpectedTask<TValueWithBlock, TError, TLocation> Lower(const NAst::TExprPtr& expr, TBlockScope scope);
 
+    TExpectedTask<TValueWithBlock, TError, TLocation> LowerLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope);
+    TExpectedTask<TValueWithBlock, TError, TLocation> LowerWhileLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope);
+    TExpectedTask<TValueWithBlock, TError, TLocation> LowerForLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope);
+    TExpectedTask<TValueWithBlock, TError, TLocation> LowerRepeatLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope);
+
     TModule& Module;
     TBuilder& Builder;
     NSemantics::TNameResolver& Context;
