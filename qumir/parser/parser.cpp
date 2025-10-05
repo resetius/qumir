@@ -446,28 +446,44 @@ TAstTask for_loop(TTokenStream& stream) {
         stream.Unget(stepTok);
     }
 
-    auto block = std::make_shared<TBlockExpr>(location, std::vector<TExprPtr>{});
-
-    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__toVar", std::make_shared<TIntegerType>()));
-    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__stepVar", std::make_shared<TIntegerType>()));
-    block->Stmts.push_back(std::make_shared<TAssignExpr>(varTok.Location, varTok.Name, fromExpr)); // init
-
-    // step >= 0 => (var+step) > to
-    // step < 0 =>  (var+step) < to
-    auto plus = binary(location,
-        MakeOperator(EOperator::Plus),
-        ident(location, varTok.Name),
-        ident(location, "__stepVar"));
-    auto cond = binary(location,
-        MakeOperator(EOperator::Leq),
-        ident(location, varTok.Name),
-        ident(location, "__toVar"));
-    // var := var + step
-    auto preBody = std::make_shared<TAssignExpr>(location, varTok.Name,
-        binary(location, MakeOperator(EOperator::Plus), ident(location, varTok.Name), stepExpr));
     auto body = co_await stmt_list(stream, { EKeyword::LoopEnd });
 
-    block->Stmts.push_back(std::make_shared<TLoopStmtExpr>(location, cond, nullptr, preBody, body));
+    auto block = std::make_shared<TBlockExpr>(location, std::vector<TExprPtr>{});
+
+    auto endTok = co_await stream.Next();
+    if (!(endTok.Type == TToken::Keyword && static_cast<EKeyword>(endTok.Value.i64) == EKeyword::LoopEnd)) {
+        co_return TError(endTok.Location, "ожидалось 'кц' в конце оператора 'для'");
+    }
+
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__to", std::make_shared<TIntegerType>()));
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__step", std::make_shared<TIntegerType>()));
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__next", std::make_shared<TIntegerType>()));
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(varTok.Location, varTok.Name, fromExpr)); // var = from
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "__to", toExpr)); // __to = to
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "__step", stepExpr)); // __step = step
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "__next", ident(location, varTok.Name))); // __next = var
+
+    // pre-condition: __next <= __to (for positive step) or __next >= __to (for negative step)
+    // (__step >= 0 && __next <= __to) || (__step < 0 && __next >= __to)
+    auto preCond = binary(location, TOperator("||"),
+        binary(location, TOperator("&&"),
+            binary(location, TOperator(">="), ident(location, "__step"), num(location, (int64_t)0)),
+            binary(location, TOperator("<="), ident(location, "__next"), ident(location, "__to"))
+        ),
+        binary(location, TOperator("&&"),
+            binary(location, TOperator("<"), ident(location, "__step"), num(location, (int64_t)0)),
+            binary(location, TOperator(">="), ident(location, "__next"), ident(location, "__to"))
+        )
+    );
+
+    // pre-body: var = __next
+    auto preBody = std::make_shared<TAssignExpr>(location, varTok.Name, ident(location, "__next"));
+    // post-body: __next = __next + __step
+    auto postBody = std::make_shared<TAssignExpr>(location, "__next",
+        binary(location, TOperator("+"), ident(location, "__next"), ident(location, "__step"))
+    );
+
+    block->Stmts.push_back(std::make_shared<TLoopStmtExpr>(location, preCond, preBody, body, postBody, nullptr));
 
     co_return block;
 }

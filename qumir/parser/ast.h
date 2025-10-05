@@ -255,21 +255,39 @@ struct TIfExpr : TExpr {
 struct TLoopStmtExpr : TExpr {
     static constexpr const char* NodeId = "Loop";
 
-    TExprPtr PreCond; // like for (i = 0; i < 10 /* per-iteration condition */; i = i + 1)
-    TExprPtr PostCond; // like do ... while (post-condition)
-    TExprPtr PreBody; // executed before each iteration, like for (...; ...; pre-body) ...
-    TExprPtr Body; // main loop body
+    TExprPtr PreCond;
+    TExprPtr PreBody;
+    TExprPtr Body;
+    TExprPtr PostBody;
+    TExprPtr PostCond;
 
-    TLoopStmtExpr(TLocation loc, TExprPtr p, TExprPtr b, TExprPtr pb, TExprPtr pc)
+    /*
+    if (PreCond) {
+        while (PreCond) {
+            PreBody
+            Body
+            PostBody
+        }
+    } else {
+        do {
+            PreBody
+            Body
+            PostBody
+        } while (PostCond);
+    }
+    */
+
+    TLoopStmtExpr(TLocation loc, TExprPtr preCond, TExprPtr preBody, TExprPtr body, TExprPtr postBody, TExprPtr postCond)
         : TExpr(std::move(loc))
-        , PreCond(std::move(p))
-        , PostCond(std::move(pc))
-        , PreBody(std::move(pb))
-        , Body(std::move(b))
+        , PreCond(std::move(preCond))
+        , PreBody(std::move(preBody))
+        , Body(std::move(body))
+        , PostBody(std::move(postBody))
+        , PostCond(std::move(postCond))
     { }
 
     std::vector<TExprPtr> Children() const override {
-        return { PreCond, PostCond, PreBody, Body };
+        return { PreCond, PostCond, PreBody, Body, PostBody };
     }
 
     const std::string_view NodeName() const override {

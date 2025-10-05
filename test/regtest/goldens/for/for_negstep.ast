@@ -1,0 +1,47 @@
+(Block
+  (FunDecl $функция () -> <Void>
+    (Block
+      (Var $i:<Int>)
+      (Var $j:<Float>)
+      ($j =
+        (0:<Int>))
+      (Block
+        (Var $__to:<Int>)
+        (Var $__step:<Int>)
+        (Var $__next:<Int>)
+        ($i =
+          (0:<Int>))
+        ($__to =
+          (10:<Int>))
+        ($__step =
+          (-1:<Int>))
+        ($__next =
+          ($i))
+        (Loop
+          (||
+            (&&
+              (>=
+                ($__step)
+                (0:<Int>))
+              (<=
+                ($__next)
+                ($__to)))
+            (&&
+              (<
+                ($__step)
+                (0:<Int>))
+              (>=
+                ($__next)
+                ($__to))))
+          nil
+          ($i =
+            ($__next))
+          (Block
+            ($j =
+              (+
+                ($j)
+                (1.000000:<Float>))))
+          ($__next =
+            (+
+              ($__next)
+              ($__step))))))))
