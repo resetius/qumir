@@ -543,6 +543,84 @@ TAstTask repeat_until_loop(TTokenStream& stream) {
 }
 
 /*
+выбор
+  при условие 1 : серия 1
+  при условие 2 : серия 2
+  …
+  при условие n : серия n
+  иначе серия n+1
+все
+
+or
+
+выбор
+  при условие 1 : серия 1
+  при условие 2 : серия 2
+  …
+  при условие n : серия n
+все
+
+*/
+TAstTask switch_expr(TTokenStream& stream) {
+    SkipEols(stream);
+    auto location = stream.GetLocation();
+    // collect cases
+    std::vector<std::pair<TExprPtr, TExprPtr>> cases;
+    TExprPtr elseBranch = nullptr;
+    while (true) {
+        auto caseTok = co_await stream.Next();
+        if (caseTok.Type == TToken::Keyword && static_cast<EKeyword>(caseTok.Value.i64) == EKeyword::Break) {
+            // end of switch
+            break;
+        }
+        if (caseTok.Type == TToken::Keyword && static_cast<EKeyword>(caseTok.Value.i64) == EKeyword::Else) {
+            elseBranch = co_await stmt_list(stream, { EKeyword::Break });
+
+            auto endTok = co_await stream.Next();
+            if (!(endTok.Type == TToken::Keyword && static_cast<EKeyword>(endTok.Value.i64) == EKeyword::Break)) {
+                co_return TError(endTok.Location, "ожидалось 'все' в конце оператора 'выбор'");
+            }
+
+            break;
+        }
+        if (!(caseTok.Type == TToken::Keyword && static_cast<EKeyword>(caseTok.Value.i64) == EKeyword::Case)) {
+            co_return TError(caseTok.Location, "ожидалось 'при' или 'иначе' или 'все' в операторе 'выбор'");
+        }
+
+        auto cond = co_await expr(stream);
+        auto colonTok = co_await stream.Next();
+        if (!(colonTok.Type == TToken::Operator && static_cast<EOperator>(colonTok.Value.i64) == EOperator::Colon)) {
+            co_return TError(colonTok.Location, "ожидался ':' после условия в операторе 'выбор'");
+        }
+
+        auto body = co_await stmt_list(stream, { EKeyword::Case, EKeyword::Else, EKeyword::Break });
+        cases.emplace_back(std::move(cond), std::move(body));
+    }
+
+    // need to build if-then-else chain from cases
+    std::shared_ptr<TIfExpr> rootIf = nullptr;
+    std::shared_ptr<TIfExpr> lastIf = nullptr;
+    for (auto& c : cases) {
+        auto newIf = std::make_shared<TIfExpr>(location, std::move(c.first), std::move(c.second), nullptr);
+        if (!rootIf) {
+            rootIf = newIf;
+            lastIf = newIf;
+        } else {
+            lastIf->Else = newIf;
+            lastIf = newIf;
+        }
+    }
+    if (lastIf) {
+        lastIf->Else = elseBranch;
+    }
+    if (rootIf) {
+        co_return rootIf;
+    } else {
+        co_return TError(location, "ожидался хотя бы один 'при' в операторе 'выбор'");
+    }
+}
+
+/*
 If ::= 'если' Expr EOL* 'то' EOL* StmtList OptElse 'все'
 OptElse ::= EOL* 'иначе' EOL* StmtList | ε
 // Примечания:
@@ -804,6 +882,8 @@ TAstTask stmt(TTokenStream& stream) {
         } else {
             co_return TError(next.Location, "ожидалось 'для' после 'цикл'");
         }
+    } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Switch) {
+        co_return co_await switch_expr(stream);
     } else if (first->Type == TToken::Identifier) {
         auto next = co_await stream.Next();
         if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Assign) {
