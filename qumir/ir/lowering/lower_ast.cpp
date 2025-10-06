@@ -273,7 +273,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     Builder.SetType(r.Value->Tmp, FromAstType(expr->Type, Module.Types));
                 }
                 // Record truth of RHS (both edges go to end)
-                Builder.Emit0("cmp"_op, {*r.Value, endLabel, endLabel});
+                Builder.Emit0("jmp"_op, {endLabel});
                 auto rightEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was true
 
                 // End/merge block and phi2 selecting left(on false) vs right(on true)
@@ -307,7 +307,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     *r.Value = Builder.Emit1("cmov"_op, {*r.Value});
                     Builder.SetType(r.Value->Tmp, FromAstType(expr->Type, Module.Types));
                 }
-                Builder.Emit0("cmp"_op, {*r.Value, endLabel, endLabel});
+                Builder.Emit0("jmp"_op, {endLabel});
                 auto rightEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was false
 
                 Builder.NewBlock(endLabel);
