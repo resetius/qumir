@@ -44,6 +44,9 @@ struct TExpr {
     virtual std::vector<TExprPtr> Children() const {
         return {};
     }
+    virtual std::vector<TExprPtr*> MutableChildren() {
+        return {};
+    }
     virtual const std::string_view NodeName() const = 0;
     virtual const std::string ToString() const {
         return std::string(NodeName());
@@ -88,6 +91,10 @@ struct TAssignExpr : TExpr {
 
     std::vector<TExprPtr> Children() const override {
         return { Value };
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        return { &Value };
     }
 
     const std::string_view NodeName() const override {
@@ -184,6 +191,10 @@ struct TUnaryExpr : TExpr {
         return { Operand };
     }
 
+    std::vector<TExprPtr*> MutableChildren() override {
+        return { &Operand };
+    }
+
     const std::string_view NodeName() const override {
         return NodeId;
     }
@@ -208,6 +219,10 @@ struct TBinaryExpr : TExpr {
 
     std::vector<TExprPtr> Children() const override {
         return { Left, Right };
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        return { &Left, &Right };
     }
 
     const std::string_view NodeName() const override {
@@ -239,6 +254,15 @@ struct TBlockExpr : TExpr {
         return result;
     }
 
+    std::vector<TExprPtr*> MutableChildren() override {
+        std::vector<TExprPtr*> result;
+        result.reserve(Stmts.size());
+        for (auto& stmt : Stmts) {
+            result.push_back(&stmt);
+        }
+        return result;
+    }
+
     const std::string_view NodeName() const override {
         return NodeId;
     }
@@ -259,6 +283,10 @@ struct TIfExpr : TExpr {
 
     std::vector<TExprPtr> Children() const override {
         return { Cond, Then, Else };
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        return { &Cond, &Then, &Else };
     }
 
     const std::string_view NodeName() const override {
@@ -302,6 +330,10 @@ struct TLoopStmtExpr : TExpr {
 
     std::vector<TExprPtr> Children() const override {
         return { PreCond, PostCond, PreBody, Body, PostBody };
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        return { &PreCond, &PostCond, &PreBody, &Body, &PostBody };
     }
 
     const std::string_view NodeName() const override {
@@ -389,6 +421,10 @@ struct TFunDecl : TExpr {
         return { Body };
     }
 
+    std::vector<TExprPtr*> MutableChildren() override {
+        return { reinterpret_cast<TExprPtr*>(&Body) };
+    }
+
     const std::string_view NodeName() const override {
         return NodeId;
     }
@@ -436,6 +472,16 @@ struct TCallExpr : TExpr {
         return result;
     }
 
+    std::vector<TExprPtr*> MutableChildren() override {
+        std::vector<TExprPtr*> result;
+        result.reserve(1 + Args.size());
+        result.push_back(&Callee);
+        for (auto& arg : Args) {
+            result.push_back(&arg);
+        }
+        return result;
+    }
+
     const std::string_view NodeName() const override {
         return NodeId;
     }
@@ -461,6 +507,15 @@ struct TInputExpr : TExpr {
         return result;
     }
 
+    std::vector<TExprPtr*> MutableChildren() override {
+        std::vector<TExprPtr*> result;
+        result.reserve(Args.size());
+        for (auto& arg : Args) {
+            result.push_back(&arg);
+        }
+        return result;
+    }
+
     const std::string_view NodeName() const override {
         return NodeId;
     }
@@ -482,6 +537,15 @@ struct TOutputExpr : TExpr {
         result.reserve(Args.size());
         for (const auto& arg : Args) {
             result.push_back(arg);
+        }
+        return result;
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        std::vector<TExprPtr*> result;
+        result.reserve(Args.size());
+        for (auto& arg : Args) {
+            result.push_back(&arg);
         }
         return result;
     }
