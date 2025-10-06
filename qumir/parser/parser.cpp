@@ -45,7 +45,7 @@ inline TExprPtr ident(TLocation loc, std::string n) {
 
 using TAstTask = TExpectedTask<TExprPtr, TError, TLocation>;
 TAstTask stmt(TTokenStream& stream);
-TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators);
+TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts = {});
 TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes = false, bool isMutable = true);
 TAstTask expr(TTokenStream& stream);
 
@@ -137,8 +137,7 @@ inline bool IsTypeKeyword(EKeyword kw) {
 /*
 StmtList ::= Stmt*
 */
-TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators) {
-    std::vector<TExprPtr> stmts;
+TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts) {
     while (true) {
         // Skip standalone EOLs between statements
         bool skipped = false;
@@ -397,7 +396,15 @@ TAstTask fun_decl(TTokenStream& stream) {
         co_return TError(next.Location, "ожидалось 'нач' после заголовка функции");
     }
 
-    auto body = co_await stmt_list(stream, { EKeyword::End });
+    std::vector<TExprPtr> bodyStmts;
+
+    bool hasReturn = false;
+    if (!TMaybeType<TVoidType>(returnType)) {
+        hasReturn = true;
+        bodyStmts.push_back(std::make_shared<TVarStmt>(next.Location, "__return", returnType));
+    }
+
+    auto body = co_await stmt_list(stream, { EKeyword::End }, std::move(bodyStmts));
 
     next = co_await stream.Next();
     if (! (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::End)) {
@@ -405,8 +412,16 @@ TAstTask fun_decl(TTokenStream& stream) {
     }
 
     if (auto maybeBlock = TMaybeNode<TBlockExpr>(body)) {
+        auto block = maybeBlock.Cast();
         // ok
-        co_return std::make_shared<TFunDecl>(next.Location, name, std::move(args), std::move(maybeBlock.Cast()), returnType);
+        if (hasReturn) {
+            // Implicit return of __return variable at the end of function
+            block->Stmts.push_back(ident(next.Location, "__return"));
+        }
+        co_return std::make_shared<TFunDecl>(next.Location,
+            name, std::move(args),
+            std::move(maybeBlock.Cast()),
+            returnType);
     } else {
         co_return TError(body->Location, "ожидался блок операторов в теле функции");
     }
@@ -901,7 +916,7 @@ TAstTask stmt(TTokenStream& stream) {
             co_return TError(stream.GetLocation(), "ожидался ':=' после 'знач'");
         }
         auto value = co_await expr(stream);
-        co_return std::make_shared<TReturnExpr>(first->Location, value);
+        co_return std::make_shared<TAssignExpr>(first->Location, "__return", value);
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::LoopStart) {
         auto next = co_await stream.Next();
         if (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::For) {

@@ -75,28 +75,6 @@ struct TIdentExpr : TExpr {
     }
 };
 
-struct TReturnExpr : TExpr {
-    static constexpr const char* NodeId = "Return";
-
-    TExprPtr Value; // can be null
-    explicit TReturnExpr(TLocation loc, TExprPtr v)
-        : TExpr(std::move(loc))
-        , Value(std::move(v))
-    { }
-
-    std::vector<TExprPtr> Children() const override {
-        return Value ? std::vector<TExprPtr>{ Value } : std::vector<TExprPtr>{};
-    }
-
-    const std::string_view NodeName() const override {
-        return NodeId;
-    }
-
-    const std::string ToString() const override {
-        return "return";
-    }
-};
-
 struct TAssignExpr : TExpr {
     static constexpr const char* NodeId = "Assign";
 
