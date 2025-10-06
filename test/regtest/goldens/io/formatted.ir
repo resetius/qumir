@@ -6,8 +6,8 @@ function __init0 () { ; 3 void
 }
 function <main> () { ; 0 void
   strings {
-    105553173480032: "\n"
-    105553173479968: " "
+    0: " "
+    1: "\n"
   }
   block {
     label: label(0)
@@ -15,8 +15,8 @@ function <main> () { ; 0 void
     stre slot(2,i64) imm(2) 
     load tmp(0,i64) = slot(1,i64) 
     outi tmp(0,i64) 
-    outs imm(105553173479968) 
-    outs imm(105553173480032) 
+    outs imm(0) 
+    outs imm(1) 
     ret 
   }
 }

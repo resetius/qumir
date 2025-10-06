@@ -149,7 +149,8 @@ struct TFunction {
     std::vector<TSlot> Slots;
     std::vector<TBlock> Blocks;
     std::vector<int> TmpTypes; // TmpId -> TypeId
-    std::set<std::string> StringLiterals; // unique string literals used in the function
+    std::map<std::string, int> StringLiteralsSet;
+    std::vector<std::string> StringLiterals; // unique string literals used in the function
     int ReturnTypeId = -1;
 
     int SymId;
@@ -207,7 +208,7 @@ public:
     void UnifyTypes(TTmp left, TTmp right);
     void SetReturnType(int typeId);
     void Emit0(TOp op, std::initializer_list<TOperand> operands);
-    void* StringLiteral(const std::string& str);
+    int StringLiteral(const std::string& str); // string -> id, adds to current function's StringLiterals
 
     // Returns true if the last instruction in the current block unconditionally
     // or conditionally transfers control (e.g., jmp, ret, cmp), so no more

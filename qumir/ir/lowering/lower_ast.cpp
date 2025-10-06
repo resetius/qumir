@@ -200,9 +200,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
     } else if (auto maybeStringLiteral = NAst::TMaybeNode<NAst::TStringLiteralExpr>(expr)) {
         auto str = maybeStringLiteral.Cast();
-        auto ptr = Builder.StringLiteral(str->Value);
+        auto id = Builder.StringLiteral(str->Value);
         // TODO: type is 'pointer to char'
-        co_return TValueWithBlock{ TImm{.Value = (int64_t)(intptr_t)ptr, .IsFloat = false}, Builder.CurrentBlockLabel() };
+        co_return TValueWithBlock{ TImm{.Value = id, .IsFloat = false}, Builder.CurrentBlockLabel() };
     } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
         // Evaluate a block: value is the value of the last statement (or void if none)
         std::optional<TOperand> last;

@@ -93,8 +93,9 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
     out << "\n";
     if (!StringLiterals.empty()) {
         out << "  strings {\n";
+        int i = 0;
         for (const auto& s : StringLiterals) {
-            out << "    " << (intptr_t)s.c_str() << ": \"" << Escape(s) << "\"\n";
+            out << "    " << i++ << ": \"" << Escape(s) << "\"\n";
         }
         out << "  }\n";
     }
@@ -375,12 +376,16 @@ void TBuilder::SetReturnType(int typeId) {
     CurrentFunction->ReturnTypeId = typeId;
 }
 
-void* TBuilder::StringLiteral(const std::string& str) {
+int TBuilder::StringLiteral(const std::string& str) {
     if (!CurrentFunction) {
         throw std::runtime_error("No current function");
     }
-    auto [it, _] = CurrentFunction->StringLiterals.emplace(str);
-    return (void*)it->c_str();
+    int id = (int)CurrentFunction->StringLiteralsSet.size();
+    auto [it, flag] = CurrentFunction->StringLiteralsSet.emplace(str, id);
+    if (flag) {
+        CurrentFunction->StringLiterals.push_back(str);
+    }
+    return it->second;
 }
 
 } // namespace NIR

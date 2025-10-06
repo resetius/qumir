@@ -356,6 +356,15 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case "outs"_op: {
                 require(ins, -1, 1);
                 out.Op = EVMOp::OutS;
+                // convert id to pointer
+                if (ins.Operands[0].Type == TOperand::EType::Imm) {
+                    int id = (int)ins.Operands[0].Imm.Value;
+                    if (id < 0 || id >= function.StringLiterals.size()) {
+                        throw std::runtime_error("Invalid string literal id in outs");
+                    }
+                    auto& str = function.StringLiterals[id];
+                    out.Operands[0] = TImm{(int64_t)str.c_str()};
+                }
                 break;
             }
             default:
