@@ -745,6 +745,8 @@ TAstTask factor(TTokenStream& stream) {
         co_return std::make_shared<TStringLiteralExpr>(token.Location, token.Name);
     } else if (token.Type == TToken::Identifier) {
         co_return ident(token.Location, token.Name);
+    } else if (token.Type == TToken::Keyword && static_cast<EKeyword>(token.Value.i64) == EKeyword::Return) {
+        co_return ident(token.Location, "__return");
     } else if (token.Type == TToken::Operator) {
         if ((EOperator)token.Value.i64 == EOperator::LParen) {
             auto ret = co_await expr(stream);
