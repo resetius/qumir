@@ -9,6 +9,9 @@
 #include <qumir/parser/lexer.h>
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
+#include <qumir/semantics/type_annotation/type_annotation.h>
+#include <qumir/ir/lowering/lower_ast.h>
+#include <qumir/ir/builder.h>
 
 using namespace NQumir;
 namespace fs = std::filesystem;
@@ -79,6 +82,38 @@ std::string BuildAst(NAst::TTokenStream& ts) {
     return out.str();
 }
 
+std::string BuildIR(NAst::TTokenStream& ts) {
+    NSemantics::TNameResolver resolver;
+    NTypeAnnotation::TTypeAnnotator annotator(resolver);
+    NAst::TParser p;
+    auto parsed = p.parse(ts);
+    if (!parsed) {
+        return "Error: " + parsed.error().ToString() + "\n";
+    }
+
+    auto error = resolver.Resolve(parsed.value());
+    if (error) {
+        return "Error: " + error->ToString() + "\n";
+    }
+
+    auto annotated = annotator.Annotate(parsed.value());
+    if (!annotated) {
+        return "Error: " + annotated.error().ToString() + "\n";
+    }
+
+    NIR::TModule module;
+    NIR::TBuilder builder(module);
+    NIR::TAstLowerer lowerer(module, builder, resolver);
+    auto lowerRes = lowerer.LowerTop(parsed.value());
+    if (!lowerRes) {
+        return "Error: " + lowerRes.error().ToString() + "\n";
+    }
+
+    std::ostringstream out;
+    module.Print(out);
+    return out.str();
+}
+
 } // namespace
 
 class RegAst : public ::testing::TestWithParam<ProgCase> {};
@@ -95,7 +130,7 @@ TEST_P(RegAst, Ast) {
     std::string got = BuildAst(ts);
 
     if (printOutput) {
-        std::cout << "=== Output for " << src << " ===\n";
+        std::cout << "=== Output AST for " << src << " ===\n";
         std::cout << got << "\n";
         std::cout << "=== End of output ===\n";
     }
@@ -106,6 +141,34 @@ TEST_P(RegAst, Ast) {
     if (!fs::exists(golden)) {
         // fail if golden missing
         std::cerr << "Missing golden AST file: " << golden << "\n";
+        FAIL();
+    }
+    const auto exp = ReadAll(golden);
+    EXPECT_EQ(got, exp);
+}
+
+TEST_P(RegAst, IR) {
+    const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
+    const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".ir");
+
+    const auto code = ReadAll(src);
+    std::istringstream input(code);
+
+    NAst::TTokenStream ts(input);
+    std::string got = BuildIR(ts);
+
+    if (printOutput) {
+        std::cout << "=== Output IR for " << src << " ===\n";
+        std::cout << got << "\n";
+        std::cout << "=== End of output ===\n";
+    }
+
+    if (updateGoldens) {
+        WriteAll(golden, got);
+    }
+    if (!fs::exists(golden)) {
+        // fail if golden missing
+        std::cerr << "Missing golden IR file: " << golden << "\n";
         FAIL();
     }
     const auto exp = ReadAll(golden);

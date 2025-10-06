@@ -1,0 +1,31 @@
+function __init0 () { ; 2 void
+  block {
+    label: label(0)
+    ret 
+  }
+}
+function <main> () { ; 0 void
+  block {
+    label: label(0)
+    stre slot(1,i64) imm(0) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(0,i64) = slot(1,i64) 
+    + tmp(1,i64) = tmp(0,i64) imm(1) 
+    stre slot(1,i64) tmp(1,i64) 
+    jmp label(2) 
+  }
+  block {
+    label: label(2)
+    load tmp(2,i64) = slot(1,i64) 
+    == tmp(3,i1) = tmp(2,i64) imm(10) 
+    ! tmp(4,i1) = tmp(3,i1) 
+    cmp tmp(4,i1) label(1) label(3) 
+  }
+  block {
+    label: label(3)
+    ret 
+  }
+}

@@ -1,0 +1,12 @@
+function __init0 () { ; 7 void
+  block {
+    label: label(0)
+    ret 
+  }
+}
+function функция () { ; 0 void
+  block {
+    label: label(0)
+    ret 
+  }
+}

@@ -1,0 +1,22 @@
+function __init0 () { ; 3 void
+  block {
+    label: label(0)
+    ret 
+  }
+}
+function <main> () { ; 0 void
+  strings {
+    105553173480032: "\n"
+    105553173479968: " "
+  }
+  block {
+    label: label(0)
+    stre slot(1,i64) imm(1) 
+    stre slot(2,i64) imm(2) 
+    load tmp(0,i64) = slot(1,i64) 
+    outi tmp(0,i64) 
+    outs imm(105553173479968) 
+    outs imm(105553173480032) 
+    ret 
+  }
+}

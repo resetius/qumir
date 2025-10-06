@@ -1,0 +1,6 @@
+function __init0 () { ; 3 void
+  block {
+    label: label(0)
+    ret 
+  }
+}

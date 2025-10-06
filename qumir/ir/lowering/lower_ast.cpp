@@ -346,15 +346,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 }
         }
     } else if (auto maybeIfe = NAst::TMaybeNode<NAst::TIfExpr>(expr)) {
+        // If is a statement in this language: no result value, no phi merge.
         auto ife = maybeIfe.Cast();
         auto cond = co_await Lower(ife->Cond, scope);
         if (!cond.Value) co_return TError(ife->Cond->Location, "if condition must be a number");
 
         auto entryId = Builder.CurrentBlockIdx();
-        auto currentLabel = Builder.CurrentBlockLabel();
         auto [thenLabel, thenId] = Builder.NewBlock();
         auto [elseLabel, elseId] = Builder.NewBlock();
-
         auto endLabel = Builder.NewLabel();
 
         // Branch on condition
@@ -363,37 +362,23 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         // Then branch
         Builder.SetCurrentBlock(thenId);
-        auto thenRes = co_await Lower(ife->Then, scope);
-        if (!thenRes.Value) co_return TError(ife->Then->Location, "if-then must produce a value");
-        if (thenRes.Value->Type == TOperand::EType::Imm) {
-            *thenRes.Value = Builder.Emit1("cmov"_op, {*thenRes.Value});
-            Builder.SetType(thenRes.Value->Tmp, FromAstType(expr->Type, Module.Types));
-        }
+        co_await Lower(ife->Then, scope);
         if (!Builder.IsCurrentBlockTerminated()) {
             Builder.Emit0("jmp"_op, {endLabel});
         }
-        auto thenProducing = Builder.CurrentBlockLabel();
 
-        // Else branch
+        // Else branch (may be present). If absent, just jump to end.
         Builder.SetCurrentBlock(elseId);
-        auto elseRes = co_await Lower(ife->Else, scope);
-        if (!elseRes.Value) co_return TError(ife->Else->Location, "if-else must produce a value");
-        if (elseRes.Value->Type == TOperand::EType::Imm) {
-            *elseRes.Value = Builder.Emit1("cmov"_op, {*elseRes.Value});
-            Builder.SetType(elseRes.Value->Tmp, FromAstType(expr->Type, Module.Types));
+        if (ife->Else) {
+            co_await Lower(ife->Else, scope);
         }
         if (!Builder.IsCurrentBlockTerminated()) {
             Builder.Emit0("jmp"_op, {endLabel});
         }
-        auto elseProducing = Builder.CurrentBlockLabel();
 
-        // End: phi2(elseVal, thenVal) with preds [elseBB, thenBB]
+        // End/merge block without phi, as if is a statement
         Builder.NewBlock(endLabel);
-        auto res = Builder.Emit1("phi2"_op, {*elseRes.Value, elseProducing, *thenRes.Value, thenProducing});
-        Builder.SetType(res, FromAstType(expr->Type, Module.Types));
-        Builder.UnifyTypes(res, elseRes.Value->Tmp);
-        Builder.UnifyTypes(res, thenRes.Value->Tmp);
-        co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
+        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
 
     } else if (auto maybeLoop = NAst::TMaybeNode<NAst::TLoopStmtExpr>(expr)) {
         auto loop = maybeLoop.Cast();
@@ -494,6 +479,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             .ContinueLabel = std::nullopt
         });
         if (loweredBody.Value) {
+            // TODO: return value of 'hidden' __return variable
             Builder.Emit0("ret"_op, {*loweredBody.Value});
         } else {
             Builder.Emit0("ret"_op, {});

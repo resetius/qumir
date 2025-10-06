@@ -1,0 +1,13 @@
+function __init0 () { ; 2 void
+  block {
+    label: label(0)
+    ret 
+  }
+}
+function функция () { ; 0 void
+  block {
+    label: label(0)
+    stre slot(1,f64) imm(-4611686018427387904) 
+    ret 
+  }
+}

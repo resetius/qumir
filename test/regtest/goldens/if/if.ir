@@ -1,0 +1,25 @@
+function __init0 () { ; 2 void
+  block {
+    label: label(0)
+    ret 
+  }
+}
+function <main> () { ; 0 void
+  block {
+    label: label(0)
+    cmp imm(1) label(1) label(2) 
+  }
+  block {
+    label: label(1)
+    stre slot(1,i64) imm(1) 
+    jmp label(3) 
+  }
+  block {
+    label: label(2)
+    jmp label(3) 
+  }
+  block {
+    label: label(3)
+    ret 
+  }
+}

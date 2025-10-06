@@ -1,0 +1,85 @@
+function __init0 () { ; 6 void
+  block {
+    label: label(0)
+    ret 
+  }
+}
+function функция () { ; 0 void
+  block {
+    label: label(0)
+    i2f tmp(0,void) = imm(0) 
+    stre slot(2,f64) tmp(0,void) 
+    stre slot(1,i64) imm(0) 
+    stre slot(3,i64) imm(10) 
+    stre slot(4,i64) imm(1) 
+    load tmp(1,i64) = slot(1,i64) 
+    stre slot(5,i64) tmp(1,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(2,i64) = slot(4,i64) 
+    >= tmp(3,i1) = tmp(2,i64) imm(0) 
+    cmp tmp(3,i1) label(6) label(7) 
+  }
+  block {
+    label: label(2)
+    load tmp(15,i64) = slot(5,i64) 
+    stre slot(1,i64) tmp(15,i64) 
+    jmp label(3) 
+  }
+  block {
+    label: label(3)
+    load tmp(16,f64) = slot(2,f64) 
+    + tmp(17,f64) = tmp(16,f64) imm(4607182418800017408) 
+    stre slot(2,f64) tmp(17,f64) 
+    jmp label(4) 
+  }
+  block {
+    label: label(4)
+    load tmp(18,i64) = slot(5,i64) 
+    load tmp(19,i64) = slot(4,i64) 
+    + tmp(20,i64) = tmp(18,i64) tmp(19,i64) 
+    stre slot(5,i64) tmp(20,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(6)
+    load tmp(4,i64) = slot(5,i64) 
+    load tmp(5,i64) = slot(3,i64) 
+    <= tmp(6,i1) = tmp(4,i64) tmp(5,i64) 
+    cmp tmp(6,i1) label(7) label(7) 
+  }
+  block {
+    label: label(7)
+    phi2 tmp(7,i1) = tmp(3,i1) label(1) tmp(6,i1) label(6) 
+    cmp tmp(7,i1) label(9) label(8) 
+  }
+  block {
+    label: label(8)
+    load tmp(8,i64) = slot(4,i64) 
+    < tmp(9,i1) = tmp(8,i64) imm(0) 
+    cmp tmp(9,i1) label(10) label(11) 
+  }
+  block {
+    label: label(10)
+    load tmp(10,i64) = slot(5,i64) 
+    load tmp(11,i64) = slot(3,i64) 
+    >= tmp(12,i1) = tmp(10,i64) tmp(11,i64) 
+    cmp tmp(12,i1) label(11) label(11) 
+  }
+  block {
+    label: label(11)
+    phi2 tmp(13,i1) = tmp(9,i1) label(8) tmp(12,i1) label(10) 
+    cmp tmp(13,i1) label(9) label(9) 
+  }
+  block {
+    label: label(9)
+    phi2 tmp(14,i1) = tmp(7,i1) label(7) tmp(13,i1) label(11) 
+    cmp tmp(14,i1) label(2) label(5) 
+  }
+  block {
+    label: label(5)
+    ret 
+  }
+}

@@ -154,10 +154,8 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
 
     co_await DoAnnotate(funDecl->Body, context, scopeId);
     if (!funDecl->Body->Type) {
+        // function body type always set to void
         co_return TError(funDecl->Location, "function body type unknown");
-    }
-    if (funDecl->RetType && !CanImplicit(funDecl->Body->Type, funDecl->RetType)) {
-        co_return TError(funDecl->Location, "function body type incompatible with declared return type");
     }
 
     if (!funDecl->Type) {
@@ -228,18 +226,13 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
 }
 
 TTask AnnotateBlock(std::shared_ptr<TBlockExpr> block, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
-    TTypePtr lastType = nullptr;
     for (auto& s : block->Stmts) {
         s = co_await DoAnnotate(s, context, NSemantics::TScopeId{block->Scope});
         if (!s->Type) {
             co_return TError(s->Location, "statement in block has no type");
         }
-        lastType = s->Type;
     }
-    if (!lastType) {
-        lastType = std::make_shared<TVoidType>();
-    }
-    block->Type = lastType;
+    block->Type = std::make_shared<TVoidType>();
     co_return block;
 }
 
@@ -304,19 +297,15 @@ TTask AnnotateIf(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver& con
     if (!ifExpr->Then->Type) {
         co_return TError(ifExpr->Then->Location, "untyped then branch in if");
     }
-    ifExpr->Else = co_await DoAnnotate(ifExpr->Else, context, scopeId);
-    if (!ifExpr->Else->Type) {
-        co_return TError(ifExpr->Else->Location, "untyped else branch in if");
+    if (ifExpr->Else) {
+        ifExpr->Else = co_await DoAnnotate(ifExpr->Else, context, scopeId);
+        if (!ifExpr->Else->Type) {
+            co_return TError(ifExpr->Else->Location, "untyped else branch in if");
+        }
     }
-    if (CanImplicit(ifExpr->Then->Type, ifExpr->Else->Type)) {
-        ifExpr->Type = ifExpr->Else->Type;
-    } else if (CanImplicit(ifExpr->Else->Type, ifExpr->Then->Type)) {
-        ifExpr->Type = ifExpr->Then->Type;
-    } else if (EqualTypes(ifExpr->Then->Type, ifExpr->Else->Type)) {
-        ifExpr->Type = ifExpr->Then->Type;
-    } else {
-        co_return TError(ifExpr->Location, "incompatible types in then and else branches of if");
-    }
+    // If is not expression, its type is always void
+    ifExpr->Type = std::make_shared<TVoidType>();
+
     co_return ifExpr;
 }
 
