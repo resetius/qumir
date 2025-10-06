@@ -418,10 +418,18 @@ TAstTask fun_decl(TTokenStream& stream) {
             // Implicit return of __return variable at the end of function
             block->Stmts.push_back(ident(next.Location, "__return"));
         }
-        co_return std::make_shared<TFunDecl>(next.Location,
+        auto funDecl = std::make_shared<TFunDecl>(next.Location,
             name, std::move(args),
             std::move(maybeBlock.Cast()),
             returnType);
+
+        std::vector<TTypePtr> paramTypes;
+        for (auto& a : funDecl->Params) {
+            paramTypes.push_back(a->Type);
+        }
+        funDecl->Type = std::make_shared<TFunctionType>(std::move(paramTypes), returnType);
+
+        co_return funDecl;
     } else {
         co_return TError(body->Location, "ожидался блок операторов в теле функции");
     }

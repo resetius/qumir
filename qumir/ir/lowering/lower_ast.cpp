@@ -492,9 +492,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // Evaluate callee and perform a function call.
 
         int32_t calleeSymId = -1;
+        std::string calleeName;
         if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(call->Callee)) {
             auto ident = maybeIdent.Cast();
             auto sidOpt = Context.Lookup(ident->Name, scope.Id);
+            calleeName = ident->Name;
             if (!sidOpt) co_return TError(ident->Location, std::string("undefined function: ") + ident->Name);
             calleeSymId = sidOpt->Id;
             // Ensure it's a function
@@ -505,10 +507,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
             // get args and prepare func call
         } else {
-            auto sid = co_await Lower(call->Callee, scope);
-            if (!sid.Value) co_return TError(call->Callee->Location, "invalid lambda function");
-            assert(sid.Value->Type == TOperand::EType::Imm && "lambda lowering must yield Imm(id)");
-            calleeSymId = sid.Value->Imm.Value;
+            co_return TError(call->Callee->Location, "function call to non-identifier not supported");
         }
 
         auto funDecl = NAst::TMaybeNode<NAst::TFunDecl>(Context.GetSymbolNode(NSemantics::TSymbolId{calleeSymId})).Cast();
@@ -544,11 +543,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         // Decide if callee returns a value (non-void). If void -> Emit0
         bool returnsValue = false;
-        auto maybeFunIdx = Module.SymIdToFuncIdx.find(calleeSymId);
-        if (maybeFunIdx == Module.SymIdToFuncIdx.end()) {
-            co_return TError(expr->Location, "Function not found in module");
-        }
-
         if (NAst::TMaybeType<NAst::TVoidType>(returnType)) {
             returnsValue = false;
         } else {

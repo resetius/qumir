@@ -63,6 +63,7 @@ public:
 private:
     using TTask = TExpectedTask<std::monostate, TError, TLocation>;
     TTask Resolve(NAst::TExprPtr node, TScopePtr scope);
+    TTask ResolveTopFuncDecl(NAst::TExprPtr node, TScopePtr scope);
     TTask Declare(const std::string& name, TScopePtr scope, NAst::TExprPtr node);
     TScopePtr NewScope(TScopePtr parent);
 

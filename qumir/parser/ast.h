@@ -409,6 +409,7 @@ struct TFunDecl : TExpr {
     std::vector<TParam> Params;
     std::shared_ptr<TBlockExpr> Body;
     NAst::TTypePtr RetType; // ret type different from TExpr::Type which is the function value type
+    int32_t Scope = -1; // Function internal scope, filled in by name resolver, -1 - unscoped
     TFunDecl(TLocation loc, std::string name, std::vector<TParam> args, std::shared_ptr<TBlockExpr> body, NAst::TTypePtr type)
         : TExpr(std::move(loc))
         , Name(std::move(name))

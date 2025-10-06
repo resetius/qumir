@@ -11,17 +11,46 @@ TNameResolver::TNameResolver(const TNameResolverOptions& options)
     : Options(options)
 { }
 
+// Function declaration may be at the top level only
+// They can be in any order, so we need to do two passes
+TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TScopePtr scope)
+{
+    auto declFunc = [&](NAst::TExprPtr node) -> TTask {
+        if (auto maybeFdecl = TMaybeNode<TFunDecl>(node)) {
+            auto fdecl = maybeFdecl.Cast();
+            if (fdecl->Name.empty()) {
+                co_return TError(fdecl->Location, "function with empty name");
+            }
+            co_await Declare(fdecl->Name, scope, node);
+            auto newScope = NewScope(scope);
+            fdecl->Scope = newScope->Id.Id;
+            for (auto& param : fdecl->Params) {
+                co_await Declare(param->Name, newScope, param);
+            }
+            // resolve body on second pass
+        }
+        co_return std::monostate{};
+    };
+
+    auto maybeBlock = TMaybeNode<TBlockExpr>(node);
+    if (maybeBlock) {
+        auto block = maybeBlock.Cast();
+        for (const auto& stmt : block->Stmts) {
+            co_await declFunc(stmt);
+        }
+    }
+
+    co_return {};
+}
+
 TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope) {
     if (auto maybeFdecl = TMaybeNode<TFunDecl>(node)) {
         auto fdecl = maybeFdecl.Cast();
-        if (fdecl->Name.empty()) {
-            co_return TError(fdecl->Location, "function with empty name");
+        auto scopeId = TScopeId{fdecl->Scope};
+        if (scopeId.Id < 0 || static_cast<size_t>(scopeId.Id) >= Scopes.size())  {
+            co_return TError(fdecl->Location, "function has invalid scope id: " + std::to_string(scopeId.Id));
         }
-        co_await Declare(fdecl->Name, scope, node);
-        auto newScope = NewScope(scope);
-        for (auto& param : fdecl->Params) {
-            co_await Declare(param->Name, newScope, param);
-        }
+        auto newScope = Scopes[scopeId.Id];
         co_return co_await Resolve(fdecl->Body, newScope);
     } else if (auto maybeBlock = TMaybeNode<TBlockExpr>(node)) {
         auto block = maybeBlock.Cast();
@@ -61,6 +90,10 @@ std::optional<TError> TNameResolver::Resolve(TExprPtr root) {
     auto scope = GetOrCreateRootScope();
     if (auto block = TMaybeNode<TBlockExpr>(root)) {
         block.Cast()->Scope = scope->Id.Id;
+    }
+    auto funcRes = ResolveTopFuncDecl(root, scope).result();
+    if (!funcRes) {
+        return funcRes.error();
     }
     auto res = Resolve(root, scope).result();
     if (!res) {
