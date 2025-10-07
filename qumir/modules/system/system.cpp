@@ -46,6 +46,36 @@ extern "C" int sign(double x) {
     return (x > 0) - (x < 0);
 }
 
+extern "C" int64_t trunc_double(double x) {
+    return static_cast<int64_t>(x);
+}
+
+extern "C" double rand_double(double x) {
+    // random on [0,x]
+    return static_cast<double>(rand()) / RAND_MAX * x;
+}
+
+extern "C" double rand_double_range(double a, double b) {
+    // random on [a,b]
+    return a + static_cast<double>(rand()) / RAND_MAX * (b - a);
+}
+
+extern "C" uint64_t rand_uint64(uint64_t x) {
+    // random on [0,x]
+    if (x == 0) return 0;
+    return static_cast<uint64_t>(rand()) % x;
+}
+
+extern "C" uint64_t rand_uint64_range(uint64_t a, uint64_t b) {
+    // random on [a,b]
+    if (b <= a) return a;
+    return a + static_cast<uint64_t>(rand()) % (b - a);
+}
+
+extern "C" int64_t max_limit_int64_t() {
+    return INT64_MAX;
+}
+
 void SystemModule::Register(NSemantics::TNameResolver& ctx) {
     auto integerType = std::make_shared<NAst::TIntegerType>();
     auto floatType = std::make_shared<NAst::TFloatType>();
@@ -172,6 +202,36 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
             .ReturnType = floatType,
         },
         {
+            .Name = "arcsin",
+            .MangledName = "asin",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(double)>(asin)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(asin(std::bit_cast<double>(args[0])));
+            },
+            .ArgTypes = { floatType },
+            .ReturnType = floatType,
+        },
+        {
+            .Name = "arccos",
+            .MangledName = "acos",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(double)>(acos)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(acos(std::bit_cast<double>(args[0])));
+            },
+            .ArgTypes = { floatType },
+            .ReturnType = floatType,
+        },
+        {
+            .Name = "arctg",
+            .MangledName = "atan",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(double)>(atan)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(atan(std::bit_cast<double>(args[0])));
+            },
+            .ArgTypes = { floatType },
+            .ReturnType = floatType,
+        },
+        {
             .Name = "ln",
             .MangledName = "log",
             .Ptr = reinterpret_cast<void*>(static_cast<double(*)(double)>(log)),
@@ -200,6 +260,86 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
             },
             .ArgTypes = { floatType },
             .ReturnType = floatType,
+        },
+        {
+            .Name = "div",
+            .MangledName = "div",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, int64_t)>([](int64_t a, int64_t b) { return a / b; })),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(std::bit_cast<int64_t>(args[0]) / std::bit_cast<int64_t>(args[1]));
+            },
+            .ArgTypes = { integerType, integerType },
+            .ReturnType = integerType,
+        },
+        {
+            .Name = "mod",
+            .MangledName = "mod",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, int64_t)>([](int64_t a, int64_t b) { return a % b; })),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(std::bit_cast<int64_t>(args[0]) % std::bit_cast<int64_t>(args[1]));
+            },
+            .ArgTypes = { integerType, integerType },
+            .ReturnType = integerType,
+        },
+        {
+            .Name = "int",
+            .MangledName = "trunc_double",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(double)>(trunc_double)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(trunc_double(std::bit_cast<double>(args[0])));
+            },
+            .ArgTypes = { floatType },
+            .ReturnType = integerType,
+        },
+        {
+            .Name = "rnd",
+            .MangledName = "rand_double",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(double)>(rand_double)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(rand_double(std::bit_cast<double>(args[0])));
+            },
+            .ArgTypes = { floatType },
+            .ReturnType = floatType,
+        },
+        {
+            .Name = "rand",
+            .MangledName = "rand_double_range",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(double, double)>(rand_double_range)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(rand_double_range(std::bit_cast<double>(args[0]), std::bit_cast<double>(args[1])));
+            },
+            .ArgTypes = { floatType, floatType },
+            .ReturnType = floatType,
+        },
+        {
+            .Name = "irnd",
+            .MangledName = "rand_uint64",
+            .Ptr = reinterpret_cast<void*>(static_cast<uint64_t(*)(uint64_t)>(rand_uint64)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(rand_uint64(std::bit_cast<uint64_t>(args[0])));
+            },
+            .ArgTypes = { integerType },
+            .ReturnType = integerType,
+        },
+        {
+            .Name = "irand",
+            .MangledName = "rand_uint64_range",
+            .Ptr = reinterpret_cast<void*>(static_cast<uint64_t(*)(uint64_t, uint64_t)>(rand_uint64_range)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(rand_uint64_range(std::bit_cast<uint64_t>(args[0]), std::bit_cast<uint64_t>(args[1])));
+            },
+            .ArgTypes = { integerType, integerType },
+            .ReturnType = integerType,
+        },
+        {
+            .Name = "МАКСЦЕЛ",
+            .MangledName = "max_limit_int64_t",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)()>(max_limit_int64_t)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(max_limit_int64_t());
+            },
+            .ArgTypes = { },
+            .ReturnType = integerType,
         }
     };
 
