@@ -48,9 +48,6 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"знач", EKeyword::Return},
 
     // math functions
-    {"sign", EKeyword::Sign},
-    {"min", EKeyword::Min},
-    {"max", EKeyword::Max},
     {"int", EKeyword::IntFunc},
     {"rnd", EKeyword::Rnd},
 };

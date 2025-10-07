@@ -26,11 +26,81 @@ extern "C" double cotan(double x) {
     return 1.0 / tan(x);
 }
 
+extern "C" int64_t min_int64_t(int64_t a, int64_t b) {
+    return a < b ? a : b;
+}
+
+extern "C" int64_t max_int64_t(int64_t a, int64_t b) {
+    return a > b ? a : b;
+}
+
+extern "C" double min_double(double a, double b) {
+    return a < b ? a : b;
+}
+
+extern "C" double max_double(double a, double b) {
+    return a > b ? a : b;
+}
+
+extern "C" int sign(double x) {
+    return (x > 0) - (x < 0);
+}
+
 void SystemModule::Register(NSemantics::TNameResolver& ctx) {
     auto integerType = std::make_shared<NAst::TIntegerType>();
     auto floatType = std::make_shared<NAst::TFloatType>();
 
     std::vector<TExternalFunction> functions = {
+        {
+            .Name = "sign",
+            .MangledName = "sign",
+            .Ptr = reinterpret_cast<void*>(static_cast<int(*)(double)>(sign)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return sign(std::bit_cast<double>(args[0]));
+            },
+            .ArgTypes = { floatType },
+            .ReturnType = integerType,
+        },
+        {
+            .Name = "imin",
+            .MangledName = "min_int64_t",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, int64_t)>(min_int64_t)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(min_int64_t(std::bit_cast<int64_t>(args[0]), std::bit_cast<int64_t>(args[1])));
+            },
+            .ArgTypes = { integerType, integerType },
+            .ReturnType = integerType,
+        },
+        {
+            .Name = "imax",
+            .MangledName = "max_int64_t",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, int64_t)>(max_int64_t)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(max_int64_t(std::bit_cast<int64_t>(args[0]), std::bit_cast<int64_t>(args[1])));
+            },
+            .ArgTypes = { integerType, integerType },
+            .ReturnType = integerType,
+        },
+        {
+            .Name = "min",
+            .MangledName = "min_double",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(double, double)>(min_double)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(min_double(std::bit_cast<double>(args[0]), std::bit_cast<double>(args[1])));
+            },
+            .ArgTypes = { floatType, floatType },
+            .ReturnType = floatType,
+        },
+        {
+            .Name = "max",
+            .MangledName = "max_double",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(double, double)>(max_double)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(max_double(std::bit_cast<double>(args[0]), std::bit_cast<double>(args[1])));
+            },
+            .ArgTypes = { floatType, floatType },
+            .ReturnType = floatType,
+        },
         {
             .Name = "sqrt",
             .MangledName = "sqrt",

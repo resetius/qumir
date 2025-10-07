@@ -297,6 +297,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             if (instr.Operands[0].Tmp.Idx >= 0) {
                 frame.Tmps[instr.Operands[0].Tmp.Idx] = func(reinterpret_cast<const uint64_t*>(frame.Args.data()), frame.Args.size());
             }
+            frame.Args.clear();
 
             break;
         }
