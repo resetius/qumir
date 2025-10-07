@@ -1,4 +1,4 @@
-function __init0 () { ; 10 void
+function __init0 () { ; 10 func(ptr to i64, f64, i1) -> void
   block {
     label: label(0)
     ret 

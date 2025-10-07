@@ -164,21 +164,16 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
         }
         params.push_back(p->Type);
     }
-    if (funDecl->RetType) {
-        // early type check for recursive functions
-        auto type = std::make_shared<TFunctionType>(std::move(params), funDecl->RetType);
-        funDecl->Type = type;
+    if (!funDecl->RetType) {
+        co_return TError(funDecl->Location, "function return type unknown");
     }
+
+    funDecl->Type = std::make_shared<TFunctionType>(std::move(params), funDecl->RetType);
 
     co_await DoAnnotate(funDecl->Body, context, scopeId);
     if (!funDecl->Body->Type) {
         // function body type always set to void
         co_return TError(funDecl->Location, "function body type unknown");
-    }
-
-    if (!funDecl->Type) {
-        funDecl->Type = std::make_shared<TFunctionType>(std::move(params), funDecl->Body->Type);
-        funDecl->RetType = funDecl->Body->Type;
     }
 
     co_return funDecl;

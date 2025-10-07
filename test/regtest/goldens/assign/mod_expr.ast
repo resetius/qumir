@@ -1,5 +1,5 @@
 (Block
-  (FunDecl $функция () -> <Void>
+  (FunDecl $функция ():<Fun () -> >
     (Block
       (Var $i:<Int>)
       ($i =

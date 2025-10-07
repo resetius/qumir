@@ -1,5 +1,5 @@
 (Block
-  (FunDecl $функция ($i1: <Ptr *Int>, $j1: <Float>, $k1: <Bool>) -> <Void>
+  (FunDecl $функция ($i1, $j1, $k1):<Fun (*Int, , ) -> >
     (Block
       (Var $i:<Int>)
       (Var $j:<Int>)

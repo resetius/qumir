@@ -1,4 +1,4 @@
-function __init0 () { ; 3 void
+function __init0 () { ; 3 f64
   block {
     label: label(0)
     ret 

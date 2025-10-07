@@ -1,4 +1,4 @@
-function __init0 () { ; 7 void
+function __init0 () { ; 8 func() -> f64
   block {
     label: label(0)
     ret 
@@ -7,6 +7,7 @@ function __init0 () { ; 7 void
 function функция () { ; 0 f64
   block {
     label: label(0)
-    ret 
+    load tmp(0,f64) = slot(1) 
+    ret tmp(0,f64) 
   }
 }

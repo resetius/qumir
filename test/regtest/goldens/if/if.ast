@@ -1,5 +1,5 @@
 (Block
-  (FunDecl $<main> () -> <Void>
+  (FunDecl $<main> ():<Fun () -> >
     (Block
       (Var $i:<Int>)
       (If

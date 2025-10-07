@@ -1,9 +1,11 @@
 (Block
-  (FunDecl $функция () -> <Float>
+  (FunDecl $функция ():<Fun () -> >
     (Block
+      (Var $__return:<Float>)
       (Var $i:<Int>)
       (Var $j:<Int>)
       (Var $k:<Int>)
       (Var $a:<Float>)
       (Var $b:<Float>)
-      (Var $c:<Float>))))
+      (Var $c:<Float>)
+      ($__return))))

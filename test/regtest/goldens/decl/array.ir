@@ -1,4 +1,4 @@
-function __init0 () { ; 4 void
+function __init0 () { ; 4 <invalid type>
   block {
     label: label(0)
     ret 
