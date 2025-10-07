@@ -1,4 +1,14 @@
-Error: : Line: 0, Column: 0
-  not implemented: lowering for this AST node: (Input:<Void>
-  ($i:<Int>)): Line: 3, Column: 0
-
+function __init0 () { ; 2 func() -> void
+  block {
+    label: label(0)
+    ret 
+  }
+}
+function <main> () { ; 0 void
+  block {
+    label: label(0)
+    ini tmp(0) = 
+    stre slot(1) tmp(0) 
+    ret 
+  }
+}

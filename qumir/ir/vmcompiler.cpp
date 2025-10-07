@@ -374,6 +374,16 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 }
                 break;
             }
+            case "ini"_op: {
+                require(ins, 1, 0);
+                out.Op = EVMOp::InI64;
+                break;
+            }
+            case "inf"_op: {
+                require(ins, 1, 0);
+                out.Op = EVMOp::InF64;
+                break;
+            }
             default:
                 throw std::runtime_error("Unknown instruction in CompileUltraLow: " + ins.Op.ToString());
         }

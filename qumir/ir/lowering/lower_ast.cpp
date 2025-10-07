@@ -575,6 +575,34 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         // output has no value
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+    } else if (auto maybeInput = NAst::TMaybeNode<NAst::TInputExpr>(expr)) {
+        auto input = maybeInput.Cast();
+        for (auto& arg : input->Args) {
+            // arg must be a slot, resolve it
+            auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(arg);
+            if (!maybeIdent) {
+                co_return TError(arg->Location, "input should be a var");
+            }
+            auto ident = maybeIdent.Cast();
+            auto sidOpt = Context.Lookup(ident->Name, scope.Id);
+            if (!sidOpt) {
+                co_return TError(arg->Location, "assignment to undefined");
+            }
+            auto storeSlot = TSlot{sidOpt->Id};
+
+            auto type = arg->Type;
+            if (NAst::TMaybeType<NAst::TFloatType>(type)) {
+                auto tmp = Builder.Emit1("inf"_op, {});
+                Builder.Emit0("stre", {storeSlot, tmp});
+            } else if (NAst::TMaybeType<NAst::TIntegerType>(type)) {
+                auto tmp = Builder.Emit1("ini"_op, {});
+                Builder.Emit0("stre", {storeSlot, tmp});
+            } else {
+                co_return TError(arg->Location, "output argument must be int, float");
+            }
+        }
+        // output has no value
+        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else {
         std::ostringstream oss;
         oss << *expr;
