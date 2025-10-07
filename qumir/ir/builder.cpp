@@ -156,6 +156,24 @@ TFunction* TModule::GetFunctionByName(const std::string& name)
     return nullptr;
 }
 
+TFunction* TModule::GetEntryPoint() {
+    auto* f = GetFunctionByName("<main>");
+    if (f) {
+        return f;
+    }
+    for (auto& f : Functions) {
+        if (f.Name.substr(0, 2) == "__") {
+            // skip generated functions
+            continue;
+        }
+        if (f.Slots.empty()) {
+            return &f;
+        }
+    }
+    return nullptr;
+}
+
+
 TBuilder::TBuilder(TModule& m)
     : Module(m)
 {

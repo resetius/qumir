@@ -42,7 +42,7 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
         return std::unexpected(lowerRes.error());
     }
     auto* initFun = lowerRes.value();
-    auto* mainFun = Module.GetFunctionByName("<main>");
+    auto* mainFun = Module.GetEntryPoint();
 
     if (Options.PrintIr) {
         std::cerr << "=========== IR: ============\n";

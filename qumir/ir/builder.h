@@ -184,6 +184,7 @@ struct TModule {
     }
 
     TFunction* GetFunctionByName(const std::string& name);
+    TFunction* GetEntryPoint();
     void Print(std::ostream& out) const;
 };
 
