@@ -49,8 +49,12 @@ inline int64_t EvalAlu(TFrame& f, const TVMInstr& instr, T lambda) {
 
 } // namespace
 
-TInterpreter::TInterpreter(TModule& module, TRuntime& runtime, std::ostream& out)
-    : Module(module), Runtime(runtime), Compiler(module), Out(out)
+TInterpreter::TInterpreter(TModule& module, TRuntime& runtime, std::ostream& out, std::istream& in)
+    : Module(module)
+    , Runtime(runtime)
+    , Compiler(module)
+    , Out(out)
+    , In(in)
 { }
 
 std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<int64_t> args) {
@@ -377,6 +381,18 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             } else {
                 Out << "(null)";
             }
+            break;
+        }
+        case EVMOp::InI64: {
+            int64_t val;
+            In >> val;
+            frame.Tmps[instr.Operands[0].Tmp.Idx] = val;
+            break;
+        }
+        case EVMOp::InF64: {
+            double val;
+            In >> val;
+            frame.Tmps[instr.Operands[0].Tmp.Idx] = std::bit_cast<uint64_t>(val);
             break;
         }
         default:

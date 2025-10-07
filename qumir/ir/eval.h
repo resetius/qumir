@@ -41,7 +41,7 @@ struct TReturnLink {
 
 class TInterpreter {
 public:
-    TInterpreter(TModule& module, TRuntime& runtime, std::ostream& out);
+    TInterpreter(TModule& module, TRuntime& runtime, std::ostream& out, std::istream& in);
 
     std::optional<std::string> Eval(TFunction& function, std::vector<int64_t> args);
 
@@ -49,6 +49,7 @@ private:
     //TExecFunc Compile(TFunction& function);
 
     std::ostream& Out;
+    std::istream& In;
     TModule& Module;
     TRuntime& Runtime;
     TVMCompiler Compiler;

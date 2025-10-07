@@ -14,9 +14,9 @@ namespace {
 
 void PrintResultIR(const std::optional<std::string>& v) {
     if (v.has_value()) {
+        std::cout << "\n";
+        std::cout << "Res:\n";
         std::cout << *v << std::endl;
-    } else {
-        std::cout << "<null>" << std::endl;
     }
 }
 
@@ -115,7 +115,10 @@ int main(int argc, char ** argv) {
         in = &infile;
     }
 
-    TIRRunner irRunner(TIRRunnerOptions {
+    TIRRunner irRunner(
+        std::cout,
+        std::cin,
+        TIRRunnerOptions {
         .PrintAst = printAst,
         .PrintIr = printIr
     });

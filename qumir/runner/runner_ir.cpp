@@ -60,22 +60,9 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
         return std::unexpected(TError(TLocation(), "no <main> function found"));
     }
 
-    Out.clear();
-    Out.str("");
-
     // Interpret
     auto res = Interpreter.Eval(*initFun, {});
     res = Interpreter.Eval(*mainFun, {});
-
-    auto output = Out.str();
-    if (!output.empty()) {
-        if (res) {
-            *res += "\n";
-            *res += output;
-        } else {
-            res = output;
-        }
-    }
 
     return res;
 }
