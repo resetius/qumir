@@ -290,12 +290,13 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             break;
         }
         case EVMOp::ECall: {// external call
+            using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
             void* addr = reinterpret_cast<void*>(instr.Operands[1].Imm.Value);
-            double (*func)(double) = (double (*)(double))addr;
+            TPacked func = reinterpret_cast<TPacked>(addr);
 
-            // TODO: support multiple and different types of arguments
-            double arg = std::bit_cast<double>(frame.Args[0]);
-            frame.Tmps[instr.Operands[0].Tmp.Idx] = std::bit_cast<int64_t>(func(arg));
+            if (instr.Operands[0].Tmp.Idx >= 0) {
+                frame.Tmps[instr.Operands[0].Tmp.Idx] = func(reinterpret_cast<const uint64_t*>(frame.Args.data()), frame.Args.size());
+            }
 
             break;
         }

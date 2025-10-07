@@ -4,7 +4,7 @@
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/type_annotation/type_annotation.h>
-#include <qumir/modules/system/system.h>
+#include <qumir/modules/module.h>
 
 #include <qumir/ir/builder.h>
 #include <qumir/ir/lowering/lower_ast.h>
@@ -30,13 +30,7 @@ public:
     TIRRunner(
         std::ostream& out,
         std::istream& in,
-        TIRRunnerOptions options = {})
-        : Builder(Module)
-        , Lowerer(Module, Builder, Resolver)
-        , Annotator(Resolver)
-        , Options(std::move(options))
-        , Interpreter(Module, Runtime, out, in)
-    {}
+        TIRRunnerOptions options);
 
     // Parses, resolves, lowers to IR and interprets the code from input.
     // Returns numeric result (if any) produced by the compiled chunk.
@@ -53,6 +47,8 @@ private:
 
     NSemantics::TNameResolver Resolver;
     NTypeAnnotation::TTypeAnnotator Annotator;
+
+    std::vector<std::shared_ptr<NRegistry::IModule>> RegisteredModules;
 };
 
 } // namespace NQumir

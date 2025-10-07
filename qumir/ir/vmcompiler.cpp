@@ -319,17 +319,26 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 require(ins, 0, 1);
 
                 const int64_t calleeId = ins.Operands[0].Imm.Value;
-                assert(Module.SymIdToFuncIdx.contains(calleeId) && "Invalid callee id");
-                const int64_t calleeIdx = Module.SymIdToFuncIdx.at(calleeId);
-                assert(calleeIdx >=0 && calleeIdx < Module.Functions.size() && "Invalid callee idx");
 
                 if (ins.Dest.Idx < 0) {
                     out.Operands[0] = TTmp{-1}; // no dest
                 }
 
-                out.Operands[1] = TImm{calleeIdx};
+                if (Module.SymIdToFuncIdx.contains(calleeId)) {
+                    const int64_t calleeIdx = Module.SymIdToFuncIdx.at(calleeId);
+                    assert(calleeIdx >=0 && calleeIdx < Module.Functions.size() && "Invalid callee idx");
+                    out.Operands[1] = TImm{calleeIdx};
+                    out.Op = EVMOp::Call;
+                } else if (Module.SymIdToExtFuncIdx.contains(calleeId)) {
+                    const int64_t calleeIdx = Module.SymIdToExtFuncIdx.at(calleeId);
+                    assert(calleeIdx >=0 && calleeIdx < Module.ExternalFunctions.size() && "Invalid callee idx");
+                    void* addr = reinterpret_cast<void*>(Module.ExternalFunctions[calleeIdx].Packed);
+                    out.Operands[1] = TImm{(int64_t)addr};
+                    out.Op = EVMOp::ECall;
+                } else {
+                    throw std::runtime_error("Unknown callee id in call: " + std::to_string(calleeId));
+                }
 
-                out.Op = EVMOp::Call;
                 break;
             }
             case "ecll"_op: { // external call

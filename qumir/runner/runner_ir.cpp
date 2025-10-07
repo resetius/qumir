@@ -1,6 +1,7 @@
 #include "runner_ir.h"
 
 #include <qumir/parser/lexer.h>
+#include <qumir/modules/system/system.h>
 
 #include <iostream>
 #include <sstream>
@@ -9,6 +10,24 @@ namespace NQumir {
 
 using namespace NIR;
 using namespace NAst;
+
+TIRRunner::TIRRunner(
+    std::ostream& out,
+    std::istream& in,
+    TIRRunnerOptions options)
+    : Builder(Module)
+    , Lowerer(Module, Builder, Resolver)
+    , Annotator(Resolver)
+    , Options(std::move(options))
+    , Interpreter(Module, Runtime, out, in)
+{
+    RegisteredModules.push_back(std::make_shared<NRegistry::SystemModule>());
+    // TODO: register other modules
+
+    for (const auto& mod : RegisteredModules) {
+        mod->Register(Resolver);
+    }
+}
 
 std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& input) {
     TTokenStream ts(input);
@@ -21,10 +40,6 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     auto scope = Resolver.GetOrCreateRootScope();
     scope->AllowsRedeclare = true; // TODO: move to options?
     scope->RootLevel = false;
-
-    // TODO: move to constructor?
-    NQumir::NRegistry::SystemModule sysModule;
-    sysModule.Register(Resolver);
 
     auto error = Resolver.Resolve(ast);
     if (error) {

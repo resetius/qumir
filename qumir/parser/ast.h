@@ -410,6 +410,8 @@ struct TFunDecl : TExpr {
     std::vector<TParam> Params;
     std::shared_ptr<TBlockExpr> Body;
     void* Ptr = nullptr; // function pointer for built-in functions
+    using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
+    TPacked Packed = nullptr; // packed thunk for built-in functions
     NAst::TTypePtr RetType; // ret type different from TExpr::Type which is the function value type
     int32_t Scope = -1; // Function internal scope, filled in by name resolver, -1 - unscoped
     TFunDecl(TLocation loc, std::string name, std::vector<TParam> args, std::shared_ptr<TBlockExpr> body, NAst::TTypePtr type)

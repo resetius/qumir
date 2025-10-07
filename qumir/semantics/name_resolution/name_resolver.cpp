@@ -167,8 +167,23 @@ TSymbolId TNameResolver::DeclareFunction(const std::string& name, TExprPtr node)
         throw std::runtime_error("failed to find declared function symbol");
     }
 
-    std::cout << "Declared function: " << name << " with symbol id " << it->second.Id << " in scope " << scope->Id.Id << "\n";
     return it->second;
+}
+
+std::vector<std::pair<int, std::shared_ptr<NAst::TFunDecl>>> TNameResolver::GetExternalFunctions() {
+    auto scope = GetOrCreateRootScope();
+
+    std::vector<std::pair<int, std::shared_ptr<NAst::TFunDecl>>> result;
+    for (auto& symbolId : scope->Symbols) {
+        auto& symbol = Symbols[symbolId];
+        if (auto maybeFun = TMaybeNode<TFunDecl>(symbol.Node)) {
+            auto fun = maybeFun.Cast();
+            if (fun->Body == nullptr) {
+                result.push_back({symbolId, fun});
+            }
+        }
+    }
+    return result;
 }
 
 TScopePtr TNameResolver::NewScope(TScopePtr parent) {

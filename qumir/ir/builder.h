@@ -144,6 +144,15 @@ struct TBlock {
 struct TExecFunc;
 struct TModule;
 
+struct TExternalFunction {
+    std::string Name;
+    void* Addr = nullptr; // function pointer
+    using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
+    TPacked Packed = nullptr; // packed thunk for built-in functions
+    // types not needed so far
+    int SymId;
+};
+
 struct TFunction {
     std::string Name;
     std::vector<TSlot> Slots;
@@ -171,7 +180,9 @@ struct TFunction {
 
 struct TModule {
     std::vector<TFunction> Functions;
+    std::vector<TExternalFunction> ExternalFunctions;
     std::unordered_map<int, int> SymIdToFuncIdx;
+    std::unordered_map<int, int> SymIdToExtFuncIdx;
     TTypeTable Types;
 
     std::vector<int> SlotTypes; // SlotId -> TypeId

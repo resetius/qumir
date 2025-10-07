@@ -545,19 +545,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             returnsValue = true;
         }
 
-        auto instr = "call"_op;
-        auto arg = TImm{calleeSymId};
-        if (!funDecl->Body) {
-            instr = "ecll"_op; // TODO: register external in TModule
-            arg = TImm{(int64_t)funDecl->Ptr};
-        }
-
         if (returnsValue) {
-            auto tmp = Builder.Emit1(instr, {arg});
+            auto tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
             Builder.SetType(tmp, FromAstType(returnType, Module.Types));
             co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
         } else {
-            Builder.Emit0(instr, {arg});
+            Builder.Emit0("call"_op, {TImm{calleeSymId}});
             co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
         }
     } else if (auto maybeOutput = NAst::TMaybeNode<NAst::TOutputExpr>(expr)) {
@@ -614,7 +607,35 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     }
 }
 
+void TAstLowerer::ImportExternalFunction(int symbolId, const NAst::TFunDecl& funcDecl) {
+    if (Module.SymIdToExtFuncIdx.find(symbolId) != Module.SymIdToExtFuncIdx.end()) {
+        // already imported
+        return;
+    }
+
+    std::vector<EKind> argTypes;
+    std::optional<EKind> returnType;
+
+    TExternalFunction func {
+        .Name = funcDecl.Name,
+        .Addr = funcDecl.Ptr,
+        .Packed = funcDecl.Packed,
+        .SymId = symbolId
+    };
+    int funIdx = Module.ExternalFunctions.size();
+    Module.ExternalFunctions.push_back(func);
+    Module.SymIdToExtFuncIdx[symbolId] = funIdx;
+}
+
+void TAstLowerer::ImportExternalFunctions() {
+    for (const auto& [symbolId, func] : Context.GetExternalFunctions()) {
+        ImportExternalFunction(symbolId, *func);
+    }
+}
+
 std::expected<TFunction*, TError> TAstLowerer::LowerTop(const NAst::TExprPtr& expr) {
+    ImportExternalFunctions();
+
     std::string funcName = std::string("__init") + std::to_string(NextReplChunk++);
     auto symbolId = Context.DeclareFunction(
         funcName,
