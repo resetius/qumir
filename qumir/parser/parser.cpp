@@ -482,22 +482,15 @@ TAstTask for_loop(TTokenStream& stream) {
     block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__step", std::make_shared<TIntegerType>()));
     block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__next", std::make_shared<TIntegerType>()));
     block->Stmts.push_back(std::make_shared<TAssignExpr>(varTok.Location, varTok.Name, fromExpr)); // var = from
-    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "__to", toExpr)); // __to = to
     block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "__step", stepExpr)); // __step = step
     block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "__next", ident(location, varTok.Name))); // __next = var
 
-    // pre-condition: __next <= __to (for positive step) or __next >= __to (for negative step)
-    // (__step >= 0 && __next <= __to) || (__step < 0 && __next >= __to)
-    auto preCond = binary(location, TOperator("||"),
-        binary(location, TOperator("&&"),
-            binary(location, TOperator(">="), ident(location, "__step"), num(location, (int64_t)0)),
-            binary(location, TOperator("<="), ident(location, "__next"), ident(location, "__to"))
-        ),
-        binary(location, TOperator("&&"),
-            binary(location, TOperator("<"), ident(location, "__step"), num(location, (int64_t)0)),
-            binary(location, TOperator(">="), ident(location, "__next"), ident(location, "__to"))
-        )
-    );
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "__to",
+        binary(location, TOperator("+"), toExpr, ident(location, "__step"))
+    )); // __to = (to + step)
+
+    // pre-condition: __next <> (__to + step)
+    auto preCond = binary(location, TOperator("!="), ident(location, "__next"), ident(location, "__to"));
 
     // pre-body: var = __next
     auto preBody = std::make_shared<TAssignExpr>(location, varTok.Name, ident(location, "__next"));
