@@ -194,11 +194,15 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
         case TOperator("*"):
         case TOperator("/"):
             if (TMaybeType<TFloatType>(left) && TMaybeType<TFloatType>(right)) {
-                binary->Type = std::make_shared<TFloatType>();
+                binary->Type = left;
             } else if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
-                binary->Type = std::make_shared<TIntegerType>();
+                binary->Type = left;
+            } else if (TMaybeType<TIntegerType>(left) && TMaybeType<TFloatType>(right)) {
+                binary->Type = right;
+            } else if (TMaybeType<TFloatType>(left) && TMaybeType<TIntegerType>(right)) {
+                binary->Type = left;
             } else {
-                co_return TError(binary->Location, "binary expression operands must be both numeric types");
+                co_return TError(binary->Location, std::string("binary expression operands must be both numeric types, got: left: ") + std::string(left->TypeName()) + std::string(", right: ") + std::string(right->TypeName()));
             }
             break;
         case TOperator("%"):

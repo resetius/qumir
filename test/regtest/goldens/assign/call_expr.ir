@@ -1,3 +1,25 @@
-Error: : Line: 0, Column: 0
-  binary expression operands must be both numeric types: Line: 6, Column: 23
-
+function __init0 () { ; 5 func() -> void
+  block {
+    label: label(0)
+    ret 
+  }
+}
+function f (slot(1)) { ; 0 f64
+  block {
+    label: label(0)
+    stre slot(3,f64) imm(4607182418800017408) 
+    load tmp(0,f64) = slot(3,f64) 
+    ret tmp(0,f64) 
+  }
+}
+function функция () { ; 2 void
+  block {
+    label: label(0)
+    + tmp(0,f64) = imm(4613937818241073152) imm(4617315517961601024) 
+    arg tmp(0,f64) 
+    call tmp(1,f64) = imm(0) 
+    * tmp(2,f64) = tmp(1,f64) imm(10) 
+    stre slot(4,i64) tmp(2,f64) 
+    ret 
+  }
+}
