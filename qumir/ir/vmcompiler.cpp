@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <iomanip>
 
 namespace NQumir {
 namespace NIR {
@@ -21,6 +22,12 @@ TExecFunc& TVMCompiler::Compile(const TFunction& function) {
 
     auto& execFunc = CodeCache[function.SymId];
     CompileUltraLow(function, execFunc);
+    //std::cerr << "Compiled function " << function.Name << " (symId=" << function.SymId << ", uniqueId=" << function.UniqueId << "):\n";
+    //std::cerr << "Start address: " << (uint64_t)execFunc.VMCode.data() << ", insrt size: " << sizeof(TVMInstr) << " bytes\n";
+    //char* p = reinterpret_cast<char*>(execFunc.VMCode.data());
+    //for (size_t i = 0; i < execFunc.VMCode.size(); ++i) {
+    //    std::cerr << std::setw(4) << (uint64_t)(p + i * sizeof(TVMInstr)) << ": "<< execFunc.VMCode[i] << "\n";
+    //}
     return execFunc;
 }
 

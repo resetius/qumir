@@ -71,6 +71,8 @@ enum class EVMOp : uint8_t {
     OutS, // c-string literal
 };
 
+std::ostream& operator<<(std::ostream& os, EVMOp op);
+
 struct TUntypedImm {
     int64_t Value;
 };
@@ -108,6 +110,8 @@ struct TVMInstr {
     std::array<TVMOperand, 3> Operands;
     EVMOp Op;
 };
+
+std::ostream& operator<<(std::ostream& os, const TVMInstr& instr);
 
 static_assert(sizeof(TVMInstr) == 56, "TVMInstr must be 56 bytes");
 
