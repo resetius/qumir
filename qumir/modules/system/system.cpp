@@ -340,6 +340,16 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
             },
             .ArgTypes = { },
             .ReturnType = integerType,
+        },
+        {
+            .Name = "МАКСВЕЩ",
+            .MangledName = "max_limit_double",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)()>([]() { return std::numeric_limits<double>::max(); })),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(std::numeric_limits<double>::max());
+            },
+            .ArgTypes = { },
+            .ReturnType = floatType,
         }
     };
 
