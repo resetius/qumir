@@ -166,6 +166,8 @@ TSymbolId TNameResolver::DeclareFunction(const std::string& name, TExprPtr node)
     if (it == NodeToSymbolId.end()) {
         throw std::runtime_error("failed to find declared function symbol");
     }
+
+    std::cout << "Declared function: " << name << " with symbol id " << it->second.Id << " in scope " << scope->Id.Id << "\n";
     return it->second;
 }
 

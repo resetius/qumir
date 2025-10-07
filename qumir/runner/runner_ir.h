@@ -4,6 +4,7 @@
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/type_annotation/type_annotation.h>
+#include <qumir/modules/system/system.h>
 
 #include <qumir/ir/builder.h>
 #include <qumir/ir/lowering/lower_ast.h>

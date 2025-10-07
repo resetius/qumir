@@ -62,6 +62,7 @@ enum class EVMOp : uint8_t {
     ArgTmp, // temporary to argument
     ArgConst, // constant to argument
     Call,
+    ECall, // external call
     Ret,
     RetVoid,
 

@@ -1,4 +1,8 @@
 add_library(qumir
+    modules/system/system.h
+    modules/system/system.cpp
+    modules/module.h
+    modules/module.cpp
     parser/ast.h
     parser/ast.cpp
     parser/lexer.h

@@ -406,13 +406,16 @@ struct TFunDecl : TExpr {
     static constexpr const char* NodeId = "FunDecl";
 
     std::string Name;
+    std::string MangledName;
     std::vector<TParam> Params;
     std::shared_ptr<TBlockExpr> Body;
+    void* Ptr = nullptr; // function pointer for built-in functions
     NAst::TTypePtr RetType; // ret type different from TExpr::Type which is the function value type
     int32_t Scope = -1; // Function internal scope, filled in by name resolver, -1 - unscoped
     TFunDecl(TLocation loc, std::string name, std::vector<TParam> args, std::shared_ptr<TBlockExpr> body, NAst::TTypePtr type)
         : TExpr(std::move(loc))
         , Name(std::move(name))
+        , MangledName(Name)
         , Params(std::move(args))
         , Body(std::move(body))
         , RetType(std::move(type))

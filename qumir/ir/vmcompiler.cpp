@@ -332,6 +332,16 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 out.Op = EVMOp::Call;
                 break;
             }
+            case "ecll"_op: { // external call
+                require(ins, 0, 1);
+
+                if (ins.Dest.Idx < 0) {
+                    out.Operands[0] = TTmp{-1}; // no dest
+                }
+
+                out.Op = EVMOp::ECall;
+                break;
+            }
             case "ret"_op: {
                 if (ins.OperandCount == 0) {
                     out.Op = EVMOp::RetVoid;

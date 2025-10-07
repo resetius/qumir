@@ -499,18 +499,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             calleeName = ident->Name;
             if (!sidOpt) co_return TError(ident->Location, std::string("undefined function: ") + ident->Name);
             calleeSymId = sidOpt->Id;
-            // Ensure it's a function
-            const auto& syms = Context.GetSymbols();
-            if (sidOpt->Id < 0 || static_cast<size_t>(sidOpt->Id) >= syms.size()) co_return TError(ident->Location, "invalid function");
-            if (!NAst::TMaybeNode<NAst::TFunDecl>(syms[sidOpt->Id].Node)) {
-                co_return TError(ident->Location, "not a function");
-            }
-            // get args and prepare func call
         } else {
             co_return TError(call->Callee->Location, "function call to non-identifier not supported");
         }
 
         auto funDecl = NAst::TMaybeNode<NAst::TFunDecl>(Context.GetSymbolNode(NSemantics::TSymbolId{calleeSymId})).Cast();
+        if (!funDecl) {
+            co_return TError(call->Callee->Location, "not a function");
+        }
         NAst::TTypePtr returnType = funDecl->RetType;
         std::vector<NAst::TTypePtr>* argTypes = nullptr;
         if (auto maybeFuncType = NAst::TMaybeType<NAst::TFunctionType>(funDecl->Type)) {
@@ -549,12 +545,19 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             returnsValue = true;
         }
 
+        auto instr = "call"_op;
+        auto arg = TImm{calleeSymId};
+        if (!funDecl->Body) {
+            instr = "ecll"_op; // TODO: register external in TModule
+            arg = TImm{(int64_t)funDecl->Ptr};
+        }
+
         if (returnsValue) {
-            auto tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
+            auto tmp = Builder.Emit1(instr, {arg});
             Builder.SetType(tmp, FromAstType(returnType, Module.Types));
             co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
         } else {
-            Builder.Emit0("call"_op, {TImm{calleeSymId}});
+            Builder.Emit0(instr, {arg});
             co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
         }
     } else if (auto maybeOutput = NAst::TMaybeNode<NAst::TOutputExpr>(expr)) {

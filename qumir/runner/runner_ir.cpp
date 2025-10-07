@@ -21,6 +21,11 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     auto scope = Resolver.GetOrCreateRootScope();
     scope->AllowsRedeclare = true; // TODO: move to options?
     scope->RootLevel = false;
+
+    // TODO: move to constructor?
+    NQumir::NRegistry::SystemModule sysModule;
+    sysModule.Register(Resolver);
+
     auto error = Resolver.Resolve(ast);
     if (error) {
         return std::unexpected(*error);

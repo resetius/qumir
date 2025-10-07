@@ -289,6 +289,16 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             frame.Args.push_back(value);
             break;
         }
+        case EVMOp::ECall: {// external call
+            void* addr = reinterpret_cast<void*>(instr.Operands[1].Imm.Value);
+            double (*func)(double) = (double (*)(double))addr;
+
+            // TODO: support multiple and different types of arguments
+            double arg = std::bit_cast<double>(frame.Args[0]);
+            frame.Tmps[instr.Operands[0].Tmp.Idx] = std::bit_cast<int64_t>(func(arg));
+
+            break;
+        }
         case EVMOp::Call: {
             assert(instr.Operands[1].Type == TVMOperand::EType::Imm && "callee must be Imm(id)");
             const int64_t calleeId = instr.Operands[1].Imm.Value;
