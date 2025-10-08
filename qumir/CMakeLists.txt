@@ -15,6 +15,8 @@ add_library(qumir
     parser/type.cpp
     runner/runner_ir.h
     runner/runner_ir.cpp
+    runner/runner_llvm.h
+    runner/runner_llvm.cpp
     ir/lowering/lower_ast.h
     ir/lowering/lower_ast.cpp
     ir/builder.h

@@ -1,5 +1,6 @@
 #include <istream>
 #include <qumir/runner/runner_ir.h>
+#include <qumir/runner/runner_llvm.h>
 #include <qumir/codegen/llvm/llvm_initializer.h>
 
 #include <iostream>
@@ -113,25 +114,37 @@ int main(int argc, char ** argv) {
         .PrintIr = printIr
     });
 
-    auto t0 = std::chrono::steady_clock::now();
-    auto r = irRunner.Run(*in);
-    auto t1 = std::chrono::steady_clock::now();
+    TLLVMRunner llvmRunner(TLLVMRunnerOptions {
+        .PrintAst = printAst,
+        .PrintIr = printIr,
+        .PrintLlvm = printLlvm,
+        .OptLevel = optLevel
+    });
 
-    std::optional<std::string> irValue;
     long long lastEvalUs = 0;
-    std::string errStr;
+    std::expected<std::optional<std::string>, TError> result;
+    if (runnerType == RunnerType::LLVM) {
+        auto t0 = std::chrono::steady_clock::now();
+        result = llvmRunner.Run(*in);
+        auto t1 = std::chrono::steady_clock::now();
+        lastEvalUs = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+    } else {
+        auto t0 = std::chrono::steady_clock::now();
+        result = irRunner.Run(*in);
+        auto t1 = std::chrono::steady_clock::now();
+        lastEvalUs = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+    }
 
-    if (!r) {
-        errStr = r.error().ToString();
+    std::optional<std::string> value;
+    if (!result) {
+        auto errStr = result.error().ToString();
         std::cerr << "Error: " << errStr << std::endl;
         return 1;
     }
 
-    irValue = std::move(r.value());
-    lastEvalUs = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+    value = std::move(result.value());
 
-
-    PrintResultIR(irValue);
+    PrintResultIR(value);
     if (printEvalTimeUs) {
         std::cout << lastEvalUs << " us" << std::endl;
     }
