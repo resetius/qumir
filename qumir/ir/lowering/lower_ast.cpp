@@ -618,6 +618,7 @@ void TAstLowerer::ImportExternalFunction(int symbolId, const NAst::TFunDecl& fun
 
     TExternalFunction func {
         .Name = funcDecl.Name,
+        .MangledName = funcDecl.MangledName,
         .Addr = funcDecl.Ptr,
         .Packed = funcDecl.Packed,
         .SymId = symbolId

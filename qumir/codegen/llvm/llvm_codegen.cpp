@@ -487,25 +487,46 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
             if (instr.Operands[0].Type != TOperand::EType::Imm) throw std::runtime_error("call callee must be Imm(symId)");
             const int calleeSymId = static_cast<int>(instr.Operands[0].Imm.Value);
             auto it = SymIdToLFun.find(calleeSymId);
-            if (it == SymIdToLFun.end()) throw std::runtime_error("callee function not found by SymId");
-            auto* callee = it->second;
-            auto* retTy = callee->getFunctionType()->getReturnType();
-            // Marshal arguments collected by 'arg'
-            auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
-            std::vector<llvm::Value*> args;
-            for (int i = 0; i < CurFun->PendingArgs.size(); ++i) {
-                auto* paramTy = callee->getFunctionType()->getParamType(i);
-                args.push_back(cast(CurFun->PendingArgs[i], paramTy));
+            if (it != SymIdToLFun.end()) {
+                // internal function
+                auto* callee = it->second;
+                auto* retTy = callee->getFunctionType()->getReturnType();
+                // Marshal arguments collected by 'arg'
+                auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
+                std::vector<llvm::Value*> args;
+                for (int i = 0; i < CurFun->PendingArgs.size(); ++i) {
+                    auto* paramTy = callee->getFunctionType()->getParamType(i);
+                    args.push_back(cast(CurFun->PendingArgs[i], paramTy));
+                }
+                CurFun->PendingArgs.clear();
+                if (retTy->isVoidTy()) {
+                    // Void call: emit and produce no tmp
+                    (void)irb->CreateCall(callee, args);
+                    return nullptr;
+                } else {
+                    if (instr.Dest.Idx < 0) throw std::runtime_error("call needs a destination tmp");
+                    auto call = irb->CreateCall(callee, args, "calltmp");
+                    return storeTmp(call);
+                }
             }
-            CurFun->PendingArgs.clear();
-            if (retTy->isVoidTy()) {
-                // Void call: emit and produce no tmp
-                (void)irb->CreateCall(callee, args);
-                return nullptr;
-            } else {
-                if (instr.Dest.Idx < 0) throw std::runtime_error("call needs a destination tmp");
-                auto call = irb->CreateCall(callee, args, "calltmp");
+            auto jt = module.SymIdToExtFuncIdx.find(calleeSymId);
+            if (jt != module.SymIdToExtFuncIdx.end()) {
+                // external function
+                auto& extFun = module.ExternalFunctions[jt->second];
+
+                auto* i64Ty = llvm::Type::getInt64Ty(ctx);
+                auto* fty   = llvm::FunctionType::get(i64Ty, /*isVarArg=*/false);
+
+                // materialize pointer constant and cast to i64()*
+                //auto addr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(extFun.Addr));
+                //auto* addrConst = llvm::ConstantInt::get(i64Ty, addr);
+                //auto* calleePtr = llvm::ConstantExpr::getIntToPtr(addrConst, fty->getPointerTo());
+                //auto* call = irb->CreateCall(fty, calleePtr, {});
+                llvm::FunctionCallee callee = LModule->getOrInsertFunction(extFun.MangledName, fty);
+                auto* call = irb->CreateCall(callee, {});
                 return storeTmp(call);
+            } else {
+                throw std::runtime_error("call target function not found");
             }
         }
         case "jmp"_op: {

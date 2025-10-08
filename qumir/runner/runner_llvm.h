@@ -4,6 +4,7 @@
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/type_annotation/type_annotation.h>
+#include <qumir/modules/module.h>
 
 #include <qumir/ir/builder.h>
 #include <qumir/ir/lowering/lower_ast.h>
@@ -27,12 +28,7 @@ struct TLLVMRunnerOptions {
 
 class TLLVMRunner {
 public:
-    TLLVMRunner(TLLVMRunnerOptions options = {})
-        : Options(std::move(options))
-        , Builder(Module)
-        , Lowerer(Module, Builder, Resolver)
-        , Annotator(Resolver)
-    {}
+    TLLVMRunner(TLLVMRunnerOptions options = {});
 
     // Parses, resolves, lowers to IR and executes via LLVM JIT.
     // Returns numeric result (if any) produced by the compiled chunk.
@@ -50,6 +46,8 @@ private:
 
     std::unordered_set<int> PrintedChunks;
     std::unordered_set<int> PrintedLLVMChunks;
+
+    std::vector<std::shared_ptr<NRegistry::IModule>> RegisteredModules;
 };
 
 } // namespace NQumir

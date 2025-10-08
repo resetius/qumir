@@ -1,6 +1,7 @@
 #include "runner_llvm.h"
 
 #include <qumir/parser/lexer.h>
+#include <qumir/modules/system/system.h>
 
 #include <iostream>
 #include <sstream>
@@ -8,6 +9,20 @@
 namespace NQumir {
 
 using namespace NIR;
+
+TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
+    : Options(std::move(options))
+    , Builder(Module)
+    , Lowerer(Module, Builder, Resolver)
+    , Annotator(Resolver)
+{
+    RegisteredModules.push_back(std::make_shared<NRegistry::SystemModule>());
+    // TODO: register other modules
+
+    for (const auto& mod : RegisteredModules) {
+        mod->Register(Resolver);
+    }
+}
 
 std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream& input) {
     // Parse source into AST

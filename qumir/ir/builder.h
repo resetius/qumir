@@ -146,6 +146,7 @@ struct TModule;
 
 struct TExternalFunction {
     std::string Name;
+    std::string MangledName;
     void* Addr = nullptr; // function pointer
     using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
     TPacked Packed = nullptr; // packed thunk for built-in functions
