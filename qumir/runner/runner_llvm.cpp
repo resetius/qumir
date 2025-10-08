@@ -76,10 +76,12 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
         std::cerr << "============================\n\n";
     }
 
+    auto* mainFun = Module.GetEntryPoint();
+
     // Run via LLVM JIT
     NCodeGen::TLlvmRunner runner;
     std::string runErr;
-    auto res = runner.Run(std::move(artifacts), &runErr);
+    auto res = runner.Run(std::move(artifacts), mainFun->Name, &runErr);
     if (!runErr.empty()) {
         return std::unexpected(TError({}, std::string("llvm run error: ") + runErr));
     }

@@ -17,7 +17,7 @@ using namespace NIR;
 TLlvmRunner::TLlvmRunner()
 {}
 
-std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts> iartifacts, std::string* error) {
+std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts> iartifacts, const std::string& entryPoint, std::string* error) {
     auto* artifacts = static_cast<TLLVMModuleArtifacts*>(iartifacts.get());
     if (!artifacts || !artifacts->Module) {
         if (error) *error = "null artifacts";
@@ -52,7 +52,7 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
         for (auto& f : *mod) {
             last = &f;
             std::string name = f.getName().str();
-            if (name.starts_with("__repl")) target = &f; // keep last matching
+            if (name == entryPoint) target = &f; // keep last matching
         }
     }
     if (!target) target = last;

@@ -641,6 +641,8 @@ std::expected<TFunction*, TError> TAstLowerer::LowerTop(const NAst::TExprPtr& ex
         funcName,
         expr);
 
+    expr->Type = std::make_shared<NAst::TVoidType>();
+
     auto idx = Builder.NewFunction(funcName, {}, symbolId.Id);
     Builder.SetReturnType(FromAstType(expr->Type, Module.Types));
     const auto& result = Lower(expr, TBlockScope {
