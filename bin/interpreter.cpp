@@ -1,5 +1,6 @@
 #include <istream>
 #include <qumir/runner/runner_ir.h>
+#include <qumir/codegen/llvm/llvm_initializer.h>
 
 #include <iostream>
 #include <sstream>
@@ -23,6 +24,8 @@ void PrintResultIR(const std::optional<std::string>& v) {
 } // namespace
 
 int main(int argc, char ** argv) {
+    NQumir::NCodeGen::TLLVMInitializer llvmInit;
+
     enum class RunnerType { IR, LLVM };
     RunnerType runnerType = RunnerType::IR; // default
     bool printEvalTimeUs = false;
@@ -33,21 +36,8 @@ int main(int argc, char ** argv) {
     std::string inputFile; // stdin by default if empty
 
     for (int i = 1; i < argc; ++i) {
-        if (!std::strcmp(argv[i], "--runner-type")) {
-            if (i + 1 < argc) {
-                const char* v = argv[++i];
-                if (!std::strcmp(v, "ir")) {
-                    runnerType = RunnerType::IR;
-                } else if (!std::strcmp(v, "llvm")) {
-                    runnerType = RunnerType::LLVM;
-                } else {
-                    std::cerr << "Unknown runner type '" << v << "', using 'ir' by default\n";
-                    runnerType = RunnerType::IR;
-                }
-            } else {
-                std::cerr << "--runner-type requires a value: ir|llvm; using 'ir' by default\n";
-                runnerType = RunnerType::IR;
-            }
+        if (!std::strcmp(argv[i], "--jit")) {
+            runnerType = RunnerType::LLVM;
         } else if (!std::strcmp(argv[i], "--time-us")) {
             printEvalTimeUs = true;
         } else if (!std::strcmp(argv[i], "--print-ast")) {
