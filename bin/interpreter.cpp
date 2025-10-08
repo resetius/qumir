@@ -74,10 +74,10 @@ int main(int argc, char ** argv) {
         } else if (!std::strcmp(argv[i], "-O3")) {
             optLevel = 3;
         } else if (!std::strcmp(argv[i], "--help") || !std::strcmp(argv[i], "-h")) {
-            std::cout << "ozrepl [options]\n"
+            std::cout << "qumiri [options]\n"
                          "Options:\n"
-                         "  --runner-type <type>  Select runner type: ir (default), llvm\n"
-                         "  --time-us             Print evaluation time in microseconds\n"
+                         "  --jit                Enable llvm jit\n"
+                         "  --time-us            Print evaluation time in microseconds\n"
                          "  --print-ast          Print AST after parsing\n"
                          "  --print-ir           Print IR after lowering\n"
                          "  --print-llvm         Print LLVM IR after codegen\n"
