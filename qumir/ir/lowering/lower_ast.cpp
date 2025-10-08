@@ -566,7 +566,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             } else if (NAst::TMaybeType<NAst::TStringType>(type)) {
                 Builder.Emit0("outs"_op, {*av.Value});
             } else {
-                co_return TError(arg->Location, "output argument must be int, float, or string");
+                co_return TError(arg->Location, "output argument must be int, float, or string, got: " + type->ToString());
             }
         }
         // output has no value
@@ -594,7 +594,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 auto tmp = Builder.Emit1("ini"_op, {});
                 Builder.Emit0("stre", {storeSlot, tmp});
             } else {
-                co_return TError(arg->Location, "output argument must be int, float");
+                co_return TError(arg->Location, "output argument must be int, float, got: " + type->ToString());
             }
         }
         // output has no value
