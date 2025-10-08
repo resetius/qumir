@@ -4,3 +4,4 @@
 5. check arg count on call
 6. fix error (ожидалось число или)
 7. lexer bug with negative floats?
+8. different lowering for top level and function level
