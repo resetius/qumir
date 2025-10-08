@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <math.h>
 
+#include <qumir/runtime/runtime.h>
+
 namespace NQumir {
 namespace NRegistry {
 
@@ -21,60 +23,6 @@ struct TExternalFunction {
 };
 
 } // namespace
-
-extern "C" double cotan(double x) {
-    return 1.0 / tan(x);
-}
-
-extern "C" int64_t min_int64_t(int64_t a, int64_t b) {
-    return a < b ? a : b;
-}
-
-extern "C" int64_t max_int64_t(int64_t a, int64_t b) {
-    return a > b ? a : b;
-}
-
-extern "C" double min_double(double a, double b) {
-    return a < b ? a : b;
-}
-
-extern "C" double max_double(double a, double b) {
-    return a > b ? a : b;
-}
-
-extern "C" int sign(double x) {
-    return (x > 0) - (x < 0);
-}
-
-extern "C" int64_t trunc_double(double x) {
-    return static_cast<int64_t>(x);
-}
-
-extern "C" double rand_double(double x) {
-    // random on [0,x]
-    return static_cast<double>(rand()) / RAND_MAX * x;
-}
-
-extern "C" double rand_double_range(double a, double b) {
-    // random on [a,b]
-    return a + static_cast<double>(rand()) / RAND_MAX * (b - a);
-}
-
-extern "C" uint64_t rand_uint64(uint64_t x) {
-    // random on [0,x]
-    if (x == 0) return 0;
-    return static_cast<uint64_t>(rand()) % x;
-}
-
-extern "C" uint64_t rand_uint64_range(uint64_t a, uint64_t b) {
-    // random on [a,b]
-    if (b <= a) return a;
-    return a + static_cast<uint64_t>(rand()) % (b - a);
-}
-
-extern "C" int64_t max_limit_int64_t() {
-    return INT64_MAX;
-}
 
 void SystemModule::Register(NSemantics::TNameResolver& ctx) {
     auto integerType = std::make_shared<NAst::TIntegerType>();
@@ -264,9 +212,9 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
         {
             .Name = "div",
             .MangledName = "div",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, int64_t)>([](int64_t a, int64_t b) { return a / b; })),
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, int64_t)>(div_qum)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                return std::bit_cast<uint64_t>(std::bit_cast<int64_t>(args[0]) / std::bit_cast<int64_t>(args[1]));
+                return std::bit_cast<uint64_t>(div_qum(std::bit_cast<int64_t>(args[0]), std::bit_cast<int64_t>(args[1])));
             },
             .ArgTypes = { integerType, integerType },
             .ReturnType = integerType,
@@ -274,9 +222,9 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
         {
             .Name = "mod",
             .MangledName = "mod",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, int64_t)>([](int64_t a, int64_t b) { return a % b; })),
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, int64_t)>(mod_qum)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                return std::bit_cast<uint64_t>(std::bit_cast<int64_t>(args[0]) % std::bit_cast<int64_t>(args[1]));
+                return std::bit_cast<uint64_t>(mod_qum(std::bit_cast<int64_t>(args[0]), std::bit_cast<int64_t>(args[1])));
             },
             .ArgTypes = { integerType, integerType },
             .ReturnType = integerType,
@@ -344,9 +292,9 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
         {
             .Name = "МАКСВЕЩ",
             .MangledName = "max_limit_double",
-            .Ptr = reinterpret_cast<void*>(static_cast<double(*)()>([]() { return std::numeric_limits<double>::max(); })),
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)()>(max_limit_double)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                return std::bit_cast<uint64_t>(std::numeric_limits<double>::max());
+                return std::bit_cast<uint64_t>(max_limit_double());
             },
             .ArgTypes = { },
             .ReturnType = floatType,
