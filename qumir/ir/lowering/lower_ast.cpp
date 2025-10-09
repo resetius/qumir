@@ -647,19 +647,57 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
     };
     block->Scope = scope.Id.Id;
 
+    bool functionSeen = false;
     for (auto& s : block->Stmts) {
         if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(s)) {
             auto res = Lower(s, scope).result();
             if (!res) {
                 return std::unexpected(res.error());
             }
-        } else if (NAst::TMaybeNode<NAst::TVarStmt>(s)) {
-            // ignore
+            functionSeen = true;
+        } else if (auto maybeVar = NAst::TMaybeNode<NAst::TVarStmt>(s)) {
+            if (functionSeen) {
+                return std::unexpected(TError(s->Location, "variable declarations must appear before function declarations"));
+            }
+            auto var = maybeVar.Cast();
+            auto sidOpt = Context.Lookup(var->Name, scope.Id);
+            if (!sidOpt) {
+                return std::unexpected(TError(var->Location, "var declaration has no binding"));
+            }
+            auto slotType = FromAstType(var->Type, Module.Types);
+            if (Module.GlobalTypes.size() <= (size_t)sidOpt->Id) {
+                Module.GlobalTypes.resize(sidOpt->Id + 1);
+            }
+            Module.GlobalTypes[sidOpt->Id] = slotType;
         } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(s)) {
+            if (functionSeen) {
+                return std::unexpected(TError(s->Location, "variable assignments must appear before function declarations"));
+            }
             auto asg = maybeAsg.Cast();
-            // left must be an identifier
-            // right must be a value (string, float, integer)
-            // TODO:
+            auto maybeNumber = NAst::TMaybeNode<NAst::TNumberExpr>(asg->Value);
+            auto sid = Context.Lookup(asg->Name, scope.Id);
+            if (!sid) {
+                return std::unexpected(TError(s->Location, "undefined variable: " + asg->Name));
+            }
+            if (maybeNumber) {
+                auto num = maybeNumber.Cast();
+                if (num->IsFloat) {
+                    Module.GlobalValues[sid->Id] = TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .IsFloat = true};
+                } else {
+                    Module.GlobalValues[sid->Id] = TImm{.Value = num->IntValue, .IsFloat = false};
+                }
+                continue;
+            }
+            auto maybeString = NAst::TMaybeNode<NAst::TStringLiteralExpr>(asg->Value);
+            if (maybeString) {
+                auto str = maybeString.Cast();
+                auto id = Builder.StringLiteral(str->Value);
+                Module.GlobalValues[sid->Id] = TImm{.Value = id, .IsFloat = false};
+                Module.GlobalTypes[sid->Id] = Module.Types.I(EKind::I64);
+                continue;
+            }
+
+            return std::unexpected(TError(asg->Value->Location, "global variable assignment must be a constant number or string"));
         } else {
             return std::unexpected(TError(s->Location, "Unexpected top-level statement: " + s->ToString()));
         }

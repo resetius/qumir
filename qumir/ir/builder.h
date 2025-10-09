@@ -159,8 +159,6 @@ struct TFunction {
     std::vector<TSlot> Slots;
     std::vector<TBlock> Blocks;
     std::vector<int> TmpTypes; // TmpId -> TypeId
-    std::map<std::string, int> StringLiteralsSet;
-    std::vector<std::string> StringLiterals; // unique string literals used in the function
     int ReturnTypeId = -1;
 
     int SymId;
@@ -184,6 +182,13 @@ struct TModule {
     std::vector<TExternalFunction> ExternalFunctions;
     std::unordered_map<int, int> SymIdToFuncIdx;
     std::unordered_map<int, int> SymIdToExtFuncIdx;
+
+    std::vector<TImm> GlobalValues; // SlotId -> value
+    std::vector<int> GlobalTypes; // global variables types
+
+    std::map<std::string, int> StringLiteralsSet;
+    std::vector<std::string> StringLiterals;
+
     TTypeTable Types;
 
     std::vector<int> SlotTypes; // SlotId -> TypeId

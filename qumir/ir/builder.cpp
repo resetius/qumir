@@ -91,14 +91,6 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
     out << ") { ; " << SymId << " ";
     module.Types.Print(out, ReturnTypeId);
     out << "\n";
-    if (!StringLiterals.empty()) {
-        out << "  strings {\n";
-        int i = 0;
-        for (const auto& s : StringLiterals) {
-            out << "    " << i++ << ": \"" << Escape(s) << "\"\n";
-        }
-        out << "  }\n";
-    }
 
     auto typeId = [&](auto idx, auto& cache) -> int {
         if (idx < 0) return -1;
@@ -395,13 +387,10 @@ void TBuilder::SetReturnType(int typeId) {
 }
 
 int TBuilder::StringLiteral(const std::string& str) {
-    if (!CurrentFunction) {
-        throw std::runtime_error("No current function");
-    }
-    int id = (int)CurrentFunction->StringLiteralsSet.size();
-    auto [it, flag] = CurrentFunction->StringLiteralsSet.emplace(str, id);
+    int id = (int)Module.StringLiteralsSet.size();
+    auto [it, flag] = Module.StringLiteralsSet.emplace(str, id);
     if (flag) {
-        CurrentFunction->StringLiterals.push_back(str);
+        Module.StringLiterals.push_back(str);
     }
     return it->second;
 }
