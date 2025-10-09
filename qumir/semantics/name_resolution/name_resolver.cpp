@@ -64,7 +64,6 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope) {
         if (!found) {
             co_return TError(ident->Location, "undefined identifier: " + ident->Name + " in scope " + std::to_string(scope->Id.Id));
         }
-        NodeToSymbolId[ident] = *found;
         co_return {};
     } else if (auto maybeAsg = TMaybeNode<TAssignExpr>(node)) {
         auto asg = maybeAsg.Cast();
@@ -72,10 +71,13 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope) {
         if (!found) {
             co_return TError(asg->Location, "assignment to undefined identifier: " + asg->Name + " in scope " + std::to_string(scope->Id.Id));
         }
-        NodeToSymbolId[asg] = *found;
     } else if (auto maybeVarStmt = TMaybeNode<TVarStmt>(node)) {
         auto varStmt = maybeVarStmt.Cast();
-        co_await Declare(varStmt->Name, scope, node);
+        auto res = Declare(varStmt->Name, scope, node);
+        if (!res) {
+            co_return TError(varStmt->Location, res.error().what());
+        }
+        co_return {};
     }
 
     for (const auto& child : node->Children()) {
@@ -118,16 +120,7 @@ std::optional<TSymbolId> TNameResolver::Lookup(const std::string& name, TScopeId
     return std::nullopt;
 }
 
-std::optional<TSymbolId> TNameResolver::Lookup(TExprPtr node) const
-{
-    auto it = NodeToSymbolId.find(node);
-    if (it == NodeToSymbolId.end()) {
-        return std::nullopt;
-    }
-    return it->second;
-}
-
-TNameResolver::TTask TNameResolver::Declare(const std::string& name, TScopePtr scope, TExprPtr node) {
+std::expected<TSymbolId, TError> TNameResolver::Declare(const std::string& name, TScopePtr scope, TExprPtr node) {
     auto maybeSymbolId = scope->NameToSymbolId.find(name);
     TSymbolId symbolId{-1};
     if (maybeSymbolId != scope->NameToSymbolId.end()) {
@@ -135,7 +128,7 @@ TNameResolver::TTask TNameResolver::Declare(const std::string& name, TScopePtr s
             auto& symbol = Symbols[maybeSymbolId->second.Id];
             std::ostringstream ss;
             ss << "Переопределение `" << symbol.Name << "' уже объявлено в области видимости " << symbol.ScopeId.Id;
-            co_return TError(node->Location, ss.str());
+            return std::unexpected(TError(node->Location, ss.str()));
         }
         symbolId = maybeSymbolId->second;
     }
@@ -152,22 +145,17 @@ TNameResolver::TTask TNameResolver::Declare(const std::string& name, TScopePtr s
     scope->Symbols.emplace(symbol.Id.Id);
     scope->NameToSymbolId[name] = symbol.Id;
 
-    NodeToSymbolId[node] = symbol.Id;
-    co_return {};
+    return symbol.Id;
 }
 
 TSymbolId TNameResolver::DeclareFunction(const std::string& name, TExprPtr node) {
     auto scope = GetOrCreateRootScope();
-    auto res = Declare(name, scope, node).result();
+    auto res = Declare(name, scope, node);
     if (!res) {
         throw std::runtime_error(std::string("failed to declare function: ") + res.error().what());
     }
-    auto it = NodeToSymbolId.find(node);
-    if (it == NodeToSymbolId.end()) {
-        throw std::runtime_error("failed to find declared function symbol");
-    }
 
-    return it->second;
+    return res.value();
 }
 
 std::vector<std::pair<int, std::shared_ptr<NAst::TFunDecl>>> TNameResolver::GetExternalFunctions() {

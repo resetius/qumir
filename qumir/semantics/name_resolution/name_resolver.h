@@ -17,6 +17,9 @@ struct TScopeId {
 
 struct TSymbolId {
     int32_t Id;
+//    int32_t FunctionLevelIdx = -1; // index of the variable within function-level symbols, -1 if not a function-level symbol i.e. global
+//    int32_t ScopeLevelIdx = -1; // index of the variable within scope-level symbols
+//    int32_t ScopeId = -1; // scope where symbol is declared, 0 for global scope
 };
 
 struct TSymbol {
@@ -49,7 +52,6 @@ public:
     TScopePtr GetOrCreateRootScope();
 
     std::optional<TSymbolId> Lookup(const std::string& name, TScopeId scope) const;
-    std::optional<TSymbolId> Lookup(NAst::TExprPtr node) const;
     TSymbolId DeclareFunction(const std::string& name, NAst::TExprPtr node);
     NAst::TExprPtr GetSymbolNode(TSymbolId id) const;
     std::vector<std::pair<int, std::shared_ptr<NAst::TFunDecl>>> GetExternalFunctions();
@@ -65,12 +67,11 @@ private:
     using TTask = TExpectedTask<std::monostate, TError, TLocation>;
     TTask Resolve(NAst::TExprPtr node, TScopePtr scope);
     TTask ResolveTopFuncDecl(NAst::TExprPtr node, TScopePtr scope);
-    TTask Declare(const std::string& name, TScopePtr scope, NAst::TExprPtr node);
+    std::expected<TSymbolId, TError> Declare(const std::string& name, TScopePtr scope, NAst::TExprPtr node);
     TScopePtr NewScope(TScopePtr parent);
 
     TNameResolverOptions Options;
     std::vector<TSymbol> Symbols;
-    std::unordered_map<NAst::TExprPtr, TSymbolId> NodeToSymbolId;
 
     std::vector<TScopePtr> Scopes;
 };

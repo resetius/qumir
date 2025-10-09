@@ -45,9 +45,9 @@ b := 10
     auto varC  = TMaybeNode<TVarStmt>(root->Stmts[2]).Cast();
     ASSERT_TRUE(declA && declB && varC);
 
-    auto aId = r.Lookup(declA);
-    auto bId = r.Lookup(declB);
-    auto cId = r.Lookup(varC);
+    auto aId = r.Lookup(declA->Name, {0});
+    auto bId = r.Lookup(declB->Name, {0});
+    auto cId = r.Lookup(varC->Name, {0});
 
     ASSERT_TRUE(aId.has_value());
     ASSERT_TRUE(bId.has_value());
@@ -57,6 +57,31 @@ b := 10
     EXPECT_EQ(syms[aId->Id].Name, "a");
     EXPECT_EQ(syms[bId->Id].Name, "b");
     EXPECT_EQ(syms[cId->Id].Name, "c");
+}
+
+TEST(NameResolver, Scopes) {
+    auto ast = parseStmtList(R"__(
+цел a, b, c
+a := 10
+b := 10
+алг тест1 нач
+    цел a, b, c
+    a := 10
+    b := 20
+    c := 30
+кон
+алг тест2 нач
+    цел a, b, c
+    a := 1
+    b := 2
+    c := 3
+кон
+)__");
+
+    ASSERT_NE(ast, nullptr);
+
+    TNameResolver r{};
+    r.Resolve(ast);
 }
 
 int main(int argc, char** argv) {
