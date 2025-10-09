@@ -96,7 +96,6 @@ void GenerateIr(const std::string& inputFile, const std::string& outputFile) {
         std::cerr << "Lowering error: " << lowerResult.error().ToString() << "\n";
         return;
     }
-    auto* function = lowerResult.value();
 
     std::ofstream out(outputFile);
     if (!out) {
@@ -151,7 +150,6 @@ void GenerateLlvm(const std::string& inputFile, const std::string& outputFile, i
         std::cerr << "Lowering error: " << lowerResult.error().ToString() << "\n";
         return;
     }
-    auto* function = lowerResult.value();
 
     NCodeGen::TLLVMCodeGen cg;
     auto artifacts = cg.Emit(module, optLevel);
@@ -323,7 +321,6 @@ void Generate(const std::string& inputFile, const std::string& outputFile, bool 
         std::cerr << "Lowering error: " << lowerResult.error().ToString() << "\n";
         return;
     }
-    auto* function = lowerResult.value();
 
     NCodeGen::TLLVMCodeGen cg;
     auto artifacts = cg.Emit(module, optLevel);

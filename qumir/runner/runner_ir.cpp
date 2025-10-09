@@ -61,7 +61,6 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     if (!lowerRes) {
         return std::unexpected(lowerRes.error());
     }
-    auto* initFun = lowerRes.value();
     auto* mainFun = Module.GetEntryPoint();
 
     if (Options.PrintIr) {
@@ -81,8 +80,7 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     }
 
     // Interpret
-    auto res = Interpreter.Eval(*initFun, {});
-    res = Interpreter.Eval(*mainFun, {});
+    auto res = Interpreter.Eval(*mainFun, {});
 
     return res;
 }

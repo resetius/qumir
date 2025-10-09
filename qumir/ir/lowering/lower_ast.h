@@ -18,7 +18,7 @@ public:
         : Module(module), Builder(builder), Context(ctx)
     {}
 
-    std::expected<TFunction*, TError> LowerTop(const NAst::TExprPtr& expr);
+    std::expected<std::monostate, TError> LowerTop(const NAst::TExprPtr& expr);
 
 private:
     struct TBlockScope {

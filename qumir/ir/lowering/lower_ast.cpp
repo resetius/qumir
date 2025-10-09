@@ -440,8 +440,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto fun = maybeFun.Cast();
         auto name = fun->Name;
         if (scope.Id.Id != 0) {
-            // Nested function: qualify name with scope id to avoid collisions
-            name += "@s" + std::to_string(scope.Id.Id);
+            co_return TError(fun->Location, "nested function declarations not supported");
         }
         auto params = fun->Params;
         auto body = fun->Body;
@@ -468,7 +467,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             i++;
         }
 
-        auto currentFuncIdx = Builder.CurrentFunctionIdx();
+        // auto currentFuncIdx = Builder.CurrentFunctionIdx(); // needed for nested functions
         auto funcIdx = Builder.NewFunction(name, paramSlots, sidOpt->Id);
         Builder.SetReturnType(FromAstType(fun->RetType, Module.Types));
 
@@ -484,7 +483,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         } else {
             Builder.Emit0("ret"_op, {});
         }
-        Builder.SetCurrentFunction(currentFuncIdx);
+        // Builder.SetCurrentFunction(currentFuncIdx); // needed for nested functions
         // Function declaration does not produce a value
         co_return TValueWithBlock{ {}, Builder.CurrentBlockLabel() };
     } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(expr)) {
@@ -634,32 +633,39 @@ void TAstLowerer::ImportExternalFunctions() {
     }
 }
 
-std::expected<TFunction*, TError> TAstLowerer::LowerTop(const NAst::TExprPtr& expr) {
+std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr& expr) {
     ImportExternalFunctions();
+    auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr);
+    if (!maybeBlock) {
+        return std::unexpected(TError(expr->Location, "Root expr must be a block"));
+    }
+    auto block = maybeBlock.Cast();
 
-    std::string funcName = std::string("__init") + std::to_string(NextReplChunk++);
-    auto symbolId = Context.DeclareFunction(
-        funcName,
-        expr);
-
-    expr->Type = std::make_shared<NAst::TVoidType>();
-
-    auto idx = Builder.NewFunction(funcName, {}, symbolId.Id);
-    Builder.SetReturnType(FromAstType(expr->Type, Module.Types));
-    const auto& result = Lower(expr, TBlockScope {
-        .FuncIdx = idx,
+    auto scope = TBlockScope {
+        .FuncIdx = -1,
         .Id = NSemantics::TScopeId{0}
-    }).result();
-    if (!result) {
-        return std::unexpected(result.error());
+    };
+    block->Scope = scope.Id.Id;
+
+    for (auto& s : block->Stmts) {
+        if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(s)) {
+            auto res = Lower(s, scope).result();
+            if (!res) {
+                return std::unexpected(res.error());
+            }
+        } else if (NAst::TMaybeNode<NAst::TVarStmt>(s)) {
+            // ignore
+        } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(s)) {
+            auto asg = maybeAsg.Cast();
+            // left must be an identifier
+            // right must be a value (string, float, integer)
+            // TODO:
+        } else {
+            return std::unexpected(TError(s->Location, "Unexpected top-level statement: " + s->ToString()));
+        }
     }
-    auto maybeOperand = result.value().Value;
-    if (maybeOperand) {
-        Builder.Emit0(TOp("ret"), {*maybeOperand});
-    } else {
-        Builder.Emit0("ret"_op, {});
-    }
-    return &Module.Functions[idx];
+
+    return {};
 }
 
 
