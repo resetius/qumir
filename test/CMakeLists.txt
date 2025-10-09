@@ -11,4 +11,5 @@ macro(ut name source)
 endmacro()
 
 ut(test_lexer test_lexer.cpp)
+ut(test_name_resolver test_name_resolver.cpp)
 ut(test_reg test_reg.cpp ${CMAKE_SOURCE_DIR}/test/regtest)
