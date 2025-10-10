@@ -25,7 +25,7 @@ TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TSco
             auto newScope = NewScope(scope, nullptr);
             fdecl->Scope = newScope->Id.Id;
             for (auto& param : fdecl->Params) {
-                co_await Declare(param->Name, param, newScope, nullptr);
+                co_await Declare(param->Name, param, newScope, newScope);
             }
             // resolve body on second pass
         }
