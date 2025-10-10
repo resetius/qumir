@@ -194,33 +194,6 @@ TEST(LexerTest, InputOutputListsWithMultiWordIdentifiers) {
     ExpectOp(tokens.Next(), EOperator::Eol);
 }
 
-TEST(LexerTest, DivModOperatorVsIdentifier) {
-    // как оператор
-    {
-        std::istringstream input("10 div 3, 10 mod 3");
-        TTokenStream tokens(input);
-        ExpectInt(tokens.Next(), 10);
-        ExpectOp(tokens.Next(), EOperator::Div);
-        ExpectInt(tokens.Next(), 3);
-        ExpectOp(tokens.Next(), EOperator::Comma);
-        ExpectInt(tokens.Next(), 10);
-        ExpectOp(tokens.Next(), EOperator::Mod);
-        ExpectInt(tokens.Next(), 3);
-    }
-    // как имя на LHS
-    {
-        std::istringstream input("div := 5\nmod := 7\n");
-        TTokenStream tokens(input);
-        ExpectOp(tokens.Next(), EOperator::Div);
-        ExpectOp(tokens.Next(), EOperator::Assign);
-        ExpectInt(tokens.Next(), 5);
-        ExpectOp(tokens.Next(), EOperator::Eol);
-        ExpectOp(tokens.Next(), EOperator::Mod);
-        ExpectOp(tokens.Next(), EOperator::Assign);
-        ExpectInt(tokens.Next(), 7);
-    }
-}
-
 // --- Indexing and brackets ---------------------------------------------------
 TEST(LexerTest, IndexingBrackets) {
     std::istringstream input("t[i] := 1");

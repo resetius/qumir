@@ -114,9 +114,6 @@ inline TOperator MakeOperator(EOperator op) {
         case EOperator::Or: return TOperator("||");
         case EOperator::Not: return TOperator("!");
 
-        case EOperator::Div: return TOperator("//");
-        case EOperator::Mod: return TOperator("%");
-
         default:
             throw std::runtime_error("internal error: unknown operator");
     }
@@ -843,7 +840,7 @@ MulExpr ::= Factor
 */
 TAstTask mul_expr(TTokenStream& stream) {
     co_return co_await binary_op_helper(stream, unary_expr
-        , EOperator::Mul, EOperator::Div, EOperator::FDiv, EOperator::Mod);
+        , EOperator::Mul, EOperator::FDiv);
 }
 
 /*

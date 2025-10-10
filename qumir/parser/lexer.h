@@ -94,9 +94,6 @@ enum class EOperator : uint8_t {
     And,
     Or,
     Not,
-    // Integer division and modulus
-    Div,
-    Mod,
 };
 
 struct TToken {

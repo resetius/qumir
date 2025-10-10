@@ -1,4 +1,3 @@
-1. mod, div -> functions
 3. check if variables were assigned before use
 4. check output arguments
 5. check arg count on call
