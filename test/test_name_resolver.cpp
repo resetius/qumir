@@ -83,6 +83,42 @@ b := 10
     TNameResolver r{};
     r.Resolve(ast);
 
+    auto s1 = r.Lookup("a", {0});
+    auto s2 = r.Lookup("b", {0});
+    auto s3 = r.Lookup("c", {0});
+    EXPECT_EQ(s1->Id, 2);
+    EXPECT_EQ(s2->Id, 3);
+    EXPECT_EQ(s3->Id, 4);
+    EXPECT_EQ(s1->ScopeLevelIdx, 2);
+    EXPECT_EQ(s2->ScopeLevelIdx, 3);
+    EXPECT_EQ(s3->ScopeLevelIdx, 4);
+
+    auto s11 = r.Lookup("a", {3});
+    auto s12 = r.Lookup("b", {3});
+    auto s13 = r.Lookup("c", {3});
+    EXPECT_EQ(s11->Id, 5);
+    EXPECT_EQ(s12->Id, 6);
+    EXPECT_EQ(s13->Id, 7);
+    EXPECT_EQ(s11->ScopeLevelIdx, 0);
+    EXPECT_EQ(s12->ScopeLevelIdx, 1);
+    EXPECT_EQ(s13->ScopeLevelIdx, 2);
+    EXPECT_EQ(s11->FunctionLevelIdx, 0);
+    EXPECT_EQ(s12->FunctionLevelIdx, 1);
+    EXPECT_EQ(s13->FunctionLevelIdx, 2);
+
+    auto s21 = r.Lookup("a", {4});
+    auto s22 = r.Lookup("b", {4});
+    auto s23 = r.Lookup("c", {4});
+    EXPECT_EQ(s21->Id, 8);
+    EXPECT_EQ(s22->Id, 9);
+    EXPECT_EQ(s23->Id, 10);
+    EXPECT_EQ(s21->ScopeLevelIdx, 0);
+    EXPECT_EQ(s22->ScopeLevelIdx, 1);
+    EXPECT_EQ(s23->ScopeLevelIdx, 2);
+    EXPECT_EQ(s21->FunctionLevelIdx, 0);
+    EXPECT_EQ(s22->FunctionLevelIdx, 1);
+    EXPECT_EQ(s23->FunctionLevelIdx, 2);
+
     for (auto& sym : r.GetSymbols()) {
         std::cout << "Symbol: " << sym.Name
                   << ", Id: " << sym.Id.Id

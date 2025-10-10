@@ -152,6 +152,9 @@ std::expected<TSymbolId, TError> TNameResolver::Declare(const std::string& name,
             .Node = node,
         });
 
+    if (funcScope) {
+        funcScope->FuncSymbols.insert(symbol.Id.Id);
+    }
     scope->Symbols.emplace(symbol.Id.Id);
     scope->NameToSymbolId[name] = symbol.Id;
 
