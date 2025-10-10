@@ -404,10 +404,17 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto sidOpt = Context.Lookup(asg->Name, scope.Id);
         if (!sidOpt) co_return TError(asg->Location, "assignment to undefined");
 
-        auto storeSlot = TSlot{sidOpt->Id};
         auto node = Context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id});
         auto slotType = FromAstType(node->Type, Module.Types);
-        Builder.SetType(storeSlot, slotType);
+
+        auto storeSlot = TSlot{sidOpt->Id};
+        auto localSlot = TLocal{sidOpt->FunctionLevelIdx};
+        // TODO: unify
+        if (localSlot.Idx >= 0) {
+            Builder.SetType(localSlot, slotType);
+        } else {
+            Builder.SetType(storeSlot, slotType);
+        }
 
         if (rhs.Value->Type == TOperand::EType::Imm) {
             // cast immediate to a register before storing (for cast)
@@ -419,7 +426,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.SetType(rhs.Value->Tmp, FromAstType(expr->Type, Module.Types));
             }
         }
-        Builder.Emit0("stre"_op, {storeSlot, *rhs.Value});
+        // TODO: unify
+        if (localSlot.Idx) {
+            Builder.Emit0("stre"_op, {localSlot, *rhs.Value});
+        } else {
+            Builder.Emit0("stre"_op, {storeSlot, *rhs.Value});
+        }
         // store does not produce a value
         co_return TValueWithBlock{ {}, Builder.CurrentBlockLabel() };
     } else if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(expr)) {
@@ -428,9 +440,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!sidOpt) co_return TError(ident->Location, std::string("undefined name: ") + ident->Name);
 
         auto loadSlot = TSlot{sidOpt->Id};
+        auto localSlot = TLocal{sidOpt->FunctionLevelIdx};
         auto node = Context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id});
         // we don't set type of loadSlot here, as it was typed on store
-        auto tmp = Builder.Emit1("load"_op, {loadSlot});
+        TTmp tmp;
+        if (localSlot.Idx >= 0) {
+            tmp = Builder.Emit1("load"_op, {localSlot});
+        } else {
+            tmp = Builder.Emit1("load"_op, {loadSlot});
+        }
         Builder.SetType(tmp, FromAstType(node->Type, Module.Types));
         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
     } else if (NAst::TMaybeNode<NAst::TVarStmt>(expr)) {
