@@ -36,18 +36,6 @@ using namespace NQumir::NIR::NLiterals;
 
 namespace {
 
-// todo: type system
-bool FunHasVoidRet(const TFunction& fun) {
-    for (const auto& b : fun.Blocks) {
-        for (const auto& instr : b.Instrs) {
-            if (instr.Op == "ret"_op && instr.OperandCount == 0) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
 llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx) {
     if (typeId < 0) {
         // untyped, assume int64
@@ -63,19 +51,6 @@ llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx
         default:
             throw std::runtime_error("unsupported primitive type");
     }
-}
-
-llvm::Type* GetFunctionRetType(const TFunction& fun, const TTypeTable& tt, llvm::LLVMContext& ctx) {
-    if (fun.ReturnTypeId < 0) {
-        // untyped function, assume int64
-        if (FunHasVoidRet(fun)) {
-            return llvm::Type::getVoidTy(ctx);
-        } else {
-            return llvm::Type::getInt64Ty(ctx);
-        }
-    }
-
-    return GetTypeById(fun.ReturnTypeId, tt, ctx);
 }
 
 std::unordered_map<uint64_t, llvm::CmpInst::Predicate> icmpMap = {
@@ -160,7 +135,7 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(const TModule& module, 
             argTys[i] = type;
         }
 
-        llvm::Type* retTy = GetFunctionRetType(f, module.Types, ctx);
+        llvm::Type* retTy = GetTypeById(f.ReturnTypeId, module.Types, ctx);
         auto fty = llvm::FunctionType::get(retTy, argTys, false);
         auto lfun = LModule->getFunction(f.Name);
         if (!lfun) {
