@@ -1,10 +1,4 @@
-function __init0 () { ; 1 func() -> void
-  block {
-    label: label(0)
-    ret 
-  }
-}
-function <main> () { ; 0 void
+function <main> () { ; 27 void
   block {
     label: label(0)
     ret 

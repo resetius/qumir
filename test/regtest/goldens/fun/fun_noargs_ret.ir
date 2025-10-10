@@ -1,13 +1,7 @@
-function __init0 () { ; 8 func() -> f64
+function функция () { ; 27 f64
   block {
     label: label(0)
-    ret 
-  }
-}
-function функция () { ; 0 f64
-  block {
-    label: label(0)
-    load tmp(0,f64) = slot(1) 
+    load tmp(0,f64) = local(0) 
     ret tmp(0,f64) 
   }
 }

@@ -75,8 +75,6 @@ std::map<std::string, EOperator> OperatorMap = {
     {"и", EOperator::And},
     {"или", EOperator::Or},
     {"не", EOperator::Not},
-    {"div", EOperator::Div},
-    {"mod", EOperator::Mod},
 };
 
 enum class ELexMode {

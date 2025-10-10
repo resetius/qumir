@@ -5,3 +5,4 @@
 6. fix error (ожидалось число или)
 7. lexer bug with negative floats?
 8. different lowering for top level and function level
+9. replace ops with functions (op **)

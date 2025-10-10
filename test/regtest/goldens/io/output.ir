@@ -1,14 +1,8 @@
-function __init0 () { ; 2 func() -> void
+function <main> () { ; 27 void
   block {
     label: label(0)
-    ret 
-  }
-}
-function <main> () { ; 0 void
-  block {
-    label: label(0)
-    stre slot(1,i64) imm(1) 
-    load tmp(0,i64) = slot(1,i64) 
+    stre local(0,i64) imm(1) 
+    load tmp(0,i64) = local(0,i64) 
     outi tmp(0,i64) 
     ret 
   }

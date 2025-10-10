@@ -80,3 +80,21 @@ double max_limit_double() {
     return std::numeric_limits<double>::max();
 }
 
+double fpow(double a, int n) {
+    if (n < 0) {
+        if (a == 0.0) {
+            // division by zero
+            return NAN;
+        }
+        return 1.0 / fpow(a, -n);
+    }
+    double result = 1.0;
+    while (n) {
+        if (n & 1) {
+            result *= a;
+        }
+        a *= a;
+        n >>= 1;
+    }
+    return result;
+}

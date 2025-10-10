@@ -478,9 +478,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 co_return TError(p->Location, "parameter has no binding");
             }
             auto local = TLocal{ psid->FunctionLevelIdx };
-            if (type) {
-                Builder.SetType(local, FromAstType(type->ParamTypes[i], Module.Types));
-            }
             args.push_back(local);
             i++;
         }
@@ -488,6 +485,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // auto currentFuncIdx = Builder.CurrentFunctionIdx(); // needed for nested functions
         auto funcIdx = Builder.NewFunction(name, args, sidOpt->Id);
         Builder.SetReturnType(FromAstType(fun->RetType, Module.Types));
+        for (auto& a : args) {
+            Builder.SetType(a, FromAstType(type->ParamTypes[&a - &args[0]], Module.Types));
+        }
 
         auto loweredBody = co_await Lower(body, TBlockScope {
             .FuncIdx = funcIdx,

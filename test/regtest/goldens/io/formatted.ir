@@ -1,19 +1,9 @@
-function __init0 () { ; 3 func() -> void
+function <main> () { ; 27 void
   block {
     label: label(0)
-    ret 
-  }
-}
-function <main> () { ; 0 void
-  strings {
-    0: " "
-    1: "\n"
-  }
-  block {
-    label: label(0)
-    stre slot(1,i64) imm(1) 
-    stre slot(2,i64) imm(2) 
-    load tmp(0,i64) = slot(1,i64) 
+    stre local(0,i64) imm(1) 
+    stre local(1,i64) imm(2) 
+    load tmp(0,i64) = local(0,i64) 
     outi tmp(0,i64) 
     outs imm(0) 
     outs imm(1) 

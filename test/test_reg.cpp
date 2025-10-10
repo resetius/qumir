@@ -10,6 +10,7 @@
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/type_annotation/type_annotation.h>
+#include <qumir/modules/system/system.h>
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/ir/builder.h>
 
@@ -72,6 +73,7 @@ std::string BuildAst(NAst::TTokenStream& ts) {
         return "Error: " + parsed.error().ToString() + "\n";
     }
     NSemantics::TNameResolver nr;
+    NRegistry::SystemModule().Register(nr);
     auto res = nr.Resolve(*parsed);
     if (res) {
         return "Name resolution error: " + res->ToString() + "\n";
@@ -84,6 +86,7 @@ std::string BuildAst(NAst::TTokenStream& ts) {
 
 std::string BuildIR(NAst::TTokenStream& ts) {
     NSemantics::TNameResolver resolver;
+    NRegistry::SystemModule().Register(resolver);
     NTypeAnnotation::TTypeAnnotator annotator(resolver);
     NAst::TParser p;
     auto parsed = p.parse(ts);

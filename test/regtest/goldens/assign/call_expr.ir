@@ -1,25 +1,19 @@
-function __init0 () { ; 5 func() -> void
+function f (local(0)) { ; 27 f64
   block {
     label: label(0)
-    ret 
-  }
-}
-function f (slot(1)) { ; 0 f64
-  block {
-    label: label(0)
-    stre slot(3,f64) imm(4607182418800017408) 
-    load tmp(0,f64) = slot(3,f64) 
+    stre local(1,f64) imm(4607182418800017408) 
+    load tmp(0,f64) = local(1,f64) 
     ret tmp(0,f64) 
   }
 }
-function функция () { ; 2 void
+function функция () { ; 29 void
   block {
     label: label(0)
     + tmp(0,f64) = imm(4613937818241073152) imm(4617315517961601024) 
     arg tmp(0,f64) 
-    call tmp(1,f64) = imm(0) 
+    call tmp(1,f64) = imm(27) 
     * tmp(2,f64) = tmp(1,f64) imm(10) 
-    stre slot(4,i64) tmp(2,f64) 
+    stre local(0,i64) tmp(2,f64) 
     ret 
   }
 }

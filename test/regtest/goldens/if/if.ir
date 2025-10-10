@@ -1,17 +1,11 @@
-function __init0 () { ; 2 func() -> void
-  block {
-    label: label(0)
-    ret 
-  }
-}
-function <main> () { ; 0 void
+function <main> () { ; 27 void
   block {
     label: label(0)
     cmp imm(1) label(1) label(2) 
   }
   block {
     label: label(1)
-    stre slot(1,i64) imm(1) 
+    stre local(0,i64) imm(1) 
     jmp label(3) 
   }
   block {

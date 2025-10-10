@@ -230,6 +230,26 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
             .ReturnType = integerType,
         },
         {
+            .Name = "fpow",
+            .MangledName = "fpow",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(double, int)>(fpow)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(fpow(std::bit_cast<double>(args[0]), static_cast<int>(std::bit_cast<int64_t>(args[1]))));
+            },
+            .ArgTypes = { floatType, integerType },
+            .ReturnType = floatType,
+        },
+        {
+            .Name = "pow",
+            .MangledName = "pow",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(double, double)>(pow)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(pow(std::bit_cast<double>(args[0]), std::bit_cast<double>(args[1])));
+            },
+            .ArgTypes = { floatType, floatType },
+            .ReturnType = floatType,
+        },
+        {
             .Name = "int",
             .MangledName = "trunc_double",
             .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(double)>(trunc_double)),

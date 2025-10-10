@@ -1,6 +1,0 @@
-function __init0 () { ; 3 i64
-  block {
-    label: label(0)
-    ret 
-  }
-}

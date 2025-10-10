@@ -3,7 +3,8 @@
     (Block
       (Var $i:<Int>)
       ($i =
-        (%
+        (Call
+          ($mod)
           (*
             (+
               (2:<Int>)

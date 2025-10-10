@@ -1,13 +1,7 @@
-function __init0 () { ; 2 func() -> void
+function функция () { ; 27 void
   block {
     label: label(0)
-    ret 
-  }
-}
-function функция () { ; 0 void
-  block {
-    label: label(0)
-    stre slot(1,i1) imm(1) 
+    stre local(0,i1) imm(1) 
     ret 
   }
 }

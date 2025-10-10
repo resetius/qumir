@@ -1,10 +1,4 @@
-function __init0 () { ; 10 func(ptr to i64, f64, i1) -> void
-  block {
-    label: label(0)
-    ret 
-  }
-}
-function функция (slot(1), slot(2), slot(3)) { ; 0 void
+function функция (local(0), local(1), local(2)) { ; 27 void
   block {
     label: label(0)
     ret 
