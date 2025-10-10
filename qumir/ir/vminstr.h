@@ -83,28 +83,32 @@ struct TUntypedImm {
 struct TVMOperand {
     union {
         TTmp  Tmp;
-        TSlot Slot;
+        TSlot Slot; // TODO: replace Slot/Local with Address
+        TLocal Local;
         TUntypedImm  Imm;
     };
 
     enum class EType : uint8_t {
         Tmp,
         Slot,
+        Local,
         Imm,
     } Type;
 
     TVMOperand() : Type(EType::Tmp), Tmp({-1}) {}
     TVMOperand(const TTmp& t) : Type(EType::Tmp), Tmp(t) {}
     TVMOperand(const TSlot& s) : Type(EType::Slot), Slot(s) {}
+    TVMOperand(const TLocal& l) : Type(EType::Local), Local(l) {}
     TVMOperand(const TImm& i) : Type(EType::Imm), Imm(i.Value) {}
     TVMOperand(const TUntypedImm& i) : Type(EType::Imm), Imm(i) {}
 
     template<typename T>
     void Visit(T&& visitor) const {
         switch (Type) {
-        case EType::Tmp:   visitor(Tmp);   break;
-        case EType::Slot:  visitor(Slot);  break;
-        case EType::Imm:   visitor(Imm);   break;
+        case EType::Tmp: visitor(Tmp); break;
+        case EType::Slot: visitor(Slot); break;
+        case EType::Local: visitor(Local); break;
+        case EType::Imm: visitor(Imm); break;
         }
     }
 };

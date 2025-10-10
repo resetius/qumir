@@ -50,8 +50,13 @@ struct TTmp {
     int32_t Idx;
 };
 
-// Immediate value (e.g. constant)
+// Global variable
 struct TSlot {
+    int32_t Idx;
+};
+
+// Local variable (function parameter or local variable)
+struct TLocal {
     int32_t Idx;
 };
 
@@ -63,7 +68,7 @@ inline bool operator<(const TLabel& a, const TLabel& b) {
     return a.Idx < b.Idx;
 }
 
-// Immediate value (e.g. constant), only int64_t for now
+// Immediate value (e.g. constant)
 struct TImm {
     int64_t Value;
     bool IsFloat = false;
@@ -73,6 +78,7 @@ struct TOperand {
     union {
         TTmp  Tmp;
         TSlot Slot;
+        TLocal Local;
         TImm  Imm;
         TLabel Label;
     };
@@ -80,6 +86,7 @@ struct TOperand {
     enum class EType : uint8_t {
         Tmp,
         Slot,
+        Local,
         Imm,
         Label
     } Type;
@@ -87,6 +94,7 @@ struct TOperand {
     TOperand() : Type(EType::Tmp), Tmp({-1}) {}
     TOperand(const TTmp& t) : Type(EType::Tmp), Tmp(t) {}
     TOperand(const TSlot& s) : Type(EType::Slot), Slot(s) {}
+    TOperand(const TLocal& l) : Type(EType::Local), Local(l) {}
     TOperand(const TImm& i) : Type(EType::Imm), Imm(i) {}
     TOperand(const TLabel& l) : Type(EType::Label), Label(l) {}
 
@@ -95,6 +103,7 @@ struct TOperand {
         switch (Type) {
         case EType::Tmp:   visitor(Tmp);   break;
         case EType::Slot:  visitor(Slot);  break;
+        case EType::Local: visitor(Local); break;
         case EType::Imm:   visitor(Imm);   break;
         case EType::Label: visitor(Label); break;
         }
@@ -158,6 +167,7 @@ struct TFunction {
     std::string Name;
     std::vector<TSlot> Slots;
     std::vector<TBlock> Blocks;
+    std::vector<int> LocalTypes; // LocalIdx -> TypeId
     std::vector<int> TmpTypes; // TmpId -> TypeId
     int ReturnTypeId = -1;
 
@@ -223,6 +233,7 @@ public:
     void SetType(TTmp tmp, int typeId);
     int GetType(TTmp tmp) const;
     void SetType(TSlot slot, int typeId);
+    void SetType(TLocal local, int typeId);
     void UnifyTypes(TTmp left, TTmp right);
     void SetReturnType(int typeId);
     void Emit0(TOp op, std::initializer_list<TOperand> operands);

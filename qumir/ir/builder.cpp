@@ -28,6 +28,16 @@ std::ostream& Print_(std::ostream& out, const TSlot& s, int typeId, const TTypeT
     return out;
 }
 
+std::ostream& Print_(std::ostream& out, const TLocal& l, int typeId, const TTypeTable& tt) {
+    out << "local(" << l.Idx;
+    if (typeId >= 0) {
+        out << ",";
+        tt.Print(out, typeId);
+    }
+    out << ")";
+    return out;
+}
+
 std::ostream& Print_(std::ostream& out, const TLabel& l, int, const TTypeTable& tt) {
     out << "label(" << l.Idx << ")";
     return out;
@@ -115,6 +125,9 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
                         break;
                     case TOperand::EType::Slot:
                         Print_(out, o.Slot, typeId(o.Slot.Idx, module.SlotTypes), module.Types) << " ";
+                        break;
+                    case TOperand::EType::Local:
+                        Print_(out, o.Local, typeId(o.Local.Idx, LocalTypes), module.Types) << " ";
                         break;
                     case TOperand::EType::Label:
                         Print_(out, o.Label, -1, module.Types) << " ";
@@ -348,6 +361,19 @@ void TBuilder::SetType(TTmp tmp, int typeId) {
         CurrentFunction->TmpTypes.resize(tmp.Idx + 1, -1);
     }
     CurrentFunction->TmpTypes[tmp.Idx] = typeId;
+}
+
+void TBuilder::SetType(TLocal local, int typeId) {
+    if (!CurrentFunction) {
+        throw std::runtime_error("No current function");
+    }
+    if (local.Idx < 0) {
+        throw std::runtime_error("Negative local index");
+    }
+    if (local.Idx >= CurrentFunction->LocalTypes.size()) {
+        CurrentFunction->LocalTypes.resize(local.Idx + 1, -1);
+    }
+    CurrentFunction->LocalTypes[local.Idx] = typeId;
 }
 
 int TBuilder::GetType(TTmp tmp) const {

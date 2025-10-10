@@ -119,6 +119,9 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 case TOperand::EType::Slot:
                     out.Operands[i + offset] = ins.Operands[i].Slot;
                     break;
+                case TOperand::EType::Local:
+                    out.Operands[i + offset] = ins.Operands[i].Local;
+                    break;
                 case TOperand::EType::Imm:
                     out.Operands[i + offset] = ins.Operands[i].Imm;
                     break;
