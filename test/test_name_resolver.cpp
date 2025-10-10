@@ -82,6 +82,16 @@ b := 10
 
     TNameResolver r{};
     r.Resolve(ast);
+
+    for (auto& sym : r.GetSymbols()) {
+        std::cout << "Symbol: " << sym.Name
+                  << ", Id: " << sym.Id.Id
+                  << ", ScopeId: " << sym.ScopeId.Id
+                  << ", ScopeLevelIdx: " << sym.ScopeLevelIdx
+                  << ", FunctionLevelIdx: " << sym.FunctionLevelIdx
+                  << ", FuncScopeId: " << sym.FuncScopeId.Id
+                  << "\n";
+    }
 }
 
 int main(int argc, char** argv) {
