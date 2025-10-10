@@ -66,6 +66,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
     callStack.push_back(TFrame {
         .Exec = execFunc,
         .Tmps = std::vector<int64_t>(execFunc->MaxTmpIdx + 1, 0),
+        .Locals = std::vector<int64_t>(execFunc->NumLocals, 0),
         .Args = {},
         .PC = &execFunc->VMCode[0],
         .LastCmp = 0
@@ -98,22 +99,37 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
         switch (instr.Op) {
         case EVMOp::Load64: {
             assert(instr.Operands[0].Tmp.Idx >= 0);
-            assert(instr.Operands[1].Type == TVMOperand::EType::Slot && "Invalid operand for load");
-            const auto& s = instr.Operands[1].Slot;
-            assert(s.Idx >= 0 && s.Idx < Runtime.Slots.size());
-            frame.Tmps[instr.Operands[0].Tmp.Idx] = Runtime.Slots[s.Idx];
+            if (instr.Operands[1].Type == TVMOperand::EType::Slot) {
+                const auto& s = instr.Operands[1].Slot;
+                assert(s.Idx >= 0 && s.Idx < Runtime.Slots.size());
+                frame.Tmps[instr.Operands[0].Tmp.Idx] = Runtime.Slots[s.Idx];
+            } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
+                const auto& l = instr.Operands[1].Local;
+                assert(l.Idx >= 0 && l.Idx < frame.Locals.size());
+                frame.Tmps[instr.Operands[0].Tmp.Idx] = frame.Locals[l.Idx];
+            } else {
+                assert(false && "Invalid operand for load");
+            }
             break;
         }
         case EVMOp::Store64: {
-            assert(instr.Operands[0].Type == TVMOperand::EType::Slot && "Invalid operand for store");
-            const auto& s = instr.Operands[0].Slot;
-            if (s.Idx >= (int64_t)Runtime.Slots.size()) {
-                Runtime.Slots.resize(s.Idx + 1, 0);
-                Runtime.Inited.resize(s.Idx + 1, 0);
-            }
             int64_t val = ReadOperand(frame, instr.Operands[1]);
-            Runtime.Slots[s.Idx] = val;
-            Runtime.Inited[s.Idx] = 1;
+            if (instr.Operands[0].Type == TVMOperand::EType::Slot) {
+                // TODO:
+                const auto& s = instr.Operands[0].Slot;
+                if (s.Idx >= (int64_t)Runtime.Slots.size()) {
+                    Runtime.Slots.resize(s.Idx + 1, 0);
+                    Runtime.Inited.resize(s.Idx + 1, 0);
+                }
+                Runtime.Slots[s.Idx] = val;
+                Runtime.Inited[s.Idx] = 1;
+            } else if (instr.Operands[0].Type == TVMOperand::EType::Local) {
+                const auto& l = instr.Operands[0].Local;
+                assert(l.Idx >= 0 && l.Idx < frame.Locals.size());
+                frame.Locals[l.Idx] = val;
+            } else {
+                assert(false && "Invalid operand for store");
+            }
             break;
         }
 
@@ -347,6 +363,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             callStack.push_back(TFrame {
                 .Exec = calleeExec,
                 .Tmps = std::vector<int64_t>(calleeExec->MaxTmpIdx + 1, 0),
+                .Locals = std::vector<int64_t>(calleeExec->NumLocals, 0),
                 .Args = {},
                 .PC = &calleeExec->VMCode[0],
                 .LastCmp = 0

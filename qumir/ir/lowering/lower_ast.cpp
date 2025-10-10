@@ -427,7 +427,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
         }
         // TODO: unify
-        if (localSlot.Idx) {
+        if (localSlot.Idx >= 0) {
             Builder.Emit0("stre"_op, {localSlot, *rhs.Value});
         } else {
             Builder.Emit0("stre"_op, {storeSlot, *rhs.Value});

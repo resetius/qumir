@@ -46,6 +46,8 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
         labelToLastPC[block.Label.Idx] = code.size() - 1;
     }
 
+    funcOut.NumLocals = function.LocalTypes.size();
+
     auto require = [&](const TInstr& ins, int requireDest, size_t requireOperands) {
         // requireDest = -1/0/1 = no, optional, required
         if (requireDest == 1) {

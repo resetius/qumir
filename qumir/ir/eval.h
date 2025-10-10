@@ -20,6 +20,7 @@ struct TExecFunc;
 struct TFrame {
     TExecFunc* Exec{nullptr};
     std::vector<int64_t> Tmps;
+    std::vector<int64_t> Locals; // TODO: Create unified stack for whole run
     std::vector<int64_t> Args; // call arguments
     TVMInstr* PC{nullptr};
     uint8_t LastCmp{0}; // 1 if the last cmp branched to the true edge, 0 otherwise
