@@ -165,7 +165,6 @@ struct TExternalFunction {
 
 struct TFunction {
     std::string Name;
-    std::vector<TSlot> Slots; // TODO: unused
     std::vector<TLocal> ArgLocals;
     std::vector<TBlock> Blocks;
     std::vector<int> LocalTypes; // LocalIdx -> TypeId

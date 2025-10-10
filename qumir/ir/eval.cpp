@@ -72,19 +72,15 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
         .LastCmp = 0
     });
 
-    if (args.size() > function.Slots.size()) {
-        std::cerr << "Too many arguments for function " << function.Name << "\n";
+    auto& locals = callStack.back().Locals;
+    if (args.size() != function.ArgLocals.size()) {
+        std::cerr << "Function " << function.Name << " expects " << function.ArgLocals.size() << " arguments, got " << args.size() << "\n";
         return std::nullopt;
     }
 
     for (size_t i = 0; i < args.size(); ++i) {
-        const int64_t sid = function.Slots[i].Idx;
-        if (sid >= (int64_t)Runtime.Slots.size()) {
-            Runtime.Slots.resize(sid + 1, 0);
-            Runtime.Inited.resize(sid + 1, 0);
-        }
-        Runtime.Slots[sid] = args[i];
-        Runtime.Inited[sid] = 1;
+        const int64_t sid = function.ArgLocals[i].Idx;
+        locals[i] = args[i];
     }
 
     std::optional<std::string> result;

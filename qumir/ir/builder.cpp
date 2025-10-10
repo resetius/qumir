@@ -171,7 +171,7 @@ TFunction* TModule::GetEntryPoint() {
             // skip generated functions
             continue;
         }
-        if (f.Slots.empty()) {
+        if (f.ArgLocals.empty()) {
             return &f;
         }
     }

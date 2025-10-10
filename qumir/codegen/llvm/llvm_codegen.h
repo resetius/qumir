@@ -8,6 +8,7 @@
 #include <unordered_map>
 
 namespace llvm {
+class AllocaInst;
 class LLVMContext;
 class Module;
 class Function;
@@ -72,14 +73,13 @@ private:
         std::vector<llvm::Value*> TmpValues; // size = Fun->NextTmpIdx
         std::unordered_map<int64_t, llvm::BasicBlock*> LabelToBB; // direct mapping for jmp/cmp targets
         std::vector<llvm::Value*> PendingArgs; // collected via 'arg' ops before 'call'
+        std::vector<llvm::AllocaInst*> Allocas;
     };
     std::unique_ptr<TFunState> CurFun;
     // Module-global slot storage (i64 globals), indexed by module-wide slot index
     std::vector<llvm::Value*> ModuleSlots;
     // Map from SymId to lowered LLVM function for call lowering
     std::unordered_map<int, llvm::Function*> SymIdToLFun;
-    // Map from SymId to parameter slot indices (module-global slot ids for parameters)
-    std::unordered_map<int, std::vector<int64_t>> SymIdToParamSlots;
     std::unordered_map<int, int> SymIdToUniqueFunId; // for updating code of updated functions
 };
 

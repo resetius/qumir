@@ -152,10 +152,10 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(const TModule& module, 
         }
 
         auto& ctx = *Ctx;
-        std::vector<llvm::Type*> argTys(f.Slots.size(), nullptr);
-        for (size_t i = 0; i < f.Slots.size(); ++i) {
-            const auto& s = f.Slots[i];
-            auto typeId = module.GetSlotType(s.Idx);
+        std::vector<llvm::Type*> argTys(f.ArgLocals.size(), nullptr);
+        for (size_t i = 0; i < f.ArgLocals.size(); ++i) {
+            const auto& s = f.ArgLocals[i];
+            auto typeId = f.LocalTypes[s.Idx];
             auto type = GetTypeById(typeId, module.Types, ctx);
             argTys[i] = type;
         }
@@ -175,9 +175,6 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(const TModule& module, 
         }
         SymIdToLFun[f.SymId] = lfun;
         newSymIds.insert(f.SymId);
-        std::vector<int64_t> paramSlots; paramSlots.reserve(f.Slots.size());
-        for (const auto& s : f.Slots) paramSlots.push_back(s.Idx);
-        SymIdToParamSlots[f.SymId] = std::move(paramSlots);
         SymIdToUniqueFunId[f.SymId] = f.UniqueId;
     }
 
@@ -243,18 +240,39 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, const NIR::TMo
         CurFun->LabelToBB[b.Label.Idx] = bb;
     }
 
-    // NOTE: Slots are module-global indices. Storage is materialized as module-level i64 globals (created on demand in LowerInstr).
+    auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
+    irb->SetInsertPoint(bbs.front());
 
-    // Initialize parameter slots (module-global) with LLVM function arguments at the top of entry block
-    if (!fun.Slots.empty()) {
-        auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
-        irb->SetInsertPoint(bbs.front());
-        unsigned ai = 0;
-        for (const auto& ps : fun.Slots) {
-            auto* g = EnsureSlotGlobal(ps.Idx, module);
-            auto& arg = *lfun->getArg(ai++);
-            irb->CreateStore(&arg, g);
+    CurFun->Allocas.resize(fun.LocalTypes.size(), nullptr);
+    for (int i = 0; i < (int)fun.LocalTypes.size(); ++i) {
+        auto* localTy = GetTypeById(fun.LocalTypes[i], module.Types, ctx);
+        auto* alloca = irb->CreateAlloca(localTy, nullptr, "local" + std::to_string(i));
+        CurFun->Allocas[i] = alloca;
+    }
+
+    for (int i = 0; i < (int)fun.ArgLocals.size(); ++i) {
+        const auto& l = fun.ArgLocals[i];
+        if (l.Idx < 0 || l.Idx >= (int)CurFun->Allocas.size()) {
+            throw std::runtime_error("invalid argument local index");
         }
+        auto* ptr = CurFun->Allocas[l.Idx];
+        auto& arg = *lfun->getArg(i);
+        auto* dstTy = ptr->getAllocatedType();
+        llvm::Value* av = &arg;
+        if (av->getType() != dstTy) {
+            if (av->getType()->isIntegerTy() && dstTy->isIntegerTy()) {
+                av = irb->CreateIntCast(av, dstTy, true);
+            } else if (av->getType()->isFloatingPointTy() && dstTy->isFloatingPointTy()) {
+                av = irb->CreateFPCast(av, dstTy);
+            } else if (av->getType()->isIntegerTy() && dstTy->isFloatingPointTy()) {
+                av = irb->CreateSIToFP(av, dstTy);
+            } else if (av->getType()->isFloatingPointTy() && dstTy->isIntegerTy()) {
+                av = irb->CreateFPToSI(av, dstTy);
+            } else {
+                av = irb->CreateBitCast(av, dstTy);
+            }
+        }
+        irb->CreateStore(av, ptr);
     }
 
     for (size_t i = 0; i < fun.Blocks.size(); ++i) {
@@ -445,19 +463,38 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
         }
         case "load"_op: {
             if (instr.OperandCount != 1 || instr.Dest.Idx < 0) throw std::runtime_error("load needs 1 operand and a dest");
-            if (instr.Operands[0].Type != TOperand::EType::Slot) throw std::runtime_error("load operand must be slot");
-            auto idx = instr.Operands[0].Slot.Idx;
-            auto g = EnsureSlotGlobal(idx, module);
-            auto val = irb->CreateLoad(outputType, g, "loadtmp");
-            return storeTmp(val);
+            if (instr.Operands[0].Type == TOperand::EType::Slot) {
+                auto idx = instr.Operands[0].Slot.Idx;
+                auto g = EnsureSlotGlobal(idx, module);
+                auto val = irb->CreateLoad(outputType, g, "loadtmp");
+                return storeTmp(val);
+            } else if (instr.Operands[0].Type == TOperand::EType::Local) {
+                auto lidx = instr.Operands[0].Local.Idx;
+                if (lidx < 0 || lidx >= CurFun->Allocas.size()) throw std::runtime_error("invalid local index");
+                auto ptr = CurFun->Allocas[lidx];
+                auto val = irb->CreateLoad(ptr->getAllocatedType(), ptr, "loadtmp");
+                return storeTmp(cast(val, outputType));
+            } else {
+                throw std::runtime_error("load operand must be slot or local");
+            }
+            return nullptr;
         }
         case "stre"_op: {
             if (instr.OperandCount != 2)  throw std::runtime_error("store needs 2 operands");
-            if (instr.Operands[0].Type != TOperand::EType::Slot) throw std::runtime_error("store first operand must be slot");
-            auto idx = instr.Operands[0].Slot.Idx;
-            auto g = EnsureSlotGlobal(idx, module);
-            auto value = getOp(instr.Operands[1]);
-            irb->CreateStore(value, g);
+            if (instr.Operands[0].Type == TOperand::EType::Slot) {
+                auto idx = instr.Operands[0].Slot.Idx;
+                auto g = EnsureSlotGlobal(idx, module);
+                auto value = getOp(instr.Operands[1]);
+                irb->CreateStore(value, g);
+            } else if (instr.Operands[0].Type == TOperand::EType::Local) {
+                auto lidx = instr.Operands[0].Local.Idx;
+                if (lidx < 0 || lidx >= CurFun->Allocas.size()) throw std::runtime_error("invalid local index");
+                auto ptr = CurFun->Allocas[lidx];
+                auto value = getOp(instr.Operands[1]);
+                irb->CreateStore(cast(value, ptr->getAllocatedType()), ptr);
+            } else {
+                throw std::runtime_error("store first operand must be slot or local");
+            }
             return nullptr;
         }
         case "ret"_op: {
