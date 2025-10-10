@@ -280,7 +280,7 @@ TTask AnnotateIdent(std::shared_ptr<TIdentExpr> ident, NSemantics::TNameResolver
     if (!symbolId) {
         co_return TError(ident->Location, "undefined identifier: " + ident->Name);
     }
-    auto sym = context.GetSymbolNode(*symbolId);
+    auto sym = context.GetSymbolNode(NSemantics::TSymbolId{symbolId->Id});
     if (!sym) {
         co_return TError(ident->Location, "invalid identifier symbol: " + ident->Name);
     }

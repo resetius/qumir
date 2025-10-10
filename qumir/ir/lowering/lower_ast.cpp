@@ -405,7 +405,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!sidOpt) co_return TError(asg->Location, "assignment to undefined");
 
         auto storeSlot = TSlot{sidOpt->Id};
-        auto node = Context.GetSymbolNode(*sidOpt);
+        auto node = Context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id});
         auto slotType = FromAstType(node->Type, Module.Types);
         Builder.SetType(storeSlot, slotType);
 
@@ -428,7 +428,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!sidOpt) co_return TError(ident->Location, std::string("undefined name: ") + ident->Name);
 
         auto loadSlot = TSlot{sidOpt->Id};
-        auto node = Context.GetSymbolNode(*sidOpt);
+        auto node = Context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id});
         // we don't set type of loadSlot here, as it was typed on store
         auto tmp = Builder.Emit1("load"_op, {loadSlot});
         Builder.SetType(tmp, FromAstType(node->Type, Module.Types));

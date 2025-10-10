@@ -21,11 +21,11 @@ TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TSco
             if (fdecl->Name.empty()) {
                 co_return TError(fdecl->Location, "function with empty name");
             }
-            co_await Declare(fdecl->Name, scope, node);
-            auto newScope = NewScope(scope);
+            co_await Declare(fdecl->Name, node, scope, nullptr);
+            auto newScope = NewScope(scope, nullptr);
             fdecl->Scope = newScope->Id.Id;
             for (auto& param : fdecl->Params) {
-                co_await Declare(param->Name, newScope, param);
+                co_await Declare(param->Name, param, newScope, nullptr);
             }
             // resolve body on second pass
         }
@@ -43,7 +43,7 @@ TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TSco
     co_return {};
 }
 
-TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope) {
+TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TScopePtr funcScope) {
     if (auto maybeFdecl = TMaybeNode<TFunDecl>(node)) {
         auto fdecl = maybeFdecl.Cast();
         auto scopeId = TScopeId{fdecl->Scope};
@@ -51,11 +51,11 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope) {
             co_return TError(fdecl->Location, "function has invalid scope id: " + std::to_string(scopeId.Id));
         }
         auto newScope = Scopes[scopeId.Id];
-        co_return co_await Resolve(fdecl->Body, newScope);
+        co_return co_await Resolve(fdecl->Body, newScope, newScope);
     } else if (auto maybeBlock = TMaybeNode<TBlockExpr>(node)) {
         auto block = maybeBlock.Cast();
         if (block->Scope < 0) {
-            scope = NewScope(scope);
+            scope = NewScope(scope, funcScope);
             block->Scope = scope->Id.Id;
         }
     } else if (auto maybeIdent = TMaybeNode<TIdentExpr>(node)) {
@@ -73,7 +73,7 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope) {
         }
     } else if (auto maybeVarStmt = TMaybeNode<TVarStmt>(node)) {
         auto varStmt = maybeVarStmt.Cast();
-        auto res = Declare(varStmt->Name, scope, node);
+        auto res = Declare(varStmt->Name, node, scope, funcScope);
         if (!res) {
             co_return TError(varStmt->Location, res.error().what());
         }
@@ -82,7 +82,7 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope) {
 
     for (const auto& child : node->Children()) {
         if (child == nullptr) continue; // LoopExpr may have null children
-        co_await Resolve(child, scope);
+        co_await Resolve(child, scope, funcScope);
     }
 
     co_return {};
@@ -97,14 +97,14 @@ std::optional<TError> TNameResolver::Resolve(TExprPtr root) {
     if (!funcRes) {
         return funcRes.error();
     }
-    auto res = Resolve(root, scope).result();
+    auto res = Resolve(root, scope, nullptr).result();
     if (!res) {
         return res.error();
     }
     return {};
 }
 
-std::optional<TSymbolId> TNameResolver::Lookup(const std::string& name, TScopeId scopeId) const {
+std::optional<TSymbolInfo> TNameResolver::Lookup(const std::string& name, TScopeId scopeId) const {
     TScopePtr scope = nullptr;
     if (scopeId.Id < 0 || static_cast<size_t>(scopeId.Id) >= Scopes.size()) {
         return std::nullopt;
@@ -113,14 +113,21 @@ std::optional<TSymbolId> TNameResolver::Lookup(const std::string& name, TScopeId
     while (scope) {
         auto it = scope->NameToSymbolId.find(name);
         if (it != scope->NameToSymbolId.end()) {
-            return it->second;
+            auto& symbol = Symbols[it->second.Id];
+            return TSymbolInfo {
+                .Id = symbol.Id.Id,
+                .DeclScopeId = symbol.ScopeId.Id,
+                .ScopeLevelIdx = symbol.ScopeLevelIdx,
+                .FunctionLevelIdx = symbol.FunctionLevelIdx,
+                .FuncScopeId = symbol.FuncScopeId.Id,
+            };
         }
         scope = scope->Parent;
     }
     return std::nullopt;
 }
 
-std::expected<TSymbolId, TError> TNameResolver::Declare(const std::string& name, TScopePtr scope, TExprPtr node) {
+std::expected<TSymbolId, TError> TNameResolver::Declare(const std::string& name, TExprPtr node, TScopePtr scope, TScopePtr funcScope) {
     auto maybeSymbolId = scope->NameToSymbolId.find(name);
     TSymbolId symbolId{-1};
     if (maybeSymbolId != scope->NameToSymbolId.end()) {
@@ -138,6 +145,9 @@ std::expected<TSymbolId, TError> TNameResolver::Declare(const std::string& name,
         : Symbols.emplace_back(TSymbol {
             .Id = {(int32_t)Symbols.size()},
             .ScopeId = scope->Id,
+            .ScopeLevelIdx = (int32_t)scope->Symbols.size(),
+            .FunctionLevelIdx = funcScope ? (int32_t)funcScope->FuncSymbols.size() : -1,
+            .FuncScopeId = funcScope ? funcScope->Id : TScopeId{-1},
             .Name = name,
             .Node = node,
         });
@@ -150,7 +160,7 @@ std::expected<TSymbolId, TError> TNameResolver::Declare(const std::string& name,
 
 TSymbolId TNameResolver::DeclareFunction(const std::string& name, TExprPtr node) {
     auto scope = GetOrCreateRootScope();
-    auto res = Declare(name, scope, node);
+    auto res = Declare(name, node, scope, nullptr);
     if (!res) {
         throw std::runtime_error(std::string("failed to declare function: ") + res.error().what());
     }
@@ -174,10 +184,11 @@ std::vector<std::pair<int, std::shared_ptr<NAst::TFunDecl>>> TNameResolver::GetE
     return result;
 }
 
-TScopePtr TNameResolver::NewScope(TScopePtr parent) {
+TScopePtr TNameResolver::NewScope(TScopePtr parent, TScopePtr funcScope) {
     auto newScope = std::make_shared<TScope>(TScope {
         .Id = {(int32_t)Scopes.size()},
         .Parent = parent,
+        .FuncScope = funcScope,
     });
     Scopes.push_back(newScope);
     return newScope;
@@ -185,7 +196,7 @@ TScopePtr TNameResolver::NewScope(TScopePtr parent) {
 
 TScopePtr TNameResolver::GetOrCreateRootScope() {
     if (Scopes.empty()) {
-        auto root = NewScope(nullptr);
+        auto root = NewScope(nullptr, nullptr);
         root->RootLevel = true;
         return root;
     }
