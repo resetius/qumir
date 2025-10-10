@@ -1,4 +1,4 @@
-function функция () { ; 27 void
+function функция () { ; 29 void
   block {
     label: label(0)
     ret 

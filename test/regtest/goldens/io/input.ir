@@ -1,8 +1,8 @@
-function <main> () { ; 27 void
+function <main> () { ; 29 void
   block {
     label: label(0)
     ini tmp(0) = 
-    stre slot(28) tmp(0) 
+    stre slot(30) tmp(0) 
     ret 
   }
 }

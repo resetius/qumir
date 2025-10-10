@@ -1,4 +1,4 @@
-function <main> () { ; 27 void
+function <main> () { ; 29 void
   block {
     label: label(0)
     cmp imm(1) label(1) label(2) 

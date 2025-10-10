@@ -1,4 +1,4 @@
-function <main> () { ; 27 void
+function <main> () { ; 29 void
   block {
     label: label(0)
     stre local(0,i64) imm(0) 
