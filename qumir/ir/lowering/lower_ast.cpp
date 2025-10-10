@@ -470,23 +470,23 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(fun->Location, std::string("unbound function symbol '") + fun->Name + "' in scope " + std::to_string(scope.Id.Id) );
         }
         auto funScope = fun->Body->Scope;
-        std::vector<TSlot> paramSlots; paramSlots.reserve(params.size());
+        std::vector<TLocal> args; args.reserve(params.size());
         int i = 0;
         for (auto& p : params) {
             auto psid = Context.Lookup(p->Name, NSemantics::TScopeId{funScope});
             if (!psid) {
                 co_return TError(p->Location, "parameter has no binding");
             }
-            auto slot = TSlot{ psid->Id };
+            auto local = TLocal{ psid->FunctionLevelIdx };
             if (type) {
-                Builder.SetType(slot, FromAstType(type->ParamTypes[i], Module.Types));
+                Builder.SetType(local, FromAstType(type->ParamTypes[i], Module.Types));
             }
-            paramSlots.push_back(slot);
+            args.push_back(local);
             i++;
         }
 
         // auto currentFuncIdx = Builder.CurrentFunctionIdx(); // needed for nested functions
-        auto funcIdx = Builder.NewFunction(name, paramSlots, sidOpt->Id);
+        auto funcIdx = Builder.NewFunction(name, args, sidOpt->Id);
         Builder.SetReturnType(FromAstType(fun->RetType, Module.Types));
 
         auto loweredBody = co_await Lower(body, TBlockScope {

@@ -26,18 +26,10 @@ struct TFrame {
     uint8_t LastCmp{0}; // 1 if the last cmp branched to the true edge, 0 otherwise
 };
 
-// For saving/restoring parameters across calls
-struct TParamSave {
-    int64_t Sid;
-    int64_t Old;
-    uint8_t OldInit;
-};
-
 // Link to caller frame for returning
 struct TReturnLink {
     int64_t FrameIdx;
     int32_t CallerDst; // destination tmp idx in caller frame, -1 if none
-    std::vector<TParamSave> Saved;
 };
 
 class TInterpreter {

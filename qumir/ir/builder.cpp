@@ -92,11 +92,11 @@ std::ostream& operator<<(std::ostream& out, TOp op) {
 void TFunction::Print(std::ostream& out, const TModule& module) const
 {
     out << "function " << Name << " (";
-    for (size_t i = 0; i < Slots.size(); ++i) {
+    for (size_t i = 0; i < ArgLocals.size(); ++i) {
         if (i > 0) {
             out << ", ";
         }
-        out << "slot(" << Slots[i].Idx << ")";
+        out << "local(" << ArgLocals[i].Idx << ")";
     }
     out << ") { ; " << SymId << " ";
     module.Types.Print(out, ReturnTypeId);
@@ -184,13 +184,13 @@ TBuilder::TBuilder(TModule& m)
 {
 }
 
-int TBuilder::NewFunction(std::string name, std::vector<TSlot> args, int symId) {
+int TBuilder::NewFunction(std::string name, std::vector<TLocal> args, int symId) {
     auto maybeIdx = Module.SymIdToFuncIdx.find(symId);
     if (maybeIdx != Module.SymIdToFuncIdx.end()) {
         // redefine function
         Module.Functions[maybeIdx->second] = {
             .Name = name,
-            .Slots = args,
+            .ArgLocals = args,
             .Blocks = {},
             .SymId = symId,
             .UniqueId = NextUniqueFunctionId++,
@@ -203,7 +203,7 @@ int TBuilder::NewFunction(std::string name, std::vector<TSlot> args, int symId) 
     } else {
         Module.Functions.push_back({
             .Name = name,
-            .Slots = args,
+            .ArgLocals = args,
             .Blocks = {},
             .SymId = symId,
             .UniqueId = NextUniqueFunctionId++

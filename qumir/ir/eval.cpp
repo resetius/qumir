@@ -329,41 +329,28 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             }
             auto* calleeExec = calleeFn->Exec;
 
-            const auto& slots = calleeFn->Slots;
+            const auto& localArgs = calleeFn->ArgLocals;
             const int argCount = (int)frame.Args.size();
-            assert(argCount <= (int)slots.size() && "too many arguments for callee");
+            assert(argCount <= (int)localArgs.size() && "too many arguments for callee");
 
-            std::vector<TParamSave> saved; saved.reserve(argCount);
+            auto locals = std::vector<int64_t>(calleeExec->NumLocals, 0);
 
             // save slots that will be overwritten by parameters
             for (int i = 0; i < argCount; ++i) {
-                const int64_t sid = slots[i].Idx;
-                if (sid >= (int64_t)Runtime.Slots.size()) {
-                    Runtime.Slots.resize(sid + 1, 0);
-                    Runtime.Inited.resize(sid + 1, 0);
-                }
-
-                saved.push_back(TParamSave {
-                    .Sid = sid,
-                    .Old = Runtime.Slots[sid],
-                    .OldInit = Runtime.Inited[sid]
-                });
-
-                Runtime.Slots[sid] = frame.Args[i];
-                Runtime.Inited[sid] = 1;
+                const int64_t sid = localArgs[i].Idx;
+                locals[sid] = frame.Args[i];
             }
 
             ReturnLinks.emplace_back(TReturnLink {
                 .FrameIdx = (int64_t) callStack.size() - 1,
                 .CallerDst = instr.Operands[0].Tmp.Idx,
-                .Saved = std::move(saved)
             });
 
             frame.Args.clear();
             callStack.push_back(TFrame {
                 .Exec = calleeExec,
                 .Tmps = std::vector<int64_t>(calleeExec->MaxTmpIdx + 1, 0),
-                .Locals = std::vector<int64_t>(calleeExec->NumLocals, 0),
+                .Locals = std::move(locals),
                 .Args = {},
                 .PC = &calleeExec->VMCode[0],
                 .LastCmp = 0
@@ -380,11 +367,6 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                 assert(!ReturnLinks.empty());
                 auto link = std::move(ReturnLinks.back());
                 ReturnLinks.pop_back();
-
-                for (const auto& s : link.Saved) {
-                    Runtime.Slots[s.Sid]  = s.Old;
-                    Runtime.Inited[s.Sid] = s.OldInit;
-                }
 
                 auto& linkFrame = callStack[link.FrameIdx];
                 if (retVal.has_value()) {

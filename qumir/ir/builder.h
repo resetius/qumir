@@ -165,7 +165,8 @@ struct TExternalFunction {
 
 struct TFunction {
     std::string Name;
-    std::vector<TSlot> Slots;
+    std::vector<TSlot> Slots; // TODO: unused
+    std::vector<TLocal> ArgLocals;
     std::vector<TBlock> Blocks;
     std::vector<int> LocalTypes; // LocalIdx -> TypeId
     std::vector<int> TmpTypes; // TmpId -> TypeId
@@ -219,7 +220,7 @@ class TBuilder {
 public:
     TBuilder(TModule& m);
 
-    int NewFunction(std::string name, std::vector<TSlot> args, int symId); // returns function index
+    int NewFunction(std::string name, std::vector<TLocal> args, int symId); // returns function index
     std::pair<TLabel, int> NewBlock(TLabel label = {-1}); // label,id
 
     int CurrentFunctionIdx() const;
