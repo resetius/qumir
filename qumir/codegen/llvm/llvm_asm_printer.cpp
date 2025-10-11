@@ -22,10 +22,10 @@ constexpr auto ObjectFile = llvm::CodeGenFileType::ObjectFile;
 } // namespace
 
 void TLLVMModuleArtifacts::Generate(std::ostream& os, bool generateAsm, bool generateObj) const {
-    std::string triple = Module->getTargetTriple();
+    auto triple = Module->getTargetTriple();
     if (triple.empty()) {
-        triple = llvm::sys::getDefaultTargetTriple();
-        Module->setTargetTriple(triple);
+        auto tripleString = llvm::sys::getDefaultTargetTriple();
+        Module->setTargetTriple(llvm::Triple(tripleString));
     }
 
     std::string errStr;

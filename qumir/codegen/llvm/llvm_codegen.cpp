@@ -104,7 +104,7 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(const TModule& module, 
     LModule = std::make_unique<llvm::Module>(Opts.ModuleName, *Ctx);
 
     if (!Opts.TargetTriple.empty()) {
-        LModule->setTargetTriple(Opts.TargetTriple);
+        LModule->setTargetTriple(llvm::Triple(Opts.TargetTriple));
     }
 
     if (optLevel > 0) {
@@ -607,10 +607,10 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
 }
 
 void TLLVMCodeGen::CreateTargetMachine() {
-    std::string triple = LModule->getTargetTriple();
+    auto triple = LModule->getTargetTriple();
     if (triple.empty()) {
-        triple = llvm::sys::getDefaultTargetTriple();
-        LModule->setTargetTriple(triple);
+        auto tripleString = llvm::sys::getDefaultTargetTriple();
+        LModule->setTargetTriple(llvm::Triple(triple));
     }
 
     std::string errStr;
