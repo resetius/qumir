@@ -6,3 +6,4 @@
 8. different lowering for top level and function level
 9. replace ops with functions (op ** )
 10. create generic ast visitors and transformators
+11. convert args on call (i.e. int -> float, float -> int)

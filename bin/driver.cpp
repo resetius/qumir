@@ -6,7 +6,7 @@
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/ir/builder.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
-#include <qumir/semantics/type_annotation/type_annotation.h>
+#include <qumir/semantics/transform/transform.h>
 #include <qumir/codegen/llvm/llvm_codegen.h>
 #include <qumir/codegen/llvm/llvm_initializer.h>
 #include <qumir/modules/system/system.h>
@@ -72,20 +72,12 @@ void GenerateIr(const std::string& inputFile, const std::string& outputFile) {
 
     NSemantics::TNameResolver r;
     NRegistry::SystemModule().Register(r);
-    auto error = r.Resolve(ast);
-    if (error.has_value()) {
-        std::cerr << "Name resolution error: " << error->ToString() << "\n";
+
+    auto error = NTransform::Pipeline(ast, r);
+    if (!error) {
+        std::cerr << "Transform error: " << error.error().ToString() << "\n";
         return;
     }
-
-    NTypeAnnotation::TTypeAnnotator annotator(r);
-    auto annotationResult = annotator.Annotate(ast);
-    if (!annotationResult) {
-        std::cerr << "Type annotation error: " << annotationResult.error().ToString() << "\n";
-        return;
-    }
-    ast = annotationResult.value();
-
 
     NIR::TModule module;
     NIR::TBuilder builder(module);
@@ -126,20 +118,12 @@ void GenerateLlvm(const std::string& inputFile, const std::string& outputFile, i
 
     NSemantics::TNameResolver r;
     NRegistry::SystemModule().Register(r);
-    auto error = r.Resolve(ast);
 
-    if (error.has_value()) {
-        std::cerr << "Name resolution error: " << error->ToString() << "\n";
+    auto error = NTransform::Pipeline(ast, r);
+    if (!error) {
+        std::cerr << "Transform error: " << error.error().ToString() << "\n";
         return;
     }
-
-    NTypeAnnotation::TTypeAnnotator annotator(r);
-    auto annotationResult = annotator.Annotate(ast);
-    if (!annotationResult) {
-        std::cerr << "Type annotation error: " << annotationResult.error().ToString() << "\n";
-        return;
-    }
-    ast = annotationResult.value();
 
     NIR::TModule module;
     NIR::TBuilder builder(module);
@@ -298,19 +282,12 @@ void Generate(const std::string& inputFile, const std::string& outputFile, bool 
 
     NSemantics::TNameResolver r;
     NRegistry::SystemModule().Register(r);
-    auto error = r.Resolve(ast);
-    if (error.has_value()) {
-        std::cerr << "Name resolution error: " << error->ToString() << "\n";
-        return;
-    }
 
-    NTypeAnnotation::TTypeAnnotator annotator(r);
-    auto annotationResult = annotator.Annotate(ast);
-    if (!annotationResult) {
-        std::cerr << "Type annotation error: " << annotationResult.error().ToString() << "\n";
+    auto error = NTransform::Pipeline(ast, r);
+    if (!error) {
+        std::cerr << "Transform error: " << error.error().ToString() << "\n";
         return;
     }
-    ast = annotationResult.value();
 
     NIR::TModule module;
     NIR::TBuilder builder(module);
