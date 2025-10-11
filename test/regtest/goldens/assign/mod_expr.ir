@@ -1,3 +1,15 @@
-Error: : Line: 0, Column: 0
-  unknown binary operator: ^: Line: 2, Column: 30
-
+function функция () { ; 29 void
+  block {
+    label: label(0)
+    + tmp(0,i64) = imm(2) imm(3) 
+    * tmp(1,i64) = tmp(0,i64) imm(7) 
+    arg imm(4616189618054758400) 
+    arg imm(4) 
+    call tmp(2,f64) = imm(20) 
+    arg tmp(1,i64) 
+    arg tmp(2,f64) 
+    call tmp(3,i64) = imm(19) 
+    stre local(0,i64) tmp(3,i64) 
+    ret 
+  }
+}

@@ -1,6 +1,7 @@
 #include "runner_llvm.h"
 
 #include <qumir/parser/lexer.h>
+#include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
 
 #include <iostream>
@@ -14,7 +15,6 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     : Options(std::move(options))
     , Builder(Module)
     , Lowerer(Module, Builder, Resolver)
-    , Annotator(Resolver)
 {
     RegisteredModules.push_back(std::make_shared<NRegistry::SystemModule>());
     // TODO: register other modules
@@ -38,15 +38,11 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
     auto scope = Resolver.GetOrCreateRootScope();
     scope->AllowsRedeclare = true; // TODO: move to options?
     scope->RootLevel = false;
-    auto error = Resolver.Resolve(ast);
-    if (error.has_value()) {
-        return std::unexpected(error.value());
+
+    auto error = NTransform::Pipeline(ast, Resolver);
+    if (!error) {
+        return std::unexpected(error.error());
     }
-    auto annotationResult = Annotator.Annotate(ast);
-    if (!annotationResult) {
-        return std::unexpected(annotationResult.error());
-    }
-    ast = annotationResult.value();
     if (Options.PrintAst) {
         std::cerr << "=========== AST: ===========\n";
         std::cerr << *ast << std::endl;

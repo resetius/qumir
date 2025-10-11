@@ -1,6 +1,7 @@
 #include "runner_ir.h"
 
 #include <qumir/parser/lexer.h>
+#include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
 
 #include <iostream>
@@ -17,7 +18,6 @@ TIRRunner::TIRRunner(
     TIRRunnerOptions options)
     : Builder(Module)
     , Lowerer(Module, Builder, Resolver)
-    , Annotator(Resolver)
     , Options(std::move(options))
     , Interpreter(Module, Runtime, out, in)
 {
@@ -41,16 +41,11 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     scope->AllowsRedeclare = true; // TODO: move to options?
     scope->RootLevel = false;
 
-    auto error = Resolver.Resolve(ast);
-    if (error) {
-        return std::unexpected(*error);
+    auto error = NTransform::Pipeline(ast, Resolver);
+    if (!error) {
+        return std::unexpected(error.error());
     }
 
-    auto annotationResult = Annotator.Annotate(ast);
-    if (!annotationResult) {
-        return std::unexpected(annotationResult.error());
-    }
-    ast = annotationResult.value();
     if (Options.PrintAst) {
         std::cerr << "=========== AST: ===========\n";
         std::cerr << *ast << std::endl;

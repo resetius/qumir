@@ -10,6 +10,7 @@
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/type_annotation/type_annotation.h>
+#include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/ir/builder.h>
@@ -74,6 +75,13 @@ std::string BuildAst(NAst::TTokenStream& ts) {
     }
     NSemantics::TNameResolver nr;
     NRegistry::SystemModule().Register(nr);
+
+    //auto expr = parsed.value();
+    //auto error = NTransform::Pipeline(expr, nr);
+    //if (!error) {
+    //    return "Error: " + error.error().ToString() + "\n";
+    //}
+
     auto res = nr.Resolve(*parsed);
     if (res) {
         return "Name resolution error: " + res->ToString() + "\n";
@@ -87,6 +95,7 @@ std::string BuildAst(NAst::TTokenStream& ts) {
 std::string BuildIR(NAst::TTokenStream& ts) {
     NSemantics::TNameResolver resolver;
     NRegistry::SystemModule().Register(resolver);
+
     NTypeAnnotation::TTypeAnnotator annotator(resolver);
     NAst::TParser p;
     auto parsed = p.parse(ts);
@@ -94,20 +103,25 @@ std::string BuildIR(NAst::TTokenStream& ts) {
         return "Error: " + parsed.error().ToString() + "\n";
     }
 
-    auto error = resolver.Resolve(parsed.value());
-    if (error) {
-        return "Error: " + error->ToString() + "\n";
+    auto expr = parsed.value();
+    auto error = NTransform::Pipeline(expr, resolver);
+    if (!error) {
+        return "Error: " + error.error().ToString() + "\n";
     }
 
-    auto annotated = annotator.Annotate(parsed.value());
-    if (!annotated) {
-        return "Error: " + annotated.error().ToString() + "\n";
-    }
+    //auto error = resolver.Resolve(parsed.value());
+    //if (error) {
+    //    return "Error: " + error->ToString() + "\n";
+    //}
+    //auto annotated = annotator.Annotate(parsed.value());
+    //if (!annotated) {
+    //    return "Error: " + annotated.error().ToString() + "\n";
+    //}
 
     NIR::TModule module;
     NIR::TBuilder builder(module);
     NIR::TAstLowerer lowerer(module, builder, resolver);
-    auto lowerRes = lowerer.LowerTop(parsed.value());
+    auto lowerRes = lowerer.LowerTop(expr);
     if (!lowerRes) {
         return "Error: " + lowerRes.error().ToString() + "\n";
     }

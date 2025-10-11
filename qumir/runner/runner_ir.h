@@ -3,7 +3,6 @@
 #include <qumir/parser/ast.h>
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
-#include <qumir/semantics/type_annotation/type_annotation.h>
 #include <qumir/modules/module.h>
 
 #include <qumir/ir/builder.h>
@@ -46,7 +45,6 @@ private:
     std::unordered_set<int> PrintedChunks;
 
     NSemantics::TNameResolver Resolver;
-    NTypeAnnotation::TTypeAnnotator Annotator;
 
     std::vector<std::shared_ptr<NRegistry::IModule>> RegisteredModules;
 };

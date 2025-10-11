@@ -213,7 +213,7 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 co_return TError(binary->Location, "binary expression operands must be both integer types");
             }
             break;
-        case TOperator("**"):
+        case TOperator("^"):
             // power: left^right
             if (TMaybeType<TFloatType>(left) && TMaybeType<TIntegerType>(right)) {
                 binary->Type = std::make_shared<TFloatType>();

@@ -561,6 +561,20 @@ struct TOutputExpr : TExpr {
     }
 };
 
+template<typename TransformFunctor, typename FilterFunctor>
+bool TransformAst(TExprPtr& result, const TExprPtr& node, TransformFunctor f, FilterFunctor filter) {
+    if (!node) return false;
+    if (!filter(node)) return false;
+    bool changed = false;
+    for (auto* child : node->MutableChildren()) {
+        if (*child) {
+            changed |= TransformAst(*child, *child, f, filter);
+        }
+    }
+    result = f(node);
+    return changed || result != node;
+}
+
 std::ostream& operator<<(std::ostream& os, const TExpr& expr);
 
 } // namespace NAst
