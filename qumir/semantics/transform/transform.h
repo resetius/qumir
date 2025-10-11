@@ -1,0 +1,20 @@
+#pragma once
+
+#include <qumir/parser/ast.h>
+#include <qumir/error.h>
+
+#include <qumir/semantics/name_resolution/name_resolver.h>
+
+#include <expected>
+
+namespace NQumir {
+namespace NTransform {
+
+bool PreNameResolutionTransform(NAst::TExprPtr& expr);
+bool PostNameResolutionTransform(NAst::TExprPtr& expr);
+std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr);
+
+std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics::TNameResolver& context);
+
+} // namespace NTransform
+} // namespace NQumir
