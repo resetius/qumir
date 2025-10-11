@@ -103,6 +103,10 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(const TModule& module, 
     Ctx = std::make_unique<llvm::LLVMContext>();
     LModule = std::make_unique<llvm::Module>(Opts.ModuleName, *Ctx);
 
+    if (!Opts.TargetTriple.empty()) {
+        LModule->setTargetTriple(Opts.TargetTriple);
+    }
+
     if (optLevel > 0) {
         CreateTargetMachine();
     }

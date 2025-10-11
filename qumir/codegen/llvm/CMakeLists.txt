@@ -60,6 +60,12 @@ set(LLVM_COMPONENTS
     asmprinter
     native          # host target (dispatcher + minimal codegen)
     nativecodegen   # full codegen for host (brings in actual target libs)
+
+    WebAssemblyCodeGen
+    WebAssemblyDesc
+    WebAssemblyInfo
+    WebAssemblyAsmParser
+    WebAssemblyDisassembler
 )
 
 llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})

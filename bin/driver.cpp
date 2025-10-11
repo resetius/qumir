@@ -1,6 +1,7 @@
 #include <cstring>
 #include <iostream>
 #include <fstream>
+#include <cstdlib>
 
 #include <qumir/parser/parser.h>
 #include <qumir/ir/lowering/lower_ast.h>
@@ -262,7 +263,7 @@ void GenerateObjFromAsm(const std::string& asmCode, std::ostream& objOut) {
 }
 #endif
 
-void Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel) {
+void Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, bool targetWasm) {
     std::cerr << "Compiling " << inputFile << " to " << outputFile << "\n";
 
     std::ifstream in(inputFile);
@@ -299,14 +300,40 @@ void Generate(const std::string& inputFile, const std::string& outputFile, bool 
         return;
     }
 
-    NCodeGen::TLLVMCodeGen cg;
+    NCodeGen::TLLVMCodeGenOptions cgOpts;
+    if (targetWasm) {
+        cgOpts.TargetTriple = "wasm32-unknown-unknown";
+    }
+    NCodeGen::TLLVMCodeGen cg(cgOpts);
     auto artifacts = cg.Emit(module, optLevel);
     if (!artifacts) {
         std::cerr << "Codegen error " << "\n";
         return;
     }
 
-    std::ofstream outFile(outputFile);
+    // Special path: when targeting wasm and linking, produce a final .wasm via wasm-ld
+    if (targetWasm && !generateAsm && !compileOnly) {
+        // TODO: move to ->Generate
+        const std::string objTmp = outputFile + ".tmp.o";
+        {
+            std::ofstream objFile(objTmp, std::ios::binary);
+            if (!objFile) {
+                std::cerr << "Failed to open temp object file: " << objTmp << "\n";
+                return;
+            }
+            artifacts->Generate(objFile, /*asm*/false, /*obj*/true);
+        }
+        std::string cmd = std::string("wasm-ld --no-entry --export-all --allow-undefined -o ") + outputFile + " " + objTmp;
+        int rc = std::system(cmd.c_str());
+        if (rc != 0) {
+            std::cerr << "wasm-ld failed with code " << rc << "\n";
+            return;
+        }
+        std::remove(objTmp.c_str());
+        return;
+    }
+
+    std::ofstream outFile(outputFile, std::ios::binary);
     if (!outFile) {
         std::cerr << "Failed to open output file: " << outputFile << "\n";
         return;
@@ -337,6 +364,7 @@ int main(int argc, char** argv) {
     bool generateLlvm = false;
     bool generateAsm = false;
     int optLevel = 0;
+    bool targetWasm = false;
     for (int i = 1; i < argc; ++i) {
         if (!std::strcmp(argv[i], "-c")) {
             compileOnly = true;
@@ -354,6 +382,7 @@ int main(int argc, char** argv) {
                          "  -o <file>     Write output to <file> (default: " << (compileOnly ? "N/A" : A_OUT) << ")\n"
                          "  --ast         Generate AST only (no IR, no codegen)\n"
                          "  --ir          Generate IR only (no codegen)\n"
+                         "  --wasm        Target WebAssembly (wasm32-unknown-unknown)\n"
                          "  -S            Generate assembly only (no linking), implies -c\n"
                          "  -O <level>    Optimization level (0-3), default 0\n"
                          "  -O0           Optimization level 0 (no optimizations)\n"
@@ -364,7 +393,7 @@ int main(int argc, char** argv) {
                          "  --help, -h    Show this help message\n";
             return 0;
         } else if (!std::strcmp(argv[i], "--version") || !std::strcmp(argv[i], "-v")) {
-            std::cout << "ozc version 0.0.1\n";
+            std::cout << "qumirc version 0.0.1\n";
             std::cout << "Build Date: " << __DATE__ << "\n";
             std::cout << "Build Time: " << __TIME__ << "\n";
             return 0;
@@ -374,6 +403,8 @@ int main(int argc, char** argv) {
             generateIr = true;
         } else if (!std::strcmp(argv[i], "--llvm")) {
             generateLlvm = true;
+        } else if (!std::strcmp(argv[i], "--wasm")) {
+            targetWasm = true;
         } else if (!std::strcmp(argv[i], "-S")) {
             generateAsm = true;
             compileOnly = true;
@@ -433,14 +464,14 @@ int main(int argc, char** argv) {
     }
 
     if (!compileOnly && outputFile.empty()) {
-        outputFile = A_OUT;
+        outputFile = targetWasm ? OutputFilename(inputFile, ".wasm") : A_OUT;
     }
 
     Generate(inputFile, compileOnly
         ? (generateAsm
             ? OutputFilename(inputFile, ".s")
             : OutputFilename(inputFile, ".o"))
-        : outputFile, compileOnly, generateAsm, optLevel);
+        : outputFile, compileOnly, generateAsm, optLevel, targetWasm);
 
     return 0;
 }

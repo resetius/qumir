@@ -7,3 +7,4 @@
 9. replace ops with functions (op ** )
 10. create generic ast visitors and transformators
 11. convert args on call (i.e. int -> float, float -> int)
+12. replace output/input with functions (using ast transformations)
