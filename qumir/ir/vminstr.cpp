@@ -53,9 +53,6 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::Call: return os << "Call";
     case EVMOp::Ret: return os << "Ret";
     case EVMOp::RetVoid: return os << "RetVoid";
-    case EVMOp::OutI64: return os << "OutI64";
-    case EVMOp::OutF64: return os << "OutF64";
-    case EVMOp::OutS: return os << "OutS";
     default: return os << "EVMOp(" << static_cast<int>(op) << ")";
     }
 }

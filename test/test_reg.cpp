@@ -76,19 +76,14 @@ std::string BuildAst(NAst::TTokenStream& ts) {
     NSemantics::TNameResolver nr;
     NRegistry::SystemModule().Register(nr);
 
-    //auto expr = parsed.value();
-    //auto error = NTransform::Pipeline(expr, nr);
-    //if (!error) {
-    //    return "Error: " + error.error().ToString() + "\n";
-    //}
-
-    auto res = nr.Resolve(*parsed);
-    if (res) {
-        return "Name resolution error: " + res->ToString() + "\n";
+    auto expr = parsed.value();
+    auto error = NTransform::Pipeline(expr, nr);
+    if (!error) {
+        return "Error: " + error.error().ToString() + "\n";
     }
 
     std::ostringstream out;
-    out << *parsed.value();
+    out << *expr;
     return out.str();
 }
 
@@ -108,15 +103,6 @@ std::string BuildIR(NAst::TTokenStream& ts) {
     if (!error) {
         return "Error: " + error.error().ToString() + "\n";
     }
-
-    //auto error = resolver.Resolve(parsed.value());
-    //if (error) {
-    //    return "Error: " + error->ToString() + "\n";
-    //}
-    //auto annotated = annotator.Annotate(parsed.value());
-    //if (!annotated) {
-    //    return "Error: " + annotated.error().ToString() + "\n";
-    //}
 
     NIR::TModule module;
     NIR::TBuilder builder(module);

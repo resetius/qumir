@@ -2,6 +2,9 @@
 add_library(qumir_runtime
     math.cpp
     math.h
+    io.cpp
+    io.h
     runtime.cpp
-    runtime.h)
+    runtime.h
+    )
 target_compile_features(qumir_runtime PUBLIC cxx_std_23)

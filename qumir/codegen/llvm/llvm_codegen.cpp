@@ -295,9 +295,10 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
     auto getOp = [&](const TOperand& op) -> llvm::Value* {
         switch (op.Type) {
             case TOperand::EType::Imm:
-                if (op.Imm.IsFloat) {
+                if (op.Imm.Kind == EKind::F64) {
                     return llvm::ConstantFP::get(f64, std::bit_cast<double>(op.Imm.Value));
                 } else {
+                    // TODO: other immediate types
                     return llvm::ConstantInt::get(i64, op.Imm.Value, true);
                 }
             case TOperand::EType::Tmp: {

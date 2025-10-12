@@ -27,6 +27,7 @@ struct TExternalFunction {
 void SystemModule::Register(NSemantics::TNameResolver& ctx) {
     auto integerType = std::make_shared<NAst::TIntegerType>();
     auto floatType = std::make_shared<NAst::TFloatType>();
+    auto voidType = std::make_shared<NAst::TVoidType>();
 
     std::vector<TExternalFunction> functions = {
         {
@@ -299,26 +300,62 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
             .ArgTypes = { integerType, integerType },
             .ReturnType = integerType,
         },
+
+        // io
         {
-            .Name = "МАКСЦЕЛ",
-            .MangledName = "max_limit_int64_t",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)()>(max_limit_int64_t)),
+            .Name = "input_double",
+            .MangledName = "input_double",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)()>(NRuntime::input_double)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                return std::bit_cast<uint64_t>(max_limit_int64_t());
+                return std::bit_cast<uint64_t>(NRuntime::input_double());
             },
-            .ArgTypes = { },
+            .ArgTypes = {  },
+            .ReturnType = floatType,
+        },
+        {
+            .Name = "input_int64",
+            .MangledName = "input_int64",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)()>(NRuntime::input_int64)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(NRuntime::input_int64());
+            },
+            .ArgTypes = {  },
             .ReturnType = integerType,
         },
         {
-            .Name = "МАКСВЕЩ",
-            .MangledName = "max_limit_double",
-            .Ptr = reinterpret_cast<void*>(static_cast<double(*)()>(max_limit_double)),
+            .Name = "output_double",
+            .MangledName = "output_double",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(double)>(NRuntime::output_double)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                return std::bit_cast<uint64_t>(max_limit_double());
+                NRuntime::output_double(std::bit_cast<double>(args[0]));
+                return 0;
             },
-            .ArgTypes = { },
-            .ReturnType = floatType,
-        }
+            .ArgTypes = { floatType },
+            .ReturnType = voidType,
+        },
+        {
+            .Name = "output_int64",
+            .MangledName = "output_int64",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int64_t)>(NRuntime::output_int64)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::output_int64(std::bit_cast<int64_t>(args[0]));
+                return 0;
+            },
+            .ArgTypes = { integerType },
+            .ReturnType = voidType,
+        },
+        {
+            .Name = "output_string",
+            .MangledName = "output_string",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(const char*)>(NRuntime::output_string)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::output_string(reinterpret_cast<const char*>(args[0]));
+                return 0;
+            },
+            // TODO:
+            .ArgTypes = { std::make_shared<NAst::TStringType>() },
+            .ReturnType = voidType,
+        },
     };
 
     for (const auto& fn : functions) {

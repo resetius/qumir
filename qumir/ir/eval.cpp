@@ -308,6 +308,8 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
 
             if (instr.Operands[0].Tmp.Idx >= 0) {
                 frame.Tmps[instr.Operands[0].Tmp.Idx] = func(reinterpret_cast<const uint64_t*>(frame.Args.data()), frame.Args.size());
+            } else {
+                func(reinterpret_cast<const uint64_t*>(frame.Args.data()), frame.Args.size());
             }
             frame.Args.clear();
 
@@ -369,37 +371,6 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                     linkFrame.Tmps[link.CallerDst] = *retVal;
                 }
             }
-            break;
-        }
-        case EVMOp::OutI64: {
-            int64_t val = ReadOperand(frame, instr.Operands[0]);
-            Out << val;
-            break;
-        }
-        case EVMOp::OutF64: {
-            double val = ReadOperand<double>(frame, instr.Operands[0]);
-            Out << std::setprecision(15) << val;
-            break;
-        }
-        case EVMOp::OutS: {
-            int64_t ptr = ReadOperand<int64_t>(frame, instr.Operands[0]);
-            if (ptr != 0) {
-                Out << (const char*)(intptr_t)ptr;
-            } else {
-                Out << "(null)";
-            }
-            break;
-        }
-        case EVMOp::InI64: {
-            int64_t val;
-            In >> val;
-            frame.Tmps[instr.Operands[0].Tmp.Idx] = val;
-            break;
-        }
-        case EVMOp::InF64: {
-            double val;
-            In >> val;
-            frame.Tmps[instr.Operands[0].Tmp.Idx] = std::bit_cast<uint64_t>(val);
             break;
         }
         default:

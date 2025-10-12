@@ -37,6 +37,11 @@ public:
         : TError({}, ex)
     { }
 
+    TError(TLocation loc, const std::list<TError>& children)
+        : Location(loc)
+        , Children(children)
+    { }
+
     const char* what() const noexcept override { return Msg.c_str(); }
 
     std::string ToString() const;

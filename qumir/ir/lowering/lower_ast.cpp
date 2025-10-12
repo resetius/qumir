@@ -194,15 +194,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     if (auto maybeNum = NAst::TMaybeNode<NAst::TNumberExpr>(expr)) {
         auto num = maybeNum.Cast();
         if (num->IsFloat) {
-            co_return TValueWithBlock{ TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .IsFloat = true}, Builder.CurrentBlockLabel() };
+            co_return TValueWithBlock{ TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .Kind = EKind::F64}, Builder.CurrentBlockLabel() };
         } else {
-            co_return TValueWithBlock{ TImm{.Value = num->IntValue, .IsFloat = false}, Builder.CurrentBlockLabel() };
+            co_return TValueWithBlock{ TImm{.Value = num->IntValue, .Kind = EKind::I64}, Builder.CurrentBlockLabel() };
         }
     } else if (auto maybeStringLiteral = NAst::TMaybeNode<NAst::TStringLiteralExpr>(expr)) {
         auto str = maybeStringLiteral.Cast();
         auto id = Builder.StringLiteral(str->Value);
         // TODO: type is 'pointer to char'
-        co_return TValueWithBlock{ TImm{.Value = id, .IsFloat = false}, Builder.CurrentBlockLabel() };
+        co_return TValueWithBlock{ TImm{.Value = id, .Kind = EKind::Ptr}, Builder.CurrentBlockLabel() };
     } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
         // Evaluate a block: value is the value of the last statement (or void if none)
         std::optional<TOperand> last;
@@ -418,10 +418,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         if (rhs.Value->Type == TOperand::EType::Imm) {
             // cast immediate to a register before storing (for cast)
-            if (rhs.Value->Imm.IsFloat && Module.Types.IsInteger(slotType)) {
+            if (rhs.Value->Imm.Kind == EKind::F64 && Module.Types.IsInteger(slotType)) {
                 *rhs.Value = Builder.Emit1("cmov"_op, {*rhs.Value});
                 Builder.SetType(rhs.Value->Tmp, FromAstType(expr->Type, Module.Types));
-            } else if (rhs.Value->Imm.IsFloat == false && Module.Types.IsFloat(slotType)) {
+            } else if (rhs.Value->Imm.Kind == EKind::I64 && Module.Types.IsFloat(slotType)) {
                 *rhs.Value = Builder.Emit1("i2f"_op, {*rhs.Value});
                 Builder.SetType(rhs.Value->Tmp, FromAstType(expr->Type, Module.Types));
             }
@@ -514,7 +514,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto ident = maybeIdent.Cast();
             auto sidOpt = Context.Lookup(ident->Name, scope.Id);
             calleeName = ident->Name;
-            if (!sidOpt) co_return TError(ident->Location, std::string("undefined function: ") + ident->Name);
+            if (!sidOpt) co_return TError(ident->Location, std::string("undefined function: `") + ident->Name + "' in scope: " + std::to_string(scope.Id.Id));
             calleeSymId = sidOpt->Id;
         } else {
             co_return TError(call->Callee->Location, "function call to non-identifier not supported");
@@ -540,10 +540,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 const auto& argType = (*argTypes)[i++];
                 if (av.Value->Type == TOperand::EType::Imm) {
                     auto maybeFloat = NAst::TMaybeType<NAst::TFloatType>(argType);
-                    if (maybeFloat && av.Value->Imm.IsFloat == false) {
+                    if (maybeFloat && av.Value->Imm.Kind != EKind::F64) {
                         // Argument is a float but was lowered to int: convert
                         double tmp = static_cast<double>(av.Value->Imm.Value);
-                        av.Value = TImm{.Value = std::bit_cast<int64_t>(tmp), .IsFloat = true};
+                        av.Value = TImm{.Value = std::bit_cast<int64_t>(tmp), .Kind = EKind::F64};
                     }
                 }
             } else {
@@ -570,52 +570,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.Emit0("call"_op, {TImm{calleeSymId}});
             co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
         }
-    } else if (auto maybeOutput = NAst::TMaybeNode<NAst::TOutputExpr>(expr)) {
-        auto output = maybeOutput.Cast();
-        for (auto& arg : output->Args) {
-            auto av = co_await Lower(arg, scope);
-            if (!av.Value) co_return TError(arg->Location, "invalid argument to output");
-            auto type = arg->Type;
-            if (NAst::TMaybeType<NAst::TFloatType>(type)) {
-                Builder.Emit0("outf"_op, {*av.Value});
-            } else if (NAst::TMaybeType<NAst::TIntegerType>(type)) {
-                Builder.Emit0("outi"_op, {*av.Value});
-            } else if (NAst::TMaybeType<NAst::TStringType>(type)) {
-                Builder.Emit0("outs"_op, {*av.Value});
-            } else {
-                co_return TError(arg->Location, "output argument must be int, float, or string, got: " + type->ToString());
-            }
-        }
-        // output has no value
-        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
-    } else if (auto maybeInput = NAst::TMaybeNode<NAst::TInputExpr>(expr)) {
-        auto input = maybeInput.Cast();
-        for (auto& arg : input->Args) {
-            // arg must be a slot, resolve it
-            auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(arg);
-            if (!maybeIdent) {
-                co_return TError(arg->Location, "input should be a var");
-            }
-            auto ident = maybeIdent.Cast();
-            auto sidOpt = Context.Lookup(ident->Name, scope.Id);
-            if (!sidOpt) {
-                co_return TError(arg->Location, "assignment to undefined");
-            }
-            auto storeSlot = TSlot{sidOpt->Id};
-
-            auto type = arg->Type;
-            if (NAst::TMaybeType<NAst::TFloatType>(type)) {
-                auto tmp = Builder.Emit1("inf"_op, {});
-                Builder.Emit0("stre", {storeSlot, tmp});
-            } else if (NAst::TMaybeType<NAst::TIntegerType>(type)) {
-                auto tmp = Builder.Emit1("ini"_op, {});
-                Builder.Emit0("stre", {storeSlot, tmp});
-            } else {
-                co_return TError(arg->Location, "output argument must be int, float, got: " + type->ToString());
-            }
-        }
-        // output has no value
-        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else {
         std::ostringstream oss;
         oss << *expr;
@@ -700,9 +654,9 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
             if (maybeNumber) {
                 auto num = maybeNumber.Cast();
                 if (num->IsFloat) {
-                    Module.GlobalValues[sid->Id] = TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .IsFloat = true};
+                    Module.GlobalValues[sid->Id] = TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .Kind = EKind::F64};
                 } else {
-                    Module.GlobalValues[sid->Id] = TImm{.Value = num->IntValue, .IsFloat = false};
+                    Module.GlobalValues[sid->Id] = TImm{.Value = num->IntValue, .Kind = EKind::I64};
                 }
                 continue;
             }
@@ -710,7 +664,7 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
             if (maybeString) {
                 auto str = maybeString.Cast();
                 auto id = Builder.StringLiteral(str->Value);
-                Module.GlobalValues[sid->Id] = TImm{.Value = id, .IsFloat = false};
+                Module.GlobalValues[sid->Id] = TImm{.Value = id, .Kind = EKind::Ptr};
                 Module.GlobalTypes[sid->Id] = Module.Types.I(EKind::I64);
                 continue;
             }

@@ -71,7 +71,7 @@ inline bool operator<(const TLabel& a, const TLabel& b) {
 // Immediate value (e.g. constant)
 struct TImm {
     int64_t Value;
-    bool IsFloat = false;
+    EKind Kind = EKind::I64; // type of the immediate
 };
 
 struct TOperand {

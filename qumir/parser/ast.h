@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <sstream>
+#include <iostream>
 
 #include <qumir/location.h>
 
@@ -493,6 +494,7 @@ struct TCallExpr : TExpr {
     }
 };
 
+// Sugared AST node for input(...) expression, which is transformed into calls to input_xxx functions
 struct TInputExpr : TExpr {
     static constexpr const char* NodeId = "Input";
 
@@ -527,6 +529,7 @@ struct TInputExpr : TExpr {
     }
 };
 
+// Sugared AST node for output(...) expression, which is transformed into calls to output_xxx functions
 struct TOutputExpr : TExpr {
     static constexpr const char* NodeId = "Output";
 
@@ -562,7 +565,7 @@ struct TOutputExpr : TExpr {
 };
 
 template<typename TransformFunctor, typename FilterFunctor>
-bool TransformAst(TExprPtr& result, const TExprPtr& node, TransformFunctor f, FilterFunctor filter) {
+bool TransformAst(TExprPtr& result, TExprPtr node, TransformFunctor f, FilterFunctor filter) {
     if (!node) return false;
     if (!filter(node)) return false;
     bool changed = false;
@@ -573,6 +576,21 @@ bool TransformAst(TExprPtr& result, const TExprPtr& node, TransformFunctor f, Fi
     }
     result = f(node);
     return changed || result != node;
+}
+
+template<typename TransformFunctor, typename FilterFunctor>
+bool PreorderTransformAst(TExprPtr& result, TExprPtr node, TransformFunctor f, FilterFunctor filter) {
+    if (!node) return false;
+    if (!filter(node)) return false;
+    bool changed = false;
+    result = f(node);
+    changed |= result != node;
+    for (auto* child : result->MutableChildren()) {
+        if (*child) {
+            changed |= PreorderTransformAst(*child, *child, f, filter);
+        }
+    }
+    return changed;
 }
 
 std::ostream& operator<<(std::ostream& os, const TExpr& expr);

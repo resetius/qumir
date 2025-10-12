@@ -1,4 +1,5 @@
 #include "vmcompiler.h"
+#include "qumir/ir/type.h"
 #include "qumir/ir/vminstr.h"
 
 #include <cassert>
@@ -77,7 +78,7 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case TOperand::EType::Tmp:
                 return typeId(s.Tmp);
             case TOperand::EType::Imm:
-                return s.Imm.IsFloat ? Module.Types.I(EKind::F64) : Module.Types.I(EKind::I64);
+                return Module.Types.I(s.Imm.Kind);
             case TOperand::EType::Slot:
                 return -1;
             default:
@@ -100,7 +101,7 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
 
     auto fconv = [&](const TInstr& ins, TVMInstr& out) {
         for (int i = 0; i < ins.OperandCount; i++) {
-            if (ins.Operands[i].Type == TOperand::EType::Imm && !ins.Operands[i].Imm.IsFloat) {
+            if (ins.Operands[i].Type == TOperand::EType::Imm && ins.Operands[i].Imm.Kind != EKind::F64) {
                 double tmp = static_cast<double>(ins.Operands[i].Imm.Value);
                 out.Operands[i+1] = TUntypedImm{.Value = std::bit_cast<int64_t>(tmp)};
             }
@@ -318,6 +319,18 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 } else {
                     throw std::runtime_error("arg operand must be Imm or Tmp");
                 }
+                // convert id to pointer
+                if (ins.Operands[0].Type == TOperand::EType::Imm) {
+                    auto imm = ins.Operands[0].Imm;
+                    if (imm.Kind == EKind::Ptr) { // string literal
+                        int id = (int)imm.Value;
+                        if (id < 0 || id >= Module.StringLiterals.size()) {
+                            throw std::runtime_error("Invalid string literal id in outs");
+                        }
+                        auto& str = Module.StringLiterals[id];
+                        out.Operands[0] = TImm{(int64_t)str.c_str(), EKind::Ptr};
+                    }
+                }
                 break;
             }
             case "call"_op: {
@@ -346,16 +359,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
 
                 break;
             }
-            case "ecll"_op: { // external call
-                require(ins, 0, 1);
-
-                if (ins.Dest.Idx < 0) {
-                    out.Operands[0] = TTmp{-1}; // no dest
-                }
-
-                out.Op = EVMOp::ECall;
-                break;
-            }
             case "ret"_op: {
                 if (ins.OperandCount == 0) {
                     out.Op = EVMOp::RetVoid;
@@ -372,40 +375,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case "stre"_op: {
                 require(ins, 0, 2);
                 out.Op = EVMOp::Store64;
-                break;
-            }
-            case "outi"_op: {
-                require(ins, -1, 1);
-                out.Op = EVMOp::OutI64;
-                break;
-            }
-            case "outf"_op: {
-                require(ins, -1, 1);
-                out.Op = EVMOp::OutF64;
-                break;
-            }
-            case "outs"_op: {
-                require(ins, -1, 1);
-                out.Op = EVMOp::OutS;
-                // convert id to pointer
-                if (ins.Operands[0].Type == TOperand::EType::Imm) {
-                    int id = (int)ins.Operands[0].Imm.Value;
-                    if (id < 0 || id >= Module.StringLiterals.size()) {
-                        throw std::runtime_error("Invalid string literal id in outs");
-                    }
-                    auto& str = Module.StringLiterals[id];
-                    out.Operands[0] = TImm{(int64_t)str.c_str()};
-                }
-                break;
-            }
-            case "ini"_op: {
-                require(ins, 1, 0);
-                out.Op = EVMOp::InI64;
-                break;
-            }
-            case "inf"_op: {
-                require(ins, 1, 0);
-                out.Op = EVMOp::InF64;
                 break;
             }
             default:

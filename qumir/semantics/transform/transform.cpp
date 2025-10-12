@@ -1,4 +1,5 @@
 #include "transform.h"
+#include "qumir/error.h"
 
 #include <qumir/semantics/type_annotation/type_annotation.h>
 
@@ -31,8 +32,9 @@ std::expected<bool, TError> PreNameResolutionTransform(NAst::TExprPtr& expr)
 
 std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
 {
+    std::list<TError> errors;
     bool changed = TransformAst(expr, expr,
-        [](const NAst::TExprPtr& node) -> NAst::TExprPtr {
+        [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
             if (auto maybeBinary = NAst::TMaybeNode<NAst::TBinaryExpr>(node)) {
                 auto binary = maybeBinary.Cast();
                 if (binary->Operator == NAst::TOperator("^")) {
@@ -51,12 +53,93 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                         std::make_shared<NAst::TIdentExpr>(binary->Location, funcName),
                         std::move(args));
                 }
+            } else if (auto maybeOutput = NAst::TMaybeNode<NAst::TOutputExpr>(node)) {
+                auto output = maybeOutput.Cast();
+                // transform output(a, b, c) into a series of calls to output_xxx functions
+                std::vector<NAst::TExprPtr> stmts;
+                for (const auto& arg : output->Args) {
+                    NAst::TExprPtr call;
+                    auto type = arg->Type;
+                    if (NAst::TMaybeType<NAst::TFloatType>(type)) {
+                        std::vector<NAst::TExprPtr> args;
+                        args.push_back(arg);
+                        call = std::make_shared<NAst::TCallExpr>(
+                            output->Location,
+                            std::make_shared<NAst::TIdentExpr>(output->Location, "output_double"),
+                            std::move(args));
+                    } else if (NAst::TMaybeType<NAst::TIntegerType>(type)) {
+                        std::vector<NAst::TExprPtr> args;
+                        args.push_back(arg);
+                        call = std::make_shared<NAst::TCallExpr>(
+                            output->Location,
+                            std::make_shared<NAst::TIdentExpr>(output->Location, "output_int64"),
+                            std::move(args));
+                    } else if (NAst::TMaybeType<NAst::TStringType>(type)) {
+                        std::vector<NAst::TExprPtr> args;
+                        args.push_back(arg);
+                        call = std::make_shared<NAst::TCallExpr>(
+                            output->Location,
+                            std::make_shared<NAst::TIdentExpr>(output->Location, "output_string"),
+                            std::move(args));
+                    } else {
+                        errors.push_back(TError(arg->Location, "output argument must be int, float, or string, got: " + type->ToString()));
+                    }
+                    stmts.push_back(call);
+                }
+                return std::make_shared<NAst::TBlockExpr>(output->Location, stmts);
+            } else if (auto maybeInput = NAst::TMaybeNode<NAst::TInputExpr>(node)) {
+                auto input = maybeInput.Cast();
+                // transform input(type) into a call to input_xxx function
+                std::vector<NAst::TExprPtr> stmts;
+                for (const auto& arg : input->Args) {
+                    NAst::TExprPtr call;
+                    auto type = arg->Type;
+                    if (NAst::TMaybeType<NAst::TFloatType>(type)) {
+                        call = std::make_shared<NAst::TCallExpr>(
+                            input->Location,
+                            std::make_shared<NAst::TIdentExpr>(input->Location, "input_double"),
+                            std::vector<NAst::TExprPtr>{});
+                    } else if (NAst::TMaybeType<NAst::TIntegerType>(type)) {
+                        call = std::make_shared<NAst::TCallExpr>(
+                            input->Location,
+                            std::make_shared<NAst::TIdentExpr>(input->Location, "input_int64"),
+                            std::vector<NAst::TExprPtr>{});
+                    } else {
+                        errors.push_back(TError(arg->Location, "input argument must be float or int64, got: " + type->ToString()));
+                    }
+                    stmts.push_back(call);
+                }
+                return std::make_shared<NAst::TBlockExpr>(input->Location, std::move(stmts));
             }
             return node;
         },
         [](const NAst::TExprPtr& node) {
             return true; // transform all nodes
         });
+
+    if (changed) {
+        int lastScope = -1;
+        // update scopes in block nodes
+        PreorderTransformAst(expr, expr,
+            [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
+                if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(node)) {
+                    auto block = maybeBlock.Cast();
+                    if (block->Scope == -1) {
+                        block->Scope = lastScope;
+                    } else {
+                        lastScope = block->Scope;
+                    }
+                }
+                return node;
+            },
+            [](const NAst::TExprPtr& node) {
+                return true; // transform all nodes
+            });
+    }
+
+    if (!errors.empty()) {
+        return std::unexpected(TError(expr->Location, errors));
+    }
     return changed;
 }
 

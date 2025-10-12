@@ -65,13 +65,6 @@ enum class EVMOp : uint8_t {
     ECall, // external call
     Ret,
     RetVoid,
-
-    // input/output
-    OutI64,
-    OutF64,
-    OutS, // c-string literal
-    InI64,
-    InF64,
 };
 
 std::ostream& operator<<(std::ostream& os, EVMOp op);
