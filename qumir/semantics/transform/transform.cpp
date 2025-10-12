@@ -148,7 +148,8 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
 std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NSemantics::TNameResolver& context) {
     std::list<TError> errors;
     int scopeId = -1;
-    bool changed = TransformAst(expr, expr,
+    // Need PreorderTransformAst for scope tracking: update scopeId when entering a block
+    bool changed = PreorderTransformAst(expr, expr,
         [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
             if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(node)) {
                 if (scopeId == -1) {
