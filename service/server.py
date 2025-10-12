@@ -1,0 +1,239 @@
+#!/usr/bin/env python3
+import http.server
+import socketserver
+import json
+import os
+import subprocess
+import urllib.parse
+import sys
+from io import BytesIO
+import time
+import shlex
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(ROOT, 'static')
+REPO_ROOT = os.path.abspath(os.path.join(ROOT, '..'))
+BIN_DIR = os.path.join(REPO_ROOT, 'build', 'bin')
+QUMIRC = os.path.join(BIN_DIR, 'qumirc')
+QUMIRI = os.path.join(BIN_DIR, 'qumiri')
+
+PORT = int(os.environ.get('PORT', '8080'))
+
+HTML_INDEX = 'index.html'
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def _log(self, msg: str):
+        ts = time.strftime('%Y-%m-%d %H:%M:%S')
+        print(f"[{ts}] {msg}")
+
+    def _fmt_argv(self, argv):
+        try:
+            return shlex.join(argv)
+        except AttributeError:
+            return ' '.join(shlex.quote(a) for a in argv)
+
+    def translate_path(self, path):
+        # Serve files from STATIC_DIR by default
+        path = path.split('?',1)[0].split('#',1)[0]
+        if path == '/':
+            path = '/' + HTML_INDEX
+        full = os.path.join(STATIC_DIR, path.lstrip('/'))
+        return full
+
+    def _send_json(self, obj, code=200):
+        data = json.dumps(obj).encode('utf-8')
+        self.send_response(code)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _send_bytes(self, data: bytes, content_type: str, code=200, headers=None):
+        self.send_response(code)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Content-Length', str(len(data)))
+        if headers:
+            for k,v in headers.items():
+                self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_OPTIONS(self):
+        # Simple CORS for local dev
+        self.send_response(204)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+
+    def do_POST(self):
+        length = int(self.headers.get('Content-Length','0'))
+        raw = self.rfile.read(length)
+        try:
+            payload = json.loads(raw.decode('utf-8'))
+        except Exception:
+            return self._send_json({'error':'invalid json'}, 400)
+
+        if self.path == '/api/compile-ir':
+            return self._compile_emit(payload, mode='ir')
+        if self.path == '/api/compile-llvm':
+            return self._compile_emit(payload, mode='llvm')
+        if self.path == '/api/compile-asm':
+            return self._compile_emit(payload, mode='asm')
+        if self.path == '/api/compile-wasm':
+            return self._compile_wasm(payload)
+        if self.path == '/api/compile-wasm-text':
+            return self._compile_wasm_text(payload)
+        if self.path == '/api/run-ir':
+            return self._run_interpreter(payload, jit=False)
+        if self.path == '/api/run-jit':
+            return self._run_interpreter(payload, jit=True)
+
+        return self._send_json({'error':'unknown endpoint'}, 404)
+
+    def _write_temp_source(self, code_text: str) -> str:
+        import tempfile
+        # place temp source in system temp dir
+        fd, path = tempfile.mkstemp(suffix='.kum', prefix='qumir_', dir=None)
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(code_text)
+        return path
+
+    def _run(self, argv, input_bytes: bytes=None, timeout=10):
+        in_len = len(input_bytes) if input_bytes is not None else 0
+        self._log(f"RUN: {self._fmt_argv(argv)} | stdin={in_len}B timeout={timeout}s")
+        try:
+            proc = subprocess.run(argv, input=input_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+            rc, so, se = proc.returncode, proc.stdout, proc.stderr
+            self._log(f"EXIT: rc={rc} | stdout={len(so)}B stderr={len(se)}B")
+            return rc, so, se
+        except subprocess.TimeoutExpired:
+            self._log("EXIT: rc=124 (timeout)")
+            return 124, b'', b'timeout'
+        except FileNotFoundError:
+            msg = f'not found: {argv[0]}'
+            self._log(f"EXIT: rc=127 ({msg})")
+            return 127, b'', msg.encode('utf-8')
+
+    def _compile_emit(self, payload, mode: str):
+        code = payload.get('code','')
+        olevel = str(payload.get('O','0'))
+        if not code:
+            return self._send_json({'error':'empty code'}, 400)
+        src = self._write_temp_source(code)
+        try:
+            if mode == 'ir':
+                out = src + '.ir'
+                rc, so, se = self._run([QUMIRC, '--ir', '-o', out, src])
+                if rc != 0:
+                    return self._send_json({'error':se.decode('utf-8','ignore')}, 400)
+                try:
+                    with open(out,'rb') as f:
+                        data = f.read()
+                    return self._send_bytes(data, 'text/plain; charset=utf-8')
+                finally:
+                    try: os.remove(out)
+                    except Exception: pass
+            elif mode == 'llvm':
+                out = src + '.ll'
+                rc, so, se = self._run([QUMIRC, '--llvm', '-O', olevel, '-o', out, src])
+                if rc != 0:
+                    return self._send_json({'error':se.decode('utf-8','ignore')}, 400)
+                try:
+                    with open(out,'rb') as f:
+                        data = f.read()
+                    return self._send_bytes(data, 'text/plain; charset=utf-8')
+                finally:
+                    try: os.remove(out)
+                    except Exception: pass
+            elif mode == 'asm':
+                out = os.path.splitext(src)[0] + '.s'
+                rc, so, se = self._run([QUMIRC, '-S', '-O', olevel, src])
+                if rc != 0:
+                    return self._send_json({'error':se.decode('utf-8','ignore')}, 400)
+                try:
+                    with open(out,'rb') as f:
+                        data = f.read()
+                    return self._send_bytes(data, 'text/plain; charset=utf-8')
+                finally:
+                    try: os.remove(out)
+                    except Exception: pass
+        finally:
+            try:
+                os.remove(src)
+            except Exception:
+                pass
+
+    def _compile_wasm(self, payload):
+        code = payload.get('code','')
+        olevel = str(payload.get('O','0'))
+        if not code:
+            return self._send_json({'error':'empty code'}, 400)
+        src = self._write_temp_source(code)
+        out = os.path.splitext(src)[0] + '.wasm'
+        try:
+            rc, so, se = self._run([QUMIRC, '--wasm', '-O', olevel, '-o', out, src])
+            if rc != 0:
+                return self._send_json({'error':se.decode('utf-8','ignore')}, 400)
+            with open(out,'rb') as f:
+                data = f.read()
+            return self._send_bytes(data, 'application/wasm', headers={'Cache-Control':'no-store'})
+        finally:
+            try:
+                os.remove(src)
+            except Exception:
+                pass
+            try:
+                os.remove(out)
+            except Exception:
+                pass
+
+    def _compile_wasm_text(self, payload):
+        code = payload.get('code','')
+        olevel = str(payload.get('O','0'))
+        if not code:
+            return self._send_json({'error':'empty code'}, 400)
+        src = self._write_temp_source(code)
+        out = os.path.splitext(src)[0] + '.s'
+        try:
+            # Generate textual wasm (WAT-like) using --wasm -S
+            rc, so, se = self._run([QUMIRC, '--wasm', '-S', '-O', olevel, src])
+            if rc != 0:
+                return self._send_json({'error':se.decode('utf-8','ignore')}, 400)
+            try:
+                with open(out,'rb') as f:
+                    data = f.read()
+                return self._send_bytes(data, 'text/plain; charset=utf-8')
+            finally:
+                try: os.remove(out)
+                except Exception: pass
+        finally:
+            try: os.remove(src)
+            except Exception: pass
+
+    def _run_interpreter(self, payload, jit: bool):
+        code = payload.get('code','')
+        olevel = str(payload.get('O','0'))
+        if not code:
+            return self._send_json({'error':'empty code'}, 400)
+        args = [QUMIRI, '--input-file', '-']
+        if jit:
+            args.insert(1, '--jit')
+            args.extend(['-O', olevel])
+        rc, so, se = self._run(args, input_bytes=code.encode('utf-8'))
+        if rc != 0:
+            return self._send_json({'error':se.decode('utf-8','ignore')}, 400)
+        return self._send_bytes(so, 'text/plain; charset=utf-8')
+
+
+def main():
+    os.chdir(STATIC_DIR)
+    with socketserver.TCPServer(('', PORT), Handler) as httpd:
+        print(f'Serving on http://localhost:{PORT}')
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            pass
+
+if __name__ == '__main__':
+    main()

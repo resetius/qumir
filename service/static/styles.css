@@ -1,0 +1,19 @@
+html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color: #e6e6e6; background: #1e1e1e; }
+/* Layout: prevent page-level scroll; only panes scroll */
+body { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #252526; border-bottom: 1px solid #333; }
+header h1 { font-size: 16px; margin: 0; }
+.controls { display: flex; gap: 8px; align-items: center; }
+main { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; box-sizing: border-box; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.pane { display: flex; flex-direction: column; border: 1px solid #333; border-radius: 4px; overflow: hidden; min-height: 0; min-width: 0; }
+.pane-title { background: #2d2d2d; padding: 6px 8px; border-bottom: 1px solid #333; font-size: 12px; color: #ccc; }
+textarea#code { flex: 1; background: #1e1e1e; color: #e6e6e6; border: none; resize: none; padding: 8px; font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 13px; overflow: auto; }
+pre.scroll { flex: 1; margin: 0; padding: 8px; background: #1b1b1b; overflow: auto; font-size: 12px; }
+section.io { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 8px 8px; height: 160px; flex: 0 0 auto; }
+section.io textarea { height: 120px; width: 100%; background: #1e1e1e; color: #e6e6e6; border: 1px solid #333; border-radius: 4px; resize: none; padding: 8px; font-family: ui-monospace, monospace; font-size: 12px; }
+#stdout { height: 120px; }
+button, select { background: #0e639c; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+select { background: #333; border: 1px solid #555; }
+button:hover { filter: brightness(1.1); }
+pre.error { color: #ff8a80; white-space: pre-wrap; }
+footer { padding: 6px 12px; border-top: 1px solid #333; color: #bbb; }

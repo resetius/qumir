@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Qumir — Playground</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Qumir Playground</h1>
+    <div class="controls">
+      <label>Opt:</label>
+      <select id="opt">
+        <option value="0">O0</option>
+        <option value="1">O1</option>
+        <option value="2">O2</option>
+        <option value="3">O3</option>
+      </select>
+      <label>Args:</label>
+      <input id="args" type="text" placeholder="e.g. 1, 2.5, истина" />
+      <button id="btn-run">Run</button>
+      <select id="view">
+        <option value="ir">IR</option>
+        <option value="llvm">LLVM</option>
+        <option value="asm">ASM</option>
+        <option value="wasm">WASM (text)</option>
+      </select>
+    </div>
+  </header>
+  <main>
+    <section class="pane left">
+      <div class="pane-title">Language</div>
+      <textarea id="code" spellcheck="false"></textarea>
+    </section>
+    <section class="pane right">
+      <div class="pane-title">Output</div>
+      <pre id="output" class="scroll"></pre>
+    </section>
+  </main>
+  <section class="io">
+    <div>
+      <div class="pane-title">Program input (stdin)</div>
+      <textarea id="stdin" placeholder="input for your program" spellcheck="false"></textarea>
+    </div>
+    <div>
+      <div class="pane-title">Program output (stdout)</div>
+      <pre id="stdout" class="scroll"></pre>
+    </div>
+  </section>
+  <footer>
+    <small>Inspired by Ershov’s language and Kumir.</small>
+  </footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
