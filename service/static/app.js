@@ -98,8 +98,12 @@ async function runWasm() {
         if (expected !== undefined && parsed.length !== expected) {
           out += `${name} expects ${expected} arg(s), got ${parsed.length}.\n`;
         } else {
+          const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
           const res = fn(...parsed);
+          const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          const micros = Math.round((t1 - t0) * 1000);
           out += `${name} => ${String(res)}\n`;
+          out += `time: ${micros} µs\n`;
         }
       } else {
         out += 'no exported functions to invoke\n';
