@@ -50,12 +50,10 @@ async function show(mode) {
     wasm: ['/api/compile-wasm-text', false],
   };
   const [endpoint, bin] = map[mode] || map.ir;
-  // Cancel previous request if any
   if (currentAbort) currentAbort.abort();
   currentAbort = new AbortController();
   const { signal } = currentAbort;
   try {
-    // Clear previous error style
     $('#output').classList.remove('error');
     const data = await api(endpoint, { code, O }, bin, signal);
     if (bin) {
@@ -64,7 +62,7 @@ async function show(mode) {
       $('#output').textContent = data;
     }
   } catch (e) {
-    if (e.name === 'AbortError') return; // ignore aborted
+    if (e.name === 'AbortError') return;
     $('#output').textContent = e.message;
     $('#output').classList.add('error');
   }
@@ -75,8 +73,17 @@ async function runWasm() {
   const O = $('#opt').value;
   try {
     const bytes = await api('/api/compile-wasm', { code, O }, true);
-    const imports = { env: await import('./runtime/math.js') };
+    const mathEnv = await import('./runtime/math.js');
+    const ioEnv = await import('./runtime/io.js');
+    const env = { ...mathEnv, ...ioEnv };
+    const imports = { env };
     const { instance } = await WebAssembly.instantiate(bytes, imports);
+    if (instance.exports && instance.exports.memory && typeof ioEnv.__bindMemory === 'function') {
+      ioEnv.__bindMemory(instance.exports.memory);
+    }
+    if (typeof ioEnv.__resetIO === 'function') {
+      ioEnv.__resetIO(true);
+    }
     let out = '';
     if (instance && instance.exports) {
       const entries = Object.entries(instance.exports)

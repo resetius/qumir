@@ -584,12 +584,17 @@ void TAstLowerer::ImportExternalFunction(int symbolId, const NAst::TFunDecl& fun
         return;
     }
 
-    std::vector<EKind> argTypes;
-    std::optional<EKind> returnType;
+    std::vector<int> argTypes; argTypes.reserve(funcDecl.Params.size());
+    int returnType = FromAstType(funcDecl.RetType, Module.Types);
+    for (auto& p : funcDecl.Params) {
+        argTypes.push_back(FromAstType(p->Type, Module.Types));
+    }
 
     TExternalFunction func {
         .Name = funcDecl.Name,
         .MangledName = funcDecl.MangledName,
+        .ArgTypes = std::move(argTypes),
+        .ReturnTypeId = returnType,
         .Addr = funcDecl.Ptr,
         .Packed = funcDecl.Packed,
         .SymId = symbolId

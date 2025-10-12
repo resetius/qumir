@@ -509,47 +509,49 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
             if (instr.OperandCount < 1) throw std::runtime_error("call needs callee operand");
             if (instr.Operands[0].Type != TOperand::EType::Imm) throw std::runtime_error("call callee must be Imm(symId)");
             const int calleeSymId = static_cast<int>(instr.Operands[0].Imm.Value);
+            llvm::FunctionCallee callee;
             auto it = SymIdToLFun.find(calleeSymId);
             if (it != SymIdToLFun.end()) {
                 // internal function
-                auto* callee = it->second;
-                auto* retTy = callee->getFunctionType()->getReturnType();
-                // Marshal arguments collected by 'arg'
-                auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
-                std::vector<llvm::Value*> args;
-                for (int i = 0; i < CurFun->PendingArgs.size(); ++i) {
-                    auto* paramTy = callee->getFunctionType()->getParamType(i);
-                    args.push_back(cast(CurFun->PendingArgs[i], paramTy));
-                }
-                CurFun->PendingArgs.clear();
-                if (retTy->isVoidTy()) {
-                    // Void call: emit and produce no tmp
-                    (void)irb->CreateCall(callee, args);
-                    return nullptr;
-                } else {
-                    if (instr.Dest.Idx < 0) throw std::runtime_error("call needs a destination tmp");
-                    auto call = irb->CreateCall(callee, args, "calltmp");
-                    return storeTmp(call);
+                callee = it->second;
+            }
+            if (!callee) {
+                auto jt = module.SymIdToExtFuncIdx.find(calleeSymId);
+                if (jt != module.SymIdToExtFuncIdx.end()) {
+                    // external function
+                    auto& extFun = module.ExternalFunctions[jt->second];
+
+                    auto* retType = GetTypeById(extFun.ReturnTypeId, module.Types, ctx);
+                    std::vector<llvm::Type*> paramTys;
+                    for (const auto& pid : extFun.ArgTypes) {
+                        paramTys.push_back(GetTypeById(pid, module.Types, ctx));
+                    }
+                    auto* fty   = llvm::FunctionType::get(retType, paramTys, /*isVarArg=*/false);
+                    callee = LModule->getOrInsertFunction(extFun.MangledName, fty);
                 }
             }
-            auto jt = module.SymIdToExtFuncIdx.find(calleeSymId);
-            if (jt != module.SymIdToExtFuncIdx.end()) {
-                // external function
-                auto& extFun = module.ExternalFunctions[jt->second];
 
-                auto* i64Ty = llvm::Type::getInt64Ty(ctx);
-                auto* fty   = llvm::FunctionType::get(i64Ty, /*isVarArg=*/false);
+            if (!callee) {
+                throw std::runtime_error("call target function not found: " + std::to_string(calleeSymId));
+            }
 
-                // materialize pointer constant and cast to i64()*
-                //auto addr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(extFun.Addr));
-                //auto* addrConst = llvm::ConstantInt::get(i64Ty, addr);
-                //auto* calleePtr = llvm::ConstantExpr::getIntToPtr(addrConst, fty->getPointerTo());
-                //auto* call = irb->CreateCall(fty, calleePtr, {});
-                llvm::FunctionCallee callee = LModule->getOrInsertFunction(extFun.MangledName, fty);
-                auto* call = irb->CreateCall(callee, {});
-                return storeTmp(call);
+            auto* retTy = callee.getFunctionType()->getReturnType();
+            // Marshal arguments collected by 'arg'
+            auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
+            std::vector<llvm::Value*> args;
+            for (int i = 0; i < CurFun->PendingArgs.size(); ++i) {
+                auto* paramTy = callee.getFunctionType()->getParamType(i);
+                args.push_back(cast(CurFun->PendingArgs[i], paramTy));
+            }
+            CurFun->PendingArgs.clear();
+            if (retTy->isVoidTy()) {
+                // Void call: emit and produce no tmp
+                (void)irb->CreateCall(callee, args);
+                return nullptr;
             } else {
-                throw std::runtime_error("call target function not found");
+                if (instr.Dest.Idx < 0) throw std::runtime_error("call needs a destination tmp");
+                auto call = irb->CreateCall(callee, args, "calltmp");
+                return storeTmp(call);
             }
         }
         case "jmp"_op: {
@@ -646,7 +648,15 @@ void TLLVMCodeGen::Optimize(int optLevel) {
     PB.registerLoopAnalyses(LAM);
     PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
-    auto OL = llvm::OptimizationLevel::O3; // можно O2 для более быстрой компиляции
+    auto OL = llvm::OptimizationLevel::O0;
+    switch (optLevel) {
+        case 0: OL = llvm::OptimizationLevel::O0; break;
+        case 1: OL = llvm::OptimizationLevel::O1; break;
+        case 2: OL = llvm::OptimizationLevel::O2; break;
+        case 3: OL = llvm::OptimizationLevel::O3; break;
+        case 4: OL = llvm::OptimizationLevel::Oz; break;
+        default: OL = llvm::OptimizationLevel::O2; break;
+    }
     llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(OL);
     MPM.run(*LModule, MAM);
 }

@@ -1,5 +1,5 @@
-// JS runtime shims for WebAssembly imports matching mangled names from SystemModule
-// Keep names exactly as in MangledName fields.
+// JS runtime shims for math/system functions imported by wasm
+// Keep names exactly as in MangledName fields. IO functions moved to io.js
 
 export function sign(x) {
   if (Number.isNaN(x)) return 0;
@@ -60,4 +60,12 @@ export function rand_uint64_range(a, b) {
   const span = B - A;
   const r = BigInt(Math.floor(Math.random() * Number(span)));
   return A + r;
+}
+
+// Common compiler-rt builtins that may be referenced when --allow-undefined is used.
+// Minimal shims to satisfy linkage; adjust if exact semantics are needed.
+export function __multi3(a, b) {
+  // return lower 64 bits of 128-bit product
+  const MOD64 = (1n << 64n) - 1n;
+  return (BigInt(a) * BigInt(b)) & MOD64;
 }
