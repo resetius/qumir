@@ -120,7 +120,9 @@ async function runWasm() {
         out += ` - ${k}: ${typeof v}\n`;
       }
     }
-    $('#stdout').textContent = out;
+    const stdoutEl = $('#stdout');
+    stdoutEl.textContent += "\n";
+    stdoutEl.textContent += out;
   } catch (e) {
     $('#stdout').textContent = e.message;
     $('#stdout').classList.add('error');
