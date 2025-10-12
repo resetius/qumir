@@ -149,6 +149,7 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
     std::list<TError> errors;
     int scopeId = -1;
     // Need PreorderTransformAst for scope tracking: update scopeId when entering a block
+    // TODO: implement scrope tracking in TransformAst and use it here
     bool changed = PreorderTransformAst(expr, expr,
         [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
             if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(node)) {
