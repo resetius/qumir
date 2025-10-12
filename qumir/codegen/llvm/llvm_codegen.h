@@ -81,6 +81,7 @@ private:
     std::unique_ptr<TFunState> CurFun;
     // Module-global slot storage (i64 globals), indexed by module-wide slot index
     std::vector<llvm::Value*> ModuleSlots;
+    std::vector<llvm::Value*> StringLiterals;
     // Map from SymId to lowered LLVM function for call lowering
     std::unordered_map<int, llvm::Function*> SymIdToLFun;
     std::unordered_map<int, int> SymIdToUniqueFunId; // for updating code of updated functions

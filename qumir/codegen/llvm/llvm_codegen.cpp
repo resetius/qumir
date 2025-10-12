@@ -297,9 +297,27 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
             case TOperand::EType::Imm:
                 if (op.Imm.Kind == EKind::F64) {
                     return llvm::ConstantFP::get(f64, std::bit_cast<double>(op.Imm.Value));
-                } else {
+                } else if (op.Imm.Kind == EKind::I64) {
                     // TODO: other immediate types
                     return llvm::ConstantInt::get(i64, op.Imm.Value, true);
+                } else if (op.Imm.Kind == EKind::Ptr) {
+                    // assume char* for now
+                    int id = (int)op.Imm.Value;
+                    if (id < 0 || id >= module.StringLiterals.size()) {
+                        throw std::runtime_error("Invalid string literal id in outs");
+                    }
+                    if (id >= (int)StringLiterals.size()) {
+                        StringLiterals.resize(id + 1, nullptr);
+                    }
+                    auto& str = StringLiterals[id];
+                    if (str) {
+                        return str;
+                    }
+
+                    str = irb->CreateGlobalString(module.StringLiterals[id], "strlit" + std::to_string(id));
+                    return StringLiterals[id] = str;
+                } else {
+                    throw std::runtime_error("unsupported immediate type");
                 }
             case TOperand::EType::Tmp: {
                 if (op.Tmp.Idx < 0 || op.Tmp.Idx >= CurFun->TmpValues.size()) {
