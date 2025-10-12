@@ -14,16 +14,17 @@ struct TRuntime {
     std::vector<int64_t> Globals;
     std::vector<int64_t> Stack;
     std::vector<int64_t> Args; // call arguments, will be copied on stack on call, TODO: remove
+    std::vector<int64_t> Regs;
+    std::vector<int64_t> SavedRegs;
 };
 
 struct TExecFunc;
 
 struct TFrame {
     TExecFunc* Exec{nullptr};
-    std::vector<int64_t> Tmps;
+    int UsedRegs = 0;
     uint64_t StackBase = 0;
     TVMInstr* PC{nullptr};
-    uint8_t LastCmp{0}; // 1 if the last cmp branched to the true edge, 0 otherwise
 };
 
 // Link to caller frame for returning
