@@ -46,7 +46,7 @@ llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx
         case EKind::I64: return llvm::Type::getInt64Ty(ctx);
         case EKind::F64: return llvm::Type::getDoubleTy(ctx);
         case EKind::Void: return llvm::Type::getVoidTy(ctx);
-        case EKind::Ptr: return llvm::Type::getInt64Ty(ctx); // TODO
+        case EKind::Ptr: return llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(ctx)); // use pointer type (i8*) across targets
         case EKind::Func: return llvm::Type::getInt64Ty(ctx); // Function Id so far, TODO
         default:
             throw std::runtime_error("unsupported primitive type");
@@ -199,9 +199,18 @@ llvm::GlobalVariable* TLLVMCodeGen::EnsureSlotGlobal(int64_t sidx, const NIR::TM
     if (sidx >= (int64_t)ModuleSlots.size()) ModuleSlots.resize(sidx + 1, nullptr);
     if (!ModuleSlots[sidx]) {
         auto *slotTy = GetTypeById(module.GetSlotType(sidx), module.Types, *Ctx);
+        llvm::Constant* init = nullptr;
+        if (slotTy->isFloatingPointTy()) {
+            init = llvm::ConstantFP::get(slotTy, 0.0);
+        } else if (slotTy->isPointerTy()) {
+            init = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(slotTy));
+        } else if (slotTy->isIntegerTy()) {
+            init = llvm::ConstantInt::get(slotTy, 0, /*isSigned*/true);
+        } else {
+            init = llvm::UndefValue::get(slotTy);
+        }
         auto *g = new llvm::GlobalVariable(*LModule, slotTy, /*isConstant*/false, llvm::GlobalValue::InternalLinkage,
-            // slotTy is float ? f64 : i64
-            slotTy->isFloatingPointTy() ? llvm::ConstantFP::get(slotTy, 0.0) : llvm::ConstantInt::get(slotTy, 0, true),
+            init,
             "slot" + std::to_string(sidx));
         ModuleSlots[sidx] = g;
     }
@@ -366,12 +375,34 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
 
         if (actualTy == expectedType) {
             return val;
-        } else if (actualTy->isIntegerTy() && expectedType->isIntegerTy()) {
+        }
+
+        const bool actualIsPtr = actualTy->isPointerTy();
+        const bool expectedIsPtr = expectedType->isPointerTy();
+
+        if (actualIsPtr && expectedIsPtr) {
+            // pointer-to-pointer cast
+            return irb->CreateBitCast(val, expectedType, "cast");
+        }
+        if (actualIsPtr && expectedType->isIntegerTy()) {
+            // pointer to integer
+            if (expectedType->getIntegerBitWidth() == 1) {
+                auto zero = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(actualTy));
+                return irb->CreateICmpNE(val, zero, "asbool");
+            }
+            return irb->CreatePtrToInt(val, expectedType, "cast");
+        }
+        if (actualTy->isIntegerTy() && expectedIsPtr) {
+            // integer to pointer
+            return irb->CreateIntToPtr(val, expectedType, "cast");
+        }
+
+        if (actualTy->isIntegerTy() && expectedType->isIntegerTy()) {
             // integer to integer cast
             if (expectedType->getIntegerBitWidth() == 1) {
                 return irb->CreateICmpNE(val, llvm::ConstantInt::get(val->getType(), 0), "asbool");
             }
-            // downcast
+            // extend/truncate
             return irb->CreateIntCast(val, expectedType, true, "cast");
         } else if (actualTy->isFloatingPointTy() && expectedType->isFloatingPointTy()) {
             // Float cast (f32 <-> f64)
@@ -385,10 +416,10 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
             }
             // Float to int
             return irb->CreateFPToSI(val, expectedType, "cast");
-        } else {
-            // bitcast
-            return irb->CreateBitCast(val, expectedType, "cast");
         }
+
+        // Fallback: bitcast (should be rare)
+        return irb->CreateBitCast(val, expectedType, "cast");
     };
 
     auto cmpInsr = [&](llvm::CmpInst::Predicate pred, llvm::Value* lhs, llvm::Value* rhs) -> llvm::Value* {
@@ -489,7 +520,8 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
                 auto idx = instr.Operands[0].Slot.Idx;
                 auto g = EnsureSlotGlobal(idx, module);
                 auto value = getOp(instr.Operands[1]);
-                irb->CreateStore(value, g);
+                auto* valTy = g->getValueType();
+                irb->CreateStore(cast(value, valTy), g);
             } else if (instr.Operands[0].Type == TOperand::EType::Local) {
                 auto lidx = instr.Operands[0].Local.Idx;
                 if (lidx < 0 || lidx >= CurFun->Allocas.size()) throw std::runtime_error("invalid local index");

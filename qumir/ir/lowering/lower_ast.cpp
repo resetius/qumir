@@ -670,7 +670,8 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
                 auto str = maybeString.Cast();
                 auto id = Builder.StringLiteral(str->Value);
                 Module.GlobalValues[sid->Id] = TImm{.Value = id, .Kind = EKind::Ptr};
-                Module.GlobalTypes[sid->Id] = Module.Types.I(EKind::I64);
+                // string globals are pointers
+                Module.GlobalTypes[sid->Id] = Module.Types.Ptr(Module.Types.I(EKind::I64));
                 continue;
             }
 
