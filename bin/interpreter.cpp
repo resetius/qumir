@@ -97,7 +97,7 @@ int main(int argc, char ** argv) {
 
     std::istream* in = &std::cin;
     std::ifstream infile;
-    if (!inputFile.empty()) {
+    if (!inputFile.empty() && inputFile != "-") {
         infile.open(inputFile);
         if (!infile.is_open()) {
             std::cerr << "Failed to open input file: " << inputFile << "\n";
