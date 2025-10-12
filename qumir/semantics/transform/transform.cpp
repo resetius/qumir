@@ -144,6 +144,53 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
     return changed;
 }
 
+// replace 'ident' with 'ident()' if ident is a function with no parameters
+std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NSemantics::TNameResolver& context) {
+    std::list<TError> errors;
+    int scopeId = -1;
+    bool changed = TransformAst(expr, expr,
+        [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
+            if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(node)) {
+                if (scopeId == -1) {
+                    return node;
+                }
+
+                auto ident = maybeIdent.Cast();
+                auto symbolId = context.Lookup(ident->Name, NSemantics::TScopeId{scopeId});
+                if (!symbolId) {
+                    errors.push_back(TError(ident->Location, "undefined identifier: " + ident->Name + " in scope " + std::to_string(scopeId)));
+                    return node;
+                }
+                auto sym = context.GetSymbolNode(NSemantics::TSymbolId{symbolId->Id});
+                if (!sym) {
+                    errors.push_back(TError(ident->Location, "invalid identifier symbol: " + ident->Name));
+                    return node;
+                }
+                if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(sym)) {
+                    auto fun = maybeFun.Cast();
+                    if (fun->Params.empty()) {
+                        // function call without brackets
+                        auto call = std::make_shared<NAst::TCallExpr>(ident->Location, ident, std::vector<NAst::TExprPtr>{});
+                        call->Type = fun->RetType;
+                        return call;
+                    }
+                }
+                return node;
+            } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(node)) {
+                auto block = maybeBlock.Cast();
+                scopeId = block->Scope;
+            }
+            return node;
+        },
+        [](const NAst::TExprPtr& node) {
+            return true; // transform all nodes
+        });
+    if (!errors.empty()) {
+        return std::unexpected(TError(expr->Location, errors));
+    }
+    return changed;
+}
+
 std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics::TNameResolver& r)
 {
     static constexpr int MaxIterations = 10;
@@ -153,6 +200,10 @@ std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics:
 
     if (auto error = r.Resolve(expr)) {
         return std::unexpected(*error);
+    }
+
+    if (auto error = PostNameResolutionTransform(expr, r); !error) {
+        return std::unexpected(error.error());
     }
 
     NTypeAnnotation::TTypeAnnotator annotator(r);

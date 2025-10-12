@@ -284,15 +284,6 @@ TTask AnnotateIdent(std::shared_ptr<TIdentExpr> ident, NSemantics::TNameResolver
     if (!sym) {
         co_return TError(ident->Location, "invalid identifier symbol: " + ident->Name);
     }
-    if (auto maybeFun = TMaybeNode<TFunDecl>(sym)) {
-        auto fun = maybeFun.Cast();
-        if (fun->Params.empty()) {
-            // function call without brackets
-            auto call = std::make_shared<TCallExpr>(ident->Location, ident, std::vector<TExprPtr>{});
-            call->Type = fun->RetType;
-            co_return call;
-        }
-    }
     ident->Type = sym->Type;
     if (!ident->Type) {
         co_return TError(ident->Location, "untyped identifier: " + ident->Name);
@@ -344,9 +335,9 @@ TTask AnnotateIf(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver& con
 TTask AnnotateLoop(std::shared_ptr<TLoopStmtExpr> loop, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     loop->Type = std::make_shared<TVoidType>();
 
-    for (auto* child : loop->MutableChildren()) {
-        if (*child && !(*child)->Type) {
-            *child = co_await DoAnnotate(*child, context, scopeId);
+    for (auto& child : loop->Children()) {
+        if (child && !child->Type) {
+            co_await DoAnnotate(child, context, scopeId);
         }
     }
 
@@ -355,9 +346,9 @@ TTask AnnotateLoop(std::shared_ptr<TLoopStmtExpr> loop, NSemantics::TNameResolve
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     if (expr->Type) {
-        for (auto* child : expr->MutableChildren()) {
-            if (*child && !(*child)->Type) {
-                *child = co_await DoAnnotate(*child, context, scopeId);
+        for (auto& child : expr->Children()) {
+            if (child && !child->Type) {
+                co_await DoAnnotate(child, context, scopeId);
             }
         }
         co_return expr;
