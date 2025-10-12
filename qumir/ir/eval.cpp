@@ -49,9 +49,8 @@ inline int64_t EvalAlu(TFrame& f, const TVMInstr& instr, T lambda) {
 
 } // namespace
 
-TInterpreter::TInterpreter(TModule& module, TRuntime& runtime, std::ostream& out, std::istream& in)
+TInterpreter::TInterpreter(TModule& module, std::ostream& out, std::istream& in)
     : Module(module)
-    , Runtime(runtime)
     , Compiler(module)
     , Out(out)
     , In(in)
@@ -66,13 +65,12 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
     callStack.push_back(TFrame {
         .Exec = execFunc,
         .Tmps = std::vector<int64_t>(execFunc->MaxTmpIdx + 1, 0),
-        .Locals = std::vector<int64_t>(execFunc->NumLocals, 0),
-        .Args = {},
+        .StackBase = 0,
         .PC = &execFunc->VMCode[0],
         .LastCmp = 0
     });
 
-    auto& locals = callStack.back().Locals;
+    Runtime.Stack.resize(execFunc->NumLocals, 0);
     if (args.size() != function.ArgLocals.size()) {
         std::cerr << "Function " << function.Name << " expects " << function.ArgLocals.size() << " arguments, got " << args.size() << "\n";
         return std::nullopt;
@@ -80,7 +78,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
 
     for (size_t i = 0; i < args.size(); ++i) {
         const int64_t sid = function.ArgLocals[i].Idx;
-        locals[i] = args[i];
+        Runtime.Stack[i] = args[i];
     }
 
     std::optional<std::string> result;
@@ -97,12 +95,12 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             assert(instr.Operands[0].Tmp.Idx >= 0);
             if (instr.Operands[1].Type == TVMOperand::EType::Slot) {
                 const auto& s = instr.Operands[1].Slot;
-                assert(s.Idx >= 0 && s.Idx < Runtime.Slots.size());
-                frame.Tmps[instr.Operands[0].Tmp.Idx] = Runtime.Slots[s.Idx];
+                assert(s.Idx >= 0 && s.Idx < Runtime.Globals.size());
+                frame.Tmps[instr.Operands[0].Tmp.Idx] = Runtime.Globals[s.Idx];
             } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[1].Local;
-                assert(l.Idx >= 0 && l.Idx < frame.Locals.size());
-                frame.Tmps[instr.Operands[0].Tmp.Idx] = frame.Locals[l.Idx];
+                assert(l.Idx >= 0 && l.Idx < frame.StackBase);
+                frame.Tmps[instr.Operands[0].Tmp.Idx] = Runtime.Stack[frame.StackBase + l.Idx];
             } else {
                 assert(false && "Invalid operand for load");
             }
@@ -113,16 +111,14 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             if (instr.Operands[0].Type == TVMOperand::EType::Slot) {
                 // TODO:
                 const auto& s = instr.Operands[0].Slot;
-                if (s.Idx >= (int64_t)Runtime.Slots.size()) {
-                    Runtime.Slots.resize(s.Idx + 1, 0);
-                    Runtime.Inited.resize(s.Idx + 1, 0);
+                if (s.Idx >= (int64_t)Runtime.Globals.size()) {
+                    Runtime.Globals.resize(s.Idx + 1, 0);
                 }
-                Runtime.Slots[s.Idx] = val;
-                Runtime.Inited[s.Idx] = 1;
+                Runtime.Globals[s.Idx] = val;
             } else if (instr.Operands[0].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[0].Local;
-                assert(l.Idx >= 0 && l.Idx < frame.Locals.size());
-                frame.Locals[l.Idx] = val;
+                assert(l.Idx >= 0 && l.Idx < frame.StackBase);
+                Runtime.Stack[frame.StackBase + l.Idx] = val;
             } else {
                 assert(false && "Invalid operand for store");
             }
@@ -298,7 +294,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
         case EVMOp::ArgTmp: // TODO: optimize
         case EVMOp::ArgConst: {
             auto value = ReadOperand(frame, instr.Operands[0]);
-            frame.Args.push_back(value);
+            Runtime.Args.push_back(value);
             break;
         }
         case EVMOp::ECall: {// external call
@@ -307,11 +303,11 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             TPacked func = reinterpret_cast<TPacked>(addr);
 
             if (instr.Operands[0].Tmp.Idx >= 0) {
-                frame.Tmps[instr.Operands[0].Tmp.Idx] = func(reinterpret_cast<const uint64_t*>(frame.Args.data()), frame.Args.size());
+                frame.Tmps[instr.Operands[0].Tmp.Idx] = func(reinterpret_cast<const uint64_t*>(Runtime.Args.data()), Runtime.Args.size());
             } else {
-                func(reinterpret_cast<const uint64_t*>(frame.Args.data()), frame.Args.size());
+                func(reinterpret_cast<const uint64_t*>(Runtime.Args.data()), Runtime.Args.size());
             }
-            frame.Args.clear();
+            Runtime.Args.clear();
 
             break;
         }
@@ -328,15 +324,16 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             auto* calleeExec = calleeFn->Exec;
 
             const auto& localArgs = calleeFn->ArgLocals;
-            const int argCount = (int)frame.Args.size();
+            const int argCount = (int)Runtime.Args.size();
             assert(argCount <= (int)localArgs.size() && "too many arguments for callee");
 
-            auto locals = std::vector<int64_t>(calleeExec->NumLocals, 0);
+            auto base = Runtime.Stack.size();
+            Runtime.Stack.resize(Runtime.Stack.size() + calleeExec->NumLocals, 0);
 
             // save slots that will be overwritten by parameters
             for (int i = 0; i < argCount; ++i) {
                 const int64_t sid = localArgs[i].Idx;
-                locals[sid] = frame.Args[i];
+                Runtime.Stack[base + sid] = Runtime.Args[i];
             }
 
             ReturnLinks.emplace_back(TReturnLink {
@@ -344,12 +341,11 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                 .CallerDst = instr.Operands[0].Tmp.Idx,
             });
 
-            frame.Args.clear();
+            Runtime.Args.clear();
             callStack.push_back(TFrame {
                 .Exec = calleeExec,
                 .Tmps = std::vector<int64_t>(calleeExec->MaxTmpIdx + 1, 0),
-                .Locals = std::move(locals),
-                .Args = {},
+                .StackBase = base,
                 .PC = &calleeExec->VMCode[0],
                 .LastCmp = 0
             });
@@ -358,6 +354,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
         case EVMOp::Ret:
             retVal = ReadOperand(frame, instr.Operands[0]);
         case EVMOp::RetVoid: {
+            auto base = frame.StackBase;
             callStack.pop_back();
             if (callStack.empty()) {
                 break;
@@ -370,6 +367,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                 if (retVal.has_value()) {
                     linkFrame.Tmps[link.CallerDst] = *retVal;
                 }
+                Runtime.Stack.resize(base);
             }
             break;
         }

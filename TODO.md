@@ -10,3 +10,4 @@
 12. assignment to undefined identifier: return (for void functions)
 13. implement arrays
 14. implement function args attributes (i.e. in, out, in/out)
+14. lexer: reimplement comments

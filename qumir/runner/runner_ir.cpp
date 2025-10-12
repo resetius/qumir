@@ -19,7 +19,7 @@ TIRRunner::TIRRunner(
     : Builder(Module)
     , Lowerer(Module, Builder, Resolver)
     , Options(std::move(options))
-    , Interpreter(Module, Runtime, out, in)
+    , Interpreter(Module, out, in)
 {
     RegisteredModules.push_back(std::make_shared<NRegistry::SystemModule>());
     // TODO: register other modules
