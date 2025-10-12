@@ -23,11 +23,6 @@ constexpr auto ObjectFile = llvm::CodeGenFileType::ObjectFile;
 
 void TLLVMModuleArtifacts::Generate(std::ostream& os, bool generateAsm, bool generateObj) const {
     auto triple = Module->getTargetTriple();
-    if (triple.empty()) {
-        auto tripleString = llvm::sys::getDefaultTargetTriple();
-        Module->setTargetTriple(llvm::Triple(tripleString));
-    }
-
     std::string errStr;
     const llvm::Target* target = llvm::TargetRegistry::lookupTarget(triple, errStr);
     if (!target) {
