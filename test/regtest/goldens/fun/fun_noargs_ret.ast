@@ -1,6 +1,6 @@
-(Block
+(Block:<Fun () -> >
   (FunDecl $функция ():<Fun () -> >
-    (Block
+    (Block:<Float>
       (Var $__return:<Float>)
       (Var $i:<Int>)
       (Var $j:<Int>)
@@ -8,4 +8,4 @@
       (Var $a:<Float>)
       (Var $b:<Float>)
       (Var $c:<Float>)
-      ($__return))))
+      ($__return:<Float>))))

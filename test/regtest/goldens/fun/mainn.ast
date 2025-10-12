@@ -1,6 +1,6 @@
-(Block
+(Block:<Fun () -> >
   (FunDecl $<main> ():<Fun () -> >
-    (Block
+    (Block:<Float>
       (Var $i:<Int>)
       (Var $j:<Int>)
       (Var $k:<Int>)

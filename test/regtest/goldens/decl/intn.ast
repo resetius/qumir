@@ -1,4 +1,4 @@
-(Block
+(Block:<Int>
   (Var $переменная1:<Int>)
   (Var $переменна2:<Int>)
   (Var $еще одна:<Int>))

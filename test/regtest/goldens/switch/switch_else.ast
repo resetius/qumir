@@ -1,25 +1,25 @@
-(Block
+(Block:<Fun () -> >
   (FunDecl $<main> ():<Fun () -> >
-    (Block
+    (Block:<Void>
       (Var $ф:<Int>)
-      ($ф =
+      ($ф =:<Void>
         (0:<Int>))
-      (If
-        (<
-          ($ф)
+      (If:<Void>
+        (<:<Bool>
+          ($ф:<Int>)
           (10:<Int>))
-        (Block
-          ($ф =
-            (+
-              ($ф)
+        (Block:<Void>
+          ($ф =:<Void>
+            (+:<Int>
+              ($ф:<Int>)
               (1:<Int>))))
-        (If
-          (>
-            ($ф)
+        (If:<Void>
+          (>:<Bool>
+            ($ф:<Int>)
             (20:<Int>))
-          (Block
-            ($ф =
+          (Block:<Void>
+            ($ф =:<Void>
               (102:<Int>)))
-          (Block
-            ($ф =
+          (Block:<Void>
+            ($ф =:<Void>
               (-198:<Int>))))))))

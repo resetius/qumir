@@ -1,19 +1,19 @@
-(Block
+(Block:<Fun () -> >
   (FunDecl $<main> ():<Fun () -> >
-    (Block
+    (Block:<Void>
       (Var $ф:<Int>)
-      ($ф =
+      ($ф =:<Void>
         (0:<Int>))
-      (Loop
+      (Loop:<Void>
         nil
-        (!
-          (==
-            ($ф)
+        (!:<Bool>
+          (==:<Bool>
+            ($ф:<Int>)
             (10:<Int>)))
         nil
-        (Block
-          ($ф =
-            (+
-              ($ф)
+        (Block:<Void>
+          ($ф =:<Void>
+            (+:<Int>
+              ($ф:<Int>)
               (1:<Int>))))
         nil))))

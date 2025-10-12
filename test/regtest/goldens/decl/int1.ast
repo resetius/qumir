@@ -1,2 +1,2 @@
-(Block
+(Block:<Int>
   (Var $переменная:<Int>))

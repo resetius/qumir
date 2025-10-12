@@ -1,19 +1,19 @@
-(Block
+(Block:<Fun () -> >
   (FunDecl $<main> ():<Fun () -> >
-    (Block
+    (Block:<Void>
       (Var $i:<Int>)
       (Var $j:<Int>)
-      ($i =
+      ($i =:<Void>
         (1:<Int>))
-      ($j =
+      ($j =:<Void>
         (2:<Int>))
-      (If
-        (!=
-          ($i)
-          ($j))
-        (Block
-          ($i =
+      (If:<Void>
+        (!=:<Bool>
+          ($i:<Int>)
+          ($j:<Int>))
+        (Block:<Void>
+          ($i =:<Void>
             (1:<Int>)))
-        (Block
-          ($i =
+        (Block:<Void>
+          ($i =:<Void>
             (2:<Int>)))))))

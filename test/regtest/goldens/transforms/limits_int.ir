@@ -1,4 +1,4 @@
-function ф () { ; 29 i64
+function ф () { ; 32 i64
   block {
     label: label(0)
     - tmp(0,i64) = imm(9223372036854775807) imm(10) 

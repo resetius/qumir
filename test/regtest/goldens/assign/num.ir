@@ -1,4 +1,4 @@
-function функция () { ; 29 void
+function функция () { ; 32 void
   block {
     label: label(0)
     stre local(0,i64) imm(2) 

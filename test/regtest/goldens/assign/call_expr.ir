@@ -1,4 +1,4 @@
-function f (local(0)) { ; 29 f64
+function f (local(0)) { ; 32 f64
   block {
     label: label(0)
     stre local(1,f64) imm(4607182418800017408) 
@@ -6,12 +6,12 @@ function f (local(0)) { ; 29 f64
     ret tmp(0,f64) 
   }
 }
-function функция () { ; 31 void
+function функция () { ; 34 void
   block {
     label: label(0)
     + tmp(0,f64) = imm(4613937818241073152) imm(4617315517961601024) 
     arg tmp(0,f64) 
-    call tmp(1,f64) = imm(29) 
+    call tmp(1,f64) = imm(32) 
     * tmp(2,f64) = tmp(1,f64) imm(10) 
     stre local(0,i64) tmp(2,f64) 
     ret 

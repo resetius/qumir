@@ -1,9 +1,9 @@
-(Block
+(Block:<Fun () -> >
   (FunDecl $ф ():<Fun () -> >
-    (Block
+    (Block:<Int>
       (Var $__return:<Int>)
-      ($__return =
-        (-
-          ($МАКСЦЕЛ)
+      ($__return =:<Void>
+        (-:<Int>
+          (9223372036854775807:<Int>)
           (10:<Int>)))
-      ($__return))))
+      ($__return:<Int>))))

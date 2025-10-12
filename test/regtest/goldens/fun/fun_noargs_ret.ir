@@ -1,4 +1,4 @@
-function функция () { ; 29 f64
+function функция () { ; 32 f64
   block {
     label: label(0)
     load tmp(0,f64) = local(0) 

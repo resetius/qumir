@@ -1,8 +1,10 @@
-(Block
+(Block:<Fun () -> >
   (FunDecl $<main> ():<Fun () -> >
-    (Block
+    (Block:<Void>
       (Var $i:<Int>)
-      ($i =
+      ($i =:<Void>
         (1:<Int>))
-      (Output:<Void>
-        ($i)))))
+      (Block
+        (Call
+          ($output_int64)
+          ($i:<Int>))))))
