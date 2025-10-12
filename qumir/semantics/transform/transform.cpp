@@ -1,5 +1,6 @@
 #include "transform.h"
 #include "qumir/error.h"
+#include "qumir/parser/ast.h"
 
 #include <qumir/semantics/type_annotation/type_annotation.h>
 
@@ -133,7 +134,7 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                 return node;
             },
             [](const NAst::TExprPtr& node) {
-                return true; // transform all nodes
+                return !NAst::TMaybeNode<NAst::TBinaryExpr>(node);
             });
     }
 
