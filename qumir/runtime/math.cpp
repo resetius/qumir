@@ -57,10 +57,6 @@ uint64_t rand_uint64_range(uint64_t a, uint64_t b) {
     return a + static_cast<uint64_t>(rand()) % (b - a);
 }
 
-int64_t max_limit_int64_t() {
-    return INT64_MAX;
-}
-
 int64_t div_qum(int64_t a, int64_t b) {
     if (b == 0) {
         // division by zero
@@ -75,10 +71,6 @@ int64_t mod_qum(int64_t a, int64_t b) {
         return 0;
     }
     return a % b;
-}
-
-double max_limit_double() {
-    return std::numeric_limits<double>::max();
 }
 
 double fpow(double a, int n) {

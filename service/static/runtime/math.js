@@ -61,6 +61,3 @@ export function rand_uint64_range(a, b) {
   const r = BigInt(Math.floor(Math.random() * Number(span)));
   return A + r;
 }
-
-export function max_limit_int64_t() { return (1n << 63n) - 1n; }
-export function max_limit_double() { return Number.MAX_VALUE; }
