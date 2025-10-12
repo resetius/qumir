@@ -1,0 +1,9 @@
+(Block
+  (FunDecl $ф ():<Fun () -> >
+    (Block
+      (Var $__return:<Int>)
+      ($__return =
+        (-
+          ($МАКСЦЕЛ)
+          (10:<Int>)))
+      ($__return))))

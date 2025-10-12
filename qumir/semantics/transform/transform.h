@@ -10,7 +10,7 @@
 namespace NQumir {
 namespace NTransform {
 
-bool PreNameResolutionTransform(NAst::TExprPtr& expr);
+std::expected<bool, TError> PreNameResolutionTransform(NAst::TExprPtr& expr);
 bool PostNameResolutionTransform(NAst::TExprPtr& expr);
 std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr);
 

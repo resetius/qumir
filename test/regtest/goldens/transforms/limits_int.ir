@@ -1,0 +1,9 @@
+function ф () { ; 29 i64
+  block {
+    label: label(0)
+    - tmp(0,i64) = imm(9223372036854775807) imm(10) 
+    stre local(0,i64) tmp(0,i64) 
+    load tmp(1,i64) = local(0,i64) 
+    ret tmp(1,i64) 
+  }
+}

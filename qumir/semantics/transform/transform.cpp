@@ -7,6 +7,28 @@
 namespace NQumir {
 namespace NTransform {
 
+std::expected<bool, TError> PreNameResolutionTransform(NAst::TExprPtr& expr)
+{
+    bool changed = TransformAst(expr, expr,
+        [](const NAst::TExprPtr& node) -> NAst::TExprPtr {
+            if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(node)) {
+                auto ident = maybeIdent.Cast();
+                if (ident->Name == "МАКСВЕЩ") {
+                    // replace with constant = std::numeric_limits<double>::max()
+                    return std::make_shared<NAst::TNumberExpr>(ident->Location, std::numeric_limits<double>::max());
+                } else if (ident->Name == "МАКСЦЕЛ") {
+                    // replace with constant = std::numeric_limits<int64_t>::max()
+                    return std::make_shared<NAst::TNumberExpr>(ident->Location, std::numeric_limits<int64_t>::max());
+                }
+            }
+            return node;
+        },
+        [](const NAst::TExprPtr& node) {
+            return true;
+        });
+    return changed;
+}
+
 std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
 {
     bool changed = TransformAst(expr, expr,
@@ -41,6 +63,10 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
 std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics::TNameResolver& r)
 {
     static constexpr int MaxIterations = 10;
+    if (auto error = PreNameResolutionTransform(expr); !error) {
+        return std::unexpected(error.error());
+    }
+
     if (auto error = r.Resolve(expr)) {
         return std::unexpected(*error);
     }
