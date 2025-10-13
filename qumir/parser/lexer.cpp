@@ -73,12 +73,6 @@ std::map<std::string, EOperator> OperatorMap = {
     {"не", EOperator::Not},
 };
 
-enum class ELexMode {
-    LValueStart,
-    Expr,
-    Decl
-};
-
 enum EState {
     Start,
     InNumber,
