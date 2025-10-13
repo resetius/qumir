@@ -46,10 +46,6 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"арг", EKeyword::InArg},
     {"рез", EKeyword::OutArg},
     {"знач", EKeyword::Return},
-
-    // math functions
-    {"int", EKeyword::IntFunc},
-    {"rnd", EKeyword::Rnd},
 };
 
 std::map<std::string, EOperator> OperatorMap = {

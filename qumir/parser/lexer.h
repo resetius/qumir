@@ -48,22 +48,6 @@ enum class EKeyword : uint8_t {
     InArg,
     OutArg,
     Return,
-
-    Sqrt,
-    Abs,
-    Iabs,
-    Sign,
-    Sin,
-    Cos,
-    Tan,
-    Ctg,
-    Ln,
-    Lg,
-    Min,
-    Max,
-    Exp,
-    IntFunc,
-    Rnd,
 };
 
 enum class EOperator : uint8_t {
