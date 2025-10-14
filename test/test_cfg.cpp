@@ -85,6 +85,29 @@ TEST(CfgTest, Basic) {
     EXPECT_EQ(function.Blocks[3].Pred, std::list<TLabel>{function.Blocks[1].Label});
 }
 
+TEST(CfgTest, RPO) {
+std::string s = R"(
+алг
+нач
+    цел ф
+    ф := 0
+    нц пока ф < 10
+        ф := ф + 1
+    кц
+кон
+    )";
+
+    std::istringstream ss(s);
+    NAst::TTokenStream ts(ss);
+    NIR::TModule module;
+    std::string got = BuildIR(ts, module);
+    ASSERT_TRUE(module.Functions.size() == 1);
+
+    BuildCfg(module.Functions[0]);
+    std::vector<int> rpo = ComputeRPO(module.Functions[0].Blocks);
+    EXPECT_EQ(rpo, (std::vector<int>{2, 3, 1, 0}));
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

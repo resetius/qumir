@@ -1,5 +1,9 @@
 #include "cfg.h"
 
+#include <unordered_set>
+#include <stack>
+#include <iostream>
+
 namespace NQumir {
 namespace NIR {
 namespace NPasses {
@@ -59,6 +63,29 @@ void BuildCfg(TModule& module) {
     for (auto& func : module.Functions) {
         BuildCfg(func);
     }
+}
+
+std::vector<int> ComputeRPO(const std::vector<TBlock>& blocks) {
+    std::vector<int> rpo;
+    std::unordered_set<int> seen;
+    std::stack<int> stack;
+
+    stack.push(0);
+    seen.insert(0);
+    while (!stack.empty()) {
+        auto next = stack.top(); stack.pop();
+        rpo.push_back(next);
+        for (auto& succ : blocks[next].Succ) {
+            auto idx = succ.Idx;
+            if (!seen.contains(idx)) {
+                seen.insert(idx);
+                stack.push(idx);
+            }
+        }
+    }
+
+    std::reverse(rpo.begin(), rpo.end());
+    return rpo;
 }
 
 } // namespace NPasses

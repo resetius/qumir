@@ -6,11 +6,8 @@ namespace NQumir {
 namespace NIR {
 namespace NPasses {
 
-void BuildCfg(TFunction& function);
-void BuildCfg(TModule& module);
-
-// reverse post order
-std::vector<int> ComputeRPO(const std::vector<TBlock>& blocks);
+void PromoteLocalsToSSA(TFunction& function, TModule& module);
+void PromoteLocalsToSSA(TModule& module);
 
 } // namespace NPasses
 } // namespace NIR

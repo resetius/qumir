@@ -21,6 +21,8 @@ add_library(qumir
     ir/lowering/lower_ast.cpp
     ir/passes/analysis/cfg.h
     ir/passes/analysis/cfg.cpp
+    ir/passes/transforms/locals2ssa.h
+    ir/passes/transforms/locals2ssa.cpp
     ir/builder.h
     ir/builder.cpp
     ir/eval.h
