@@ -67,6 +67,7 @@ std::string NameFromPath(const fs::path& p) {
     return s;
 }
 
+// TODO: move to utils
 std::string BuildAst(NAst::TTokenStream& ts) {
     NAst::TParser p;
     auto parsed = p.parse(ts);
@@ -87,11 +88,11 @@ std::string BuildAst(NAst::TTokenStream& ts) {
     return out.str();
 }
 
+// TODO: move to utils
 std::string BuildIR(NAst::TTokenStream& ts) {
     NSemantics::TNameResolver resolver;
     NRegistry::SystemModule().Register(resolver);
 
-    NTypeAnnotation::TTypeAnnotator annotator(resolver);
     NAst::TParser p;
     auto parsed = p.parse(ts);
     if (!parsed) {

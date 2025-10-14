@@ -19,6 +19,8 @@ add_library(qumir
     runner/runner_llvm.cpp
     ir/lowering/lower_ast.h
     ir/lowering/lower_ast.cpp
+    ir/passes/analysis/cfg.h
+    ir/passes/analysis/cfg.cpp
     ir/builder.h
     ir/builder.cpp
     ir/eval.h

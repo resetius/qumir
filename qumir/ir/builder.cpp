@@ -109,7 +109,26 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
     };
 
     for (const auto& b : Blocks) {
-        out << "  block {\n";
+        out << "  block {";
+        if (!b.Succ.empty()) {
+            out << " ; succ: ";
+            bool first = true;
+            for (const auto& s : b.Succ) {
+                if (!first) out << ", ";
+                Print_(out, s, -1, module.Types);
+                first = false;
+            }
+        }
+        if (!b.Pred.empty()) {
+            out << " ; pred: ";
+            bool first = true;
+            for (const auto& p : b.Pred) {
+                if (!first) out << ", ";
+                Print_(out, p, -1, module.Types);
+                first = false;
+            }
+        }
+        out << "\n";
         out << "    label: ";
         Print_(out, b.Label, -1, module.Types) << "\n";
         for (const auto& i : b.Instrs) {

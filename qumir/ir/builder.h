@@ -10,6 +10,7 @@
 #include <memory>
 #include <cstddef>
 #include <set>
+#include <list>
 
 #include "type.h"
 
@@ -66,6 +67,10 @@ struct TLabel {
 
 inline bool operator<(const TLabel& a, const TLabel& b) {
     return a.Idx < b.Idx;
+}
+
+inline bool operator==(const TLabel& a, const TLabel& b) {
+    return a == b;
 }
 
 // Immediate value (e.g. constant)
@@ -148,6 +153,8 @@ struct TInstr {
 struct TBlock {
     TLabel Label;
     std::vector<TInstr> Instrs;
+    std::list<TLabel> Succ;
+    std::list<TLabel> Pred;
 };
 
 struct TExecFunc;
