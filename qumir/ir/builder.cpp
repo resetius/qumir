@@ -131,33 +131,38 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
         out << "\n";
         out << "    label: ";
         Print_(out, b.Label, -1, module.Types) << "\n";
-        for (const auto& i : b.Instrs) {
-            out << "    " << i.Op << " ";
-            if (i.Dest.Idx >= 0) {
-                Print_(out, i.Dest, typeId(i.Dest.Idx, TmpTypes), module.Types) << " = ";
-            }
-            for (int j = 0; j < i.OperandCount; j++) {
-                const auto& o = i.Operands[j];
-                switch (o.Type) {
-                    case TOperand::EType::Tmp:
-                        Print_(out, o.Tmp, typeId(o.Tmp.Idx, TmpTypes), module.Types) << " ";
-                        break;
-                    case TOperand::EType::Slot:
-                        Print_(out, o.Slot, typeId(o.Slot.Idx, module.SlotTypes), module.Types) << " ";
-                        break;
-                    case TOperand::EType::Local:
-                        Print_(out, o.Local, typeId(o.Local.Idx, LocalTypes), module.Types) << " ";
-                        break;
-                    case TOperand::EType::Label:
-                        Print_(out, o.Label, -1, module.Types) << " ";
-                        break;
-                    case TOperand::EType::Imm:
-                        Print_(out, o.Imm, -1, module.Types) << " ";
-                        break;
+
+        auto printInstrs = [&](const std::vector<TInstr>& instrs) {
+            for (const auto& i : instrs) {
+                out << "    " << i.Op << " ";
+                if (i.Dest.Idx >= 0) {
+                    Print_(out, i.Dest, typeId(i.Dest.Idx, TmpTypes), module.Types) << " = ";
                 }
+                for (int j = 0; j < i.OperandCount; j++) {
+                    const auto& o = i.Operands[j];
+                    switch (o.Type) {
+                        case TOperand::EType::Tmp:
+                            Print_(out, o.Tmp, typeId(o.Tmp.Idx, TmpTypes), module.Types) << " ";
+                            break;
+                        case TOperand::EType::Slot:
+                            Print_(out, o.Slot, typeId(o.Slot.Idx, module.SlotTypes), module.Types) << " ";
+                            break;
+                        case TOperand::EType::Local:
+                            Print_(out, o.Local, typeId(o.Local.Idx, LocalTypes), module.Types) << " ";
+                            break;
+                        case TOperand::EType::Label:
+                            Print_(out, o.Label, -1, module.Types) << " ";
+                            break;
+                        case TOperand::EType::Imm:
+                            Print_(out, o.Imm, -1, module.Types) << " ";
+                            break;
+                    }
+                }
+                out << "\n";
             }
-            out << "\n";
-        }
+        };
+        printInstrs(b.Phis);
+        printInstrs(b.Instrs);
         out << "  }\n";
     }
     out << "}\n";

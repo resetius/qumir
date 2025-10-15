@@ -152,6 +152,7 @@ struct TInstr {
 
 struct TBlock {
     TLabel Label;
+    std::vector<TInstr> Phis;
     std::vector<TInstr> Instrs;
     std::list<TLabel> Succ;
     std::list<TLabel> Pred;
