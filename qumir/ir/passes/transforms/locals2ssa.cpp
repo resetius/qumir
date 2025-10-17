@@ -119,29 +119,12 @@ struct TSSABuilder {
                 auto tmp = ReadVariable(phiInfo.Local, pred.Idx);
                 phiInfo.ArgTmp.emplace_back(tmp);
             }
-            // Collapse trivial phi by ignoring self-references (incoming equal to DstTmp)
-            // example:  phi tmp(15) = label(0) tmp(2,i64) label(4) tmp(15)
-            std::optional<TOperand> rep;
-            bool conflict = false;
-            TOperand self = TOperand{phiInfo.DstTmp};
-            for (const auto& a : phiInfo.ArgTmp) {
-                if (a == self) {
-                    continue; // ignore self
-                }
-                if (!rep) {
-                    rep = a;
-                } else if (*rep != a) {
-                    conflict = true;
-                    break;
-                }
-            }
 
-            if (!conflict && rep) {
+            if (auto rep = TrivialPhiCollapse(phiInfo)) {
                 ReplaceTmpEverywhere(phiInfo.DstTmp, *rep);
                 RemovePhi(blockIdx, phiInfo.DstTmp);
                 WriteVariable(phiInfo.Local, blockIdx, *rep);
             } else {
-                std::cerr << "Materializing phi for local " << phiInfo.Local << " in block " << blockIdx << "\n";
                 MaterializePhiInstr(blockIdx, phiInfo);
                 WriteVariable(phiInfo.Local, blockIdx, phiInfo.DstTmp);
             }
@@ -220,6 +203,30 @@ struct TSSABuilder {
         return {};
     }
 
+    // Collapse trivial phi by ignoring self-references (incoming equal to DstTmp)
+    // example:  phi tmp(15) = label(0) tmp(2,i64) label(4) tmp(15) -> tmp(2)
+    std::optional<TOperand> TrivialPhiCollapse(const PhiInfo& phiInfo) {
+        std::optional<TOperand> rep;
+        bool conflict = false;
+        TOperand self = TOperand{phiInfo.DstTmp};
+        for (const auto& a : phiInfo.ArgTmp) {
+            if (a == self) {
+                continue;
+            }
+            if (!rep) {
+                rep = a;
+            } else if (*rep != a) {
+                conflict = true;
+                break;
+            }
+        }
+
+        if (!conflict && rep) {
+            return rep;
+        }
+        return {};
+    }
+
     void WriteVariable(int localIdx, int blockIdx, TOperand value) {
         CurrentDef[localIdx][blockIdx] = value;
     }
@@ -266,20 +273,9 @@ struct TSSABuilder {
                 phi.ArgTmp.push_back(ReadVariable(localIdx, pred.Idx));
             }
 
-            // Trivial phi elimination ignoring self-references
-            std::optional<TOperand> rep;
-            bool conflict = false;
-            TOperand self = TOperand{dst};
-            for (const auto& a : phi.ArgTmp) {
-                if (a == self) continue;
-                if (!rep) rep = a;
-                else if (*rep != a) { conflict = true; break; }
-            }
-
-            if (!conflict && rep) {
+            if (auto rep = TrivialPhiCollapse(phi)) {
                 resultTmp = *rep;
             } else {
-                std::cerr << "(2) Materializing phi for local " << localIdx << " in block " << blockIdx << "\n";
                 MaterializePhiInstr(blockIdx, phi);
                 resultTmp = dst;
             }
