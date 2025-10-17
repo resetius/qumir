@@ -273,12 +273,8 @@ struct TSSABuilder {
                 phi.ArgTmp.push_back(ReadVariable(localIdx, pred.Idx));
             }
 
-            if (auto rep = TrivialPhiCollapse(phi)) {
-                resultTmp = *rep;
-            } else {
-                MaterializePhiInstr(blockIdx, phi);
-                resultTmp = dst;
-            }
+            MaterializePhiInstr(blockIdx, phi);
+            resultTmp = dst;
         }
 
         WriteVariable(localIdx, blockIdx, resultTmp);

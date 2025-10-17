@@ -163,6 +163,33 @@ std::string s = R"(
     function.Print(std::cout, module);
 }
 
+TEST(CfgTest, PromoteLocalsToSSAFactorial) {
+std::string s = R"(
+алг цел факториал(цел число)
+нач
+    цел i
+    знач := 1
+    нц для i от 1 до число
+        знач := знач * i
+    кц
+кон
+    )";
+
+    std::istringstream ss(s);
+    NAst::TTokenStream ts(ss);
+    NIR::TModule module;
+    std::string got = BuildIR(ts, module);
+    ASSERT_TRUE(module.Functions.size() == 1);
+
+    auto& function = module.Functions[0];
+
+    function.Print(std::cout, module);
+
+    PromoteLocalsToSSA(function, module);
+
+    function.Print(std::cout, module);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
