@@ -33,11 +33,6 @@ struct TSSABuilder {
         for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
             openPredCount[i] = Function.Blocks[i].Pred.size();
         }
-        for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
-            if (openPredCount[i] == 0) {
-                SealBlock(i);
-            }
-        }
 
         for (auto blockIdx : rpo) {
             auto& block = Function.Blocks[blockIdx];
@@ -52,6 +47,16 @@ struct TSSABuilder {
                         if (localIdx >= Function.ArgLocals.size()) {
                             // do not optimize arguments of the function
                             auto valueTmp = instr.Operands[1];
+                            if (valueTmp.Type == TOperand::EType::Imm) {
+                                auto imm = valueTmp.Imm;
+                                valueTmp = TOperand{TTmp{Function.NextTmpIdx++}};
+                                newInstrs.push_back(TInstr{
+                                    .Op = "cmov"_op,
+                                    .Dest = valueTmp.Tmp,
+                                    .Operands = { imm },
+                                    .OperandCount = 1
+                                });
+                            }
                             WriteVariable(localIdx, blockIdx, valueTmp);
                         } else {
                             std::cerr << "Ignoring store to local " << localIdx << " in block " << blockIdx << "\n";
@@ -114,16 +119,27 @@ struct TSSABuilder {
                 auto tmp = ReadVariable(phiInfo.Local, pred.Idx);
                 phiInfo.ArgTmp.emplace_back(tmp);
             }
-
-            auto same = !phiInfo.ArgTmp.empty();
-            for (int i = 1; i < phiInfo.ArgTmp.size(); ++i) {
-                same &= (phiInfo.ArgTmp[i] == phiInfo.ArgTmp[0]);
+            // Collapse trivial phi by ignoring self-references (incoming equal to DstTmp)
+            // example:  phi tmp(15) = label(0) tmp(2,i64) label(4) tmp(15)
+            std::optional<TOperand> rep;
+            bool conflict = false;
+            TOperand self = TOperand{phiInfo.DstTmp};
+            for (const auto& a : phiInfo.ArgTmp) {
+                if (a == self) {
+                    continue; // ignore self
+                }
+                if (!rep) {
+                    rep = a;
+                } else if (*rep != a) {
+                    conflict = true;
+                    break;
+                }
             }
 
-            if (same) {
-                ReplaceTmpInBlock(blockIdx, phiInfo.DstTmp, phiInfo.ArgTmp[0]);
+            if (!conflict && rep) {
+                ReplaceTmpEverywhere(phiInfo.DstTmp, *rep);
                 RemovePhi(blockIdx, phiInfo.DstTmp);
-                WriteVariable(phiInfo.Local, blockIdx, phiInfo.ArgTmp[0]);
+                WriteVariable(phiInfo.Local, blockIdx, *rep);
             } else {
                 std::cerr << "Materializing phi for local " << phiInfo.Local << " in block " << blockIdx << "\n";
                 MaterializePhiInstr(blockIdx, phiInfo);
@@ -139,10 +155,17 @@ struct TSSABuilder {
         v.erase(std::remove_if(v.begin(), v.end(), [&](const TInstr& p){ return p.Dest == dstTmp; }), v.end());
     }
 
+    void ReplaceTmpEverywhere(TOperand fromTmp, TOperand toTmp) {
+        for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
+            ReplaceTmpInBlock(i, fromTmp, toTmp);
+        }
+    }
+
     void ReplaceTmpInBlock(int blockIdx, TOperand fromTmp, TOperand toTmp) {
         if (toTmp.Type != TOperand::EType::Tmp) {
             throw std::runtime_error("Cannot replace phi destination with non-tmp operand");
         }
+
         auto& block = Function.Blocks[blockIdx];
         for (auto& phi : block.Phis) {
             if (phi.Dest == fromTmp) {
@@ -226,6 +249,7 @@ struct TSSABuilder {
                 resultTmp = newTmp;
             }
             WriteVariable(localIdx, blockIdx, resultTmp);
+            return resultTmp;
         }
 
         if (numPreds == 0) {
@@ -242,14 +266,18 @@ struct TSSABuilder {
                 phi.ArgTmp.push_back(ReadVariable(localIdx, pred.Idx));
             }
 
-            bool same = !phi.ArgTmp.empty();
-            for (int i = 1; i < (int)phi.ArgTmp.size(); ++i) {
-                same &= phi.ArgTmp[0] == phi.ArgTmp[i];
+            // Trivial phi elimination ignoring self-references
+            std::optional<TOperand> rep;
+            bool conflict = false;
+            TOperand self = TOperand{dst};
+            for (const auto& a : phi.ArgTmp) {
+                if (a == self) continue;
+                if (!rep) rep = a;
+                else if (*rep != a) { conflict = true; break; }
             }
 
-            if (same) {
-                // trivial phi
-                resultTmp = phi.ArgTmp[0];
+            if (!conflict && rep) {
+                resultTmp = *rep;
             } else {
                 std::cerr << "(2) Materializing phi for local " << localIdx << " in block " << blockIdx << "\n";
                 MaterializePhiInstr(blockIdx, phi);
