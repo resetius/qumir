@@ -5,6 +5,7 @@
 #include <qumir/modules/system/system.h>
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/ir/passes/analysis/cfg.h>
+#include <qumir/ir/passes/transforms/locals2ssa.h>
 
 #include <sstream>
 
@@ -106,6 +107,60 @@ std::string s = R"(
     BuildCfg(module.Functions[0]);
     std::vector<int> rpo = ComputeRPO(module.Functions[0].Blocks);
     EXPECT_EQ(rpo, (std::vector<int>{2, 3, 1, 0}));
+}
+
+TEST(CfgTest, PromoteLocalsToSSAWhile) {
+std::string s = R"(
+алг
+нач
+    цел ф
+    ф := 0
+    нц пока ф < 10
+        ф := ф + 1
+    кц
+кон
+    )";
+
+    std::istringstream ss(s);
+    NAst::TTokenStream ts(ss);
+    NIR::TModule module;
+    std::string got = BuildIR(ts, module);
+    ASSERT_TRUE(module.Functions.size() == 1);
+
+    auto& function = module.Functions[0];
+
+    function.Print(std::cout, module);
+
+    PromoteLocalsToSSA(function, module);
+
+    function.Print(std::cout, module);
+}
+
+TEST(CfgTest, PromoteLocalsToSSAFor) {
+std::string s = R"(
+алг
+нач
+    цел ф, i
+    ф := 0
+    нц для i от 0 до 10 шаг 1
+        ф := ф + 1
+    кц
+кон
+    )";
+
+    std::istringstream ss(s);
+    NAst::TTokenStream ts(ss);
+    NIR::TModule module;
+    std::string got = BuildIR(ts, module);
+    ASSERT_TRUE(module.Functions.size() == 1);
+
+    auto& function = module.Functions[0];
+
+    function.Print(std::cout, module);
+
+    PromoteLocalsToSSA(function, module);
+
+    function.Print(std::cout, module);
 }
 
 int main(int argc, char** argv) {

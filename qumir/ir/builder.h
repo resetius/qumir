@@ -70,7 +70,7 @@ inline bool operator<(const TLabel& a, const TLabel& b) {
 }
 
 inline bool operator==(const TLabel& a, const TLabel& b) {
-    return a == b;
+    return a.Idx == b.Idx;
 }
 
 // Immediate value (e.g. constant)
@@ -114,6 +114,18 @@ struct TOperand {
         }
     }
 };
+
+inline bool operator==(const TOperand& a, const TOperand& b) {
+    if (a.Type != b.Type) return false;
+    switch (a.Type) {
+    case TOperand::EType::Tmp:   return a.Tmp.Idx == b.Tmp.Idx;
+    case TOperand::EType::Slot:  return a.Slot.Idx == b.Slot.Idx;
+    case TOperand::EType::Local: return a.Local.Idx == b.Local.Idx;
+    case TOperand::EType::Imm:   return a.Imm.Value == b.Imm.Value && a.Imm.Kind == b.Imm.Kind;
+    case TOperand::EType::Label: return a.Label.Idx == b.Label.Idx;
+    default: return false;
+    }
+}
 
 // --- User-defined literal suffixes for IR helper types ---
 namespace NLiterals {

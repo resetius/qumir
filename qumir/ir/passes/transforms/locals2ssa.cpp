@@ -1,5 +1,10 @@
 #include "locals2ssa.h"
 
+#include <qumir/ir/passes/analysis/cfg.h>
+#include <unordered_set>
+
+#include <iostream>
+
 namespace NQumir {
 namespace NIR {
 
@@ -11,48 +16,269 @@ namespace {
 
 struct PhiInfo {
     int Local;
-    int DstTmp;
-    std::vector<int> ArgTmp; // size = number of predecessors
+    TTmp DstTmp;
+    std::vector<TOperand> ArgTmp; // size = number of predecessors
 };
 
-struct SealedSSATables {
+struct TSSABuilder {
+    TSSABuilder(TModule& module, TFunction& function)
+        : Module(module)
+        , Function(function)
+    {}
+
+    void Run() {
+        BuildCfg(Function);
+        auto rpo = ComputeRPO(Function.Blocks);
+        std::vector<int> openPredCount(Function.Blocks.size());
+        for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
+            openPredCount[i] = Function.Blocks[i].Pred.size();
+        }
+        for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
+            if (openPredCount[i] == 0) {
+                SealBlock(i);
+            }
+        }
+
+        for (auto blockIdx : rpo) {
+            auto& block = Function.Blocks[blockIdx];
+            std::vector<TInstr> newInstrs;
+            for (const auto& instr : block.Instrs) {
+                switch (instr.Op) {
+                    case "stre"_op: {
+                        if (instr.OperandCount != 2) {
+                            throw std::runtime_error("Store instruction must have exactly two operands");
+                        }
+                        int localIdx = instr.Operands[0].Local.Idx;
+                        if (localIdx >= Function.ArgLocals.size()) {
+                            // do not optimize arguments of the function
+                            auto valueTmp = instr.Operands[1];
+                            WriteVariable(localIdx, blockIdx, valueTmp);
+                        } else {
+                            std::cerr << "Ignoring store to local " << localIdx << " in block " << blockIdx << "\n";
+                            std::cerr << "  " << Function.ArgLocals.size() << " locals in function\n";
+                            newInstrs.push_back(instr);
+                        }
+                        break;
+                    }
+                    case "load"_op: {
+                        if (instr.OperandCount != 1) {
+                            throw std::runtime_error("Load instruction must have exactly one operand");
+                        }
+                        if (instr.Operands[0].Type != TOperand::EType::Local) {
+                            throw std::runtime_error("Load instruction operand must be a local");
+                        }
+                        int localIdx = instr.Operands[0].Local.Idx;
+                        if (localIdx >= Function.ArgLocals.size()) {
+                            auto valueTmp = ReadVariable(localIdx, blockIdx);
+                            ReplaceTmpInBlock(blockIdx, instr.Dest, valueTmp);
+                        } else {
+                            std::cerr << "Ignoring load from local " << localIdx << " in block " << blockIdx << "\n";
+                            std::cerr << "  " << Function.ArgLocals.size() << " locals in function\n";
+                            newInstrs.push_back(instr);
+                        }
+                        break;
+                    }
+                    default: {
+                        newInstrs.push_back(instr);
+                        break;
+                    }
+                }
+            }
+            block.Instrs = std::move(newInstrs);
+            for (const auto& succ : block.Succ) {
+                int s = succ.Idx;
+                if (openPredCount[s] > 0) {
+                    --openPredCount[s];
+                    if (openPredCount[s] == 0) {
+                        SealBlock(s);
+                    }
+                }
+            }
+        }
+    }
+
+    void SealBlock(int blockIdx) {
+        if (SealedBlocks.contains(blockIdx)) {
+            return;
+        }
+        SealedBlocks.insert(blockIdx);
+
+        auto it = IncompletePhis.find(blockIdx);
+        if (it == IncompletePhis.end()) {
+            return;
+        }
+
+        auto& block = Function.Blocks[blockIdx];
+        for (auto& phiInfo : it->second) {
+            for (const auto& pred : block.Pred) {
+                auto tmp = ReadVariable(phiInfo.Local, pred.Idx);
+                phiInfo.ArgTmp.emplace_back(tmp);
+            }
+
+            auto same = !phiInfo.ArgTmp.empty();
+            for (int i = 1; i < phiInfo.ArgTmp.size(); ++i) {
+                same &= (phiInfo.ArgTmp[i] == phiInfo.ArgTmp[0]);
+            }
+
+            if (same) {
+                ReplaceTmpInBlock(blockIdx, phiInfo.DstTmp, phiInfo.ArgTmp[0]);
+                RemovePhi(blockIdx, phiInfo.DstTmp);
+                WriteVariable(phiInfo.Local, blockIdx, phiInfo.ArgTmp[0]);
+            } else {
+                std::cerr << "Materializing phi for local " << phiInfo.Local << " in block " << blockIdx << "\n";
+                MaterializePhiInstr(blockIdx, phiInfo);
+                WriteVariable(phiInfo.Local, blockIdx, phiInfo.DstTmp);
+            }
+        }
+        IncompletePhis.erase(it);
+    }
+
+    void RemovePhi(int blockIdx, TOperand dstTmp) {
+        auto& block = Function.Blocks[blockIdx];
+        auto& v = block.Phis;
+        v.erase(std::remove_if(v.begin(), v.end(), [&](const TInstr& p){ return p.Dest == dstTmp; }), v.end());
+    }
+
+    void ReplaceTmpInBlock(int blockIdx, TOperand fromTmp, TOperand toTmp) {
+        if (toTmp.Type != TOperand::EType::Tmp) {
+            throw std::runtime_error("Cannot replace phi destination with non-tmp operand");
+        }
+        auto& block = Function.Blocks[blockIdx];
+        for (auto& phi : block.Phis) {
+            if (phi.Dest == fromTmp) {
+                phi.Dest = toTmp.Tmp;
+            }
+            for (auto& a : phi.Operands) {
+                if (a == fromTmp) {
+                    a = toTmp;
+                }
+            }
+        }
+        for (auto& inst : block.Instrs) {
+            if (inst.Dest == fromTmp) {
+                inst.Dest = toTmp.Tmp;
+            }
+            for (auto& op : inst.Operands) {
+                if (op == fromTmp) {
+                    op = toTmp;
+                }
+            }
+        }
+    }
+
+    void MaterializePhiInstr(int blockIdx, const PhiInfo& ph) {
+        auto& block = Function.Blocks[blockIdx];
+        TInstr instr = {"phi"_op};
+        instr.Dest = ph.DstTmp;
+        // Args: [ (pred0, arg0), (pred1, arg1), ... ]
+        auto capacity = instr.Operands.size();
+        if (ph.ArgTmp.size() * 2 > capacity) {
+            std::cerr << ph.ArgTmp.size() << " " << capacity << "\n";
+            throw std::runtime_error("Too many phi arguments");
+        }
+        auto pred = block.Pred.begin();
+        for (size_t i = 0; i < ph.ArgTmp.size() && i < capacity; ++i) {
+            instr.Operands[2*i] = TLabel{pred->Idx};
+            instr.Operands[2*i+1] = ph.ArgTmp[i];
+            ++pred;
+        }
+        instr.OperandCount = (int)(ph.ArgTmp.size() * 2);
+        block.Phis.push_back(instr);
+    }
+
+    std::optional<TOperand> MaybeCurrent(int localIdx, int blockIdx) {
+        auto it = CurrentDef.find(localIdx);
+        if (it != CurrentDef.end()) {
+            auto it2 = it->second.find(blockIdx);
+            if (it2 != it->second.end()) {
+                return it2->second;
+            }
+        }
+        return {};
+    }
+
+    void WriteVariable(int localIdx, int blockIdx, TOperand value) {
+        CurrentDef[localIdx][blockIdx] = value;
+    }
+
+    TOperand ReadVariable(int localIdx, int blockIdx) {
+        auto maybeCurrent = MaybeCurrent(localIdx, blockIdx);
+        if (maybeCurrent) {
+            return *maybeCurrent;
+        }
+
+        TOperand resultTmp;
+        auto& block = Function.Blocks[blockIdx];
+        int numPreds = (int)block.Pred.size();
+
+        if (!SealedBlocks.contains(blockIdx)) {
+            // incomplete phi
+            if (numPreds == 0) {
+                resultTmp = TTmp{-1};
+            } else if (numPreds == 1) {
+                resultTmp = ReadVariable(localIdx, block.Pred.front().Idx);
+            } else {
+                auto newTmp = TTmp{Function.NextTmpIdx++};
+                IncompletePhis[blockIdx].push_back(PhiInfo {
+                    .Local = localIdx,
+                    .DstTmp = newTmp,
+                });
+                resultTmp = newTmp;
+            }
+            WriteVariable(localIdx, blockIdx, resultTmp);
+        }
+
+        if (numPreds == 0) {
+            resultTmp = TTmp{-1};
+        } else if (numPreds == 1) {
+            resultTmp = ReadVariable(localIdx, block.Pred.front().Idx);
+        } else {
+            auto dst = TTmp{Function.NextTmpIdx++};
+            PhiInfo phi {
+                .Local = localIdx,
+                .DstTmp = dst,
+            };
+            for (auto pred : block.Pred) {
+                phi.ArgTmp.push_back(ReadVariable(localIdx, pred.Idx));
+            }
+
+            bool same = !phi.ArgTmp.empty();
+            for (int i = 1; i < (int)phi.ArgTmp.size(); ++i) {
+                same &= phi.ArgTmp[0] == phi.ArgTmp[i];
+            }
+
+            if (same) {
+                // trivial phi
+                resultTmp = phi.ArgTmp[0];
+            } else {
+                std::cerr << "(2) Materializing phi for local " << localIdx << " in block " << blockIdx << "\n";
+                MaterializePhiInstr(blockIdx, phi);
+                resultTmp = dst;
+            }
+        }
+
+        WriteVariable(localIdx, blockIdx, resultTmp);
+        return resultTmp;
+    }
+
+    TModule& Module;
+    TFunction& Function;
+
     // local -> (block -> tmp)
-    std::unordered_map<int, std::unordered_map<int, int>> CurrentDef;
+    std::unordered_map<int, std::unordered_map<int, TOperand>> CurrentDef;
+    // block -> incomplete phis
     std::unordered_map<int, std::vector<PhiInfo>> IncompletePhis;
+    // block indices
+    std::unordered_set<int> SealedBlocks;
 };
-
-void WriteVariable(SealedSSATables& T, int localIdx, int blockIdx, int valueTmp) {
-    T.CurrentDef[localIdx][blockIdx] = valueTmp;
-}
-
-bool HasCurrent(const SealedSSATables& T, int localIdx, int blockIdx) {
-    auto it = T.CurrentDef.find(localIdx);
-    if (it==T.CurrentDef.end()) return false;
-    return it->second.find(blockIdx)!=it->second.end();
-}
-
-void MaterializePhiInstr(TBlock* B, const PhiInfo& ph) {
-    TInstr I { "phi"_op };
-    I.Dest = TTmp{ ph.DstTmp };
-    // Args: [ (pred0, arg0), (pred1, arg1), ... ]
-    auto capacity = I.Operands.size();
-    if (ph.ArgTmp.size() * 2 != capacity) {
-        throw std::runtime_error("Too many phi arguments");
-    }
-    auto pred = B->Pred.begin();
-    for (size_t i = 0; i < ph.ArgTmp.size() && i < capacity; ++i) {
-        I.Operands[2*i] = TLabel{pred->Idx};
-        I.Operands[2*i+1] = TTmp{ph.ArgTmp[i]};
-        ++pred;
-    }
-    B->Phis.push_back(I);
-}
 
 } // anonymous namespace
 
+// Simple and Efficient Construction of Static Single Assignment Form
+// Matthias Braun1, Sebastian Buchwald1, Sebastian Hack2, Roland Leißa2, Christoph Mallon2, and Andreas Zwinkau
 void PromoteLocalsToSSA(TFunction& function, TModule& module)
 {
-
+    TSSABuilder(module, function).Run();
 }
 
 void PromoteLocalsToSSA(TModule& module) {
