@@ -26,118 +26,6 @@ struct TSSABuilder {
         , Function(function)
     {}
 
-    void Run() {
-        BuildCfg(Function);
-        auto rpo = ComputeRPO(Function.Blocks);
-        std::vector<int> openPredCount(Function.Blocks.size());
-        for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
-            openPredCount[i] = Function.Blocks[i].Pred.size();
-        }
-
-        for (auto blockIdx : rpo) {
-            auto& block = Function.Blocks[blockIdx];
-            std::vector<TInstr> newInstrs;
-            for (const auto& instr : block.Instrs) {
-                switch (instr.Op) {
-                    case "stre"_op: {
-                        if (instr.OperandCount != 2) {
-                            throw std::runtime_error("Store instruction must have exactly two operands");
-                        }
-                        int localIdx = instr.Operands[0].Local.Idx;
-                        if (localIdx >= Function.ArgLocals.size()) {
-                            // do not optimize arguments of the function
-                            auto valueTmp = instr.Operands[1];
-                            if (valueTmp.Type == TOperand::EType::Imm) {
-                                auto imm = valueTmp.Imm;
-                                valueTmp = TOperand{TTmp{Function.NextTmpIdx++}};
-                                newInstrs.push_back(TInstr{
-                                    .Op = "cmov"_op,
-                                    .Dest = valueTmp.Tmp,
-                                    .Operands = { imm },
-                                    .OperandCount = 1
-                                });
-                            }
-                            WriteVariable(localIdx, blockIdx, valueTmp);
-                        } else {
-                            std::cerr << "Ignoring store to local " << localIdx << " in block " << blockIdx << "\n";
-                            std::cerr << "  " << Function.ArgLocals.size() << " locals in function\n";
-                            newInstrs.push_back(instr);
-                        }
-                        break;
-                    }
-                    case "load"_op: {
-                        if (instr.OperandCount != 1) {
-                            throw std::runtime_error("Load instruction must have exactly one operand");
-                        }
-                        if (instr.Operands[0].Type != TOperand::EType::Local) {
-                            throw std::runtime_error("Load instruction operand must be a local");
-                        }
-                        int localIdx = instr.Operands[0].Local.Idx;
-                        if (localIdx >= Function.ArgLocals.size()) {
-                            auto valueTmp = ReadVariable(localIdx, blockIdx);
-                            ReplaceTmpInBlock(blockIdx, instr.Dest, valueTmp);
-                        } else {
-                            std::cerr << "Ignoring load from local " << localIdx << " in block " << blockIdx << "\n";
-                            std::cerr << "  " << Function.ArgLocals.size() << " locals in function\n";
-                            newInstrs.push_back(instr);
-                        }
-                        break;
-                    }
-                    default: {
-                        newInstrs.push_back(instr);
-                        break;
-                    }
-                }
-            }
-            block.Instrs = std::move(newInstrs);
-            for (const auto& succ : block.Succ) {
-                int s = succ.Idx;
-                if (openPredCount[s] > 0) {
-                    --openPredCount[s];
-                    if (openPredCount[s] == 0) {
-                        SealBlock(s);
-                    }
-                }
-            }
-        }
-    }
-
-    void SealBlock(int blockIdx) {
-        if (SealedBlocks.contains(blockIdx)) {
-            return;
-        }
-        SealedBlocks.insert(blockIdx);
-
-        auto it = IncompletePhis.find(blockIdx);
-        if (it == IncompletePhis.end()) {
-            return;
-        }
-
-        auto& block = Function.Blocks[blockIdx];
-        for (auto& phiInfo : it->second) {
-            for (const auto& pred : block.Pred) {
-                auto tmp = ReadVariable(phiInfo.Local, pred.Idx);
-                phiInfo.ArgTmp.emplace_back(tmp);
-            }
-
-            if (auto rep = TrivialPhiCollapse(phiInfo)) {
-                ReplaceTmpEverywhere(phiInfo.DstTmp, *rep);
-                RemovePhi(blockIdx, phiInfo.DstTmp);
-                WriteVariable(phiInfo.Local, blockIdx, *rep);
-            } else {
-                MaterializePhiInstr(blockIdx, phiInfo);
-                WriteVariable(phiInfo.Local, blockIdx, phiInfo.DstTmp);
-            }
-        }
-        IncompletePhis.erase(it);
-    }
-
-    void RemovePhi(int blockIdx, TOperand dstTmp) {
-        auto& block = Function.Blocks[blockIdx];
-        auto& v = block.Phis;
-        v.erase(std::remove_if(v.begin(), v.end(), [&](const TInstr& p){ return p.Dest == dstTmp; }), v.end());
-    }
-
     void ReplaceTmpEverywhere(TOperand fromTmp, TOperand toTmp) {
         for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
             ReplaceTmpInBlock(i, fromTmp, toTmp);
@@ -172,7 +60,7 @@ struct TSSABuilder {
         }
     }
 
-    void MaterializePhiInstr(int blockIdx, const PhiInfo& ph) {
+    TInstr* MaterializePhiInstr(int blockIdx, const PhiInfo& ph) {
         auto& block = Function.Blocks[blockIdx];
         TInstr instr = {"phi"_op};
         instr.Dest = ph.DstTmp;
@@ -189,7 +77,7 @@ struct TSSABuilder {
             ++pred;
         }
         instr.OperandCount = (int)(ph.ArgTmp.size() * 2);
-        block.Phis.push_back(instr);
+        return &block.Phis.emplace_back(instr);
     }
 
     std::optional<TOperand> MaybeCurrent(int localIdx, int blockIdx) {
@@ -203,82 +91,225 @@ struct TSSABuilder {
         return {};
     }
 
-    // Collapse trivial phi by ignoring self-references (incoming equal to DstTmp)
-    // example:  phi tmp(15) = label(0) tmp(2,i64) label(4) tmp(15) -> tmp(2)
-    std::optional<TOperand> TrivialPhiCollapse(const PhiInfo& phiInfo) {
-        std::optional<TOperand> rep;
-        bool conflict = false;
-        TOperand self = TOperand{phiInfo.DstTmp};
-        for (const auto& a : phiInfo.ArgTmp) {
-            if (a == self) {
-                continue;
-            }
-            if (!rep) {
-                rep = a;
-            } else if (*rep != a) {
-                conflict = true;
-                break;
-            }
-        }
-
-        if (!conflict && rep) {
-            return rep;
-        }
-        return {};
-    }
-
     void WriteVariable(int localIdx, int blockIdx, TOperand value) {
         CurrentDef[localIdx][blockIdx] = value;
     }
 
     TOperand ReadVariable(int localIdx, int blockIdx) {
-        auto maybeCurrent = MaybeCurrent(localIdx, blockIdx);
-        if (maybeCurrent) {
+        if (auto maybeCurrent = MaybeCurrent(localIdx, blockIdx)) {
             return *maybeCurrent;
         }
 
-        TOperand resultTmp;
+        return ReadVariableRecursive(localIdx, blockIdx);
+    }
+
+    TOperand ReadVariableRecursive(int localIdx, int blockIdx) {
+        TOperand result;
         auto& block = Function.Blocks[blockIdx];
-        int numPreds = (int)block.Pred.size();
-
         if (!SealedBlocks.contains(blockIdx)) {
-            // incomplete phi
-            if (numPreds == 0) {
-                resultTmp = TTmp{-1};
-            } else if (numPreds == 1) {
-                resultTmp = ReadVariable(localIdx, block.Pred.front().Idx);
-            } else {
-                auto newTmp = TTmp{Function.NextTmpIdx++};
-                IncompletePhis[blockIdx].push_back(PhiInfo {
-                    .Local = localIdx,
-                    .DstTmp = newTmp,
-                });
-                resultTmp = newTmp;
-            }
-            WriteVariable(localIdx, blockIdx, resultTmp);
-            return resultTmp;
-        }
-
-        if (numPreds == 0) {
-            resultTmp = TTmp{-1};
-        } else if (numPreds == 1) {
-            resultTmp = ReadVariable(localIdx, block.Pred.front().Idx);
+            auto newTmp = TTmp{Function.NextTmpIdx++};
+            IncompletePhis[blockIdx].push_back(PhiInfo {
+                .Local = localIdx,
+                .DstTmp = newTmp,
+            });
+            result = newTmp;
+        } else if (block.Pred.size() == 1) {
+            result = ReadVariable(localIdx, block.Pred.front().Idx);
         } else {
             auto dst = TTmp{Function.NextTmpIdx++};
             PhiInfo phi {
                 .Local = localIdx,
                 .DstTmp = dst,
             };
-            for (auto pred : block.Pred) {
-                phi.ArgTmp.push_back(ReadVariable(localIdx, pred.Idx));
-            }
+            WriteVariable(localIdx, blockIdx, dst);
+            result = AddPhiOperands(localIdx, blockIdx, phi);
+        }
+        WriteVariable(localIdx, blockIdx, result);
+        return result;
+    }
 
-            MaterializePhiInstr(blockIdx, phi);
-            resultTmp = dst;
+    TOperand AddPhiOperands(int localIdx, int blockIdx, PhiInfo& phi) {
+        for (auto pred : Function.Blocks[blockIdx].Pred) {
+            phi.ArgTmp.push_back(ReadVariable(localIdx, pred.Idx));
         }
 
-        WriteVariable(localIdx, blockIdx, resultTmp);
-        return resultTmp;
+        auto* instr = MaterializePhiInstr(blockIdx, phi);
+        return tryRemoveTrivialPhi(*instr);
+    }
+
+    TOperand tryRemoveTrivialPhi(TInstr& phi) {
+        std::optional<TOperand> same;
+        for (int i = 0; i < phi.OperandCount; ++i) {
+            auto& op = phi.Operands[i];
+            if (op.Type == TOperand::EType::Label) {
+                continue;
+            }
+            if (same.has_value()) {
+                if (op == *same || op == TOperand{phi.Dest}) {
+                    // ok
+                    continue;
+                } else {
+                    // not trivial
+                    return TOperand{phi.Dest};
+                }
+            } else {
+                same = op;
+            }
+        }
+        if (!same) {
+            // undef: TODO
+            same = TOperand{TImm{0, EKind::I64}};
+        }
+        //
+        auto users = GetUsers(phi.Dest);
+        // Reroute all uses of phi to same and remove phi
+        for (auto* use : users) {
+            if (use == &phi) {
+                continue;
+            }
+            for (int i = 0; i < use->OperandCount; ++i) {
+                if (use->Operands[i] == TOperand{phi.Dest}) {
+                    use->Operands[i] = *same;
+                }
+            }
+        }
+        for (auto& [loc, byBlock] : CurrentDef) {
+            for (auto& [b, val] : byBlock) {
+                if (val == TOperand{phi.Dest}) {
+                    val = *same;
+                }
+            }
+        }
+
+        // Try to recursively remove all phi users, which might have become trivial
+        for (auto* use : users) {
+            if (use == &phi) {
+                continue;
+            }
+            if (use->Op == "phi"_op) {
+                tryRemoveTrivialPhi(*use);
+            }
+        }
+        phi.Op = "nop"_op; // mark as removed
+        phi.OperandCount = 0;
+        return *same;
+    }
+
+    // TODO: optimize by caching users per tmp
+    std::vector<TInstr*> GetUsers(TTmp tmp) {
+        std::vector<TInstr*> users;
+        for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
+            auto& block = Function.Blocks[i];
+            for (auto& phi : block.Phis) {
+                for (int j = 0; j < phi.OperandCount; ++j) {
+                    if (phi.Operands[j].Type == TOperand::EType::Tmp &&
+                        phi.Operands[j].Tmp == tmp) {
+                        users.push_back(&phi);
+                    }
+                }
+            }
+            for (auto& instr : block.Instrs) {
+                for (int j = 0; j < instr.OperandCount; ++j) {
+                    if (instr.Operands[j].Type == TOperand::EType::Tmp &&
+                        instr.Operands[j].Tmp == tmp) {
+                        users.push_back(&instr);
+                    }
+                }
+            }
+        }
+        return users;
+    }
+
+    void SealBlock(int blockIdx) {
+        if (SealedBlocks.contains(blockIdx)) {
+            return;
+        }
+        SealedBlocks.insert(blockIdx);
+
+        auto maybeIncompletePhis = IncompletePhis.find(blockIdx);
+        if (maybeIncompletePhis == IncompletePhis.end()) {
+            return;
+        }
+        auto& incompletePhis = maybeIncompletePhis->second;
+        for (auto& phi : incompletePhis) {
+            AddPhiOperands(phi.Local, blockIdx, phi);
+        }
+    }
+
+    void Run() {
+        BuildCfg(Function);
+        auto rpo = ComputeRPO(Function.Blocks);
+        std::vector<int> openPredCount(Function.Blocks.size());
+        for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
+            openPredCount[i] = Function.Blocks[i].Pred.size();
+        }
+
+        auto remove = [&](TInstr& i) {
+            i.Op = "nop"_op; // mark as removed
+            i.Dest = TTmp{-1};
+            i.OperandCount = 0;
+        };
+
+        // SSA conversion
+        for (auto blockIdx : rpo) {
+            auto& block = Function.Blocks[blockIdx];
+            for (auto& instr : block.Instrs) {
+                switch (instr.Op) {
+                    case "stre"_op: {
+                        if (instr.OperandCount != 2) {
+                            throw std::runtime_error("Store instruction must have exactly two operands");
+                        }
+                        int localIdx = instr.Operands[0].Local.Idx;
+                        if (localIdx >= Function.ArgLocals.size()) {
+                            auto valueTmp = instr.Operands[1];
+                            if (valueTmp.Type == TOperand::EType::Imm) {
+                                auto imm = valueTmp.Imm;
+                                valueTmp = TOperand{TTmp{Function.NextTmpIdx++}};
+                                instr = TInstr{
+                                    .Op = "cmov"_op,
+                                    .Dest = valueTmp.Tmp,
+                                    .Operands = { imm },
+                                    .OperandCount = 1
+                                };
+                            } else {
+                                remove(instr);
+                            }
+                            WriteVariable(localIdx, blockIdx, valueTmp);
+                        }
+                        break;
+                    }
+                    case "load"_op: {
+                        if (instr.OperandCount != 1) {
+                            throw std::runtime_error("Load instruction must have exactly one operand");
+                        }
+                        if (instr.Operands[0].Type != TOperand::EType::Local) {
+                            throw std::runtime_error("Load instruction operand must be a local");
+                        }
+                        int localIdx = instr.Operands[0].Local.Idx;
+                        if (localIdx >= Function.ArgLocals.size()) {
+                            auto valueTmp = ReadVariable(localIdx, blockIdx);
+                            auto oldDest = instr.Dest;
+                            remove(instr);
+                            ReplaceTmpEverywhere(TOperand{oldDest}, valueTmp);
+                            CurrentDef[localIdx][blockIdx] = valueTmp;
+                        }
+                        break;
+                    }
+                    default: {
+                        break;
+                    }
+                }
+            }
+            for (const auto& succ : block.Succ) {
+                int s = succ.Idx;
+                if (openPredCount[s] > 0) {
+                    --openPredCount[s];
+                    if (openPredCount[s] == 0) {
+                        SealBlock(s);
+                    }
+                }
+            }
+        }
     }
 
     TModule& Module;
@@ -290,6 +321,8 @@ struct TSSABuilder {
     std::unordered_map<int, std::vector<PhiInfo>> IncompletePhis;
     // block indices
     std::unordered_set<int> SealedBlocks;
+    // Deferred tmp replacements collected while processing blocks (from tmp -> to operand)
+    std::vector<std::pair<TOperand, TOperand>> GlobalPendingReplacements;
 };
 
 } // anonymous namespace

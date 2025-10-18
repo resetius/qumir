@@ -134,6 +134,9 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
 
         auto printInstrs = [&](const std::vector<TInstr>& instrs) {
             for (const auto& i : instrs) {
+                if (i.Op == "nop"_op) {
+                    continue;
+                }
                 out << "    " << i.Op << " ";
                 if (i.Dest.Idx >= 0) {
                     Print_(out, i.Dest, typeId(i.Dest.Idx, TmpTypes), module.Types) << " = ";
