@@ -99,7 +99,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                 Runtime.Regs[instr.Operands[0].Tmp.Idx] = Runtime.Globals[s.Idx];
             } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[1].Local;
-                assert(l.Idx >= 0 && l.Idx < frame.StackBase);
+                assert(l.Idx >= 0 && l.Idx < Runtime.Stack.size() - frame.StackBase);
                 Runtime.Regs[instr.Operands[0].Tmp.Idx] = Runtime.Stack[frame.StackBase + l.Idx];
             } else {
                 assert(false && "Invalid operand for load");
@@ -117,7 +117,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                 Runtime.Globals[s.Idx] = val;
             } else if (instr.Operands[0].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[0].Local;
-                assert(l.Idx >= 0 && l.Idx < frame.StackBase);
+                assert(l.Idx >= 0 && l.Idx < Runtime.Stack.size() - frame.StackBase);
                 Runtime.Stack[frame.StackBase + l.Idx] = val;
             } else {
                 assert(false && "Invalid operand for store");
