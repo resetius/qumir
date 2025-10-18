@@ -110,9 +110,11 @@ int main(int argc, char ** argv) {
         std::cout,
         std::cin,
         TIRRunnerOptions {
-        .PrintAst = printAst,
-        .PrintIr = printIr
-    });
+            .PrintAst = printAst,
+            .PrintIr = printIr,
+            .OptLevel = optLevel
+        }
+    );
 
     TLLVMRunner llvmRunner(TLLVMRunnerOptions {
         .PrintAst = printAst,

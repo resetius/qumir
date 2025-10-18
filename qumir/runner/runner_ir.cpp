@@ -3,6 +3,7 @@
 #include <qumir/parser/lexer.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
+#include <qumir/ir/passes/transforms/pipeline.h>
 
 #include <iostream>
 #include <sstream>
@@ -56,6 +57,10 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     if (!lowerRes) {
         return std::unexpected(lowerRes.error());
     }
+    if (Options.OptLevel > 0) {
+        NIR::NPasses::Pipeline(Module);
+    }
+
     auto* mainFun = Module.GetEntryPoint();
 
     if (Options.PrintIr) {

@@ -8,10 +8,26 @@ namespace NQumir {
 namespace NIR {
 namespace NPasses {
 
+using namespace NLiterals;
+
 void Pipeline(TFunction& function, TModule& module) {
     PromoteLocalsToSSA(function, module);
     DeSSA(function, module);
     RenumberRegisters(function, module);
+
+    // remove nops
+    for (auto& block : function.Blocks) {
+        block.Instrs.erase(
+            std::remove_if(
+                block.Instrs.begin(),
+                block.Instrs.end(),
+                [](const TInstr& instr) {
+                    return instr.Op == "nop"_op;
+                }
+            ),
+            block.Instrs.end()
+        );
+    }
 }
 
 void Pipeline(TModule& module) {
