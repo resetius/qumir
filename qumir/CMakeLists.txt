@@ -25,6 +25,8 @@ add_library(qumir
     ir/passes/transforms/de_ssa.cpp
     ir/passes/transforms/locals2ssa.h
     ir/passes/transforms/locals2ssa.cpp
+    ir/passes/transforms/renumber_regs.h
+    ir/passes/transforms/renumber_regs.cpp
     ir/builder.h
     ir/builder.cpp
     ir/eval.h

@@ -7,6 +7,7 @@
 #include <qumir/ir/passes/analysis/cfg.h>
 #include <qumir/ir/passes/transforms/locals2ssa.h>
 #include <qumir/ir/passes/transforms/de_ssa.h>
+#include <qumir/ir/passes/transforms/renumber_regs.h>
 
 #include <sstream>
 
@@ -191,6 +192,10 @@ std::string s = R"(
     function.Print(std::cout, module);
 
     DeSSA(function, module);
+
+    function.Print(std::cout, module);
+
+    RenumberRegisters(function, module);
 
     function.Print(std::cout, module);
 }
