@@ -107,8 +107,8 @@ std::string s = R"(
     ASSERT_TRUE(module.Functions.size() == 1);
 
     BuildCfg(module.Functions[0]);
-    std::vector<int> rpo = ComputeRPO(module.Functions[0].Blocks);
-    EXPECT_EQ(rpo, (std::vector<int>{2, 3, 1, 0}));
+    std::vector<TLabel> rpo = ComputeRPO(module.Functions[0]);
+    EXPECT_EQ(rpo, (std::vector<TLabel>{{0}, {1}, {3}, {2}}));
 }
 
 TEST(CfgTest, PromoteLocalsToSSAWhile) {

@@ -197,6 +197,7 @@ struct TFunction {
     std::vector<TBlock> Blocks;
     std::vector<int> LocalTypes; // LocalIdx -> TypeId
     std::vector<int> TmpTypes; // TmpId -> TypeId
+    std::vector<int> Label2Idx; // LabelIdx -> BlockIdx
     int ReturnTypeId = -1;
 
     int SymId;
@@ -209,6 +210,9 @@ struct TFunction {
     int GetTmpType(int tmpId) const;
     void SetType(TTmp tmp, int typeId);
     void Print(std::ostream& out, const TModule& module) const;
+    int GetBlockIdx(const TLabel& label) const {
+        return Label2Idx[label.Idx];
+    }
 };
 
 struct TModule {

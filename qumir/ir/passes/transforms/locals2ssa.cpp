@@ -1,4 +1,5 @@
 #include "locals2ssa.h"
+#include "qumir/ir/builder.h"
 
 #include <qumir/ir/passes/analysis/cfg.h>
 #include <unordered_set>
@@ -27,17 +28,17 @@ struct TSSABuilder {
     {}
 
     void ReplaceTmpEverywhere(TOperand fromTmp, TOperand toTmp) {
-        for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
-            ReplaceTmpInBlock(i, fromTmp, toTmp);
+        for (auto& block : Function.Blocks) {
+            ReplaceTmpInBlock(block.Label, fromTmp, toTmp);
         }
     }
 
-    void ReplaceTmpInBlock(int blockIdx, TOperand fromTmp, TOperand toTmp) {
+    void ReplaceTmpInBlock(TLabel blockLabel, TOperand fromTmp, TOperand toTmp) {
         if (toTmp.Type != TOperand::EType::Tmp) {
             throw std::runtime_error("Cannot replace phi destination with non-tmp operand");
         }
 
-        auto& block = Function.Blocks[blockIdx];
+        auto& block = Function.Blocks[Function.GetBlockIdx(blockLabel)];
         for (auto& phi : block.Phis) {
             if (phi.Dest == fromTmp) {
                 phi.Dest = toTmp.Tmp;
@@ -60,8 +61,8 @@ struct TSSABuilder {
         }
     }
 
-    TPhi* MaterializePhiInstr(int blockIdx, const PhiInfo& ph) {
-        auto& block = Function.Blocks[blockIdx];
+    TPhi* MaterializePhiInstr(TLabel blockLabel, const PhiInfo& ph) {
+        auto& block = Function.Blocks[Function.GetBlockIdx(blockLabel)];
         TPhi instr = {"phi"_op};
         instr.Dest = ph.DstTmp;
         // Args: [ (arg0, pred0), (arg1, pred1), ... ]
@@ -73,10 +74,10 @@ struct TSSABuilder {
         return &block.Phis.emplace_back(instr);
     }
 
-    std::optional<TOperand> MaybeCurrent(int localIdx, int blockIdx) {
+    std::optional<TOperand> MaybeCurrent(int localIdx, TLabel blockLabel) {
         auto it = CurrentDef.find(localIdx);
         if (it != CurrentDef.end()) {
-            auto it2 = it->second.find(blockIdx);
+            auto it2 = it->second.find(blockLabel);
             if (it2 != it->second.end()) {
                 return it2->second;
             }
@@ -84,31 +85,31 @@ struct TSSABuilder {
         return {};
     }
 
-    void WriteVariable(int localIdx, int blockIdx, TOperand value) {
-        CurrentDef[localIdx][blockIdx] = value;
+    void WriteVariable(int localIdx, TLabel blockLabel, TOperand value) {
+        CurrentDef[localIdx][blockLabel] = value;
     }
 
-    TOperand ReadVariable(int localIdx, int blockIdx) {
-        if (auto maybeCurrent = MaybeCurrent(localIdx, blockIdx)) {
+    TOperand ReadVariable(int localIdx, TLabel blockLabel) {
+        if (auto maybeCurrent = MaybeCurrent(localIdx, blockLabel)) {
             return *maybeCurrent;
         }
 
-        return ReadVariableRecursive(localIdx, blockIdx);
+        return ReadVariableRecursive(localIdx, blockLabel);
     }
 
-    TOperand ReadVariableRecursive(int localIdx, int blockIdx) {
+    TOperand ReadVariableRecursive(int localIdx, TLabel blockLabel) {
         TOperand result;
-        auto& block = Function.Blocks[blockIdx];
-        if (!SealedBlocks.contains(blockIdx)) {
+        auto& block = Function.Blocks[Function.GetBlockIdx(blockLabel)];
+        if (!SealedBlocks.contains(blockLabel)) {
             auto newTmp = TTmp{Function.NextTmpIdx++};
-            IncompletePhis[blockIdx].push_back(PhiInfo {
+            IncompletePhis[blockLabel].push_back(PhiInfo {
                 .Local = localIdx,
                 .DstTmp = newTmp,
             });
             Function.SetType(newTmp, Function.LocalTypes[localIdx]);
             result = newTmp;
         } else if (block.Pred.size() == 1) {
-            result = ReadVariable(localIdx, block.Pred.front().Idx);
+            result = ReadVariable(localIdx, block.Pred.front());
         } else {
             auto dst = TTmp{Function.NextTmpIdx++};
             PhiInfo phi {
@@ -116,19 +117,22 @@ struct TSSABuilder {
                 .DstTmp = dst,
             };
             Function.SetType(dst, Function.LocalTypes[localIdx]);
-            WriteVariable(localIdx, blockIdx, dst);
-            result = AddPhiOperands(localIdx, blockIdx, phi);
+            WriteVariable(localIdx, blockLabel, dst);
+            result = AddPhiOperands(localIdx, blockLabel, phi);
         }
-        WriteVariable(localIdx, blockIdx, result);
+        // TODO: return undef if block.Pred.size() == 0
+
+        WriteVariable(localIdx, blockLabel, result);
         return result;
     }
 
-    TOperand AddPhiOperands(int localIdx, int blockIdx, PhiInfo& phi) {
+    TOperand AddPhiOperands(int localIdx, TLabel blockLabel, PhiInfo& phi) {
+        auto blockIdx = Function.GetBlockIdx(blockLabel);
         for (auto pred : Function.Blocks[blockIdx].Pred) {
-            phi.Incoming.push_back({ReadVariable(localIdx, pred.Idx), pred});
+            phi.Incoming.push_back({ReadVariable(localIdx, pred), pred});
         }
 
-        auto* instr = MaterializePhiInstr(blockIdx, phi);
+        auto* instr = MaterializePhiInstr(blockLabel, phi);
         return tryRemoveTrivialPhi(*instr);
     }
 
@@ -223,28 +227,28 @@ struct TSSABuilder {
         return {users, phiUsers};
     }
 
-    void SealBlock(int blockIdx) {
-        if (SealedBlocks.contains(blockIdx)) {
+    void SealBlock(TLabel blockLabel) {
+        if (SealedBlocks.contains(blockLabel)) {
             return;
         }
-        SealedBlocks.insert(blockIdx);
+        SealedBlocks.insert(blockLabel);
 
-        auto maybeIncompletePhis = IncompletePhis.find(blockIdx);
+        auto maybeIncompletePhis = IncompletePhis.find(blockLabel);
         if (maybeIncompletePhis == IncompletePhis.end()) {
             return;
         }
         auto& incompletePhis = maybeIncompletePhis->second;
         for (auto& phi : incompletePhis) {
-            AddPhiOperands(phi.Local, blockIdx, phi);
+            AddPhiOperands(phi.Local, blockLabel, phi);
         }
     }
 
     void Run() {
         BuildCfg(Function);
-        auto rpo = ComputeRPO(Function.Blocks);
+        auto rpo = ComputeRPO(Function);
         std::vector<int> openPredCount(Function.Blocks.size());
-        for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
-            openPredCount[i] = Function.Blocks[i].Pred.size();
+        for (auto& block : Function.Blocks) {
+            openPredCount[block.Label.Idx] = block.Pred.size();
         }
 
         auto remove = [&](TInstr& i) {
@@ -254,8 +258,8 @@ struct TSSABuilder {
         };
 
         // SSA conversion
-        for (auto blockIdx : rpo) {
-            auto& block = Function.Blocks[blockIdx];
+        for (auto blockLabel : rpo) {
+            auto& block = Function.Blocks[Function.GetBlockIdx(blockLabel)];
             for (auto& instr : block.Instrs) {
                 switch (instr.Op) {
                     case "stre"_op: {
@@ -278,7 +282,7 @@ struct TSSABuilder {
                             } else {
                                 remove(instr);
                             }
-                            WriteVariable(localIdx, blockIdx, valueTmp);
+                            WriteVariable(localIdx, blockLabel, valueTmp);
                         }
                         break;
                     }
@@ -291,11 +295,11 @@ struct TSSABuilder {
                         }
                         int localIdx = instr.Operands[0].Local.Idx;
                         if (localIdx >= Function.ArgLocals.size()) {
-                            auto valueTmp = ReadVariable(localIdx, blockIdx);
+                            auto valueTmp = ReadVariable(localIdx, blockLabel);
                             auto oldDest = instr.Dest;
                             remove(instr);
-                            ReplaceTmpEverywhere(TOperand{oldDest}, valueTmp);
-                            CurrentDef[localIdx][blockIdx] = valueTmp;
+                            ReplaceTmpInBlock(blockLabel, TOperand{oldDest}, valueTmp); // TODO: check replace
+                            CurrentDef[localIdx][blockLabel] = valueTmp;
                         }
                         break;
                     }
@@ -309,7 +313,7 @@ struct TSSABuilder {
                 if (openPredCount[s] > 0) {
                     --openPredCount[s];
                     if (openPredCount[s] == 0) {
-                        SealBlock(s);
+                        SealBlock(succ);
                     }
                 }
             }
@@ -320,11 +324,11 @@ struct TSSABuilder {
     TFunction& Function;
 
     // local -> (block -> tmp)
-    std::unordered_map<int, std::unordered_map<int, TOperand>> CurrentDef;
+    std::unordered_map<int, std::map<TLabel, TOperand>> CurrentDef;
     // block -> incomplete phis
-    std::unordered_map<int, std::vector<PhiInfo>> IncompletePhis;
+    std::map<TLabel, std::vector<PhiInfo>> IncompletePhis;
     // block indices
-    std::unordered_set<int> SealedBlocks;
+    std::set<TLabel> SealedBlocks;
     // Deferred tmp replacements collected while processing blocks (from tmp -> to operand)
     std::vector<std::pair<TOperand, TOperand>> GlobalPendingReplacements;
 };

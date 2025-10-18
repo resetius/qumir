@@ -1,4 +1,5 @@
 #include "cfg.h"
+#include "qumir/ir/builder.h"
 
 #include <unordered_set>
 #include <stack>
@@ -12,9 +13,13 @@ using namespace NLiterals;
 
 void BuildCfg(TFunction& function)
 {
+    function.Label2Idx.resize(function.Blocks.size());
+
+    int idx = 0;
     for (auto& block : function.Blocks) {
         block.Succ.clear();
         block.Pred.clear();
+        function.Label2Idx[block.Label.Idx] = idx++;
     }
 
     for (auto& block : function.Blocks) {
@@ -53,7 +58,7 @@ void BuildCfg(TFunction& function)
 
     for (auto& block : function.Blocks) {
         for (const auto& succLabel : block.Succ) {
-            auto idx = succLabel.Idx;
+            auto idx = function.Label2Idx[succLabel.Idx];
             function.Blocks[idx].Pred.push_back(block.Label);
         }
     }
@@ -65,25 +70,25 @@ void BuildCfg(TModule& module) {
     }
 }
 
-std::vector<int> ComputeRPO(const std::vector<TBlock>& blocks) {
-    std::vector<int> rpo;
-    std::unordered_set<int> seen;
-    std::stack<int> stack;
+std::vector<TLabel> ComputeRPO(TFunction& function) {
+    std::vector<TLabel> rpo;
+    std::set<TLabel> seen;
+    std::stack<TLabel> stack;
 
-    stack.push(0);
-    seen.insert(0);
-    while (!stack.empty()) {
-        auto next = stack.top(); stack.pop();
-        rpo.push_back(next);
-        for (auto& succ : blocks[next].Succ) {
-            auto idx = succ.Idx;
-            if (!seen.contains(idx)) {
-                seen.insert(idx);
-                stack.push(idx);
+    const std::vector<TBlock>& blocks = function.Blocks;
+
+    auto dfs = [&](TLabel label, auto&& dfs_ref) -> void {
+        seen.insert(label);
+        auto idx = function.Label2Idx[label.Idx];
+        for (auto succ : blocks[idx].Succ) {
+            if (!seen.contains(succ)) {
+                dfs_ref(succ, dfs_ref);
             }
         }
-    }
+        rpo.push_back(label);
+    };
 
+    dfs({0}, dfs);
     std::reverse(rpo.begin(), rpo.end());
     return rpo;
 }
