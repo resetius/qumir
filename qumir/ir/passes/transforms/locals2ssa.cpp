@@ -17,7 +17,7 @@ namespace {
 struct PhiInfo {
     int Local;
     TTmp DstTmp;
-    std::vector<TOperand> ArgTmp; // size = number of predecessors
+    std::vector<std::pair<TOperand, TLabel>> Incoming;
 };
 
 struct TSSABuilder {
@@ -65,12 +65,10 @@ struct TSSABuilder {
         TPhi instr = {"phi"_op};
         instr.Dest = ph.DstTmp;
         // Args: [ (arg0, pred0), (arg1, pred1), ... ]
-        instr.Operands.resize(ph.ArgTmp.size() * 2);
-        auto pred = block.Pred.begin();
-        for (size_t i = 0; i < ph.ArgTmp.size(); ++i) {
-            instr.Operands[2*i] = ph.ArgTmp[i];
-            instr.Operands[2*i+1] = TLabel{pred->Idx};
-            ++pred;
+        instr.Operands.reserve(ph.Incoming.size() * 2);
+        for (const auto& [value, label] : ph.Incoming) {
+            instr.Operands.push_back(value);
+            instr.Operands.push_back(label);
         }
         return &block.Phis.emplace_back(instr);
     }
@@ -127,7 +125,7 @@ struct TSSABuilder {
 
     TOperand AddPhiOperands(int localIdx, int blockIdx, PhiInfo& phi) {
         for (auto pred : Function.Blocks[blockIdx].Pred) {
-            phi.ArgTmp.push_back(ReadVariable(localIdx, pred.Idx));
+            phi.Incoming.push_back({ReadVariable(localIdx, pred.Idx), pred});
         }
 
         auto* instr = MaterializePhiInstr(blockIdx, phi);
