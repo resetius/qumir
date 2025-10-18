@@ -12,6 +12,15 @@ using namespace NLiterals;
 
 void Pipeline(TFunction& function, TModule& module) {
     PromoteLocalsToSSA(function, module);
+}
+
+void Pipeline(TModule& module) {
+    for (auto& function : module.Functions) {
+        Pipeline(function, module);
+    }
+}
+
+void BeforeCompile(TFunction& function, TModule& module) {
     DeSSA(function, module);
     RenumberRegisters(function, module);
 
@@ -30,11 +39,12 @@ void Pipeline(TFunction& function, TModule& module) {
     }
 }
 
-void Pipeline(TModule& module) {
+void BeforeCompile(TModule& module) {
     for (auto& function : module.Functions) {
-        Pipeline(function, module);
+        BeforeCompile(function, module);
     }
 }
+
 
 } // namespace NPasses
 } // namespace NIR

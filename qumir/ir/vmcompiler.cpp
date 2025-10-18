@@ -1,6 +1,7 @@
 #include "vmcompiler.h"
-#include "qumir/ir/type.h"
-#include "qumir/ir/vminstr.h"
+#include <qumir/ir/type.h>
+#include <qumir/ir/vminstr.h>
+#include <qumir/ir/passes/transforms/pipeline.h>
 
 #include <cassert>
 #include <iostream>
@@ -11,7 +12,7 @@ namespace NIR {
 
 using namespace NLiterals;
 
-TExecFunc& TVMCompiler::Compile(const TFunction& function) {
+TExecFunc& TVMCompiler::Compile(TFunction& function) {
     auto it = CodeCache.find(function.SymId);
     if (it != CodeCache.end() && it->second.UniqueId == function.UniqueId) {
         return it->second;
@@ -22,6 +23,7 @@ TExecFunc& TVMCompiler::Compile(const TFunction& function) {
     };
 
     auto& execFunc = CodeCache[function.SymId];
+    NPasses::BeforeCompile(function, Module);
     CompileUltraLow(function, execFunc);
     //std::cerr << "Compiled function " << function.Name << " (symId=" << function.SymId << ", uniqueId=" << function.UniqueId << "):\n";
     //std::cerr << "Start address: " << (uint64_t)execFunc.VMCode.data() << ", insrt size: " << sizeof(TVMInstr) << " bytes\n";

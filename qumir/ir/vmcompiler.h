@@ -20,7 +20,7 @@ public:
         : Module(module)
     {}
 
-    TExecFunc& Compile(const TFunction& function);
+    TExecFunc& Compile(TFunction& function);
 
 private:
     void CompileUltraLow(const TFunction& function, TExecFunc& out);
