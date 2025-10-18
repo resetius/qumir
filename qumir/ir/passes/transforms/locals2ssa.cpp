@@ -112,6 +112,7 @@ struct TSSABuilder {
                 .Local = localIdx,
                 .DstTmp = newTmp,
             });
+            Function.SetType(newTmp, Function.LocalTypes[localIdx]);
             result = newTmp;
         } else if (block.Pred.size() == 1) {
             result = ReadVariable(localIdx, block.Pred.front().Idx);
@@ -121,6 +122,7 @@ struct TSSABuilder {
                 .Local = localIdx,
                 .DstTmp = dst,
             };
+            Function.SetType(dst, Function.LocalTypes[localIdx]);
             WriteVariable(localIdx, blockIdx, dst);
             result = AddPhiOperands(localIdx, blockIdx, phi);
         }
@@ -271,6 +273,7 @@ struct TSSABuilder {
                                     .Operands = { imm },
                                     .OperandCount = 1
                                 };
+                                Function.SetType(valueTmp.Tmp, Module.Types.I(imm.Kind));
                             } else {
                                 remove(instr);
                             }

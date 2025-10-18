@@ -171,6 +171,24 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
     out << "}\n";
 }
 
+int TFunction::GetTmpType(int tmpId) const {
+    if (tmpId < 0 || tmpId >= (int)TmpTypes.size()) {
+        return -1;
+    }
+    return TmpTypes[tmpId];
+}
+
+void TFunction::SetType(TTmp tmp, int typeId) {
+    if (tmp.Idx < 0) {
+        throw std::out_of_range("Invalid temporary index");
+    }
+
+    if (tmp.Idx >= (int)TmpTypes.size()) {
+        TmpTypes.resize(tmp.Idx + 1, -1);
+    }
+    TmpTypes[tmp.Idx] = typeId;
+}
+
 void TModule::Print(std::ostream& out) const
 {
     for (const auto& f : Functions) {

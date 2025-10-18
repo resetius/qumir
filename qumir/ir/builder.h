@@ -200,12 +200,8 @@ struct TFunction {
     TExecFunc* Exec{nullptr};
     std::map<TLabel, int> LabelToBlockIdx;
 
-    int GetTmpType(int tmpId) const {
-        if (tmpId < 0 || tmpId >= (int)TmpTypes.size()) {
-            return -1;
-        }
-        return TmpTypes[tmpId];
-    }
+    int GetTmpType(int tmpId) const;
+    void SetType(TTmp tmp, int typeId);
     void Print(std::ostream& out, const TModule& module) const;
 };
 
