@@ -280,6 +280,13 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, const NIR::TMo
 void TLLVMCodeGen::LowerBlock(const TBlock& blk, const NIR::TModule& module, llvm::Function*, std::vector<llvm::BasicBlock*>& orderedBBs) {
     auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
 
+    for (const auto& instr : blk.Phis) {
+        if (irb->GetInsertBlock()->getTerminator()) {
+            throw std::runtime_error("attempt to emit instruction after terminator");
+        }
+        LowerInstr(instr, module);
+    }
+
     for (const auto& instr : blk.Instrs) {
         if (irb->GetInsertBlock()->getTerminator()) {
             throw std::runtime_error("attempt to emit instruction after terminator");
@@ -288,13 +295,20 @@ void TLLVMCodeGen::LowerBlock(const TBlock& blk, const NIR::TModule& module, llv
     }
 }
 
-llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& module) {
+template<typename T>
+llvm::Value* TLLVMCodeGen::LowerInstr(const T& instr, const NIR::TModule& module) {
     auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
     auto& ctx = irb->getContext();
     auto i64 = llvm::Type::getInt64Ty(ctx);
     auto f64 = llvm::Type::getDoubleTy(ctx);
     llvm::Type* outputType = nullptr;
     int outputTypeId = -1;
+    int operandCount = 0;
+    if constexpr (std::is_same_v<T, NIR::TInstr>) {
+        operandCount = instr.OperandCount;
+    } else {
+        operandCount = instr.Operands.size();
+    }
 
     if (instr.Dest.Idx >= 0) {
         outputTypeId = CurFun->Fun->GetTmpType(instr.Dest.Idx);
@@ -497,7 +511,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
             }
         }
         case "load"_op: {
-            if (instr.OperandCount != 1 || instr.Dest.Idx < 0) throw std::runtime_error("load needs 1 operand and a dest");
+            if (operandCount != 1 || instr.Dest.Idx < 0) throw std::runtime_error("load needs 1 operand and a dest");
             if (instr.Operands[0].Type == TOperand::EType::Slot) {
                 auto idx = instr.Operands[0].Slot.Idx;
                 auto g = EnsureSlotGlobal(idx, module);
@@ -515,7 +529,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
             return nullptr;
         }
         case "stre"_op: {
-            if (instr.OperandCount != 2)  throw std::runtime_error("store needs 2 operands");
+            if (operandCount != 2)  throw std::runtime_error("store needs 2 operands");
             if (instr.Operands[0].Type == TOperand::EType::Slot) {
                 auto idx = instr.Operands[0].Slot.Idx;
                 auto g = EnsureSlotGlobal(idx, module);
@@ -534,7 +548,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
             return nullptr;
         }
         case "ret"_op: {
-            if (instr.OperandCount > 0) {
+            if (operandCount > 0) {
                 auto val = getOp(instr.Operands[0]);
                 irb->CreateRet(cast(val, CurFun->LFun->getFunctionType()->getReturnType()));
             } else {
@@ -549,14 +563,14 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
             return storeTmp(cast(val, outputType));
         }
         case "arg"_op: {
-            if (instr.OperandCount != 1) throw std::runtime_error("arg needs 1 operand");
+            if (operandCount != 1) throw std::runtime_error("arg needs 1 operand");
             auto v = getOp(instr.Operands[0]);
             CurFun->PendingArgs.push_back(v);
             return nullptr;
         }
         case "call"_op: {
             // IR: call has optional Dest (required only for non-void) and one operand: Imm(symId)
-            if (instr.OperandCount < 1) throw std::runtime_error("call needs callee operand");
+            if (operandCount < 1) throw std::runtime_error("call needs callee operand");
             if (instr.Operands[0].Type != TOperand::EType::Imm) throw std::runtime_error("call callee must be Imm(symId)");
             const int calleeSymId = static_cast<int>(instr.Operands[0].Imm.Value);
             llvm::FunctionCallee callee;
@@ -605,7 +619,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
             }
         }
         case "jmp"_op: {
-            if (instr.OperandCount != 1) throw std::runtime_error("jmp needs 1 operand");
+            if (operandCount != 1) throw std::runtime_error("jmp needs 1 operand");
             if (!CurFun) throw std::runtime_error("jmp not in function");
             if (instr.Operands[0].Type != TOperand::EType::Label) throw std::runtime_error("jmp operand must be label");
             int64_t lab = instr.Operands[0].Label.Idx;
@@ -615,7 +629,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
             return nullptr;
         }
         case "cmp"_op: {
-            if (instr.OperandCount != 3) throw std::runtime_error("cmp needs 3 operands");
+            if (operandCount != 3) throw std::runtime_error("cmp needs 3 operands");
             auto condV = getOp(instr.Operands[0]);
             if (instr.Operands[1].Type != TOperand::EType::Label || instr.Operands[2].Type != TOperand::EType::Label) {
                 throw std::runtime_error("cmp branch targets must be labels");
@@ -640,24 +654,20 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const TInstr& instr, const NIR::TModule& m
             }
             return nullptr;
         }
-        case "phi2"_op: {
+        case "phi"_op: {
             // phi2 falseVal trueVal  (ordering from IR lowering). Use last cmp condition and a select.
             if (instr.Dest.Idx < 0) throw std::runtime_error("phi2 needs a dest");
-            if (instr.OperandCount != 4) throw std::runtime_error("phi2 needs 4 operands");
-            auto falseV = getOp(instr.Operands[0]);
-            int64_t fLab = instr.Operands[1].Label.Idx;
-            auto trueV  = getOp(instr.Operands[2]);
-            int64_t tLab = instr.Operands[3].Label.Idx;
-            auto phi = irb->CreatePHI(outputType, 2);
 
-            auto itT = CurFun->LabelToBB.find(tLab);
-            auto itF = CurFun->LabelToBB.find(fLab);
-            if (itT == CurFun->LabelToBB.end() || itF == CurFun->LabelToBB.end()) {
-                throw std::runtime_error("phi branch source not found");
+            auto phi = irb->CreatePHI(outputType, operandCount / 2, "phitmp");
+            for (int i = 0; i < operandCount; ++i) {
+                auto value = getOp(instr.Operands[2*i]);
+                auto label = instr.Operands[2*i+1].Label.Idx;
+                auto block = CurFun->LabelToBB.find(label);
+                if (block == CurFun->LabelToBB.end()) {
+                    throw std::runtime_error("phi incoming label not found");
+                }
+                phi->addIncoming(value, block->second);
             }
-
-            phi->addIncoming(trueV, itT->second);
-            phi->addIncoming(falseV, itF->second);
             return storeTmp(phi);
         }
     };

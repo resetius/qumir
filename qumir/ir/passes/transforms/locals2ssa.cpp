@@ -64,12 +64,12 @@ struct TSSABuilder {
         auto& block = Function.Blocks[blockIdx];
         TPhi instr = {"phi"_op};
         instr.Dest = ph.DstTmp;
-        // Args: [ (pred0, arg0), (pred1, arg1), ... ]
+        // Args: [ (arg0, pred0), (arg1, pred1), ... ]
         instr.Operands.resize(ph.ArgTmp.size() * 2);
         auto pred = block.Pred.begin();
         for (size_t i = 0; i < ph.ArgTmp.size(); ++i) {
-            instr.Operands[2*i] = TLabel{pred->Idx};
-            instr.Operands[2*i+1] = ph.ArgTmp[i];
+            instr.Operands[2*i] = ph.ArgTmp[i];
+            instr.Operands[2*i+1] = TLabel{pred->Idx};
             ++pred;
         }
         return &block.Phis.emplace_back(instr);

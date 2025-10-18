@@ -57,7 +57,8 @@ public:
 private:
     llvm::Function* LowerFunction(const NIR::TFunction& fun, const NIR::TModule& module);
     void LowerBlock(const NIR::TBlock& blk, const NIR::TModule& module, llvm::Function* lf, std::vector<llvm::BasicBlock*>& orderedBBs);
-    llvm::Value* LowerInstr(const NIR::TInstr& instr, const NIR::TModule& module);
+    template<typename T>
+    llvm::Value* LowerInstr(const T& instr, const NIR::TModule& module);
     void CreateTargetMachine();
     void Optimize(int optLevel);
 

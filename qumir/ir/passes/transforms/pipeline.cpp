@@ -12,18 +12,7 @@ using namespace NLiterals;
 
 void Pipeline(TFunction& function, TModule& module) {
     PromoteLocalsToSSA(function, module);
-}
-
-void Pipeline(TModule& module) {
-    for (auto& function : module.Functions) {
-        Pipeline(function, module);
-    }
-}
-
-void BeforeCompile(TFunction& function, TModule& module) {
-    DeSSA(function, module);
     RenumberRegisters(function, module);
-
     // remove nops
     for (auto& block : function.Blocks) {
         block.Instrs.erase(
@@ -37,6 +26,16 @@ void BeforeCompile(TFunction& function, TModule& module) {
             block.Instrs.end()
         );
     }
+}
+
+void Pipeline(TModule& module) {
+    for (auto& function : module.Functions) {
+        Pipeline(function, module);
+    }
+}
+
+void BeforeCompile(TFunction& function, TModule& module) {
+    DeSSA(function, module);
 }
 
 void BeforeCompile(TModule& module) {
