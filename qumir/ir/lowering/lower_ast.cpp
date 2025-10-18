@@ -278,7 +278,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
                 // End/merge block and phi2 selecting left(on false) vs right(on true)
                 Builder.NewBlock(endLabel);
-                auto res = Builder.Emit1("phi2"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
+                auto res = Builder.Emit1("phi"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
                 Builder.SetType(res, FromAstType(expr->Type, Module.Types));
                 Builder.UnifyTypes(res, leftNum->Tmp);
                 Builder.UnifyTypes(res, r.Value->Tmp);
@@ -312,7 +312,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
                 Builder.NewBlock(endLabel);
                 Builder.UnifyTypes(leftNum->Tmp, r.Value->Tmp);
-                auto res = Builder.Emit1("phi2"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
+                auto res = Builder.Emit1("phi"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
                 Builder.SetType(res, FromAstType(expr->Type, Module.Types));
                 Builder.UnifyTypes(res, leftNum->Tmp);
                 Builder.UnifyTypes(res, r.Value->Tmp);

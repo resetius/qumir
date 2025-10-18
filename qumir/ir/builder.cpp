@@ -132,7 +132,7 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
         out << "    label: ";
         Print_(out, b.Label, -1, module.Types) << "\n";
 
-        auto printInstrs = [&](const std::vector<TInstr>& instrs) {
+        auto printInstrs = [&]<typename T>(const std::vector<T>& instrs) {
             for (const auto& i : instrs) {
                 if (i.Op == "nop"_op) {
                     continue;
@@ -141,7 +141,13 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
                 if (i.Dest.Idx >= 0) {
                     Print_(out, i.Dest, typeId(i.Dest.Idx, TmpTypes), module.Types) << " = ";
                 }
-                for (int j = 0; j < i.OperandCount; j++) {
+                int count = 0;
+                if constexpr (std::is_same_v<T, TInstr>) {
+                    count = i.OperandCount;
+                } else if constexpr (std::is_same_v<T, TPhi>) {
+                    count = i.Operands.size();
+                }
+                for (int j = 0; j < count; j++) {
                     const auto& o = i.Operands[j];
                     switch (o.Type) {
                         case TOperand::EType::Tmp:
@@ -359,14 +365,25 @@ TTmp TBuilder::Emit1(TOp op, std::initializer_list<TOperand> operands) {
         throw std::runtime_error("No current block");
     }
     auto t = NewTmp();
-    CurrentBlock->Instrs.push_back(TInstr {
-        .Op = op, .Dest = t
-    });
-    auto& instr = CurrentBlock->Instrs.back();
-    instr.OperandCount = 0;
-    for (size_t i = 0; i < operands.size() && i < instr.Operands.size(); ++i) {
-        instr.Operands[i] = *(operands.begin() + i);
-        instr.OperandCount++;
+    if (op == "phi"_op) {
+        if (!CurrentBlock->Instrs.empty()) {
+            throw std::runtime_error("Phi instructions must be emitted before other instructions in the block");
+        }
+        CurrentBlock->Phis.push_back(TPhi {
+            .Op = op,
+            .Dest = t,
+            .Operands = operands,
+        });
+    } else {
+        CurrentBlock->Instrs.push_back(TInstr {
+            .Op = op, .Dest = t
+        });
+        auto& instr = CurrentBlock->Instrs.back();
+        instr.OperandCount = 0;
+        for (size_t i = 0; i < operands.size() && i < instr.Operands.size(); ++i) {
+            instr.Operands[i] = *(operands.begin() + i);
+            instr.OperandCount++;
+        }
     }
     return t;
 }

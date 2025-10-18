@@ -295,21 +295,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 out.Op = EVMOp::I2F;
                 break;
             }
-            case "phi2"_op: {
-                require(ins, 1, 4);
-                TVMInstr* left = &code[labelToLastPC.at(ins.Operands[1].Label.Idx)];
-                TVMInstr* right = &code[labelToLastPC.at(ins.Operands[3].Label.Idx)];
-                left--; right--;
-                // write to the same register in both branches
-                right->Operands[0] = left->Operands[0];
-                out.Operands[1] = left->Operands[0];
-                right++;
-                if (right->Op == EVMOp::Cmp) {
-                    right->Operands[0] = left->Operands[0];
-                }
-                out.Op = EVMOp::Mov; // replace phi with copy
-                break;
-            }
             case "arg"_op: {
                 require(ins, -1, 1);
                 if (ins.Operands[0].Type == TOperand::EType::Tmp) {

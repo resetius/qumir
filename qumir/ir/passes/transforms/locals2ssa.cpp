@@ -60,23 +60,18 @@ struct TSSABuilder {
         }
     }
 
-    TInstr* MaterializePhiInstr(int blockIdx, const PhiInfo& ph) {
+    TPhi* MaterializePhiInstr(int blockIdx, const PhiInfo& ph) {
         auto& block = Function.Blocks[blockIdx];
-        TInstr instr = {"phi"_op};
+        TPhi instr = {"phi"_op};
         instr.Dest = ph.DstTmp;
         // Args: [ (pred0, arg0), (pred1, arg1), ... ]
-        auto capacity = instr.Operands.size();
-        if (ph.ArgTmp.size() * 2 > capacity) {
-            std::cerr << ph.ArgTmp.size() << " " << capacity << "\n";
-            throw std::runtime_error("Too many phi arguments");
-        }
+        instr.Operands.resize(ph.ArgTmp.size() * 2);
         auto pred = block.Pred.begin();
-        for (size_t i = 0; i < ph.ArgTmp.size() && i < capacity; ++i) {
+        for (size_t i = 0; i < ph.ArgTmp.size(); ++i) {
             instr.Operands[2*i] = TLabel{pred->Idx};
             instr.Operands[2*i+1] = ph.ArgTmp[i];
             ++pred;
         }
-        instr.OperandCount = (int)(ph.ArgTmp.size() * 2);
         return &block.Phis.emplace_back(instr);
     }
 
@@ -139,9 +134,9 @@ struct TSSABuilder {
         return tryRemoveTrivialPhi(*instr);
     }
 
-    TOperand tryRemoveTrivialPhi(TInstr& phi) {
+    TOperand tryRemoveTrivialPhi(TPhi& phi) {
         std::optional<TOperand> same;
-        for (int i = 0; i < phi.OperandCount; ++i) {
+        for (int i = 0; i < (int)phi.Operands.size(); ++i) {
             auto& op = phi.Operands[i];
             if (op.Type == TOperand::EType::Label) {
                 continue;
@@ -163,13 +158,20 @@ struct TSSABuilder {
             same = TOperand{TImm{0, EKind::I64}};
         }
         //
-        auto users = GetUsers(phi.Dest);
+        auto [users, phiUsers] = GetUsers(phi.Dest);
         // Reroute all uses of phi to same and remove phi
         for (auto* use : users) {
+            for (int i = 0; i < use->OperandCount; ++i) {
+                if (use->Operands[i] == TOperand{phi.Dest}) {
+                    use->Operands[i] = *same;
+                }
+            }
+        }
+        for (auto* use : phiUsers) {
             if (use == &phi) {
                 continue;
             }
-            for (int i = 0; i < use->OperandCount; ++i) {
+            for (int i = 0; i < (int)use->Operands.size(); ++i) {
                 if (use->Operands[i] == TOperand{phi.Dest}) {
                     use->Operands[i] = *same;
                 }
@@ -184,7 +186,7 @@ struct TSSABuilder {
         }
 
         // Try to recursively remove all phi users, which might have become trivial
-        for (auto* use : users) {
+        for (auto* use : phiUsers) {
             if (use == &phi) {
                 continue;
             }
@@ -193,20 +195,21 @@ struct TSSABuilder {
             }
         }
         phi.Op = "nop"_op; // mark as removed
-        phi.OperandCount = 0;
+        phi.Operands.clear();
         return *same;
     }
 
     // TODO: optimize by caching users per tmp
-    std::vector<TInstr*> GetUsers(TTmp tmp) {
+    std::pair<std::vector<TInstr*>,std::vector<TPhi*>> GetUsers(TTmp tmp) {
         std::vector<TInstr*> users;
+        std::vector<TPhi*> phiUsers;
         for (int i = 0; i < (int)Function.Blocks.size(); ++i) {
             auto& block = Function.Blocks[i];
             for (auto& phi : block.Phis) {
-                for (int j = 0; j < phi.OperandCount; ++j) {
+                for (int j = 0; j < (int)phi.Operands.size(); ++j) {
                     if (phi.Operands[j].Type == TOperand::EType::Tmp &&
                         phi.Operands[j].Tmp == tmp) {
-                        users.push_back(&phi);
+                        phiUsers.push_back(&phi);
                     }
                 }
             }
@@ -219,7 +222,7 @@ struct TSSABuilder {
                 }
             }
         }
-        return users;
+        return {users, phiUsers};
     }
 
     void SealBlock(int blockIdx) {

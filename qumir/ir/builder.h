@@ -162,9 +162,15 @@ struct TInstr {
     uint8_t OperandCount = 0;
 };
 
+struct TPhi {
+    TOp Op; // phi or nop
+    TTmp Dest;
+    std::vector<TOperand> Operands;
+};
+
 struct TBlock {
     TLabel Label;
-    std::vector<TInstr> Phis;
+    std::vector<TPhi> Phis;
     std::vector<TInstr> Instrs;
     std::list<TLabel> Succ;
     std::list<TLabel> Pred;
