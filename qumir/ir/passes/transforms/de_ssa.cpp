@@ -23,8 +23,8 @@ void DeSSA(TFunction& function, TModule& module) {
                 continue;
             }
             for (size_t i = 0; i < phi.Operands.size(); i += 2) {
-                auto label = phi.Operands[i].Label;
-                auto value = phi.Operands[i + 1];
+                auto value = phi.Operands[i];
+                auto label = phi.Operands[i + 1].Label;
                 auto& pred = function.Blocks[label.Idx];
                 auto op = (value.Type == TOperand::EType::Tmp)
                     ? "mov"_op
