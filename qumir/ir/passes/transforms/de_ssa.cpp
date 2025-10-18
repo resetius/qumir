@@ -10,9 +10,9 @@ using namespace NLiterals;
 
 void DeSSA(TFunction& function, TModule& module) {
     for (auto& block : function.Blocks) {
-        for (auto predIdx : block.Pred) {
-            auto& pred = function.Blocks[predIdx.Idx];
-            if (pred.Succ.size() > 1 && block.Pred.size() > 1) {
+        for (auto predLabel : block.Pred) {
+            auto& predBlock = function.Blocks[function.GetBlockIdx(predLabel)];
+            if (predBlock.Succ.size() > 1 && block.Pred.size() > 1) {
                 // critical edge, need to split
                 throw std::runtime_error("DeSSA: critical edge detected, splitting not implemented yet");
             }
@@ -25,7 +25,7 @@ void DeSSA(TFunction& function, TModule& module) {
             for (size_t i = 0; i < phi.Operands.size(); i += 2) {
                 auto value = phi.Operands[i];
                 auto label = phi.Operands[i + 1].Label;
-                auto& pred = function.Blocks[label.Idx];
+                auto& predBlock = function.Blocks[function.GetBlockIdx(label)];
                 auto op = (value.Type == TOperand::EType::Tmp)
                     ? "mov"_op
                     : "cmov"_op;
@@ -35,10 +35,10 @@ void DeSSA(TFunction& function, TModule& module) {
                     .Operands = {value},
                     .OperandCount = 1,
                 };
-                if (pred.Instrs.empty()) {
+                if (predBlock.Instrs.empty()) {
                     throw std::runtime_error("DeSSA: cannot insert phi assignment into empty predecessor block: " + std::to_string(label.Idx));
                 }
-                pred.Instrs.insert(pred.Instrs.end()-1, assign);
+                predBlock.Instrs.insert(predBlock.Instrs.end()-1, assign);
             }
         }
         block.Phis.clear();
