@@ -103,10 +103,8 @@ struct TSSABuilder {
         const int numPreds = (int)block.Pred.size();
 
         if (numPreds == 0) {
-            // frontend error
-            throw std::runtime_error("ReadVariable: local " + std::to_string(localIdx) +
-                                     " in block " + std::to_string(blockLabel.Idx) +
-                                     " has no predecessors to read from");
+            // undef
+            return TOperand{TImm{0, EKind::I64}};
         }
 
         if (numPreds == 1) {
