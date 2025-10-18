@@ -6,6 +6,7 @@
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/ir/passes/analysis/cfg.h>
 #include <qumir/ir/passes/transforms/locals2ssa.h>
+#include <qumir/ir/passes/transforms/de_ssa.h>
 
 #include <sstream>
 
@@ -171,6 +172,43 @@ std::string s = R"(
     знач := 1
     нц для i от 1 до число
         знач := знач * i
+    кц
+кон
+    )";
+
+    std::istringstream ss(s);
+    NAst::TTokenStream ts(ss);
+    NIR::TModule module;
+    std::string got = BuildIR(ts, module);
+    ASSERT_TRUE(module.Functions.size() == 1);
+
+    auto& function = module.Functions[0];
+
+    function.Print(std::cout, module);
+
+    PromoteLocalsToSSA(function, module);
+
+    function.Print(std::cout, module);
+
+    DeSSA(function, module);
+
+    function.Print(std::cout, module);
+}
+
+TEST(CfgTest, PromoteLocalsToSSAContinue) {
+std::string s = R"(
+алг
+нач
+    цел i, s
+    i := 0
+    s := 0
+    нц пока i < 4
+        если mod(i, 2) = 0 то
+            i := i + 1
+            далее
+        все
+        s := s + i
+        i := i + 1
     кц
 кон
     )";
