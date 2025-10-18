@@ -100,7 +100,18 @@ struct TSSABuilder {
     TOperand ReadVariableRecursive(int localIdx, TLabel blockLabel) {
         TOperand result;
         auto& block = Function.Blocks[Function.GetBlockIdx(blockLabel)];
-        if (!SealedBlocks.contains(blockLabel)) {
+        const int numPreds = (int)block.Pred.size();
+
+        if (numPreds == 0) {
+            // frontend error
+            throw std::runtime_error("ReadVariable: local " + std::to_string(localIdx) +
+                                     " in block " + std::to_string(blockLabel.Idx) +
+                                     " has no predecessors to read from");
+        }
+
+        if (numPreds == 1) {
+            result = ReadVariable(localIdx, block.Pred.front());
+        } else if (!SealedBlocks.contains(blockLabel)) {
             auto newTmp = TTmp{Function.NextTmpIdx++};
             IncompletePhis[blockLabel].push_back(PhiInfo {
                 .Local = localIdx,
@@ -108,8 +119,6 @@ struct TSSABuilder {
             });
             Function.SetType(newTmp, Function.LocalTypes[localIdx]);
             result = newTmp;
-        } else if (block.Pred.size() == 1) {
-            result = ReadVariable(localIdx, block.Pred.front());
         } else {
             auto dst = TTmp{Function.NextTmpIdx++};
             PhiInfo phi {
@@ -120,7 +129,6 @@ struct TSSABuilder {
             WriteVariable(localIdx, blockLabel, dst);
             result = AddPhiOperands(localIdx, blockLabel, phi);
         }
-        // TODO: return undef if block.Pred.size() == 0
 
         WriteVariable(localIdx, blockLabel, result);
         return result;
@@ -249,6 +257,9 @@ struct TSSABuilder {
         std::vector<int> openPredCount(Function.Blocks.size());
         for (auto& block : Function.Blocks) {
             openPredCount[block.Label.Idx] = block.Pred.size();
+            if (openPredCount[block.Label.Idx] == 0) {
+                SealBlock(block.Label);
+            }
         }
 
         auto remove = [&](TInstr& i) {
@@ -298,7 +309,7 @@ struct TSSABuilder {
                             auto valueTmp = ReadVariable(localIdx, blockLabel);
                             auto oldDest = instr.Dest;
                             remove(instr);
-                            ReplaceTmpInBlock(blockLabel, TOperand{oldDest}, valueTmp); // TODO: check replace
+                            ReplaceTmpEverywhere(TOperand{oldDest}, valueTmp); // TODO: check replace
                             CurrentDef[localIdx][blockLabel] = valueTmp;
                         }
                         break;
