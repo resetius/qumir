@@ -401,7 +401,6 @@ void TLLVMCodeGen::AddIncomingPhiEdges(const NIR::TPhi& instr, const NIR::TModul
         }
         phi->addIncoming(value, block->second);
     }
-    std::cerr << "Finished adding phi edges for block: " << instr.Dest.Idx << "\n";
 }
 
 llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModule& module) {
