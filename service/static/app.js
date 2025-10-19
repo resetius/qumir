@@ -171,7 +171,7 @@ function initEditor() {
   if (window.CodeMirror.simpleMode && !window.CodeMirror.modes['qumir']) {
     window.CodeMirror.defineSimpleMode('qumir', {
       start: [
-        { regex: /\s*(;.*$)/, token: 'comment' },
+        { regex: /\s*(\|.*$)/, token: 'comment' },
         { regex: /(алг|нач|кон|если|иначе|все|нц|кц|пока|для|шаг|вывод|ввод|цел|вещ|лог|стр)/u, token: 'keyword' },
         { regex: /(истина|ложь)/u, token: 'atom' },
         { regex: /[-+]?\d+(?:_\d+)*(?:[eE][-+]?\d+)?/, token: 'number' },
@@ -181,7 +181,7 @@ function initEditor() {
         { regex: /(\+|\-|\*|\/|%|==|!=|<=|>=|<|>|:=|=|,)/, token: 'operator' },
         { regex: /[A-Za-zА-Яа-я_][A-Za-zА-Яа-я_0-9]*/u, token: 'variable' },
       ],
-      meta: { lineComment: ';' }
+      meta: { lineComment: '|' }
     });
   }
   // Preserve current textarea content
@@ -228,6 +228,126 @@ const viewSel = $('#view');
 if (viewSel) viewSel.addEventListener('change', () => { saveState(); show(viewSel.value); });
 const optSel = $('#opt');
 if (optSel) optSel.addEventListener('change', () => { saveState(); show($('#view').value); });
+
+// Snippet insertion
+function insertSnippet(kind) {
+  const indent = '    ';
+  const snippets = {
+    while:
+`нц пока условие
+${indent}| тело
+кц`,
+    for:
+`нц для i от 0 до 10 шаг 1
+${indent}| тело
+кц`,
+    if:
+`если условие то
+${indent}| then
+иначе
+${indent}| else
+все`,
+    switch:
+`выбор выражение
+${indent}при 1:
+${indent}${indent}| ветка 1
+${indent}при 2:
+${indent}${indent}| ветка 2
+${indent}иначе:
+${indent}${indent}| иначе
+все`,
+    func:
+`алг цел имя(цел a)
+нач
+${indent}знач := a
+кон`,
+    decl:
+`цел x, y
+| табличный тип: цел таб[0..9]`
+  };
+  const text = snippets[kind] || '';
+  if (!text) return;
+  if (editor) {
+    const doc = editor.getDoc();
+    const cur = doc.getCursor();
+    doc.replaceRange(text, cur);
+    editor.focus();
+  } else {
+    const ta = document.getElementById('code');
+    if (!ta) return;
+    const start = ta.selectionStart || 0;
+    const end = ta.selectionEnd || start;
+    const before = ta.value.slice(0, start);
+    const after = ta.value.slice(end);
+    ta.value = before + text + after;
+    ta.selectionStart = ta.selectionEnd = start + text.length;
+    ta.focus();
+  }
+  saveState();
+  debounceShow();
+}
+
+['while','for','if','switch','func','decl'].forEach(k => {
+  const btn = document.getElementById(`btn-snippet-${k}`);
+  if (btn) {
+    btn.addEventListener('click', () => insertSnippet(k));
+  }
+});
+
+// Build rich tooltips using snippet content (set immediately)
+{ const indent = '    ';
+  const preview = {
+    while:
+`Вставить: цикл пока\n\nнц пока условие\n${indent}| тело\nкц`,
+    for:
+`Вставить: цикл от\n\nнц для i от 0 до 10 шаг 1\n${indent}| тело\nкц`,
+    if:
+`Вставить: условие\n\nесли условие то\n${indent}| then\nиначе\n${indent}| else\nвсе`,
+    switch:
+`Вставить: выбор\n\nвыбор выражение\n${indent}при 1:\n${indent}${indent}| ветка 1\n${indent}при 2:\n${indent}${indent}| ветка 2\n${indent}иначе:\n${indent}${indent}| иначе\nвсе`,
+    func:
+`Вставить: функция\n\nалг цел имя(цел a)\nнач\n${indent}знач := a\nкон`,
+    decl:
+`Вставить: тип/объявление\n\nцел x, y\n| табличный тип: цел таб[0..9]`
+  };
+  ['while','for','if','switch','func','decl'].forEach(k => {
+    const btn = document.getElementById(`btn-snippet-${k}`);
+    if (btn) btn.setAttribute('data-tooltip', preview[k]);
+  });
+}
+
+// JS-driven tooltip (more reliable across browsers)
+(() => {
+  let tipEl = null;
+  function showTip(target) {
+    const msg = target.getAttribute('data-tooltip');
+    if (!msg) return;
+    if (!tipEl) {
+      tipEl = document.createElement('div');
+      tipEl.className = 'q-tooltip';
+      document.body.appendChild(tipEl);
+    }
+    tipEl.textContent = msg;
+    tipEl.style.display = 'block';
+    const r = target.getBoundingClientRect();
+    const pad = 8;
+    const top = r.bottom + pad;
+    const left = Math.max(8, Math.min(window.innerWidth - tipEl.offsetWidth - 8, r.left + r.width / 2 - (tipEl.offsetWidth / 2)));
+    tipEl.style.top = `${top}px`;
+    tipEl.style.left = `${left}px`;
+  }
+  function hideTip() {
+    if (tipEl) tipEl.style.display = 'none';
+  }
+  ['while','for','if','switch','func','decl'].forEach(k => {
+    const btn = document.getElementById(`btn-snippet-${k}`);
+    if (!btn) return;
+    btn.addEventListener('mouseenter', () => showTip(btn));
+    btn.addEventListener('mouseleave', hideTip);
+    btn.addEventListener('focus', () => showTip(btn));
+    btn.addEventListener('blur', hideTip);
+  });
+})();
 
 // Debounce auto-show on code edits to avoid spamming service
 let showTimer = null;
