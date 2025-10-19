@@ -14,6 +14,19 @@ const api = async (path, body, asBinary, signal) => {
 
 const sample = `алг\nнач\n    цел i\n    i := 1\n    вывод i, нс\nкон\n`;
 
+// CodeMirror editor (initialized below if library present)
+let editor = null;
+function getCode() {
+  if (editor) return editor.getValue();
+  const el = document.getElementById('code');
+  return el ? el.value : '';
+}
+function setCode(text) {
+  if (editor) return editor.setValue(text);
+  const el = document.getElementById('code');
+  if (el) el.value = text;
+}
+
 function setCookie(name, value, days = 365) {
   const expires = `max-age=${days*24*60*60}`;
   document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; ${expires}; path=/`;
@@ -41,7 +54,7 @@ function hexdump(bytes) {
 }
 
 async function show(mode) {
-  const code = $('#code').value;
+  const code = getCode();
   const O = $('#opt').value;
   const map = {
     ir: ['/api/compile-ir', false],
@@ -69,7 +82,7 @@ async function show(mode) {
 }
 
 async function runWasm() {
-  const code = $('#code').value;
+  const code = getCode();
   const O = $('#opt').value;
   try {
     const bytes = await api('/api/compile-wasm', { code, O }, true);
@@ -130,7 +143,7 @@ async function runWasm() {
 }
 function loadState() {
   const c = getCookie('q_code');
-  $('#code').value = (c !== null && c !== undefined) ? c : sample;
+  setCode((c !== null && c !== undefined) ? c : sample);
   const a = getCookie('q_args');
   if (a !== null && a !== undefined) $('#args').value = a;
   const i = getCookie('q_stdin');
@@ -142,15 +155,71 @@ function loadState() {
 }
 
 function saveState() {
-  setCookie('q_code', $('#code').value);
+  setCookie('q_code', getCode());
   setCookie('q_args', $('#args').value || '');
   setCookie('q_stdin', $('#stdin').value || '');
   setCookie('q_view', $('#view').value || 'ir');
   setCookie('q_opt', $('#opt').value || '0');
 }
 
+// Initialize CodeMirror if available
+function initEditor() {
+  const ta = document.getElementById('code');
+  if (!ta || typeof window.CodeMirror === 'undefined') return;
+  // Define a simple mode for Qumir language (Cyrillic keywords)
+  if (window.CodeMirror.simpleMode && !window.CodeMirror.modes['qumir']) {
+    window.CodeMirror.defineSimpleMode('qumir', {
+      start: [
+        { regex: /\s*(;.*$)/, token: 'comment' },
+        { regex: /(алг|нач|кон|если|иначе|все|нц|кц|пока|для|шаг|вывод|ввод|цел|вещ|лог|стр)/u, token: 'keyword' },
+        { regex: /(истина|ложь)/u, token: 'atom' },
+        { regex: /[-+]?\d+(?:_\d+)*(?:[eE][-+]?\d+)?/, token: 'number' },
+        { regex: /[-+]?\d*\.\d+(?:[eE][-+]?\d+)?/, token: 'number' },
+        { regex: /"(?:[^"\\]|\\.)*"/, token: 'string' },
+        { regex: /'(?:[^'\\]|\\.)*'/, token: 'string' },
+        { regex: /(\+|\-|\*|\/|%|==|!=|<=|>=|<|>|:=|=|,)/, token: 'operator' },
+        { regex: /[A-Za-zА-Яа-я_][A-Za-zА-Яа-я_0-9]*/u, token: 'variable' },
+      ],
+      meta: { lineComment: ';' }
+    });
+  }
+  // Preserve current textarea content
+  const initialText = ta.value;
+  editor = window.CodeMirror.fromTextArea(ta, {
+    lineNumbers: true,
+    tabSize: 4,
+    indentUnit: 4,
+    indentWithTabs: true,
+    matchBrackets: true,
+    theme: 'material-darker',
+    mode: 'qumir',
+    extraKeys: {
+      Tab: cm => cm.execCommand('indentMore'),
+      'Shift-Tab': cm => cm.execCommand('indentLess'),
+      'Ctrl-/': cm => cm.execCommand('toggleComment')
+    }
+  });
+  editor.setSize(null, 420);
+  // Set initial text explicitly (getCode would query editor and return empty on first init)
+  editor.setValue(initialText);
+  // Cursor status line
+  const status = document.getElementById('status');
+  if (status) {
+    editor.on('cursorActivity', () => {
+      const p = editor.getCursor();
+      status.textContent = `Ln ${p.line + 1}, Col ${p.ch + 1}`;
+    });
+  }
+  // Mirror initial text and change events
+  editor.on('change', () => { saveState(); debounceShow(); });
+  // Ensure layout after attach
+  setTimeout(() => editor.refresh(), 0);
+}
+
 loadState();
-['#code', '#args', '#stdin'].forEach(sel => {
+// Initialize editor (assets are loaded via HTML)
+initEditor();
+['#args', '#stdin'].forEach(sel => {
   const el = $(sel);
   if (el) el.addEventListener('input', saveState);
 });
@@ -165,8 +234,7 @@ const debounceShow = () => {
   if (showTimer) clearTimeout(showTimer);
   showTimer = setTimeout(() => show($('#view').value), 350);
 };
-const codeEl = $('#code');
-if (codeEl) codeEl.addEventListener('input', debounceShow);
+// Textarea fallback listener is not needed when CodeMirror is used
 
 // Auto show on first load
 show($('#view').value);

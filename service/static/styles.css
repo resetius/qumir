@@ -8,6 +8,11 @@ main { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; bo
 .pane { display: flex; flex-direction: column; border: 1px solid #333; border-radius: 4px; overflow: hidden; min-height: 0; min-width: 0; }
 .pane-title { background: #2d2d2d; padding: 6px 8px; border-bottom: 1px solid #333; font-size: 12px; color: #ccc; }
 textarea#code { flex: 1; background: #1e1e1e; color: #e6e6e6; border: none; resize: none; padding: 8px; font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 13px; overflow: auto; }
+/* CodeMirror theme adjustments to match dark UI */
+.CodeMirror { flex: 1; height: 420px; background: #1e1e1e; color: #e6e6e6; font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 13px; border: none; }
+.CodeMirror-gutters { background: #2d2d2d; border-right: 1px solid #333; }
+.CodeMirror-linenumber { color: #9e9e9e; }
+#status.status { padding: 4px 8px; font-size: 11px; background: #2d2d2d; border-top: 1px solid #333; color: #bbb; }
 pre.scroll { flex: 1; margin: 0; padding: 8px; background: #1b1b1b; overflow: auto; font-size: 12px; }
 section.io { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 8px 8px; height: 160px; flex: 0 0 auto; }
 section.io textarea { height: 120px; width: 100%; background: #1e1e1e; color: #e6e6e6; border: 1px solid #333; border-radius: 4px; resize: none; padding: 8px; font-family: ui-monospace, monospace; font-size: 12px; }

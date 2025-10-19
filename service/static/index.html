@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Qumir — Playground</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/codemirror@5/lib/codemirror.css">
+  <link rel="stylesheet" href="https://unpkg.com/codemirror@5/theme/material-darker.css">
 </head>
 <body>
   <header>
@@ -32,6 +34,7 @@
     <section class="pane left">
       <div class="pane-title">Language</div>
       <textarea id="code" spellcheck="false"></textarea>
+      <div id="status" class="status"></div>
     </section>
     <section class="pane right">
       <div class="pane-title">Output</div>
@@ -51,6 +54,10 @@
   <footer>
     <small>Inspired by Ershov’s language and Kumir.</small>
   </footer>
+  <script src="https://unpkg.com/codemirror@5/lib/codemirror.js"></script>
+  <script src="https://unpkg.com/codemirror@5/addon/comment/comment.js"></script>
+  <script src="https://unpkg.com/codemirror@5/addon/edit/matchbrackets.js"></script>
+  <script src="https://unpkg.com/codemirror@5/addon/mode/simple.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>
