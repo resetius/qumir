@@ -270,21 +270,25 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, const NIR::TMo
     }
 
     for (size_t i = 0; i < fun.Blocks.size(); ++i) {
-        auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
         irb->SetInsertPoint(bbs[i]);
         LowerBlock(fun.Blocks[i], module, lfun, bbs);
+    }
+    for (size_t i = 0; i < fun.Blocks.size(); ++i) {
+        irb->SetInsertPoint(bbs[i]);
+        for (const auto& instr : fun.Blocks[i].Phis) {
+           AddIncomingPhiEdges(instr, module);
+        }
     }
     return lfun;
 }
 
 void TLLVMCodeGen::LowerBlock(const TBlock& blk, const NIR::TModule& module, llvm::Function*, std::vector<llvm::BasicBlock*>& orderedBBs) {
     auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
-
     for (const auto& instr : blk.Phis) {
         if (irb->GetInsertBlock()->getTerminator()) {
             throw std::runtime_error("attempt to emit instruction after terminator");
         }
-        LowerInstr(instr, module);
+        EmitPhi(instr, module);
     }
 
     for (const auto& instr : blk.Instrs) {
@@ -295,66 +299,124 @@ void TLLVMCodeGen::LowerBlock(const TBlock& blk, const NIR::TModule& module, llv
     }
 }
 
-template<typename T>
-llvm::Value* TLLVMCodeGen::LowerInstr(const T& instr, const NIR::TModule& module) {
+llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, const NIR::TModule& module)
+{
     auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
     auto& ctx = irb->getContext();
     auto i64 = llvm::Type::getInt64Ty(ctx);
     auto f64 = llvm::Type::getDoubleTy(ctx);
+
+    switch (op.Type) {
+        case TOperand::EType::Imm:
+            if (op.Imm.Kind == EKind::F64) {
+                return llvm::ConstantFP::get(f64, std::bit_cast<double>(op.Imm.Value));
+            } else if (op.Imm.Kind == EKind::I64) {
+                // TODO: other immediate types
+                return llvm::ConstantInt::get(i64, op.Imm.Value, true);
+            } else if (op.Imm.Kind == EKind::Ptr) {
+                // assume char* for now
+                int id = (int)op.Imm.Value;
+                if (id < 0 || id >= module.StringLiterals.size()) {
+                    throw std::runtime_error("Invalid string literal id in outs");
+                }
+                if (id >= (int)StringLiterals.size()) {
+                    StringLiterals.resize(id + 1, nullptr);
+                }
+                auto& str = StringLiterals[id];
+                if (str) {
+                    return str;
+                }
+
+                str = irb->CreateGlobalString(module.StringLiterals[id], "strlit" + std::to_string(id));
+                return StringLiterals[id] = str;
+            } else {
+                throw std::runtime_error("unsupported immediate type");
+            }
+        case TOperand::EType::Tmp: {
+            if (op.Tmp.Idx < 0 || op.Tmp.Idx >= CurFun->TmpValues.size()) {
+                throw std::runtime_error("invalid temporary index: " + std::to_string(op.Tmp.Idx));
+            }
+            if (!CurFun->TmpValues[op.Tmp.Idx]) {
+                throw std::runtime_error("use of uninitialized temporary: " + std::to_string(op.Tmp.Idx));
+            }
+            return CurFun->TmpValues[op.Tmp.Idx];
+        }
+        default:
+            throw std::runtime_error("unsupported operand type in ALU instruction");
+    };
+}
+
+llvm::Value* TLLVMCodeGen::EmitPhi(const NIR::TPhi& instr, const NIR::TModule& module)
+{
+    auto opcode = instr.Op;
+    if (opcode != "phi"_op && opcode != "nop"_op) {
+        throw std::runtime_error("EmitPhi called with non-phi instruction");
+    }
+    if (opcode == "nop"_op) {
+        return nullptr;
+    }
+
+    auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
+    auto& ctx = irb->getContext();
     llvm::Type* outputType = nullptr;
     int outputTypeId = -1;
-    int operandCount = 0;
-    if constexpr (std::is_same_v<T, NIR::TInstr>) {
-        operandCount = instr.OperandCount;
-    } else {
-        operandCount = instr.Operands.size();
-    }
 
     if (instr.Dest.Idx >= 0) {
         outputTypeId = CurFun->Fun->GetTmpType(instr.Dest.Idx);
         outputType = GetTypeById(outputTypeId, module.Types, ctx);
     }
 
-    auto getOp = [&](const TOperand& op) -> llvm::Value* {
-        switch (op.Type) {
-            case TOperand::EType::Imm:
-                if (op.Imm.Kind == EKind::F64) {
-                    return llvm::ConstantFP::get(f64, std::bit_cast<double>(op.Imm.Value));
-                } else if (op.Imm.Kind == EKind::I64) {
-                    // TODO: other immediate types
-                    return llvm::ConstantInt::get(i64, op.Imm.Value, true);
-                } else if (op.Imm.Kind == EKind::Ptr) {
-                    // assume char* for now
-                    int id = (int)op.Imm.Value;
-                    if (id < 0 || id >= module.StringLiterals.size()) {
-                        throw std::runtime_error("Invalid string literal id in outs");
-                    }
-                    if (id >= (int)StringLiterals.size()) {
-                        StringLiterals.resize(id + 1, nullptr);
-                    }
-                    auto& str = StringLiterals[id];
-                    if (str) {
-                        return str;
-                    }
-
-                    str = irb->CreateGlobalString(module.StringLiterals[id], "strlit" + std::to_string(id));
-                    return StringLiterals[id] = str;
-                } else {
-                    throw std::runtime_error("unsupported immediate type");
-                }
-            case TOperand::EType::Tmp: {
-                if (op.Tmp.Idx < 0 || op.Tmp.Idx >= CurFun->TmpValues.size()) {
-                    throw std::runtime_error("invalid temporary index: " + std::to_string(op.Tmp.Idx));
-                }
-                if (!CurFun->TmpValues[op.Tmp.Idx]) {
-                    throw std::runtime_error("use of uninitialized temporary: " + std::to_string(op.Tmp.Idx));
-                }
-                return CurFun->TmpValues[op.Tmp.Idx];
+    auto storeTmp = [&](llvm::Value* v){
+        if (instr.Dest.Idx >= 0) {
+            if (instr.Dest.Idx >= CurFun->TmpValues.size()) {
+                CurFun->TmpValues.resize(instr.Dest.Idx + 1, nullptr);
             }
-            default:
-                throw std::runtime_error("unsupported operand type in ALU instruction");
-        };
+            CurFun->TmpValues[instr.Dest.Idx] = v;
+        }
+        return v;
     };
+
+    auto operandCount = instr.Size();
+    if (operandCount % 2 != 0 || operandCount < 2) {
+        throw std::runtime_error("phi needs even number of operands >= 2");
+    }
+
+    auto phi = irb->CreatePHI(outputType, operandCount / 2, "phitmp");
+    return storeTmp(phi);
+}
+
+void TLLVMCodeGen::AddIncomingPhiEdges(const NIR::TPhi& instr, const NIR::TModule& module)
+{
+    if (instr.Op == "nop"_op) {
+        return;
+    }
+    auto* value = CurFun->TmpValues[instr.Dest.Idx];
+    auto* phi = llvm::cast<llvm::PHINode>(value);
+    for (int i = 0; i < instr.Size() / 2; ++i) {
+        auto value = GetOp(instr.Operands[2*i], module);
+        auto label = instr.Operands[2*i+1].Label.Idx;
+        auto block = CurFun->LabelToBB.find(label);
+        if (block == CurFun->LabelToBB.end()) {
+            throw std::runtime_error("phi incoming label not found");
+        }
+        phi->addIncoming(value, block->second);
+    }
+    std::cerr << "Finished adding phi edges for block: " << instr.Dest.Idx << "\n";
+}
+
+llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModule& module) {
+    auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
+    auto& ctx = irb->getContext();
+    auto i64 = llvm::Type::getInt64Ty(ctx);
+    auto f64 = llvm::Type::getDoubleTy(ctx);
+    llvm::Type* outputType = nullptr;
+    int outputTypeId = -1;
+    int operandCount = instr.Size();
+
+    if (instr.Dest.Idx >= 0) {
+        outputTypeId = CurFun->Fun->GetTmpType(instr.Dest.Idx);
+        outputType = GetTypeById(outputTypeId, module.Types, ctx);
+    }
 
     auto opcode = instr.Op;
     auto storeTmp = [&](llvm::Value* v){
@@ -442,8 +504,8 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const T& instr, const NIR::TModule& module
     };
 
     auto binOp = [&](llvm::Instruction::BinaryOps op) -> llvm::Value* {
-        auto lhs = cast(getOp(instr.Operands[0]), outputType);
-        auto rhs = cast(getOp(instr.Operands[1]), outputType);
+        auto lhs = cast(GetOp(instr.Operands[0], module), outputType);
+        auto rhs = cast(GetOp(instr.Operands[1], module), outputType);
         return irb->CreateBinOp(op, lhs, rhs, "bintmp");
     };
 
@@ -484,8 +546,8 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const T& instr, const NIR::TModule& module
         case "!="_op: {
             // Output type is i1 (bool)
             // Should get common type of operands and do signed comparison for integers
-            auto lhs = getOp(instr.Operands[0]);
-            auto rhs = getOp(instr.Operands[1]);
+            auto lhs = GetOp(instr.Operands[0], module);
+            auto rhs = GetOp(instr.Operands[1], module);
             auto commonTy = commonType(lhs, rhs);
             lhs = cast(lhs, commonTy);
             rhs = cast(rhs, commonTy);
@@ -503,7 +565,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const T& instr, const NIR::TModule& module
             }
         }
         case "neg"_op: {
-            auto v = getOp(instr.Operands[0]);
+            auto v = GetOp(instr.Operands[0], module);
             if (outputType->isFloatingPointTy()) {
                 return storeTmp(irb->CreateFNeg(cast(v, outputType), "fnegtmp"));
             } else if (outputType->isIntegerTy()) {
@@ -533,14 +595,14 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const T& instr, const NIR::TModule& module
             if (instr.Operands[0].Type == TOperand::EType::Slot) {
                 auto idx = instr.Operands[0].Slot.Idx;
                 auto g = EnsureSlotGlobal(idx, module);
-                auto value = getOp(instr.Operands[1]);
+                auto value = GetOp(instr.Operands[1], module);
                 auto* valTy = g->getValueType();
                 irb->CreateStore(cast(value, valTy), g);
             } else if (instr.Operands[0].Type == TOperand::EType::Local) {
                 auto lidx = instr.Operands[0].Local.Idx;
                 if (lidx < 0 || lidx >= CurFun->Allocas.size()) throw std::runtime_error("invalid local index");
                 auto ptr = CurFun->Allocas[lidx];
-                auto value = getOp(instr.Operands[1]);
+                auto value = GetOp(instr.Operands[1], module);
                 irb->CreateStore(cast(value, ptr->getAllocatedType()), ptr);
             } else {
                 throw std::runtime_error("store first operand must be slot or local");
@@ -549,7 +611,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const T& instr, const NIR::TModule& module
         }
         case "ret"_op: {
             if (operandCount > 0) {
-                auto val = getOp(instr.Operands[0]);
+                auto val = GetOp(instr.Operands[0], module);
                 irb->CreateRet(cast(val, CurFun->LFun->getFunctionType()->getReturnType()));
             } else {
                 irb->CreateRetVoid();
@@ -559,12 +621,12 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const T& instr, const NIR::TModule& module
         case "i2f"_op:
         case "cmov"_op:
         case "mov"_op: {
-            auto val = getOp(instr.Operands[0]);
+            auto val = GetOp(instr.Operands[0], module);
             return storeTmp(cast(val, outputType));
         }
         case "arg"_op: {
             if (operandCount != 1) throw std::runtime_error("arg needs 1 operand");
-            auto v = getOp(instr.Operands[0]);
+            auto v = GetOp(instr.Operands[0], module);
             CurFun->PendingArgs.push_back(v);
             return nullptr;
         }
@@ -630,7 +692,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const T& instr, const NIR::TModule& module
         }
         case "cmp"_op: {
             if (operandCount != 3) throw std::runtime_error("cmp needs 3 operands");
-            auto condV = getOp(instr.Operands[0]);
+            auto condV = GetOp(instr.Operands[0], module);
             if (instr.Operands[1].Type != TOperand::EType::Label || instr.Operands[2].Type != TOperand::EType::Label) {
                 throw std::runtime_error("cmp branch targets must be labels");
             }
@@ -653,22 +715,6 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const T& instr, const NIR::TModule& module
                 irb->CreateCondBr(cmpNZ, itT->second, itF->second);
             }
             return nullptr;
-        }
-        case "phi"_op: {
-            // phi2 falseVal trueVal  (ordering from IR lowering). Use last cmp condition and a select.
-            if (instr.Dest.Idx < 0) throw std::runtime_error("phi2 needs a dest");
-
-            auto phi = irb->CreatePHI(outputType, operandCount / 2, "phitmp");
-            for (int i = 0; i < operandCount; ++i) {
-                auto value = getOp(instr.Operands[2*i]);
-                auto label = instr.Operands[2*i+1].Label.Idx;
-                auto block = CurFun->LabelToBB.find(label);
-                if (block == CurFun->LabelToBB.end()) {
-                    throw std::runtime_error("phi incoming label not found");
-                }
-                phi->addIncoming(value, block->second);
-            }
-            return storeTmp(phi);
         }
     };
     std::cerr << "LLVMCodeGen: unhandled instruction: '" << instr.Op.ToString() << "'\n";

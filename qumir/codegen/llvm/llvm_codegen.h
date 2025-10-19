@@ -7,6 +7,8 @@
 #include <vector>
 #include <unordered_map>
 
+#include <qumir/ir/builder.h>
+
 namespace llvm {
 class AllocaInst;
 class LLVMContext;
@@ -57,8 +59,10 @@ public:
 private:
     llvm::Function* LowerFunction(const NIR::TFunction& fun, const NIR::TModule& module);
     void LowerBlock(const NIR::TBlock& blk, const NIR::TModule& module, llvm::Function* lf, std::vector<llvm::BasicBlock*>& orderedBBs);
-    template<typename T>
-    llvm::Value* LowerInstr(const T& instr, const NIR::TModule& module);
+    llvm::Value* LowerInstr(const NIR::TInstr& instr, const NIR::TModule& module);
+    llvm::Value* EmitPhi(const NIR::TPhi& instr, const NIR::TModule& module);
+    void AddIncomingPhiEdges(const NIR::TPhi& instr, const NIR::TModule& module);
+    llvm::Value* GetOp(const NIR::TOperand& op, const NIR::TModule& module);
     void CreateTargetMachine();
     void Optimize(int optLevel);
 
