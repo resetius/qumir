@@ -128,10 +128,11 @@ async function runWasm() {
       } else {
         out += 'no exported functions to invoke\n';
       }
-      out += '\nexports:\n';
-      for (const [k, v] of Object.entries(instance.exports)) {
-        out += ` - ${k}: ${typeof v}\n`;
-      }
+  // Debug: list of WebAssembly exports (disabled)
+  // out += '\nexports:\n';
+  // for (const [k, v] of Object.entries(instance.exports)) {
+  //   out += ` - ${k}: ${typeof v}\n`;
+  // }
     }
     const stdoutEl = $('#stdout');
     stdoutEl.textContent += "\n";
