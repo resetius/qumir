@@ -124,7 +124,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         try:
             if mode == 'ir':
                 out = src + '.ir'
-                rc, so, se = self._run([QUMIRC, '--ir', '-o', out, src])
+                rc, so, se = self._run([QUMIRC, '--ir', '-O', olevel, '-o', out, src])
                 if rc != 0:
                     return self._send_json({'error':se.decode('utf-8','ignore')}, 400)
                 try:

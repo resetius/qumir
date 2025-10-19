@@ -6,6 +6,7 @@
 #include <qumir/parser/parser.h>
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/ir/builder.h>
+#include <qumir/ir/passes/transforms/pipeline.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/codegen/llvm/llvm_codegen.h>
@@ -53,7 +54,7 @@ void GenerateAst(const std::string& inputFile, const std::string& outputFile) {
     out << *ast;
 }
 
-void GenerateIr(const std::string& inputFile, const std::string& outputFile) {
+void GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel) {
     std::cerr << "Generating IR from " << inputFile << " to " << outputFile << "\n";
 
     std::ifstream in(inputFile);
@@ -88,6 +89,9 @@ void GenerateIr(const std::string& inputFile, const std::string& outputFile) {
     if (!lowerResult.has_value()) {
         std::cerr << "Lowering error: " << lowerResult.error().ToString() << "\n";
         return;
+    }
+    if (optLevel > 0) {
+        NIR::NPasses::Pipeline(module);
     }
 
     std::ofstream out(outputFile);
@@ -299,6 +303,9 @@ void Generate(const std::string& inputFile, const std::string& outputFile, bool 
         std::cerr << "Lowering error: " << lowerResult.error().ToString() << "\n";
         return;
     }
+    if (optLevel > 0) {
+        NIR::NPasses::Pipeline(module);
+    }
 
     NCodeGen::TLLVMCodeGenOptions cgOpts;
     if (targetWasm) {
@@ -451,7 +458,7 @@ int main(int argc, char** argv) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ir");
         }
-        GenerateIr(inputFile, outputFile);
+        GenerateIr(inputFile, outputFile, optLevel);
         return 0;
     }
 
