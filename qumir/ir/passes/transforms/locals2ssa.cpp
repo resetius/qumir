@@ -28,22 +28,16 @@ struct TSSABuilder {
     {}
 
     void ReplaceTmpEverywhere(TOperand fromTmp, TOperand toTmp) {
-        std::vector<TOperand> pending; // for nested dst->imm replacements
-        pending.push_back(fromTmp);
-        do {
-            fromTmp = pending.back(); pending.pop_back();
-            for (auto& block : Function.Blocks) {
-                ReplaceTmpInBlock(block.Label, fromTmp, toTmp, pending);
-            }
-        } while (!pending.empty());
+        for (auto& block : Function.Blocks) {
+            ReplaceTmpInBlock(block.Label, fromTmp, toTmp);
+        }
     }
 
-    void ReplaceTmpInBlock(TLabel blockLabel, TOperand fromTmp, TOperand toTmp, std::vector<TOperand>& pending) {
+    void ReplaceTmpInBlock(TLabel blockLabel, TOperand fromTmp, TOperand toTmp) {
         auto& block = Function.Blocks[Function.GetBlockIdx(blockLabel)];
         auto replace = [&](auto& instrs) {
             for (auto& inst : instrs) {
                 if (inst.Dest == fromTmp) {
-                    pending.push_back(TOperand{inst.Dest});
                     inst.Clear();
                     continue;
                 }
