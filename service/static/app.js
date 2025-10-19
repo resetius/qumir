@@ -12,7 +12,7 @@ const api = async (path, body, asBinary, signal) => {
   return asBinary ? new Uint8Array(await r.arrayBuffer()) : await r.text();
 };
 
-const sample = `алг цел цикл\nнач\n    цел ф, i\n    нц для i от 1 до 10000000\n        ф := факториал(13)\n    кц\n    знач := ф\nкон\n\nалг цел факториал(цел число)\nнач\n    цел i\n    знач := 1\n    нц для i от 1 до число\n        знач := знач * i\n    кц\nкон\n`;
+const sample = `алг цел цикл\nнач\n    | пример комментария: горячий цикл для теста производительности\n    цел ф, i\n    нц для i от 1 до 10000000\n        ф := факториал(13)\n    кц\n    знач := ф\nкон\n\nалг цел факториал(цел число)\nнач\n    | пример комментария внутри функции\n    цел i\n    знач := 1\n    нц для i от 1 до число\n        знач := знач * i\n    кц\nкон\n`;
 
 // CodeMirror editor (initialized below if library present)
 let editor = null;
