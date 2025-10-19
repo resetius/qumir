@@ -84,10 +84,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._compile_wasm(payload)
         if self.path == '/api/compile-wasm-text':
             return self._compile_wasm_text(payload)
-        if self.path == '/api/run-ir':
-            return self._run_interpreter(payload, jit=False)
-        if self.path == '/api/run-jit':
-            return self._run_interpreter(payload, jit=True)
+        #if self.path == '/api/run-ir':
+        #    return self._run_interpreter(payload, jit=False)
+        #if self.path == '/api/run-jit':
+        #    return self._run_interpreter(payload, jit=True)
 
         return self._send_json({'error':'unknown endpoint'}, 404)
 
