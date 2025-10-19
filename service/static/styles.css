@@ -26,7 +26,8 @@ button, select { background: #0e639c; color: white; border: none; padding: 6px 1
 select { background: #333; border: 1px solid #555; }
 button:hover { filter: brightness(1.1); }
 pre.error { color: #ff8a80; white-space: pre-wrap; }
-footer { padding: 6px 12px; border-top: 1px solid #333; color: #bbb; }
+footer { padding: 6px 12px; border-top: 1px solid #333; color: #bbb; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+footer .cookies-note { margin-left: auto; opacity: 0.9; }
 
 /* JS-driven tooltip */
 .q-tooltip { position: fixed; background: #2d2d2d; color: #eee; padding: 6px 8px; border-radius: 4px; font-size: 12px; white-space: pre; border: 1px solid #555; box-shadow: 0 6px 16px rgba(0,0,0,0.5); z-index: 4000; pointer-events: none; max-width: 60vw; }
