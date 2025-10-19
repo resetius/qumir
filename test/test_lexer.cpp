@@ -230,8 +230,8 @@ TEST(LexerTest, TwoCharOperators) {
 // --- Strings and comments ----------------------------------------------------
 TEST(LexerTest, StringLiteralAndComments) {
     std::istringstream input(
-        "вывод \"Привет\", нс  (* комментарий *)\n"
-        "-- ещё комментарий до конца строки\n"
+        "вывод \"Привет\", нс  | комментарий \n"
+        "| ещё комментарий до конца строки\n"
         "вывод \"OK\""
     );
     TTokenStream tokens(input);
@@ -246,7 +246,8 @@ TEST(LexerTest, StringLiteralAndComments) {
     t = tokens.Next();
     ASSERT_TRUE(t.has_value());
     EXPECT_EQ(t->Type, TToken::Keyword) << "ожидался keyword 'нс'";
-    ExpectOp(tokens.Next(), EOperator::Eol);
+    ExpectOp(tokens.Next(), EOperator::Eol); // comment 1
+    ExpectOp(tokens.Next(), EOperator::Eol); // comment 2
 
     // комментарии должны быть съедены, далее снова "вывод"
     ExpectKeyword(tokens.Next(), EKeyword::Output);

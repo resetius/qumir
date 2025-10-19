@@ -247,7 +247,8 @@ void TTokenStream::Read() {
     // /, +, -, =, ), [, ], ,,
     // ( - prefix for comments
     auto isSingleCharOperator = [](char ch) {
-        return ch == ')'
+        return ch == '('
+            || ch == ')'
             || ch == '+'
             || ch == '/'
             || ch == '='
@@ -264,7 +265,7 @@ void TTokenStream::Read() {
     };
 
     auto isIdentifierStop = [&](char ch) {
-        return isSingleCharOperator(ch) || isOperatorPrefix(ch) || ch == '(' || ch == '-' || ch == '"' || ch == '\n' || ch == ';';
+        return isSingleCharOperator(ch) || isOperatorPrefix(ch) || ch == '(' || ch == '-' || ch == '"' || ch == '\n' || ch == ';' || ch == '|';
     };
 
     while ((Tokens.empty() || state != Start) && In.get(ch)) {
@@ -288,10 +289,10 @@ void TTokenStream::Read() {
                     } else if (std::isdigit(ch)) {
                         state = InNumber;
                         token = (int64_t)(ch - '0');
+                    } else if (ch == '|') {
+                        state = InLineComment;
                     } else if (ch == '-') {
                         state = InMaybeNumber;
-                    } else if (ch == '(') {
-                        state = InMaybeComment;
                     } else if (ch == '"') {
                         state = InString;
                     } else if (isOperatorPrefix(ch)) {
@@ -358,10 +359,7 @@ void TTokenStream::Read() {
                     break;
                 }
                 case InMaybeNumber:
-                    if (ch == '-') {
-                        // multiline comment: -- ...
-                        state = InLineComment;
-                    } else if (std::isdigit(ch)) {
+                    if (std::isdigit(ch)) {
                         state = InNumber;
                         token = (int64_t)(-(ch - '0'));
                     } else if (ch == '.') {
@@ -379,28 +377,7 @@ void TTokenStream::Read() {
                 case InLineComment:
                     if (ch == '\n') {
                         state = Start;
-                    }
-                    break;
-                case InMaybeComment:
-                    // Comments: (* ... *) for block comments
-                    if (ch == '*') {
-                        state = InBlockComment;
-                    } else {
-                        // Not a comment, just a '(' operator followed by something else
-                        emitOperator(EOperator::LParen);
-                        tokenLocation = CurrentLocation;
-                        state = Start;
                         repeat = true;
-                    }
-                    break;
-                case InBlockComment:
-                    if (ch == '*') {
-                        state = InBlockCommentEnd;
-                    }
-                    break;
-                case InBlockCommentEnd:
-                    if (ch == ')') {
-                        state = Start;
                     }
                     break;
                 case InNumber:
