@@ -160,12 +160,33 @@ struct TInstr {
     TTmp Dest = {.Idx = -1};
     std::array<TOperand, 4> Operands;
     uint8_t OperandCount = 0;
+
+    void Clear() {
+        Op = TOp("nop");
+        Dest = TTmp{ -1 };
+        Operands.fill(TOperand{});
+        OperandCount = 0;
+    }
+
+    int Size() const {
+        return OperandCount;
+    }
 };
 
 struct TPhi {
     TOp Op; // phi or nop
-    TTmp Dest;
+    TTmp Dest = {.Idx = -1};
     std::vector<TOperand> Operands;
+
+    void Clear() {
+        Op = TOp("nop");
+        Dest = TTmp{-1};
+        Operands.clear();
+    }
+
+    int Size() const {
+        return Operands.size();
+    }
 };
 
 struct TBlock {

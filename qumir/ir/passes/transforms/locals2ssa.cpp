@@ -28,37 +28,35 @@ struct TSSABuilder {
     {}
 
     void ReplaceTmpEverywhere(TOperand fromTmp, TOperand toTmp) {
-        for (auto& block : Function.Blocks) {
-            ReplaceTmpInBlock(block.Label, fromTmp, toTmp);
-        }
+        std::vector<TOperand> pending; // for nested dst->imm replacements
+        pending.push_back(fromTmp);
+        do {
+            fromTmp = pending.back(); pending.pop_back();
+            for (auto& block : Function.Blocks) {
+                ReplaceTmpInBlock(block.Label, fromTmp, toTmp, pending);
+            }
+        } while (!pending.empty());
     }
 
-    void ReplaceTmpInBlock(TLabel blockLabel, TOperand fromTmp, TOperand toTmp) {
-        if (toTmp.Type != TOperand::EType::Tmp) {
-            throw std::runtime_error("Cannot replace phi destination with non-tmp operand");
-        }
-
+    void ReplaceTmpInBlock(TLabel blockLabel, TOperand fromTmp, TOperand toTmp, std::vector<TOperand>& pending) {
         auto& block = Function.Blocks[Function.GetBlockIdx(blockLabel)];
-        for (auto& phi : block.Phis) {
-            if (phi.Dest == fromTmp) {
-                phi.Dest = toTmp.Tmp;
-            }
-            for (auto& a : phi.Operands) {
-                if (a == fromTmp) {
-                    a = toTmp;
+        auto replace = [&](auto& instrs) {
+            for (auto& inst : instrs) {
+                if (inst.Dest == fromTmp) {
+                    pending.push_back(TOperand{inst.Dest});
+                    inst.Clear();
+                    continue;
+                }
+                for (int i = 0; i < inst.Size(); ++i) {
+                    auto& op = inst.Operands[i];
+                    if (op == fromTmp) {
+                        op = toTmp;
+                    }
                 }
             }
-        }
-        for (auto& inst : block.Instrs) {
-            if (inst.Dest == fromTmp) {
-                inst.Dest = toTmp.Tmp;
-            }
-            for (auto& op : inst.Operands) {
-                if (op == fromTmp) {
-                    op = toTmp;
-                }
-            }
-        }
+        };
+        replace(block.Phis);
+        replace(block.Instrs);
     }
 
     TPhi* MaterializePhiInstr(TLabel blockLabel, const PhiInfo& ph) {
@@ -202,8 +200,7 @@ struct TSSABuilder {
                 tryRemoveTrivialPhi(*use);
             }
         }
-        phi.Op = "nop"_op; // mark as removed
-        phi.Operands.clear();
+        phi.Clear();
         return *same;
     }
 
@@ -260,12 +257,6 @@ struct TSSABuilder {
             }
         }
 
-        auto remove = [&](TInstr& i) {
-            i.Op = "nop"_op; // mark as removed
-            i.Dest = TTmp{-1};
-            i.OperandCount = 0;
-        };
-
         // SSA conversion
         for (auto blockLabel : rpo) {
             auto& block = Function.Blocks[Function.GetBlockIdx(blockLabel)];
@@ -278,19 +269,7 @@ struct TSSABuilder {
                         int localIdx = instr.Operands[0].Local.Idx;
                         if (localIdx >= Function.ArgLocals.size()) {
                             auto valueTmp = instr.Operands[1];
-                            if (valueTmp.Type == TOperand::EType::Imm) {
-                                auto imm = valueTmp.Imm;
-                                valueTmp = TOperand{TTmp{Function.NextTmpIdx++}};
-                                instr = TInstr{
-                                    .Op = "cmov"_op,
-                                    .Dest = valueTmp.Tmp,
-                                    .Operands = { imm },
-                                    .OperandCount = 1
-                                };
-                                Function.SetType(valueTmp.Tmp, Module.Types.I(imm.Kind));
-                            } else {
-                                remove(instr);
-                            }
+                            instr.Clear();
                             WriteVariable(localIdx, blockLabel, valueTmp);
                         }
                         break;
@@ -306,7 +285,7 @@ struct TSSABuilder {
                         if (localIdx >= Function.ArgLocals.size()) {
                             auto valueTmp = ReadVariable(localIdx, blockLabel);
                             auto oldDest = instr.Dest;
-                            remove(instr);
+                            instr.Clear();
                             ReplaceTmpEverywhere(TOperand{oldDest}, valueTmp); // TODO: check replace
                             CurrentDef[localIdx][blockLabel] = valueTmp;
                         }
