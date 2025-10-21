@@ -15,6 +15,9 @@
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/ir/builder.h>
 
+#include <qumir/runner/runner_llvm.h>
+#include <qumir/runner/runner_ir.h>
+
 using namespace NQumir;
 namespace fs = std::filesystem;
 
@@ -179,11 +182,53 @@ TEST_P(RegAst, IR) {
     EXPECT_EQ(got, exp);
 }
 
+TEST_P(RegExec, ExecLLVM) {
+    const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
+    const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".out");
+
+    const auto code = ReadAll(src);
+    std::istringstream input(code);
+
+    TLLVMRunner runner;
+    auto res = runner.Run(input);
+    std::string got;
+    if (!res) {
+        got = "Error: " + res.error().ToString() + "\n";
+    } else {
+        std::ostringstream out;
+        out << *(res.value());
+        got = out.str();
+    }
+
+    if (printOutput) {
+        std::cout << "=== Output LLVM RUN for " << src << " ===\n";
+        std::cout << got << "\n";
+        std::cout << "=== End of output ===\n";
+    }
+
+    if (updateGoldens) {
+        WriteAll(golden, got);
+    }
+    if (!fs::exists(golden)) {
+        // fail if golden missing
+        std::cerr << "Missing golden LLVM RUN file: " << golden << "\n";
+        FAIL();
+    }
+    const auto exp = ReadAll(golden);
+    EXPECT_EQ(got, exp);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     RegProgAst,
     RegAst,
     ::testing::ValuesIn(Collect(CasesDir)),
     [](const ::testing::TestParamInfo<ProgCase>& i){ return "AST_" + NameFromPath(i.param.base); });
+
+INSTANTIATE_TEST_SUITE_P(
+    RegProgExec,
+    RegExec,
+    ::testing::ValuesIn(Collect(CasesDir)),
+    [](const ::testing::TestParamInfo<ProgCase>& i){ return "EXEC_" + NameFromPath(i.param.base); });
 
 int main(int argc, char** argv) {
     if (argc > 1) {

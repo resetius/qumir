@@ -93,6 +93,9 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
     }
 
     auto* mainFun = Module.GetEntryPoint();
+    if (!mainFun) {
+        return std::unexpected(TError({}, std::string("entry point not found")));
+    }
 
     // Run via LLVM JIT
     NCodeGen::TLlvmRunner runner;
