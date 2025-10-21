@@ -184,7 +184,7 @@ TEST_P(RegAst, IR) {
 
 TEST_P(RegExec, ExecLLVM) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
-    const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".out");
+    const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
 
     const auto code = ReadAll(src);
     std::istringstream input(code);
