@@ -55,6 +55,7 @@ enum class EVMOp : uint8_t {
     Mov,
     Cmov, // convert imm to tmp
     I2F, // int to float
+    F2I, // float to int
 
     // control flow
     Jmp,

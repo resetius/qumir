@@ -425,6 +425,20 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 *rhs.Value = Builder.Emit1("i2f"_op, {*rhs.Value});
                 Builder.SetType(rhs.Value->Tmp, FromAstType(expr->Type, Module.Types));
             }
+        } else if (rhs.Value->Type == TOperand::EType::Tmp) {
+            auto rhsType = Builder.GetType(rhs.Value->Tmp);
+            if (rhsType != slotType) {
+                // cast
+                if (Module.Types.IsFloat(slotType) && !Module.Types.IsFloat(rhsType)) {
+                    auto casted = Builder.Emit1("i2f"_op, {*rhs.Value});
+                    Builder.SetType(casted, slotType);
+                    *rhs.Value = casted;
+                } else if (!Module.Types.IsFloat(slotType) && Module.Types.IsFloat(rhsType)) {
+                    auto casted = Builder.Emit1("f2i"_op, {*rhs.Value});
+                    Builder.SetType(casted, slotType);
+                    *rhs.Value = casted;
+                }
+            }
         }
         // TODO: unify
         if (localSlot.Idx >= 0) {

@@ -272,6 +272,13 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             Runtime.Regs[instr.Operands[0].Tmp.Idx] = ret;
             break;
         }
+        case EVMOp::F2I: {
+            assert(instr.Operands[0].Tmp.Idx >= 0);
+            double fval = ReadOperand<double>(Runtime.Regs, instr.Operands[1]);
+            int64_t ival = static_cast<int64_t>(fval);
+            Runtime.Regs[instr.Operands[0].Tmp.Idx] = ival;
+            break;
+        }
 
         case EVMOp::Jmp: {
             assert(instr.Operands[0].Type == TVMOperand::EType::Imm);

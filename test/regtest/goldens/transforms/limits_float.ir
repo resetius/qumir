@@ -2,8 +2,9 @@ function ф () { ; 32 i64
   block {
     label: label(0)
     - tmp(0,f64) = imm(9218868437227405311) imm(4622382067542392832) 
-    stre local(0,i64) tmp(0,f64) 
-    load tmp(1,i64) = local(0,i64) 
-    ret tmp(1,i64) 
+    f2i tmp(1,i64) = tmp(0,f64) 
+    stre local(0,i64) tmp(1,i64) 
+    load tmp(2,i64) = local(0,i64) 
+    ret tmp(2,i64) 
   }
 }
