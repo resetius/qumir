@@ -22,30 +22,27 @@ void RenumberRegisters(TFunction& function, TModule& module) {
         return newIdx;
     };
 
-    for (auto& block : function.Blocks) {
-        for (auto& phi : block.Phis) {
-            if (phi.Op == "nop"_op) {
-                continue;
-            }
-            phi.Dest.Idx = getNewTmpIdx(phi.Dest.Idx);
-            for (auto& op : phi.Operands) {
-                if (op.Type == TOperand::EType::Tmp) {
-                    op.Tmp.Idx = getNewTmpIdx(op.Tmp.Idx);
-                }
+    auto renumberInstr = [&](auto& instr) {
+        if (instr.Op == "nop"_op) {
+            return;
+        }
+        if (instr.Dest.Idx >= 0) {
+            instr.Dest.Idx = getNewTmpIdx(instr.Dest.Idx);
+        }
+        for (int i = 0; i < instr.Size(); ++i) {
+            auto& op = instr.Operands[i];
+            if (op.Type == TOperand::EType::Tmp) {
+                op.Tmp.Idx = getNewTmpIdx(op.Tmp.Idx);
             }
         }
+    };
+
+    for (auto& block : function.Blocks) {
+        for (auto& phi : block.Phis) {
+            renumberInstr(phi);
+        }
         for (auto& instr : block.Instrs) {
-            if (instr.Op == "nop"_op) {
-                continue;
-            }
-            if (instr.Dest.Idx >= 0) {
-                instr.Dest.Idx = getNewTmpIdx(instr.Dest.Idx);
-            }
-            for (auto& op : instr.Operands) {
-                if (op.Type == TOperand::EType::Tmp) {
-                    op.Tmp.Idx = getNewTmpIdx(op.Tmp.Idx);
-                }
-            }
+            renumberInstr(instr);
         }
     }
 
