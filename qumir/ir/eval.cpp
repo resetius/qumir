@@ -60,7 +60,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
     if (!function.Exec) {
         function.Exec = &Compiler.Compile(function);
     }
-    std::vector<TFrame> callStack;
+    std::vector<TFrame> callStack; callStack.reserve(16);
     auto* execFunc = function.Exec;
     callStack.push_back(TFrame {
         .Exec = execFunc,
@@ -327,14 +327,14 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             const int argCount = (int)Runtime.Args.size();
             assert(argCount <= (int)localArgs.size() && "too many arguments for callee");
 
+            int saveRegSize = std::min((size_t)frame.UsedRegs, (size_t)(calleeExec->MaxTmpIdx + 1));
+            for (int i = 0; i < saveRegSize; ++i) {
+                Runtime.Stack.push_back(Runtime.Regs[i]);
+            }
             auto base = Runtime.Stack.size();
+
             Runtime.Regs.resize(calleeExec->MaxTmpIdx + 1, 0);
             Runtime.Stack.resize(Runtime.Stack.size() + calleeExec->NumLocals, 0);
-            Runtime.SavedRegs.resize(frame.UsedRegs, 0);
-            // copy used regs
-            for (int i = 0; i < frame.UsedRegs; ++i) {
-                Runtime.SavedRegs[i] = Runtime.Regs[i];
-            }
 
             // save slots that will be overwritten by parameters
             for (int i = 0; i < argCount; ++i) {
@@ -364,19 +364,23 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             if (callStack.empty()) {
                 break;
             } else {
+                auto& callerFrame = callStack.back();
                 assert(!ReturnLinks.empty());
                 auto link = std::move(ReturnLinks.back());
                 ReturnLinks.pop_back();
 
                 auto& linkFrame = callStack[link.FrameIdx];
+                Runtime.Stack.resize(base);
                 // restore used regs
-                for (int i = 0; i < linkFrame.UsedRegs; ++i) {
-                    Runtime.Regs[i] = Runtime.SavedRegs[i];
+                int saveRegSize = std::min((size_t)callerFrame.UsedRegs, (size_t)frame.UsedRegs);
+                Runtime.Regs.resize(callerFrame.UsedRegs);
+                for (int i = 0; i < saveRegSize; ++i) {
+                    Runtime.Regs[i] = Runtime.Stack[base + i];
                 }
                 if (retVal.has_value()) {
                     Runtime.Regs[link.CallerDst] = *retVal;
                 }
-                Runtime.Stack.resize(base);
+                Runtime.Stack.resize(base - saveRegSize);
             }
             break;
         }

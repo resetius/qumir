@@ -21,9 +21,9 @@ struct TRuntime {
 struct TExecFunc;
 
 struct TFrame {
-    TExecFunc* Exec{nullptr};
-    int UsedRegs = 0;
-    uint64_t StackBase = 0;
+    const TExecFunc* Exec{nullptr};
+    const int UsedRegs = 0;
+    const uint64_t StackBase = 0;
     TVMInstr* PC{nullptr};
 };
 
