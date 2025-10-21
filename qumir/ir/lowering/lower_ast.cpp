@@ -499,7 +499,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         // auto currentFuncIdx = Builder.CurrentFunctionIdx(); // needed for nested functions
         auto funcIdx = Builder.NewFunction(name, args, sidOpt->Id);
-        Builder.SetReturnType(FromAstType(fun->RetType, Module.Types));
+        auto returnType = FromAstType(fun->RetType, Module.Types);
+        Builder.SetReturnType(returnType);
         for (auto& a : args) {
             Builder.SetType(a, FromAstType(type->ParamTypes[&a - &args[0]], Module.Types));
         }
