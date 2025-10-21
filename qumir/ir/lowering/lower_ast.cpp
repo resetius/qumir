@@ -495,7 +495,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             .BreakLabel = std::nullopt,
             .ContinueLabel = std::nullopt
         });
-        if (loweredBody.Value) {
+        if (loweredBody.Value && !NAst::TMaybeType<NAst::TVoidType>(fun->RetType)) {
             // TODO: return value of 'hidden' __return variable
             Builder.Emit0("ret"_op, {*loweredBody.Value});
         } else {
