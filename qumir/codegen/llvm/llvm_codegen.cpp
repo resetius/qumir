@@ -503,6 +503,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModu
     };
 
     auto binOp = [&](llvm::Instruction::BinaryOps op) -> llvm::Value* {
+        // TODO: cast after operation
         auto lhs = cast(GetOp(instr.Operands[0], module), outputType);
         auto rhs = cast(GetOp(instr.Operands[1], module), outputType);
         return irb->CreateBinOp(op, lhs, rhs, "bintmp");
