@@ -200,7 +200,9 @@ TEST_P(RegExec, ExecIR) {
         got = "Error: " + res.error().ToString() + "\n";
     } else {
         std::ostringstream out;
-        out << *(res.value());
+        if (res.value().has_value()) {
+            out << *(res.value());
+        }
         got = out.str();
     }
 
@@ -280,7 +282,9 @@ TEST_P(RegExec, ExecLLVM) {
         got = "Error: " + res.error().ToString() + "\n";
     } else {
         std::ostringstream out;
-        out << *(res.value());
+        if (res.value().has_value()) {
+            out << *(res.value());
+        }
         got = out.str();
     }
 
