@@ -27,8 +27,8 @@ void DeSSA(TFunction& function, TModule& module) {
                             .OperandCount = 1,
                         }
                     },
+                    .Succ = {block.Label},
                     .Pred = {predLabel},
-                    .Succ = {block.Label}
                 });
                 remap[{predLabel, block.Label}] = newLabel;
                 auto& termInstr = predBlock.Instrs.back();
