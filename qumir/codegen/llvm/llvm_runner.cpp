@@ -9,6 +9,7 @@
 #include <llvm/Support/TargetSelect.h>
 
 #include <sstream>
+#include <iomanip>
 
 namespace NQumir::NCodeGen {
 
@@ -80,10 +81,10 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
     }
     std::ostringstream oss;
     if (retTy->isFloatTy()) {
-        oss << gv.FloatVal;
+        oss << std::fixed << std::setprecision(15) << gv.FloatVal;
     }
     if (retTy->isDoubleTy()) {
-        oss << gv.DoubleVal;
+        oss << std::fixed << std::setprecision(15) << gv.DoubleVal;
     }
     if (retTy->isIntegerTy()) {
         unsigned bits = retTy->getIntegerBitWidth();
