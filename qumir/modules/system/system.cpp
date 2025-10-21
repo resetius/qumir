@@ -212,7 +212,7 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
         },
         {
             .Name = "div",
-            .MangledName = "div",
+            .MangledName = "div_qum",
             .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, int64_t)>(div_qum)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
                 return std::bit_cast<uint64_t>(div_qum(std::bit_cast<int64_t>(args[0]), std::bit_cast<int64_t>(args[1])));
