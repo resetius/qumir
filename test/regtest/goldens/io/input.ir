@@ -2,6 +2,6 @@ function <main> () { ; 32 void
   block {
     label: label(0)
     call tmp(0,i64) = imm(28) 
-    ret tmp(0,i64) 
+    ret 
   }
 }
