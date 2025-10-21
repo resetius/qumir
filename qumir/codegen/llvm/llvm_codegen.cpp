@@ -563,7 +563,16 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModu
                 throw std::runtime_error("unsupported type for comparison");
             }
         }
-        case "!"_op:
+        case "!"_op: {
+            auto v = GetOp(instr.Operands[0], module);
+            if (outputType->isIntegerTy(1)) {
+                auto zero = llvm::ConstantInt::get(v->getType(), 0);
+                auto cmp = irb->CreateICmpEQ(cast(v, v->getType()), zero, "nottmp");
+                return storeTmp(cmp);
+            } else {
+                throw std::runtime_error("logical not output type must be i1");
+            }
+        }
         case "neg"_op: {
             auto v = GetOp(instr.Operands[0], module);
             if (outputType->isFloatingPointTy()) {

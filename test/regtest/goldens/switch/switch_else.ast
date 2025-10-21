@@ -1,6 +1,7 @@
 (Block:<Fun () -> >
-  (FunDecl $<main> ():<Fun () -> >
-    (Block:<Void>
+  (FunDecl $функция ():<Fun () -> >
+    (Block:<Int>
+      (Var $__return:<Int>)
       (Var $ф:<Int>)
       ($ф =:<Void>
         (0:<Int>))
@@ -22,4 +23,7 @@
               (102:<Int>)))
           (Block:<Void>
             ($ф =:<Void>
-              (-198:<Int>))))))))
+              (-198:<Int>)))))
+      ($__return =:<Void>
+        ($ф:<Int>))
+      ($__return:<Int>))))

@@ -1,7 +1,8 @@
 function функция () { ; 32 f64
   block {
     label: label(0)
-    load tmp(0,f64) = local(0) 
+    stre local(0,f64) imm(-4617090337980232499) 
+    load tmp(0,f64) = local(0,f64) 
     ret tmp(0,f64) 
   }
 }

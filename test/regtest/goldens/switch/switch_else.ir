@@ -1,32 +1,32 @@
-function <main> () { ; 32 void
+function функция () { ; 32 i64
   block {
     label: label(0)
-    stre local(0,i64) imm(0) 
-    load tmp(0,i64) = local(0,i64) 
+    stre local(1,i64) imm(0) 
+    load tmp(0,i64) = local(1,i64) 
     < tmp(1,i1) = tmp(0,i64) imm(10) 
     cmp tmp(1,i1) label(1) label(2) 
   }
   block {
     label: label(1)
-    load tmp(2,i64) = local(0,i64) 
+    load tmp(2,i64) = local(1,i64) 
     + tmp(3,i64) = tmp(2,i64) imm(1) 
-    stre local(0,i64) tmp(3,i64) 
+    stre local(1,i64) tmp(3,i64) 
     jmp label(3) 
   }
   block {
     label: label(2)
-    load tmp(4,i64) = local(0,i64) 
+    load tmp(4,i64) = local(1,i64) 
     > tmp(5,i1) = tmp(4,i64) imm(20) 
     cmp tmp(5,i1) label(4) label(5) 
   }
   block {
     label: label(4)
-    stre local(0,i64) imm(102) 
+    stre local(1,i64) imm(102) 
     jmp label(6) 
   }
   block {
     label: label(5)
-    stre local(0,i64) imm(-198) 
+    stre local(1,i64) imm(-198) 
     jmp label(6) 
   }
   block {
@@ -35,6 +35,9 @@ function <main> () { ; 32 void
   }
   block {
     label: label(3)
-    ret 
+    load tmp(6,i64) = local(1,i64) 
+    stre local(0,i64) tmp(6,i64) 
+    load tmp(7,i64) = local(0,i64) 
+    ret tmp(7,i64) 
   }
 }
