@@ -563,6 +563,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModu
                 throw std::runtime_error("unsupported type for comparison");
             }
         }
+        case "!"_op:
         case "neg"_op: {
             auto v = GetOp(instr.Operands[0], module);
             if (outputType->isFloatingPointTy()) {
