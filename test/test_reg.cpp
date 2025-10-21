@@ -187,6 +187,10 @@ TEST_P(RegExec, ExecLLVM) {
     const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
 
     const auto code = ReadAll(src);
+    auto header = code.substr(0, code.find('\n'));
+    if (header.find("disable_exec") != std::string::npos) {
+        GTEST_SKIP() << "Execution disabled for this test case";
+    }
     std::istringstream input(code);
 
     TLLVMRunner runner;
