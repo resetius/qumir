@@ -6,6 +6,8 @@ namespace NQumir {
 namespace NIR {
 namespace NPasses {
 
+using namespace NLiterals;
+
 void RenumberRegisters(TFunction& function, TModule& module) {
     std::unordered_map<int, int> tmpMapping;
     int nextTmpIdx = 0;
@@ -22,6 +24,9 @@ void RenumberRegisters(TFunction& function, TModule& module) {
 
     for (auto& block : function.Blocks) {
         for (auto& phi : block.Phis) {
+            if (phi.Op == "nop"_op) {
+                continue;
+            }
             phi.Dest.Idx = getNewTmpIdx(phi.Dest.Idx);
             for (auto& op : phi.Operands) {
                 if (op.Type == TOperand::EType::Tmp) {
@@ -30,6 +35,9 @@ void RenumberRegisters(TFunction& function, TModule& module) {
             }
         }
         for (auto& instr : block.Instrs) {
+            if (instr.Op == "nop"_op) {
+                continue;
+            }
             if (instr.Dest.Idx >= 0) {
                 instr.Dest.Idx = getNewTmpIdx(instr.Dest.Idx);
             }
