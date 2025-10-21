@@ -72,6 +72,13 @@ TEST(LexerTest, NegativeFloat) {
     ExpectFloat(tokens.Next(), -.1);
 }
 
+TEST(LexerTest, NegativeFloat2) {
+    std::istringstream input("-1.1");
+    TTokenStream tokens(input);
+
+    ExpectFloat(tokens.Next(), -1.1);
+}
+
 TEST(LexerTest, Assignment) {
     std::istringstream input("x := 23");
     TTokenStream tokens(input);

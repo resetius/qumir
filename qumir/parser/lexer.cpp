@@ -149,7 +149,7 @@ void TTokenStream::Read() {
     char prev = 0; // for 2-char operators
     std::variant<int64_t,double,TIdentifierList,TStringLiteral,std::monostate> token = std::monostate();
     int frac = 10;
-    int sign = 1; // for floats
+    int sign = 1;
     bool repeat = false;
     bool unescape = false;
     TLocation tokenLocation = CurrentLocation;
@@ -185,7 +185,7 @@ void TTokenStream::Read() {
     auto flush =[&]() {
         if (std::holds_alternative<int64_t>(token)) {
             Tokens.emplace_back(TToken {
-                .Value = {.i64 = std::get<int64_t>(token)},
+                .Value = {.i64 = sign ? std::get<int64_t>(token) : -std::get<int64_t>(token)},
                 .Type = TToken::Integer,
                 .Location = tokenLocation
             });
@@ -361,7 +361,8 @@ void TTokenStream::Read() {
                 case InMaybeNumber:
                     if (std::isdigit(ch)) {
                         state = InNumber;
-                        token = (int64_t)(-(ch - '0'));
+                        token = (int64_t)(ch - '0');
+                        sign = 0;
                     } else if (ch == '.') {
                         state = InNumber;
                         token = (double)(0.0);
