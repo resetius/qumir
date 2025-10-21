@@ -222,6 +222,46 @@ TEST_P(RegExec, ExecIR) {
     EXPECT_EQ(got, exp);
 }
 
+TEST_P(RegExec, ExecIROPT) {
+    const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
+    const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
+
+    const auto code = ReadAll(src);
+    auto header = code.substr(0, code.find('\n'));
+    if (header.find("disable_exec") != std::string::npos) {
+        GTEST_SKIP() << "Execution disabled for this test case";
+    }
+    std::istringstream input(code);
+
+    TIRRunner runner(std::cout, std::cin, {.OptLevel = 1});
+    auto res = runner.Run(input);
+    std::string got;
+    if (!res) {
+        got = "Error: " + res.error().ToString() + "\n";
+    } else {
+        std::ostringstream out;
+        out << *(res.value());
+        got = out.str();
+    }
+
+    if (printOutput) {
+        std::cout << "=== Output IR RUN for " << src << " ===\n";
+        std::cout << got << "\n";
+        std::cout << "=== End of output ===\n";
+    }
+
+    if (updateGoldens) {
+        WriteAll(golden, got);
+    }
+    if (!fs::exists(golden)) {
+        // fail if golden missing
+        std::cerr << "Missing golden IR RUN file: " << golden << "\n";
+        FAIL();
+    }
+    const auto exp = ReadAll(golden);
+    EXPECT_EQ(got, exp);
+}
+
 TEST_P(RegExec, ExecLLVM) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
     const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
