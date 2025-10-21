@@ -417,6 +417,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
 
         if (rhs.Value->Type == TOperand::EType::Imm) {
+            // TODO: we can cast immediate directly on store
             // cast immediate to a register before storing (for cast)
             if (rhs.Value->Imm.Kind == EKind::F64 && Module.Types.IsInteger(slotType)) {
                 *rhs.Value = Builder.Emit1("cmov"_op, {*rhs.Value});
@@ -550,18 +551,29 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         for (auto& a : call->Args) {
             auto av = co_await Lower(a, scope);
             if (!av.Value) co_return TError(a->Location, "invalid argument");
-            if (argTypes) {
-                const auto& argType = (*argTypes)[i++];
-                if (av.Value->Type == TOperand::EType::Imm) {
-                    auto maybeFloat = NAst::TMaybeType<NAst::TFloatType>(argType);
-                    if (maybeFloat && av.Value->Imm.Kind != EKind::F64) {
-                        // Argument is a float but was lowered to int: convert
-                        double tmp = static_cast<double>(av.Value->Imm.Value);
-                        av.Value = TImm{.Value = std::bit_cast<int64_t>(tmp), .Kind = EKind::F64};
+            const auto& argType = (*argTypes)[i++];
+            if (av.Value->Type == TOperand::EType::Imm) {
+                auto maybeFloat = NAst::TMaybeType<NAst::TFloatType>(argType);
+                if (maybeFloat && av.Value->Imm.Kind != EKind::F64) {
+                    // Argument is a float but was lowered to int: convert
+                    double tmp = static_cast<double>(av.Value->Imm.Value);
+                    av.Value = TImm{.Value = std::bit_cast<int64_t>(tmp), .Kind = EKind::F64};
+                }
+            } else if (av.Value->Type == TOperand::EType::Tmp) {
+                auto argAstType = FromAstType(argType, Module.Types);
+                auto avType = Builder.GetType(av.Value->Tmp);
+                if (argAstType != avType) {
+                    // cast
+                    if (Module.Types.IsFloat(argAstType) && !Module.Types.IsFloat(avType)) {
+                        auto casted = Builder.Emit1("i2f"_op, {*av.Value});
+                        Builder.SetType(casted, argAstType);
+                        av.Value = casted;
+                    } else if (!Module.Types.IsFloat(argAstType) && Module.Types.IsFloat(avType)) {
+                        auto casted = Builder.Emit1("f2i"_op, {*av.Value});
+                        Builder.SetType(casted, argAstType);
+                        av.Value = casted;
                     }
                 }
-            } else {
-                // untyped arg: accept as-is (unit tests)
             }
             argv.push_back(*av.Value);
         }
