@@ -1,4 +1,11 @@
 add_executable(qumiri interpreter.cpp)
 target_link_libraries(qumiri PUBLIC qumir qumir_runtime qumir_codegen_llvm)
+if(UNIX AND NOT APPLE)
+	# Export all symbols from the executable so MCJIT can resolve externals
+	target_link_options(qumiri PRIVATE -rdynamic)
+endif()
 add_executable(qumirc driver.cpp)
 target_link_libraries(qumirc PUBLIC qumir qumir_runtime qumir_codegen_llvm)
+if(UNIX AND NOT APPLE)
+	target_link_options(qumirc PRIVATE -rdynamic)
+endif()

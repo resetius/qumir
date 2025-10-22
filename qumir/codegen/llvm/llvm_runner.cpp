@@ -7,6 +7,7 @@
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/DynamicLibrary.h>
 
 #include <sstream>
 #include <iomanip>
@@ -32,6 +33,10 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
         LLVMInitializeNativeAsmParser();
         inited = true;
     }
+
+    // Make symbols from the current process available to the JIT. On Linux,
+    // this requires the executable to be linked with -rdynamic as well.
+    llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
     // Build execution engine
     std::string eeErr;
