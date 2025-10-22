@@ -382,7 +382,8 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                 int saveRegSize = std::min((size_t)callerFrame.UsedRegs, (size_t)frame.UsedRegs);
                 Runtime.Regs.resize(callerFrame.UsedRegs);
                 for (int i = 0; i < saveRegSize; ++i) {
-                    Runtime.Regs[i] = Runtime.Stack[base + i];
+                    // TODO: test this
+                    Runtime.Regs[saveRegSize - i - 1] = Runtime.Stack[base - i - 1];
                 }
                 if (retVal.has_value()) {
                     Runtime.Regs[link.CallerDst] = *retVal;
