@@ -242,7 +242,9 @@ TEST_P(RegExec, ExecIROPT) {
         got = "Error: " + res.error().ToString() + "\n";
     } else {
         std::ostringstream out;
-        out << *(res.value());
+        if (res.value().has_value()) {
+            out << *(res.value());
+        }
         got = out.str();
     }
 
