@@ -1,0 +1,76 @@
+(Block:<Fun () -> >
+  (FunDecl $цикл ():<Fun () -> >
+    (Block:<Int>
+      (Var $__return:<Int>)
+      (Var $ф:<Int>)
+      (Var $i:<Int>)
+      (Block:<Void>
+        (Var $__to:<Int>)
+        (Var $__step:<Int>)
+        (Var $__next:<Int>)
+        ($i =:<Void>
+          (1:<Int>))
+        ($__step =:<Void>
+          (1:<Int>))
+        ($__next =:<Void>
+          ($i:<Int>))
+        ($__to =:<Void>
+          (+:<Int>
+            (1000:<Int>)
+            ($__step:<Int>)))
+        (Loop:<Void>
+          (!=:<Bool>
+            ($__next:<Int>)
+            ($__to:<Int>))
+          nil
+          ($i =:<Void>
+            ($__next:<Int>))
+          (Block:<Void>
+            ($ф =:<Void>
+              (Call:<Int>
+                ($факториал:<Fun () -> >)
+                (13:<Int>))))
+          ($__next =:<Void>
+            (+:<Int>
+              ($__next:<Int>)
+              ($__step:<Int>)))))
+      ($__return =:<Void>
+        ($ф:<Int>))
+      ($__return:<Int>)))
+  (FunDecl $факториал ($число):<Fun () -> >
+    (Block:<Int>
+      (Var $__return:<Int>)
+      (Var $i:<Int>)
+      ($__return =:<Void>
+        (1:<Int>))
+      (Block:<Void>
+        (Var $__to:<Int>)
+        (Var $__step:<Int>)
+        (Var $__next:<Int>)
+        ($i =:<Void>
+          (1:<Int>))
+        ($__step =:<Void>
+          (1:<Int>))
+        ($__next =:<Void>
+          ($i:<Int>))
+        ($__to =:<Void>
+          (+:<Int>
+            ($число:<Int>)
+            ($__step:<Int>)))
+        (Loop:<Void>
+          (!=:<Bool>
+            ($__next:<Int>)
+            ($__to:<Int>))
+          nil
+          ($i =:<Void>
+            ($__next:<Int>))
+          (Block:<Void>
+            ($__return =:<Void>
+              (*:<Int>
+                ($__return:<Int>)
+                ($i:<Int>))))
+          ($__next =:<Void>
+            (+:<Int>
+              ($__next:<Int>)
+              ($__step:<Int>)))))
+      ($__return:<Int>))))
