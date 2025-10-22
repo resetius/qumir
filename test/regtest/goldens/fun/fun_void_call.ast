@@ -1,0 +1,16 @@
+(Block:<Fun () -> >
+  (FunDecl $функция ():<Fun () -> >
+    (Block:<Int>
+      (Var $__return:<Int>)
+      (Call:<Void>
+        ($ф:<Fun () -> >)
+        (10:<Int>))
+      ($__return =:<Void>
+        (1:<Int>))
+      ($__return:<Int>)))
+  (FunDecl $ф ($i):<Fun () -> >
+    (Block:<Void>
+      (Block
+        (Call
+          ($output_int64)
+          ($i:<Int>))))))

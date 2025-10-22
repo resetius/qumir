@@ -1,0 +1,19 @@
+function функция () { ; 32 i64
+  block {
+    label: label(0)
+    arg imm(10) 
+    call imm(33) 
+    stre local(0,i64) imm(1) 
+    load tmp(0,i64) = local(0,i64) 
+    ret tmp(0,i64) 
+  }
+}
+function ф (local(0)) { ; 33 void
+  block {
+    label: label(0)
+    load tmp(0,i64) = local(0,i64) 
+    arg tmp(0,i64) 
+    call imm(30) 
+    ret 
+  }
+}

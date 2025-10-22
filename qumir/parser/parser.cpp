@@ -947,9 +947,11 @@ TAstTask stmt(TTokenStream& stream) {
             auto rhs = co_await expr(stream);
             co_return std::make_shared<TAssignExpr>(first->Location, first->Name, rhs);
         } else {
-            stream.Unget(*first);
+            // Important: restore tokens in reverse order of reading
+            // so that the identifier comes before '(' again.
             stream.Unget(next);
-            co_return TError(stream.GetLocation(), "неизвестный стейтмент (пока поддерживаются только объявления переменных)");
+            stream.Unget(*first);
+            co_return co_await expr(stream);
         }
     } else {
         // std::cerr << "Debug " << (int)first->Type << " " << first->Name << " " << first->Value.i64 << "\n";
