@@ -2,3 +2,4 @@
 
 #include "math.h"
 #include "io.h"
+#include "string.h"

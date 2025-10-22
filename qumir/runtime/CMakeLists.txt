@@ -6,5 +6,7 @@ add_library(qumir_runtime
     io.h
     runtime.cpp
     runtime.h
+    string.cpp
+    string.h
     )
 target_compile_features(qumir_runtime PUBLIC cxx_std_23)
