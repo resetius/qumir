@@ -71,5 +71,5 @@ set(LLVM_COMPONENTS
 llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
 target_link_libraries(qumir_codegen_llvm PUBLIC ${LLVM_LIBS})
 if(UNIX AND NOT APPLE)
-    target_link_options(qumir_codegen_llvm PRIVATE -rdynamic)
+    target_link_options(qumir_codegen_llvm PUBLIC -rdynamic)
 endif()
