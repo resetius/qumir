@@ -334,8 +334,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             const int argCount = (int)Runtime.Args.size();
             assert(argCount <= (int)localArgs.size() && "too many arguments for callee");
 
-            int saveRegSize = std::min((size_t)frame.UsedRegs, (size_t)(calleeExec->MaxTmpIdx + 1));
-            for (int i = 0; i < saveRegSize; ++i) {
+            for (int i = 0; i < frame.UsedRegs; ++i) {
                 Runtime.Stack.push_back(Runtime.Regs[i]);
             }
             auto base = Runtime.Stack.size();
@@ -379,16 +378,15 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                 auto& linkFrame = callStack[link.FrameIdx];
                 Runtime.Stack.resize(base);
                 // restore used regs
-                int saveRegSize = std::min((size_t)callerFrame.UsedRegs, (size_t)frame.UsedRegs);
                 Runtime.Regs.resize(callerFrame.UsedRegs);
-                for (int i = 0; i < saveRegSize; ++i) {
+                for (int i = 0; i < callerFrame.UsedRegs; ++i) {
                     // TODO: test this
-                    Runtime.Regs[saveRegSize - i - 1] = Runtime.Stack[base - i - 1];
+                    Runtime.Regs[callerFrame.UsedRegs - i - 1] = Runtime.Stack[base - i - 1];
                 }
                 if (retVal.has_value()) {
                     Runtime.Regs[link.CallerDst] = *retVal;
                 }
-                Runtime.Stack.resize(base - saveRegSize);
+                Runtime.Stack.resize(base - callerFrame.UsedRegs);
             }
             break;
         }
