@@ -1,50 +1,49 @@
 function функция () { ; 32 f64
   block {
     label: label(0)
-    i2f tmp(0,f64) = imm(0) 
-    stre local(2,f64) tmp(0,f64) 
+    stre local(2,f64) imm(0) 
     stre local(1,i64) imm(0) 
     stre local(4,i64) imm(1) 
-    load tmp(1,i64) = local(1,i64) 
-    stre local(5,i64) tmp(1,i64) 
-    load tmp(2,i64) = local(4,i64) 
-    + tmp(3,i64) = imm(10) tmp(2,i64) 
-    stre local(3,i64) tmp(3,i64) 
+    load tmp(0,i64) = local(1,i64) 
+    stre local(5,i64) tmp(0,i64) 
+    load tmp(1,i64) = local(4,i64) 
+    + tmp(2,i64) = imm(10) tmp(1,i64) 
+    stre local(3,i64) tmp(2,i64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(4,i64) = local(5,i64) 
-    load tmp(5,i64) = local(3,i64) 
-    != tmp(6,i1) = tmp(4,i64) tmp(5,i64) 
-    cmp tmp(6,i1) label(2) label(5) 
+    load tmp(3,i64) = local(5,i64) 
+    load tmp(4,i64) = local(3,i64) 
+    != tmp(5,i1) = tmp(3,i64) tmp(4,i64) 
+    cmp tmp(5,i1) label(2) label(5) 
   }
   block {
     label: label(2)
-    load tmp(7,i64) = local(5,i64) 
-    stre local(1,i64) tmp(7,i64) 
+    load tmp(6,i64) = local(5,i64) 
+    stre local(1,i64) tmp(6,i64) 
     jmp label(3) 
   }
   block {
     label: label(3)
-    load tmp(8,f64) = local(2,f64) 
-    + tmp(9,f64) = tmp(8,f64) imm(4607182418800017408) 
-    stre local(2,f64) tmp(9,f64) 
+    load tmp(7,f64) = local(2,f64) 
+    + tmp(8,f64) = tmp(7,f64) imm(4607182418800017408) 
+    stre local(2,f64) tmp(8,f64) 
     jmp label(4) 
   }
   block {
     label: label(4)
-    load tmp(10,i64) = local(5,i64) 
-    load tmp(11,i64) = local(4,i64) 
-    + tmp(12,i64) = tmp(10,i64) tmp(11,i64) 
-    stre local(5,i64) tmp(12,i64) 
+    load tmp(9,i64) = local(5,i64) 
+    load tmp(10,i64) = local(4,i64) 
+    + tmp(11,i64) = tmp(9,i64) tmp(10,i64) 
+    stre local(5,i64) tmp(11,i64) 
     jmp label(1) 
   }
   block {
     label: label(5)
-    load tmp(13,f64) = local(2,f64) 
-    stre local(0,f64) tmp(13,f64) 
-    load tmp(14,f64) = local(0,f64) 
-    ret tmp(14,f64) 
+    load tmp(12,f64) = local(2,f64) 
+    stre local(0,f64) tmp(12,f64) 
+    load tmp(13,f64) = local(0,f64) 
+    ret tmp(13,f64) 
   }
 }

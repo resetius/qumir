@@ -417,14 +417,13 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
 
         if (rhs.Value->Type == TOperand::EType::Imm) {
-            // TODO: we can cast immediate directly on store
-            // cast immediate to a register before storing (for cast)
+            // inplace casts
             if (rhs.Value->Imm.Kind == EKind::F64 && Module.Types.IsInteger(slotType)) {
-                *rhs.Value = Builder.Emit1("cmov"_op, {*rhs.Value});
-                Builder.SetType(rhs.Value->Tmp, slotType);
+                rhs.Value->Imm.Kind = EKind::I64;
+                rhs.Value->Imm.Value = static_cast<int64_t>(std::bit_cast<double>(rhs.Value->Imm.Value));
             } else if (rhs.Value->Imm.Kind == EKind::I64 && Module.Types.IsFloat(slotType)) {
-                *rhs.Value = Builder.Emit1("i2f"_op, {*rhs.Value});
-                Builder.SetType(rhs.Value->Tmp, slotType);
+                rhs.Value->Imm.Kind = EKind::F64;
+                rhs.Value->Imm.Value = std::bit_cast<int64_t>(static_cast<double>(rhs.Value->Imm.Value));
             }
         } else if (rhs.Value->Type == TOperand::EType::Tmp) {
             auto rhsType = Builder.GetType(rhs.Value->Tmp);
