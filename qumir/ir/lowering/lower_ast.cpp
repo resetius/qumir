@@ -421,10 +421,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             // cast immediate to a register before storing (for cast)
             if (rhs.Value->Imm.Kind == EKind::F64 && Module.Types.IsInteger(slotType)) {
                 *rhs.Value = Builder.Emit1("cmov"_op, {*rhs.Value});
-                Builder.SetType(rhs.Value->Tmp, FromAstType(expr->Type, Module.Types));
+                Builder.SetType(rhs.Value->Tmp, slotType);
             } else if (rhs.Value->Imm.Kind == EKind::I64 && Module.Types.IsFloat(slotType)) {
                 *rhs.Value = Builder.Emit1("i2f"_op, {*rhs.Value});
-                Builder.SetType(rhs.Value->Tmp, FromAstType(expr->Type, Module.Types));
+                Builder.SetType(rhs.Value->Tmp, slotType);
             }
         } else if (rhs.Value->Type == TOperand::EType::Tmp) {
             auto rhsType = Builder.GetType(rhs.Value->Tmp);

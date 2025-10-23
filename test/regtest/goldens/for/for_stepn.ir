@@ -1,8 +1,8 @@
 function функция () { ; 32 f64
   block {
     label: label(0)
-    i2f tmp(0,void) = imm(0) 
-    stre local(2,f64) tmp(0,void) 
+    i2f tmp(0,f64) = imm(0) 
+    stre local(2,f64) tmp(0,f64) 
     stre local(1,i64) imm(0) 
     stre local(4,i64) imm(10) 
     load tmp(1,i64) = local(1,i64) 
