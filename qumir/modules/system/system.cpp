@@ -28,6 +28,7 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
     auto integerType = std::make_shared<NAst::TIntegerType>();
     auto floatType = std::make_shared<NAst::TFloatType>();
     auto voidType = std::make_shared<NAst::TVoidType>();
+    auto stringType = std::make_shared<NAst::TStringType>();
 
     std::vector<TExternalFunction> functions = {
         {
@@ -353,9 +354,67 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
                 return 0;
             },
             // TODO:
-            .ArgTypes = { std::make_shared<NAst::TStringType>() },
+            .ArgTypes = { stringType },
             .ReturnType = voidType,
         },
+
+        // strings
+        {
+            .Name = "str_from_lit",
+            .MangledName = "str_from_lit",
+            .Ptr = reinterpret_cast<void*>(static_cast<char*(*)(const char*)>(NRuntime::str_from_lit)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto* str = NRuntime::str_from_lit(reinterpret_cast<const char*>(args[0]));
+                return std::bit_cast<uint64_t>(str);
+            },
+            .ArgTypes = { stringType },
+            .ReturnType = stringType
+        },
+        {
+            .Name = "str_retain",
+            .MangledName = "str_retain",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(char*)>(NRuntime::str_retain)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::str_retain(reinterpret_cast<char*>(args[0]));
+                return 0;
+            },
+            .ArgTypes = { stringType },
+            .ReturnType = voidType
+        },
+        {
+            .Name = "str_release",
+            .MangledName = "str_release",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(char*)>(NRuntime::str_release)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::str_release(reinterpret_cast<char*>(args[0]));
+                return 0;
+            },
+            .ArgTypes = { stringType },
+            .ReturnType = voidType
+        },
+        {
+            .Name = "str_concat",
+            .MangledName = "str_concat",
+            .Ptr = reinterpret_cast<void*>(static_cast<char*(*)(const char*, const char*)>(NRuntime::str_concat)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto* str = NRuntime::str_concat(reinterpret_cast<const char*>(args[0]), reinterpret_cast<const char*>(args[1]));
+                return std::bit_cast<uint64_t>(str);
+            },
+            .ArgTypes = { stringType, stringType },
+            .ReturnType = stringType
+        },
+        {
+            .Name = "str_compare",
+            .MangledName = "str_compare",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(const char*, const char*)>(NRuntime::str_compare)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto ret = NRuntime::str_compare(reinterpret_cast<const char*>(args[0]), reinterpret_cast<const char*>(args[1]));
+                return std::bit_cast<uint64_t>(ret);
+            },
+            .ArgTypes = { stringType, stringType },
+            .ReturnType = integerType
+        },
+
     };
 
     for (const auto& fn : functions) {
