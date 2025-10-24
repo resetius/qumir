@@ -4,11 +4,13 @@
 #include <cstdlib>
 #include <cstddef>
 #include <algorithm>
+#include <iostream>
 
 namespace NQumir {
 namespace NRuntime {
 
 char* str_from_lit(const char* s) {
+    //std::cerr << "from_lit '" << s << "'\n";
     int len = std::strlen(s);
     TString* str = (TString*)malloc(sizeof(TString) + len + 1);
     str->Rc = 1;
@@ -24,6 +26,7 @@ void str_retain(char* s) {
 }
 
 void str_release(char* s) {
+    //std::cerr << "release '" <<  (s ? s : "(null)")<< "' " << (void*)s << "\n";
     if (!s) return;
     TString* str = (TString*)(s - offsetof(TString, Data));
     if (--str->Rc == 0) {
@@ -32,10 +35,9 @@ void str_release(char* s) {
 }
 
 char* str_concat(const char* a, const char* b) {
-    TString* strA = (TString*)(a - offsetof(TString, Data));
-    TString* strB = (TString*)(b - offsetof(TString, Data));
-    int lenA = strA->Length;
-    int lenB = strB->Length;
+    //std::cerr << "concat '" << a << "' + '" << b << "'\n";
+    int lenA = strlen(a);
+    int lenB = strlen(b);
     TString* strC = (TString*)malloc(sizeof(TString) + lenA + lenB + 1);
     strC->Rc = 1;
     strC->Length = lenA + lenB;

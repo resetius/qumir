@@ -209,9 +209,36 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto block = maybeBlock.Cast();
         auto newScope = scope;
         newScope.Id = NSemantics::TScopeId{block->Scope};
+        // Track how many pending destructors existed before this block to release only locals of this block
+        const size_t dtorStartIdx = PendingDestructors.Strings.size();
         for (auto& s : block->Stmts) {
             auto r = co_await Lower(s, newScope);
             last = r.Value;
+        }
+        // Emit destructors for strings declared in this block (LIFO), if block not already terminated
+        if (!Builder.IsCurrentBlockTerminated()) {
+            if (PendingDestructors.Strings.size() > dtorStartIdx) {
+                auto stringDestructorId = co_await GlobalSymbolId("str_release");
+                // Release in reverse order of declaration
+                for (size_t i = PendingDestructors.Strings.size(); i-- > dtorStartIdx; ) {
+                    const auto& symRef = PendingDestructors.Strings[i];
+                    // Load current value of the local (or slot) and call str_release(val)
+                    TTmp val;
+                    if (symRef.FunctionLevelIdx >= 0) {
+                        val = Builder.Emit1("load"_op, { TLocal{ symRef.FunctionLevelIdx } });
+                    } else {
+                        val = Builder.Emit1("load"_op, { TSlot{ symRef.Id } });
+                    }
+                    // Ensure the loaded tmp is typed as the symbol's type
+                    auto node = Context.GetSymbolNode(NSemantics::TSymbolId{ symRef.Id });
+                    Builder.SetType(val, FromAstType(node->Type, Module.Types));
+                    // Pass as argument and call the destructor
+                    Builder.Emit0("arg"_op, { val });
+                    Builder.Emit0("call"_op, { TImm{ stringDestructorId } });
+                }
+                // Remove destructors belonging to this block
+                PendingDestructors.Strings.resize(dtorStartIdx);
+            }
         }
         // TODO: return only if function block and last is 'return'
         co_return TValueWithBlock{ last, Builder.CurrentBlockLabel() };
@@ -320,6 +347,41 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
             default:
                 {
+                    if (NAst::TMaybeType<NAst::TStringType>(binary->Type) && binary->Operator == "+") {
+                        // string concatenation with last-use releases for owned temporaries
+                        auto concatId = co_await GlobalSymbolId("str_concat");
+                        Builder.Emit0("arg"_op, {*leftNum});
+                        Builder.Emit0("arg"_op, {*rightNum});
+                        auto tmp = Builder.Emit1("call"_op, { TImm{concatId} });
+                        Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
+
+                        // Last-use: release inner concat results used as operands
+                        bool leftIsOwnedExpr = false;
+                        if (auto lbinMaybe = NAst::TMaybeNode<NAst::TBinaryExpr>(binary->Left)) {
+                            auto lbin = lbinMaybe.Cast();
+                            leftIsOwnedExpr = NAst::TMaybeType<NAst::TStringType>(lbin->Type) && lbin->Operator == "+";
+                        }
+                        bool rightIsOwnedExpr = false;
+                        if (auto rbinMaybe = NAst::TMaybeNode<NAst::TBinaryExpr>(binary->Right)) {
+                            auto rbin = rbinMaybe.Cast();
+                            rightIsOwnedExpr = NAst::TMaybeType<NAst::TStringType>(rbin->Type) && rbin->Operator == "+";
+                        }
+
+                        if (!Builder.IsCurrentBlockTerminated()) {
+                            auto dtorId = co_await GlobalSymbolId("str_release");
+                            if (leftIsOwnedExpr && leftNum && leftNum->Type == TOperand::EType::Tmp) {
+                                Builder.Emit0("arg"_op, {*leftNum});
+                                Builder.Emit0("call"_op, { TImm{dtorId} });
+                            }
+                            if (rightIsOwnedExpr && rightNum && rightNum->Type == TOperand::EType::Tmp) {
+                                Builder.Emit0("arg"_op, {*rightNum});
+                                Builder.Emit0("call"_op, { TImm{dtorId} });
+                            }
+                        }
+
+                        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
+                    }
+
                     if (leftNum->Type == TOperand::EType::Tmp && rightNum->Type == TOperand::EType::Tmp) {
                         auto leftType = Builder.GetType(leftNum->Tmp);
                         auto rightType = Builder.GetType(rightNum->Tmp);
@@ -424,6 +486,13 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             } else if (rhs.Value->Imm.Kind == EKind::I64 && Module.Types.IsFloat(slotType)) {
                 rhs.Value->Imm.Kind = EKind::F64;
                 rhs.Value->Imm.Value = std::bit_cast<int64_t>(static_cast<double>(rhs.Value->Imm.Value));
+            } else if (rhs.Value->Imm.Kind == EKind::Ptr) {
+                // TODO: create proper kind for string literal
+                auto constructorId = co_await GlobalSymbolId("str_from_lit");
+                Builder.Emit0("arg", {*rhs.Value});
+                auto materializedString = Builder.Emit1("call"_op, {TImm{constructorId}});
+                Builder.SetType(materializedString, slotType);
+                *rhs.Value = materializedString;
             }
         } else if (rhs.Value->Type == TOperand::EType::Tmp) {
             auto rhsType = Builder.GetType(rhs.Value->Tmp);
@@ -438,6 +507,56 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     Builder.SetType(casted, slotType);
                     *rhs.Value = casted;
                 }
+            }
+        }
+        // For string destinations: retain borrowed RHS before releasing dest (safe for s := s)
+        if (NAst::TMaybeType<NAst::TStringType>(node->Type)) {
+            bool rhsOwned = false;
+            // Literal string assigned here is owned (we materialize via str_from_lit above)
+            if (NAst::TMaybeNode<NAst::TStringLiteralExpr>(asg->Value)) {
+                rhsOwned = true;
+            } else if (auto maybeBin = NAst::TMaybeNode<NAst::TBinaryExpr>(asg->Value)) {
+                auto be = maybeBin.Cast();
+                rhsOwned = NAst::TMaybeType<NAst::TStringType>(be->Type) && be->Operator == "+";
+            } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(asg->Value)) {
+                auto ce = maybeCall.Cast();
+                // Resolve callee return type to detect owned string result
+                if (auto idMaybe = NAst::TMaybeNode<NAst::TIdentExpr>(ce->Callee)) {
+                    auto id = idMaybe.Cast();
+                    if (auto sid = Context.Lookup(id->Name, scope.Id)) {
+                        auto funDecl = NAst::TMaybeNode<NAst::TFunDecl>(Context.GetSymbolNode(NSemantics::TSymbolId{sid->Id})).Cast();
+                        if (funDecl && NAst::TMaybeType<NAst::TStringType>(funDecl->RetType)) {
+                            rhsOwned = true;
+                        }
+                    }
+                }
+            }
+            // Self-assignment check by name
+            bool isSelf = false;
+            if (auto maybeId = NAst::TMaybeNode<NAst::TIdentExpr>(asg->Value)) {
+                isSelf = (maybeId.Cast()->Name == asg->Name);
+            }
+            if (!rhsOwned) {
+                // Borrowed RHS: retain before touching destination
+                auto retainId = co_await GlobalSymbolId("str_retain");
+                Builder.Emit0("arg"_op, {*rhs.Value});
+                Builder.Emit0("call"_op, { TImm{retainId} });
+            }
+            (void)isSelf; // retained-before-release makes self-assign safe without extra branching
+        }
+        {
+            // delete previous string value if any
+            if (NAst::TMaybeType<NAst::TStringType>(node->Type)) {
+                auto dtorId = co_await GlobalSymbolId("str_release");
+                TTmp currentVal;
+                if (localSlot.Idx >= 0) {
+                    currentVal = Builder.Emit1("load"_op, {localSlot});
+                } else {
+                    currentVal = Builder.Emit1("load"_op, {storeSlot});
+                }
+                Builder.SetType(currentVal, slotType);
+                Builder.Emit0("arg"_op, { currentVal });
+                Builder.Emit0("call"_op, { TImm{dtorId} });
             }
         }
         // TODO: unify
@@ -465,8 +584,20 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         Builder.SetType(tmp, FromAstType(node->Type, Module.Types));
         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
-    } else if (NAst::TMaybeNode<NAst::TVarStmt>(expr)) {
-        // do nothing
+    } else if (auto maybeVar = NAst::TMaybeNode<NAst::TVarStmt>(expr)) {
+        // TODO: zero memory for strings?
+        auto var = maybeVar.Cast();
+        auto name = var->Name;
+        auto sidOpt = Context.Lookup(var->Name, scope.Id);
+        if (!sidOpt) {
+            co_return TError(var->Location, "variable has no binding");
+        }
+        Builder.SetType(TLocal{sidOpt->FunctionLevelIdx}, FromAstType(var->Type, Module.Types));
+        if (NAst::TMaybeType<NAst::TStringType>(var->Type)
+            && sidOpt->FunctionLevelIdx >= 0)
+        {
+            PendingDestructors.Strings.push_back(*sidOpt);
+        }
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(expr)) {
         auto fun = maybeFun.Cast();
@@ -628,6 +759,14 @@ void TAstLowerer::ImportExternalFunction(int symbolId, const NAst::TFunDecl& fun
     int funIdx = Module.ExternalFunctions.size();
     Module.ExternalFunctions.push_back(func);
     Module.SymIdToExtFuncIdx[symbolId] = funIdx;
+}
+
+TExpectedTask<int, TError, TLocation> TAstLowerer::GlobalSymbolId(const std::string& name) {
+    auto sidOpt = Context.Lookup(name, NSemantics::TScopeId{0});
+    if (sidOpt) {
+        co_return sidOpt->Id;
+    }
+    co_return TError({}, "undefined global symbol: " + name);
 }
 
 void TAstLowerer::ImportExternalFunctions() {

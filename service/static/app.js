@@ -88,7 +88,8 @@ async function runWasm() {
     const bytes = await api('/api/compile-wasm', { code, O }, true);
     const mathEnv = await import('./runtime/math.js');
     const ioEnv = await import('./runtime/io.js');
-    const env = { ...mathEnv, ...ioEnv };
+    const stringEnv = await import('./runtime/string.js');
+    const env = { ...mathEnv, ...ioEnv, ...stringEnv };
     const imports = { env };
     const { instance } = await WebAssembly.instantiate(bytes, imports);
     if (instance.exports && instance.exports.memory && typeof ioEnv.__bindMemory === 'function') {

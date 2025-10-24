@@ -28,6 +28,10 @@ private:
         std::optional<TLabel> ContinueLabel;
     };
 
+    struct TPendingDestructors {
+        std::vector<NSemantics::TSymbolInfo> Strings;
+    };
+
     struct TValueWithBlock {
         std::optional<TOperand> Value; // absent => no value
         TLabel ProducingLabel; // label of block that produced Value (or current block if no value)
@@ -42,10 +46,13 @@ private:
 
     void ImportExternalFunction(int symbolId, const NAst::TFunDecl& funcDecl);
     void ImportExternalFunctions();
+    TExpectedTask<int, TError, TLocation> GlobalSymbolId(const std::string& name);
 
     TModule& Module;
     TBuilder& Builder;
     NSemantics::TNameResolver& Context;
+
+    TPendingDestructors PendingDestructors;
 
     int64_t NextReplChunk = 0;
     int64_t NextLambdaChunk = 0;

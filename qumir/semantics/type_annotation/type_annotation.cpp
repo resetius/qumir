@@ -201,6 +201,8 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 binary->Type = right;
             } else if (TMaybeType<TFloatType>(left) && TMaybeType<TIntegerType>(right)) {
                 binary->Type = left;
+            } else if (binary->Operator == TOperator("+") && TMaybeType<TStringType>(left) && TMaybeType<TStringType>(right)) {
+                binary->Type = left;
             } else {
                 co_return TError(binary->Location, std::string("binary expression operands must be both numeric types, got: left: ") + std::string(left->TypeName()) + std::string(", right: ") + std::string(right->TypeName()));
             }
