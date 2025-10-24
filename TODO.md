@@ -8,3 +8,4 @@
 12. assignment to undefined identifier: return (for void functions)
 13. implement arrays
 14. implement function args attributes (i.e. in, out, in/out)
+15. problem with Lookup russian vars (like лит строка; строка := "str")
