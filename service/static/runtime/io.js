@@ -51,13 +51,35 @@ export function input_int64() {
 
 export function output_double(x) { appendStdout(String(x)); }
 export function output_int64(x) { appendStdout(BigInt(x).toString()); }
-export function output_string(ptr) {
-  if (!MEMORY) { appendStdout('<no-memory>'); return; }
-  if (!decoder) { appendStdout('<no-decoder>'); return; }
-  const u8 = new Uint8Array(MEMORY.buffer);
-  let p = Number(ptr) >>> 0;
-  const start = p;
-  while (p < u8.length && u8[p] !== 0) p++;
-  const view = u8.subarray(start, p);
-  appendStdout(decoder.decode(view));
+export function output_string(v) {
+  // Support both: C-string pointer OR handle returned by string runtime
+  if (typeof v === 'number' || typeof v === 'bigint') {
+    const n = (typeof v === 'bigint') ? Number(v & 0xFFFFFFFFn) : Number(v);
+    // Try consulting string runtime if available (ESM import binding)
+    try {
+      // dynamic import cache (module system will reuse the loaded module)
+      // Note: in ESM, importing the same specifier multiple times is fine.
+      return import('./string.js').then(mod => {
+        const s = (mod && typeof mod.deref_string === 'function') ? mod.deref_string(v) : null;
+        if (s != null) { appendStdout(String(s)); return; }
+        // fallback: treat as C-string
+        if (!MEMORY || !decoder) { appendStdout(''); return; }
+        const u8 = new Uint8Array(MEMORY.buffer);
+        let p = n >>> 0;
+        const start = p;
+        while (p < u8.length && u8[p] !== 0) p++;
+        appendStdout(decoder.decode(u8.subarray(start, p)));
+      });
+    } catch {
+      // fallback immediate path
+      if (!MEMORY || !decoder) { appendStdout(''); return; }
+      const u8 = new Uint8Array(MEMORY.buffer);
+      let p = n >>> 0;
+      const start = p;
+      while (p < u8.length && u8[p] !== 0) p++;
+      appendStdout(decoder.decode(u8.subarray(start, p)));
+      return;
+    }
+  }
+  appendStdout(String(v));
 }

@@ -92,11 +92,18 @@ async function runWasm() {
     const env = { ...mathEnv, ...ioEnv, ...stringEnv };
     const imports = { env };
     const { instance } = await WebAssembly.instantiate(bytes, imports);
-    if (instance.exports && instance.exports.memory && typeof ioEnv.__bindMemory === 'function') {
-      ioEnv.__bindMemory(instance.exports.memory);
+    const mem = instance.exports && instance.exports.memory;
+    if (mem && typeof ioEnv.__bindMemory === 'function') {
+      ioEnv.__bindMemory(mem);
+    }
+    if (mem && typeof stringEnv.__bindMemory === 'function') {
+      stringEnv.__bindMemory(mem);
     }
     if (typeof ioEnv.__resetIO === 'function') {
       ioEnv.__resetIO(true);
+    }
+    if (typeof stringEnv.__resetStrings === 'function') {
+      stringEnv.__resetStrings();
     }
     let out = '';
     if (instance && instance.exports) {
