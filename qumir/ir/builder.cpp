@@ -8,42 +8,55 @@ namespace NIR {
 using namespace NLiterals;
 
 namespace {
-std::ostream& Print_(std::ostream& out, const TTmp& t, int typeId, const TTypeTable& tt) {
+std::ostream& Print_(std::ostream& out, const TTmp& t, int typeId, const TModule& module) {
     out << "tmp(" << t.Idx;
     if (typeId >= 0) {
         out << ",";
+        const TTypeTable& tt = module.Types;
         tt.Print(out, typeId);
     }
     out << ")";
     return out;
 }
 
-std::ostream& Print_(std::ostream& out, const TSlot& s, int typeId, const TTypeTable& tt) {
+std::ostream& Print_(std::ostream& out, const TSlot& s, int typeId, const TModule& module) {
     out << "slot(" << s.Idx;
     if (typeId >= 0) {
         out << ",";
+        const TTypeTable& tt = module.Types;
         tt.Print(out, typeId);
     }
     out << ")";
     return out;
 }
 
-std::ostream& Print_(std::ostream& out, const TLocal& l, int typeId, const TTypeTable& tt) {
+std::ostream& Print_(std::ostream& out, const TLocal& l, int typeId, const TModule& module) {
     out << "local(" << l.Idx;
     if (typeId >= 0) {
         out << ",";
+        const TTypeTable& tt = module.Types;
         tt.Print(out, typeId);
     }
     out << ")";
     return out;
 }
 
-std::ostream& Print_(std::ostream& out, const TLabel& l, int, const TTypeTable& tt) {
+std::ostream& Print_(std::ostream& out, const TLabel& l, int, const TModule& module) {
     out << "label(" << l.Idx << ")";
     return out;
 }
 
-std::ostream& Print_(std::ostream& out, const TImm& i, int, const TTypeTable& tt) {
+std::ostream& Print_(std::ostream& out, const TImm& i, int isCall, const TModule& module) {
+    if (isCall) {
+        if (module.SymIdToFuncIdx.find(i.Value) != module.SymIdToFuncIdx.end()) {
+            out << module.Functions[module.SymIdToFuncIdx.at(i.Value)].Name;
+            return out;
+        }
+        if (module.SymIdToExtFuncIdx.find(i.Value) != module.SymIdToExtFuncIdx.end()) {
+            out << module.ExternalFunctions[module.SymIdToExtFuncIdx.at(i.Value)].Name;
+            return out;
+        }
+    }
     out << "imm(" << i.Value << ")";
     return out;
 }
@@ -98,7 +111,7 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
         }
         out << "local(" << ArgLocals[i].Idx << ")";
     }
-    out << ") { ; " << SymId << " ";
+    out << ") { ; ";
     module.Types.Print(out, ReturnTypeId);
     out << "\n";
 
@@ -115,7 +128,7 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
             bool first = true;
             for (const auto& s : b.Succ) {
                 if (!first) out << ", ";
-                Print_(out, s, -1, module.Types);
+                Print_(out, s, -1, module);
                 first = false;
             }
         }
@@ -124,13 +137,13 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
             bool first = true;
             for (const auto& p : b.Pred) {
                 if (!first) out << ", ";
-                Print_(out, p, -1, module.Types);
+                Print_(out, p, -1, module);
                 first = false;
             }
         }
         out << "\n";
         out << "    label: ";
-        Print_(out, b.Label, -1, module.Types) << "\n";
+        Print_(out, b.Label, -1, module) << "\n";
 
         auto printInstrs = [&]<typename T>(const std::vector<T>& instrs) {
             for (const auto& i : instrs) {
@@ -139,7 +152,7 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
                 }
                 out << "    " << i.Op << " ";
                 if (i.Dest.Idx >= 0) {
-                    Print_(out, i.Dest, typeId(i.Dest.Idx, TmpTypes), module.Types) << " = ";
+                    Print_(out, i.Dest, typeId(i.Dest.Idx, TmpTypes), module) << " = ";
                 }
                 int count = 0;
                 if constexpr (std::is_same_v<T, TInstr>) {
@@ -147,23 +160,24 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
                 } else if constexpr (std::is_same_v<T, TPhi>) {
                     count = i.Operands.size();
                 }
+                bool isCall = (i.Op == "call"_op);
                 for (int j = 0; j < count; j++) {
                     const auto& o = i.Operands[j];
                     switch (o.Type) {
                         case TOperand::EType::Tmp:
-                            Print_(out, o.Tmp, typeId(o.Tmp.Idx, TmpTypes), module.Types) << " ";
+                            Print_(out, o.Tmp, typeId(o.Tmp.Idx, TmpTypes), module) << " ";
                             break;
                         case TOperand::EType::Slot:
-                            Print_(out, o.Slot, typeId(o.Slot.Idx, module.SlotTypes), module.Types) << " ";
+                            Print_(out, o.Slot, typeId(o.Slot.Idx, module.SlotTypes), module) << " ";
                             break;
                         case TOperand::EType::Local:
-                            Print_(out, o.Local, typeId(o.Local.Idx, LocalTypes), module.Types) << " ";
+                            Print_(out, o.Local, typeId(o.Local.Idx, LocalTypes), module) << " ";
                             break;
                         case TOperand::EType::Label:
-                            Print_(out, o.Label, -1, module.Types) << " ";
+                            Print_(out, o.Label, -1, module) << " ";
                             break;
                         case TOperand::EType::Imm:
-                            Print_(out, o.Imm, -1, module.Types) << " ";
+                            Print_(out, o.Imm, isCall, module) << " ";
                             break;
                     }
                 }
