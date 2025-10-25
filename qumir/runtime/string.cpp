@@ -36,6 +36,8 @@ void str_release(char* s) {
 
 char* str_concat(const char* a, const char* b) {
     //std::cerr << "concat '" << a << "' + '" << b << "'\n";
+    if (!a) { a = ""; }
+    if (!b) { b = ""; }
     int lenA = strlen(a);
     int lenB = strlen(b);
     TString* strC = (TString*)malloc(sizeof(TString) + lenA + lenB + 1);

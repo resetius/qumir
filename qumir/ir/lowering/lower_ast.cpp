@@ -212,6 +212,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         for (auto& s : block->Stmts) {
             auto r = co_await Lower(s, newScope);
             last = r.Value;
+
+            if (r.Ownership == EOwnership::Owned) {
+                last = std::nullopt;
+                auto dtorId = co_await GlobalSymbolId("str_release");
+                Builder.Emit0("arg"_op, {*r.Value});
+                Builder.Emit0("call"_op, { TImm{ dtorId } });
+                last = r.Value;
+            }
         }
         // Emit destructors for strings declared in this block (LIFO)
         if (!PendingDestructors.Strings.empty()) {
