@@ -500,7 +500,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         // For string destinations: retain borrowed RHS before releasing dest (safe for s := s)
         if (NAst::TMaybeType<NAst::TStringType>(node->Type)) {
-            if (rhs.Ownership != EOwnership::Owned) {
+            if (rhs.Ownership == EOwnership::Borrowed) {
                 // Borrowed RHS: retain before touching destination
                 auto retainId = co_await GlobalSymbolId("str_retain");
                 Builder.Emit0("arg"_op, {*rhs.Value});
@@ -559,7 +559,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         Builder.SetType(TLocal{sidOpt->FunctionLevelIdx}, FromAstType(var->Type, Module.Types));
         if (NAst::TMaybeType<NAst::TStringType>(var->Type)
-            && sidOpt->FunctionLevelIdx >= 0)
+            && sidOpt->FunctionLevelIdx >= 0 && name != "__return" /*owned by caller*/)
         {
             PendingDestructors.Strings.push_back(*sidOpt);
         }
@@ -711,7 +711,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.Emit0("call"_op, { TImm{dtorId} });
             }
         }
-        co_return TValueWithBlock{ *tmp, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
+        co_return TValueWithBlock{ *tmp, Builder.CurrentBlockLabel(), EOwnership::Owned };
     } else {
         std::ostringstream oss;
         oss << *expr;
