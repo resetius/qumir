@@ -1,4 +1,4 @@
-function функция () { ; 32 f64
+function функция () { ; f64
   block {
     label: label(0)
     stre local(0,f64) imm(-4615739258092021350) 

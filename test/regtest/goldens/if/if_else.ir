@@ -1,4 +1,4 @@
-function ф () { ; 32 i64
+function ф () { ; i64
   block {
     label: label(0)
     cmp imm(1) label(1) label(2) 

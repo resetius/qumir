@@ -1,4 +1,4 @@
-function <main> () { ; 32 void
+function <main> () { ; void
   block {
     label: label(0)
     ret 

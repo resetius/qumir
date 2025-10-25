@@ -1,10 +1,10 @@
-function <main> () { ; 32 void
+function <main> () { ; void
   block {
     label: label(0)
     stre local(0,i64) imm(1) 
     load tmp(0,i64) = local(0,i64) 
     arg tmp(0,i64) 
-    call imm(30) 
+    call output_int64 
     ret 
   }
 }

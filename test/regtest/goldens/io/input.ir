@@ -1,7 +1,7 @@
-function <main> () { ; 32 void
+function <main> () { ; void
   block {
     label: label(0)
-    call tmp(0,i64) = imm(28) 
+    call tmp(0,i64) = input_int64 
     ret 
   }
 }

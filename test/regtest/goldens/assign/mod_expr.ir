@@ -1,15 +1,15 @@
-function функция () { ; 32 i64
+function функция () { ; i64
   block {
     label: label(0)
     + tmp(0,i64) = imm(2) imm(3) 
     * tmp(1,i64) = tmp(0,i64) imm(7) 
     arg imm(4616189618054758400) 
     arg imm(4) 
-    call tmp(2,f64) = imm(20) 
+    call tmp(2,f64) = fpow 
     f2i tmp(3,i64) = tmp(2,f64) 
     arg tmp(1,i64) 
     arg tmp(3,i64) 
-    call tmp(4,i64) = imm(19) 
+    call tmp(4,i64) = mod 
     stre local(1,i64) tmp(4,i64) 
     load tmp(5,i64) = local(1,i64) 
     stre local(0,i64) tmp(5,i64) 

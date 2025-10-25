@@ -1,4 +1,4 @@
-function ф () { ; 32 i64
+function ф () { ; i64
   block {
     label: label(0)
     stre local(1,i64) imm(1) 

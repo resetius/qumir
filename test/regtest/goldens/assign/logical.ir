@@ -1,4 +1,4 @@
-function функция () { ; 32 i1
+function функция () { ; i1
   block {
     label: label(0)
     stre local(1,i1) imm(1) 
