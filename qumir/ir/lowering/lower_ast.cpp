@@ -488,7 +488,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             } else if (rhs.Value->Imm.Kind == EKind::Ptr) {
                 // TODO: create proper kind for string literal
                 auto constructorId = co_await GlobalSymbolId("str_from_lit");
-                Builder.Emit0("arg", {*rhs.Value});
+                Builder.Emit0("arg"_op, {*rhs.Value});
                 auto materializedString = Builder.Emit1("call"_op, {TImm{constructorId}});
                 Builder.SetType(materializedString, slotType);
                 *rhs.Value = materializedString;
