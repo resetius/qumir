@@ -724,7 +724,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.Emit0("call"_op, { TImm{dtorId} });
             }
         }
-        co_return TValueWithBlock{ *tmp, Builder.CurrentBlockLabel(), EOwnership::Owned };
+        co_return TValueWithBlock{ *tmp, Builder.CurrentBlockLabel(),
+            NAst::TMaybeType<NAst::TStringType>(returnType) ? EOwnership::Owned : EOwnership::Unkwnown };
     } else {
         std::ostringstream oss;
         oss << *expr;
