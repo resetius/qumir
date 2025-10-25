@@ -644,14 +644,24 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             argTypes = &maybeFuncType.Cast()->ParamTypes;
         }
 
-        std::vector<TOperand> argv;
+        std::vector<std::pair<TOperand, EOwnership>> argv;
         argv.reserve(call->Args.size());
         int i = 0;
         for (auto& a : call->Args) {
             auto av = co_await Lower(a, scope);
             if (!av.Value) co_return TError(a->Location, "invalid argument");
             const auto& argType = (*argTypes)[i++];
-            if (av.Value->Type == TOperand::EType::Imm) {
+            if (av.Value->Type == TOperand::EType::Imm && av.Value->Imm.Kind == EKind::Ptr /* TODO: special type for strings */) {
+                // Argument is a string literal pointer: materialize to string
+                if (NAst::TMaybeType<NAst::TStringType>(argType)) {
+                    auto constructorId = co_await GlobalSymbolId("str_from_lit");
+                    Builder.Emit0("arg", {*av.Value});
+                    auto materializedString = Builder.Emit1("call"_op, {TImm{constructorId}});
+                    Builder.SetType(materializedString, FromAstType(argType, Module.Types));
+                    av.Value = materializedString;
+                    av.Ownership = EOwnership::Owned;
+                }
+            } else if (av.Value->Type == TOperand::EType::Imm) {
                 auto maybeFloat = NAst::TMaybeType<NAst::TFloatType>(argType);
                 if (maybeFloat && av.Value->Imm.Kind != EKind::F64) {
                     // Argument is a float but was lowered to int: convert
@@ -674,9 +684,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     }
                 }
             }
-            argv.push_back(*av.Value);
+            argv.emplace_back(*av.Value, av.Ownership);
         }
-        for (auto arg : argv) {
+        for (auto [arg, _] : argv) {
             Builder.Emit0("arg"_op, {arg});
         }
         // Decide if callee returns a value (non-void). If void -> Emit0
@@ -687,14 +697,24 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             returnsValue = true;
         }
 
+        std::optional<TTmp> tmp = std::nullopt;
         if (returnsValue) {
-            auto tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
-            Builder.SetType(tmp, FromAstType(returnType, Module.Types));
-            co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
+            tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
+            Builder.SetType(*tmp, FromAstType(returnType, Module.Types));
         } else {
             Builder.Emit0("call"_op, {TImm{calleeSymId}});
-            co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
         }
+        for (auto [arg, ownership] : argv) {
+            // For string arguments passed as owned temporaries: release after call
+            if (ownership == EOwnership::Owned) {
+                // TODO: check that arg is string type
+                // TODO: destructors for other types
+                auto dtorId = co_await GlobalSymbolId("str_release");
+                Builder.Emit0("arg"_op, {arg});
+                Builder.Emit0("call"_op, { TImm{dtorId} });
+            }
+        }
+        co_return TValueWithBlock{ *tmp, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
     } else {
         std::ostringstream oss;
         oss << *expr;
