@@ -106,6 +106,11 @@ int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
         return tt.I(EKind::Void);
     }
 
+    if (NAst::TMaybeType<NAst::TStringType>(t)) {
+        // TODO: fixme char*
+        return tt.I(EKind::I64);
+    }
+
     if (auto p = NAst::TMaybeType<NAst::TPointerType>(t)) {
         int to = FromAstType(p.Cast()->PointeeType, tt);
         return tt.Ptr(to);

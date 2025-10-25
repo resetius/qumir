@@ -209,37 +209,34 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto block = maybeBlock.Cast();
         auto newScope = scope;
         newScope.Id = NSemantics::TScopeId{block->Scope};
-        // Track how many pending destructors existed before this block to release only locals of this block
-        const size_t dtorStartIdx = PendingDestructors.Strings.size();
         for (auto& s : block->Stmts) {
             auto r = co_await Lower(s, newScope);
             last = r.Value;
         }
-        // Emit destructors for strings declared in this block (LIFO), if block not already terminated
-        if (!Builder.IsCurrentBlockTerminated()) {
-            if (PendingDestructors.Strings.size() > dtorStartIdx) {
-                auto stringDestructorId = co_await GlobalSymbolId("str_release");
-                // Release in reverse order of declaration
-                for (size_t i = PendingDestructors.Strings.size(); i-- > dtorStartIdx; ) {
-                    const auto& symRef = PendingDestructors.Strings[i];
-                    // Load current value of the local (or slot) and call str_release(val)
-                    TTmp val;
-                    if (symRef.FunctionLevelIdx >= 0) {
-                        val = Builder.Emit1("load"_op, { TLocal{ symRef.FunctionLevelIdx } });
-                    } else {
-                        val = Builder.Emit1("load"_op, { TSlot{ symRef.Id } });
-                    }
-                    // Ensure the loaded tmp is typed as the symbol's type
-                    auto node = Context.GetSymbolNode(NSemantics::TSymbolId{ symRef.Id });
-                    Builder.SetType(val, FromAstType(node->Type, Module.Types));
-                    // Pass as argument and call the destructor
-                    Builder.Emit0("arg"_op, { val });
-                    Builder.Emit0("call"_op, { TImm{ stringDestructorId } });
+        // Emit destructors for strings declared in this block (LIFO)
+        if (!PendingDestructors.Strings.empty()) {
+            auto stringDestructorId = co_await GlobalSymbolId("str_release");
+            // Release in reverse order of declaration
+            for (size_t i = PendingDestructors.Strings.size(); i-- > 0; ) {
+                const auto& symRef = PendingDestructors.Strings[i];
+                // Load current value of the local (or slot) and call str_release(val)
+                TTmp val;
+                if (symRef.FunctionLevelIdx >= 0) {
+                    val = Builder.Emit1("load"_op, { TLocal{ symRef.FunctionLevelIdx } });
+                } else {
+                    val = Builder.Emit1("load"_op, { TSlot{ symRef.Id } });
                 }
-                // Remove destructors belonging to this block
-                PendingDestructors.Strings.resize(dtorStartIdx);
+                // Ensure the loaded tmp is typed as the symbol's type
+                auto node = Context.GetSymbolNode(NSemantics::TSymbolId{ symRef.Id });
+                Builder.SetType(val, FromAstType(node->Type, Module.Types));
+                // Pass as argument and call the destructor
+                Builder.Emit0("arg"_op, { val });
+                Builder.Emit0("call"_op, { TImm{ stringDestructorId } });
             }
+            // Remove destructors belonging to this block
+            PendingDestructors.Strings.clear();
         }
+
         // TODO: return only if function block and last is 'return'
         co_return TValueWithBlock{ last, Builder.CurrentBlockLabel() };
     } else if (auto maybeUnary = NAst::TMaybeNode<NAst::TUnaryExpr>(expr)) {
@@ -262,7 +259,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto leftRes = co_await Lower(binary->Left, scope);
         auto leftNum = leftRes.Value;
 
-        std::optional<TOperand> rightNum;
+        decltype(leftNum) rightNum;
         decltype(leftRes) rightRes;
         if (!isLazy) {
             rightRes = co_await Lower(binary->Right, scope);

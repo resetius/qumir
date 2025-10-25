@@ -10,3 +10,4 @@
 14. implement function args attributes (i.e. in, out, in/out)
 15. problem with Lookup russian vars (like лит строка; строка := "str")
 16. lexer : empty string ("")
+17. infinite loop on assignment of call non-arg function (i.e. s := f, were f is function void -> int)
