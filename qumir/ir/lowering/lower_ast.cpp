@@ -263,9 +263,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto leftNum = leftRes.Value;
 
         std::optional<TOperand> rightNum;
+        decltype(leftRes) rightRes;
         if (!isLazy) {
-            auto rres = co_await Lower(binary->Right, scope);
-            rightNum = rres.Value;
+            rightRes = co_await Lower(binary->Right, scope);
+            rightNum = rightRes.Value;
         }
         if (!leftNum) co_return TError(binary->Location, "binary operands must be numbers");
         if (!isLazy && !rightNum) co_return TError(binary->Location, "binary operands must be numbers");
@@ -356,30 +357,20 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                         Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
 
                         // Last-use: release inner concat results used as operands
-                        bool leftIsOwnedExpr = false;
-                        if (auto lbinMaybe = NAst::TMaybeNode<NAst::TBinaryExpr>(binary->Left)) {
-                            auto lbin = lbinMaybe.Cast();
-                            leftIsOwnedExpr = NAst::TMaybeType<NAst::TStringType>(lbin->Type) && lbin->Operator == "+";
+                        bool leftIsOwned = leftRes.Ownership == EOwnership::Owned;
+                        bool rightIsOwned = rightRes.Ownership == EOwnership::Owned;
+
+                        auto dtorId = co_await GlobalSymbolId("str_release");
+                        if (leftIsOwned && leftNum->Type == TOperand::EType::Tmp) {
+                            Builder.Emit0("arg"_op, {*leftNum});
+                            Builder.Emit0("call"_op, { TImm{dtorId} });
                         }
-                        bool rightIsOwnedExpr = false;
-                        if (auto rbinMaybe = NAst::TMaybeNode<NAst::TBinaryExpr>(binary->Right)) {
-                            auto rbin = rbinMaybe.Cast();
-                            rightIsOwnedExpr = NAst::TMaybeType<NAst::TStringType>(rbin->Type) && rbin->Operator == "+";
+                        if (rightIsOwned && rightNum->Type == TOperand::EType::Tmp) {
+                            Builder.Emit0("arg"_op, {*rightNum});
+                            Builder.Emit0("call"_op, { TImm{dtorId} });
                         }
 
-                        if (!Builder.IsCurrentBlockTerminated()) {
-                            auto dtorId = co_await GlobalSymbolId("str_release");
-                            if (leftIsOwnedExpr && leftNum && leftNum->Type == TOperand::EType::Tmp) {
-                                Builder.Emit0("arg"_op, {*leftNum});
-                                Builder.Emit0("call"_op, { TImm{dtorId} });
-                            }
-                            if (rightIsOwnedExpr && rightNum && rightNum->Type == TOperand::EType::Tmp) {
-                                Builder.Emit0("arg"_op, {*rightNum});
-                                Builder.Emit0("call"_op, { TImm{dtorId} });
-                            }
-                        }
-
-                        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
+                        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(), EOwnership::Owned };
                     }
 
                     if (leftNum->Type == TOperand::EType::Tmp && rightNum->Type == TOperand::EType::Tmp) {
@@ -493,6 +484,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 auto materializedString = Builder.Emit1("call"_op, {TImm{constructorId}});
                 Builder.SetType(materializedString, slotType);
                 *rhs.Value = materializedString;
+                rhs.Ownership = EOwnership::Owned;
             }
         } else if (rhs.Value->Type == TOperand::EType::Tmp) {
             auto rhsType = Builder.GetType(rhs.Value->Tmp);
@@ -511,38 +503,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         // For string destinations: retain borrowed RHS before releasing dest (safe for s := s)
         if (NAst::TMaybeType<NAst::TStringType>(node->Type)) {
-            bool rhsOwned = false;
-            // Literal string assigned here is owned (we materialize via str_from_lit above)
-            if (NAst::TMaybeNode<NAst::TStringLiteralExpr>(asg->Value)) {
-                rhsOwned = true;
-            } else if (auto maybeBin = NAst::TMaybeNode<NAst::TBinaryExpr>(asg->Value)) {
-                auto be = maybeBin.Cast();
-                rhsOwned = NAst::TMaybeType<NAst::TStringType>(be->Type) && be->Operator == "+";
-            } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(asg->Value)) {
-                auto ce = maybeCall.Cast();
-                // Resolve callee return type to detect owned string result
-                if (auto idMaybe = NAst::TMaybeNode<NAst::TIdentExpr>(ce->Callee)) {
-                    auto id = idMaybe.Cast();
-                    if (auto sid = Context.Lookup(id->Name, scope.Id)) {
-                        auto funDecl = NAst::TMaybeNode<NAst::TFunDecl>(Context.GetSymbolNode(NSemantics::TSymbolId{sid->Id})).Cast();
-                        if (funDecl && NAst::TMaybeType<NAst::TStringType>(funDecl->RetType)) {
-                            rhsOwned = true;
-                        }
-                    }
-                }
-            }
-            // Self-assignment check by name
-            bool isSelf = false;
-            if (auto maybeId = NAst::TMaybeNode<NAst::TIdentExpr>(asg->Value)) {
-                isSelf = (maybeId.Cast()->Name == asg->Name);
-            }
-            if (!rhsOwned) {
+            if (rhs.Ownership != EOwnership::Owned) {
                 // Borrowed RHS: retain before touching destination
                 auto retainId = co_await GlobalSymbolId("str_retain");
                 Builder.Emit0("arg"_op, {*rhs.Value});
                 Builder.Emit0("call"_op, { TImm{retainId} });
             }
-            (void)isSelf; // retained-before-release makes self-assign safe without extra branching
         }
         {
             // delete previous string value if any
@@ -583,7 +549,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             tmp = Builder.Emit1("load"_op, {loadSlot});
         }
         Builder.SetType(tmp, FromAstType(node->Type, Module.Types));
-        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
+        // Borrowed for stack values ignored
+        // For strings, we need to track destructors for owned temporaries
+        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
     } else if (auto maybeVar = NAst::TMaybeNode<NAst::TVarStmt>(expr)) {
         // TODO: zero memory for strings?
         auto var = maybeVar.Cast();
@@ -722,7 +690,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (returnsValue) {
             auto tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
             Builder.SetType(tmp, FromAstType(returnType, Module.Types));
-            co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
+            co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
         } else {
             Builder.Emit0("call"_op, {TImm{calleeSymId}});
             co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };

@@ -32,9 +32,16 @@ private:
         std::vector<NSemantics::TSymbolInfo> Strings;
     };
 
+    enum class EOwnership {
+        Unkwnown,
+        Owned,
+        Borrowed
+    };
+
     struct TValueWithBlock {
         std::optional<TOperand> Value; // absent => no value
         TLabel ProducingLabel; // label of block that produced Value (or current block if no value)
+        EOwnership Ownership = EOwnership::Unkwnown; // heap object ownership (strings), used for destructor calls
     };
 
     TExpectedTask<TValueWithBlock, TError, TLocation> Lower(const NAst::TExprPtr& expr, TBlockScope scope);
