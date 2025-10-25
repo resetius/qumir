@@ -1,0 +1,15 @@
+(Block:<Fun () -> >
+  (FunDecl $ф ():<Fun () -> >
+    (Block:<String>
+      (Var $__return:<String>)
+      (Call:<Void>
+        ($g:<Fun () -> >)
+        ("строка":<String>))
+      ($__return =:<Void>
+        ("ok":<String>))
+      ($__return:<String>)))
+  (FunDecl $g ($й):<Fun () -> >
+    (Block:<Void>
+      (Var $к:<String>)
+      ($к =:<Void>
+        ($й:<String>)))))

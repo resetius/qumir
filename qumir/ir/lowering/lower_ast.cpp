@@ -209,6 +209,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto block = maybeBlock.Cast();
         auto newScope = scope;
         newScope.Id = NSemantics::TScopeId{block->Scope};
+
+        // Track scope for destructors
+        size_t initialPendingDestructorsSize = PendingDestructors.Strings.size();
         for (auto& s : block->Stmts) {
             auto r = co_await Lower(s, newScope);
             last = r.Value;
@@ -222,10 +225,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
         }
         // Emit destructors for strings declared in this block (LIFO)
-        if (!PendingDestructors.Strings.empty()) {
+        if (PendingDestructors.Strings.size() > initialPendingDestructorsSize) {
             auto stringDestructorId = co_await GlobalSymbolId("str_release");
             // Release in reverse order of declaration
-            for (size_t i = PendingDestructors.Strings.size(); i-- > 0; ) {
+            for (size_t i = PendingDestructors.Strings.size(); i-- > initialPendingDestructorsSize; ) {
                 const auto& symRef = PendingDestructors.Strings[i];
                 // Load current value of the local (or slot) and call str_release(val)
                 TTmp val;
@@ -242,7 +245,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.Emit0("call"_op, { TImm{ stringDestructorId } });
             }
             // Remove destructors belonging to this block
-            PendingDestructors.Strings.clear();
+            PendingDestructors.Strings.resize(initialPendingDestructorsSize);
         }
 
         // TODO: return only if function block and last is 'return'

@@ -241,6 +241,8 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, const NIR::TMo
     for (int i = 0; i < (int)fun.LocalTypes.size(); ++i) {
         auto* localTy = GetTypeById(fun.LocalTypes[i], module.Types, ctx);
         auto* alloca = irb->CreateAlloca(localTy, nullptr, "local" + std::to_string(i));
+        // TODO: remove it after removing str_release(nullptr)
+        irb->CreateStore(llvm::ConstantInt::get(localTy, 0), alloca);
         CurFun->Allocas[i] = alloca;
     }
 

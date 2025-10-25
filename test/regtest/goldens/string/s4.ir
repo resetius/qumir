@@ -1,0 +1,93 @@
+function main () { ; i64
+  block {
+    label: label(0)
+    arg imm(0) 
+    arg imm(1) 
+    call tmp(0,i64) = str_concat 
+    load tmp(1,i64) = local(1,i64) 
+    arg tmp(1,i64) 
+    call str_release 
+    stre local(1,i64) tmp(0,i64) 
+    arg imm(10) 
+    call tmp(2,i64) = ф 
+    load tmp(3,i64) = local(1,i64) 
+    arg tmp(3,i64) 
+    call str_release 
+    stre local(1,i64) tmp(2,i64) 
+    load tmp(4,i64) = local(1,i64) 
+    arg tmp(4,i64) 
+    call str_retain 
+    load tmp(5,i64) = local(0,i64) 
+    arg tmp(5,i64) 
+    call str_release 
+    stre local(0,i64) tmp(4,i64) 
+    load tmp(6,i64) = local(0,i64) 
+    load tmp(7,i64) = local(1,i64) 
+    arg tmp(7,i64) 
+    call str_release 
+    ret tmp(6,i64) 
+  }
+}
+function ф (local(0)) { ; i64
+  block {
+    label: label(0)
+    arg imm(2) 
+    call tmp(0,i64) = str_from_lit 
+    load tmp(1,i64) = local(2,i64) 
+    arg tmp(1,i64) 
+    call str_release 
+    stre local(2,i64) tmp(0,i64) 
+    load tmp(2,i64) = local(2,i64) 
+    arg tmp(2,i64) 
+    call str_retain 
+    load tmp(3,i64) = local(1,i64) 
+    arg tmp(3,i64) 
+    call str_release 
+    stre local(1,i64) tmp(2,i64) 
+    stre local(4,i64) imm(0) 
+    stre local(3,i64) imm(0) 
+    stre local(6,i64) imm(1) 
+    load tmp(4,i64) = local(3,i64) 
+    stre local(7,i64) tmp(4,i64) 
+    load tmp(5,i64) = local(6,i64) 
+    + tmp(6,i64) = imm(10) tmp(5,i64) 
+    stre local(5,i64) tmp(6,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(7,i64) = local(7,i64) 
+    load tmp(8,i64) = local(5,i64) 
+    != tmp(9,i1) = tmp(7,i64) tmp(8,i64) 
+    cmp tmp(9,i1) label(2) label(5) 
+  }
+  block {
+    label: label(2)
+    load tmp(10,i64) = local(7,i64) 
+    stre local(3,i64) tmp(10,i64) 
+    jmp label(3) 
+  }
+  block {
+    label: label(3)
+    load tmp(11,i64) = local(4,i64) 
+    + tmp(12,i64) = tmp(11,i64) imm(1) 
+    stre local(4,i64) tmp(12,i64) 
+    jmp label(4) 
+  }
+  block {
+    label: label(4)
+    load tmp(13,i64) = local(7,i64) 
+    load tmp(14,i64) = local(6,i64) 
+    + tmp(15,i64) = tmp(13,i64) tmp(14,i64) 
+    stre local(7,i64) tmp(15,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(5)
+    load tmp(16,i64) = local(1,i64) 
+    load tmp(17,i64) = local(2,i64) 
+    arg tmp(17,i64) 
+    call str_release 
+    ret tmp(16,i64) 
+  }
+}
