@@ -710,10 +710,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             returnsValue = true;
         }
 
-        std::optional<TTmp> tmp = std::nullopt;
+        std::optional<TOperand> tmp = std::nullopt;
         if (returnsValue) {
             tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
-            Builder.SetType(*tmp, FromAstType(returnType, Module.Types));
+            Builder.SetType(tmp->Tmp, FromAstType(returnType, Module.Types));
         } else {
             Builder.Emit0("call"_op, {TImm{calleeSymId}});
         }
@@ -727,7 +727,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.Emit0("call"_op, { TImm{dtorId} });
             }
         }
-        co_return TValueWithBlock{ *tmp, Builder.CurrentBlockLabel(),
+        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(),
             NAst::TMaybeType<NAst::TStringType>(returnType) ? EOwnership::Owned : EOwnership::Unkwnown };
     } else {
         std::ostringstream oss;
