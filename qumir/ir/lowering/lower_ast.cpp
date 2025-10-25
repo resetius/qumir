@@ -607,6 +607,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         for (auto& a : args) {
             Builder.SetType(a, FromAstType(type->ParamTypes[&a - &args[0]], Module.Types));
         }
+        if (NAst::TMaybeType<NAst::TStringType>(fun->RetType)) {
+            // TODO: remove me
+            // clutch: support string returnType
+            Module.Functions[Builder.CurrentFunctionIdx()].ReturnTypeIsString = true;
+        }
 
         auto loweredBody = co_await Lower(body, TBlockScope {
             .FuncIdx = funcIdx,

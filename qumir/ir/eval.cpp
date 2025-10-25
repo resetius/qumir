@@ -7,6 +7,8 @@
 #include <cstring>
 #include <iomanip>
 
+#include <qumir/runtime/string.h> // for str_release
+
 namespace NQumir {
 namespace NIR {
 
@@ -399,7 +401,12 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
 
     if (retVal.has_value()) {
         std::ostringstream out;
-        if (function.ReturnTypeId >= 0) {
+        if (function.ReturnTypeIsString) {
+            // TODO: remove me, clutch: support string returnType
+            char* strPtr = reinterpret_cast<char*>(std::bit_cast<uint64_t>(*retVal));
+            out << strPtr;
+            NRuntime::str_release(strPtr);
+        } else if (function.ReturnTypeId >= 0) {
             Module.Types.Format(out, std::bit_cast<uint64_t>(*retVal), function.ReturnTypeId);
         } else {
             out << *retVal;

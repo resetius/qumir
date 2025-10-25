@@ -100,7 +100,7 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
     // Run via LLVM JIT
     NCodeGen::TLlvmRunner runner;
     std::string runErr;
-    auto res = runner.Run(std::move(artifacts), mainFun->Name, &runErr);
+    auto res = runner.Run(std::move(artifacts), mainFun->Name, &runErr, mainFun->ReturnTypeIsString);
     if (!runErr.empty()) {
         return std::unexpected(TError({}, std::string("llvm run error: ") + runErr));
     }

@@ -12,6 +12,8 @@
 #include <sstream>
 #include <iomanip>
 
+#include <qumir/runtime/string.h> // for str_release
+
 namespace NQumir::NCodeGen {
 
 using namespace NIR;
@@ -19,7 +21,7 @@ using namespace NIR;
 TLlvmRunner::TLlvmRunner()
 {}
 
-std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts> iartifacts, const std::string& entryPoint, std::string* error) {
+std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts> iartifacts, const std::string& entryPoint, std::string* error, bool returnTypeIsString) {
     auto* artifacts = static_cast<TLLVMModuleArtifacts*>(iartifacts.get());
     if (!artifacts || !artifacts->Module) {
         if (error) *error = "null artifacts";
@@ -96,7 +98,14 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
         if (bits == 1) {
             oss << (gv.IntVal.getZExtValue() ? "true" : "false");
         } else {
-            oss << gv.IntVal.getSExtValue();
+            if (returnTypeIsString) {
+                int64_t value = gv.IntVal.getSExtValue();
+                char* strPtr = reinterpret_cast<char*>(std::bit_cast<uint64_t>(value));
+                oss << strPtr;
+                NRuntime::str_release(strPtr);
+            } else {
+                oss << gv.IntVal.getSExtValue();
+            }
         }
     }
     return oss.str();

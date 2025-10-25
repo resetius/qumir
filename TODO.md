@@ -12,3 +12,4 @@
 16. lexer : empty string ("")
 17. infinite loop on assignment of call non-arg function (i.e. s := f, were f is function void -> int)
 18. Don't generate str_release for uninitialized str vars
+19. Support lower string type (i.e. i8*)

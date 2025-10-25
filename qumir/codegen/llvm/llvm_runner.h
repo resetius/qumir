@@ -19,7 +19,8 @@ public:
     std::optional<std::string> Run(
         std::unique_ptr<ILLVMModuleArtifacts> artifacts,
         const std::string& entryPoint,
-        std::string* error = nullptr);
+        std::string* error = nullptr,
+        bool returnTypeIsString = false /* TODO: remove me, clutch: support string returnType */);
 
 private:
     std::string LastError; // currently unused (kept for future diagnostics)
