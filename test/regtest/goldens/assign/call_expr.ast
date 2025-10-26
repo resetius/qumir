@@ -11,8 +11,7 @@
               (+:<Float>
                 (3.000000:<Float>)
                 (5.000000:<Float>)))
-            (Cast<Float>:<Float>
-              (10:<Int>)))))
+            (10.000000:<Float>))))
       ($__return =:<Void>
         ($i:<Int>))
       ($__return:<Int>)))

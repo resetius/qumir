@@ -114,10 +114,41 @@ TExprPtr InsertImplicitCastIfNeeded(TExprPtr expr, TTypePtr toType) {
     if (EqualTypes(expr->Type, toType)) {
         return expr;
     }
-    if (CanImplicit(expr->Type, toType)) {
-        return MakeCast(std::move(expr), std::move(toType));
+    if (!CanImplicit(expr->Type, toType)) {
+        return expr;
     }
-    return expr;
+
+    if (auto maybeNumber = TMaybeNode<TNumberExpr>(expr)) {
+        auto num = maybeNumber.Cast();
+        if (TMaybeType<TIntegerType>(toType)) {
+            if (num->IsFloat) {
+                // float to int
+                int64_t intVal = static_cast<int64_t>(num->FloatValue);
+                auto newNum = std::make_shared<TNumberExpr>(num->Location, intVal);
+                newNum->Type = toType;
+                return newNum;
+            } else {
+                // int to int (widening)
+                num->Type = toType;
+                return num;
+            }
+        }
+        if (TMaybeType<TFloatType>(toType)) {
+            if (num->IsFloat) {
+                // float to float (widening)
+                num->Type = toType;
+                return num;
+            } else {
+                // int to float
+                double floatVal = static_cast<double>(num->IntValue);
+                auto newNum = std::make_shared<TNumberExpr>(num->Location, floatVal);
+                newNum->Type = toType;
+                return newNum;
+            }
+        }
+    }
+
+    return MakeCast(std::move(expr), std::move(toType));
 }
 
 TTypePtr CommonNumericType(TTypePtr a, TTypePtr b) {
