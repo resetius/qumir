@@ -191,6 +191,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& expr, TBlockScope scope) {
+    int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
+
     if (auto maybeCast = NAst::TMaybeNode<NAst::TCastExpr>(expr)) {
         auto cast = maybeCast.Cast();
         auto operand = co_await Lower(cast->Operand, scope);
@@ -214,15 +216,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     } else if (auto maybeNum = NAst::TMaybeNode<NAst::TNumberExpr>(expr)) {
         auto num = maybeNum.Cast();
         if (num->IsFloat) {
-            co_return TValueWithBlock{ TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .Kind = EKind::F64}, Builder.CurrentBlockLabel() };
+            co_return TValueWithBlock{ TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .TypeId = Module.Types.I(EKind::F64)}, Builder.CurrentBlockLabel() };
         } else {
-            co_return TValueWithBlock{ TImm{.Value = num->IntValue, .Kind = EKind::I64}, Builder.CurrentBlockLabel() };
+            co_return TValueWithBlock{ TImm{.Value = num->IntValue, .TypeId = Module.Types.I(EKind::I64)}, Builder.CurrentBlockLabel() };
         }
     } else if (auto maybeStringLiteral = NAst::TMaybeNode<NAst::TStringLiteralExpr>(expr)) {
         auto str = maybeStringLiteral.Cast();
         auto id = Builder.StringLiteral(str->Value);
         // TODO: type is 'pointer to char'
-        co_return TValueWithBlock{ TImm{.Value = id, .Kind = EKind::Ptr}, Builder.CurrentBlockLabel() };
+        co_return TValueWithBlock{ TImm{.Value = id, .TypeId = Module.Types.Ptr(Module.Types.I(EKind::I8))}, Builder.CurrentBlockLabel() };
     } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
         // Evaluate a block: value is the value of the last statement (or void if none)
         std::optional<TOperand> last;
@@ -451,16 +453,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         auto storeSlot = TSlot{sidOpt->Id};
         auto localSlot = TLocal{sidOpt->FunctionLevelIdx};
-        // TODO: unify
         if (localSlot.Idx >= 0) {
             Builder.SetType(localSlot, slotType);
-        } else {
-            Builder.SetType(storeSlot, slotType);
         }
+        // slot type was set on variable declaration
 
         if (rhs.Value->Type == TOperand::EType::Imm) {
             // Materialize immediate string literals into a tmp
-            if (rhs.Value->Imm.Kind == EKind::Ptr) {
+            if (rhs.Value->Imm.TypeId == lowStringTypeId) {
                 // TODO: create proper kind for string literal
                 auto constructorId = co_await GlobalSymbolId("str_from_lit");
                 Builder.Emit0("arg"_op, {*rhs.Value});
@@ -626,7 +626,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto av = co_await Lower(a, scope);
             if (!av.Value) co_return TError(a->Location, "invalid argument");
             const auto& argType = (*argTypes)[i++];
-            if (av.Value->Type == TOperand::EType::Imm && av.Value->Imm.Kind == EKind::Ptr /* TODO: special type for strings */) {
+            if (av.Value->Type == TOperand::EType::Imm && av.Value->Imm.TypeId == lowStringTypeId) {
                 // Argument is a string literal pointer: materialize to string
                 if (NAst::TMaybeType<NAst::TStringType>(argType)) {
                     auto constructorId = co_await GlobalSymbolId("str_from_lit");
@@ -766,9 +766,9 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
             if (maybeNumber) {
                 auto num = maybeNumber.Cast();
                 if (num->IsFloat) {
-                    Module.GlobalValues[sid->Id] = TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .Kind = EKind::F64};
+                    Module.GlobalValues[sid->Id] = TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .TypeId = Module.Types.I(EKind::F64)};
                 } else {
-                    Module.GlobalValues[sid->Id] = TImm{.Value = num->IntValue, .Kind = EKind::I64};
+                    Module.GlobalValues[sid->Id] = TImm{.Value = num->IntValue, .TypeId = Module.Types.I(EKind::I64)};
                 }
                 continue;
             }
@@ -776,9 +776,9 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
             if (maybeString) {
                 auto str = maybeString.Cast();
                 auto id = Builder.StringLiteral(str->Value);
-                Module.GlobalValues[sid->Id] = TImm{.Value = id, .Kind = EKind::Ptr};
+                Module.GlobalValues[sid->Id] = TImm{.Value = id, .TypeId = Module.Types.Ptr(Module.Types.I(EKind::I8))};
                 // string globals are pointers
-                Module.GlobalTypes[sid->Id] = Module.Types.Ptr(Module.Types.I(EKind::I64));
+                Module.GlobalTypes[sid->Id] = Module.Types.Ptr(Module.Types.I(EKind::I8));
                 continue;
             }
 

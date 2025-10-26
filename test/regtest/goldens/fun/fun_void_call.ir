@@ -1,9 +1,9 @@
 function функция () { ; i64
   block {
     label: label(0)
-    arg imm(10) 
+    arg imm(10,i64) 
     call ф 
-    stre local(0,i64) imm(1) 
+    stre local(0,i64) imm(1,i64) 
     load tmp(0,i64) = local(0,i64) 
     ret tmp(0,i64) 
   }

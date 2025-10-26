@@ -59,9 +59,32 @@ struct TSSABuilder {
         instr.Dest = ph.DstTmp;
         // Args: [ (arg0, pred0), (arg1, pred1), ... ]
         instr.Operands.reserve(ph.Incoming.size() * 2);
+        bool hasUndef = false;
+        int typeId = -1;
         for (const auto& [value, label] : ph.Incoming) {
+            if (value.Type == TOperand::EType::Imm) {
+                auto& imm = value.Imm;
+                if (Module.Types.GetKind(imm.TypeId) == EKind::Undef) {
+                    hasUndef = true;
+                } else {
+                    typeId = imm.TypeId;
+                }
+            } else if (value.Type == TOperand::EType::Tmp) {
+                typeId = Function.GetTmpType(value.Tmp.Idx);
+            }
             instr.Operands.push_back(value);
             instr.Operands.push_back(label);
+        }
+        if (hasUndef && typeId >= 0) {
+            // Replace undefs
+            for (auto& op : instr.Operands) {
+                if (op.Type == TOperand::EType::Imm) {
+                    auto& imm = op.Imm;
+                    if (Module.Types.GetKind(imm.TypeId) == EKind::Undef) {
+                        imm.TypeId = typeId;
+                    }
+                }
+            }
         }
         return &block.Phis.emplace_back(instr);
     }
@@ -96,7 +119,7 @@ struct TSSABuilder {
 
         if (numPreds == 0) {
             // undef
-            return TOperand{TImm{0, EKind::I64}};
+            return TOperand{TImm{0, Module.Types.I(EKind::Undef)}};
         }
 
         if (numPreds == 1) {
@@ -155,7 +178,7 @@ struct TSSABuilder {
         }
         if (!same) {
             // undef: TODO
-            same = TOperand{TImm{0, EKind::I64}};
+            same = TOperand{TImm{0, Module.Types.I(EKind::Undef)}};
         }
         //
         auto [users, phiUsers] = GetUsers(phi.Dest);

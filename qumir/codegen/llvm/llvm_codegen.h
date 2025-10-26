@@ -52,21 +52,21 @@ public:
     explicit TLLVMCodeGen(const TLLVMCodeGenOptions& opts = {});
     ~TLLVMCodeGen();
 
-    std::unique_ptr<ILLVMModuleArtifacts> Emit(const NIR::TModule& module, int optLevel = 0);
+    std::unique_ptr<ILLVMModuleArtifacts> Emit(NIR::TModule& module, int optLevel = 0);
 
     void PrintFunction(int symId, std::ostream& os) const;
 
 private:
-    llvm::Function* LowerFunction(const NIR::TFunction& fun, const NIR::TModule& module);
-    void LowerBlock(const NIR::TBlock& blk, const NIR::TModule& module, llvm::Function* lf, std::vector<llvm::BasicBlock*>& orderedBBs);
-    llvm::Value* LowerInstr(const NIR::TInstr& instr, const NIR::TModule& module);
-    llvm::Value* EmitPhi(const NIR::TPhi& instr, const NIR::TModule& module);
-    void AddIncomingPhiEdges(const NIR::TPhi& instr, const NIR::TModule& module);
-    llvm::Value* GetOp(const NIR::TOperand& op, const NIR::TModule& module);
+    llvm::Function* LowerFunction(const NIR::TFunction& fun, NIR::TModule& module);
+    void LowerBlock(const NIR::TBlock& blk, NIR::TModule& module, llvm::Function* lf, std::vector<llvm::BasicBlock*>& orderedBBs);
+    llvm::Value* LowerInstr(const NIR::TInstr& instr, NIR::TModule& module);
+    llvm::Value* EmitPhi(const NIR::TPhi& instr, NIR::TModule& module);
+    void AddIncomingPhiEdges(const NIR::TPhi& instr, NIR::TModule& module);
+    llvm::Value* GetOp(const NIR::TOperand& op, NIR::TModule& module);
     void CreateTargetMachine();
     void Optimize(int optLevel);
 
-    llvm::GlobalVariable* EnsureSlotGlobal(int64_t sidx, const NIR::TModule& module);
+    llvm::GlobalVariable* EnsureSlotGlobal(int64_t sidx, NIR::TModule& module);
 
 private:
     TLLVMCodeGenOptions Opts;

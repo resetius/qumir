@@ -1,10 +1,10 @@
 function функция () { ; i64
   block {
     label: label(0)
-    + tmp(0,f64) = imm(4613937818241073152) imm(4617315517961601024) 
+    + tmp(0,f64) = imm(4613937818241073152,f64) imm(4617315517961601024,f64) 
     arg tmp(0,f64) 
     call tmp(1,f64) = f 
-    * tmp(2,f64) = tmp(1,f64) imm(4621819117588971520) 
+    * tmp(2,f64) = tmp(1,f64) imm(4621819117588971520,f64) 
     f2i tmp(3,i64) = tmp(2,f64) 
     stre local(1,i64) tmp(3,i64) 
     load tmp(4,i64) = local(1,i64) 
@@ -16,7 +16,7 @@ function функция () { ; i64
 function f (local(0)) { ; f64
   block {
     label: label(0)
-    stre local(1,f64) imm(4607182418800017408) 
+    stre local(1,f64) imm(4607182418800017408,f64) 
     load tmp(0,f64) = local(1,f64) 
     ret tmp(0,f64) 
   }

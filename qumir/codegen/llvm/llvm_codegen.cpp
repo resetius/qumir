@@ -99,7 +99,7 @@ std::unordered_map<uint64_t, llvm::Instruction::BinaryOps> fbinOpMap = {
 TLLVMCodeGen::TLLVMCodeGen(const TLLVMCodeGenOptions& opts): Opts(opts) {}
 TLLVMCodeGen::~TLLVMCodeGen() = default;
 
-std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(const TModule& module, int optLevel) {
+std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int optLevel) {
     Ctx = std::make_unique<llvm::LLVMContext>();
     LModule = std::make_unique<llvm::Module>(Opts.ModuleName, *Ctx);
 
@@ -193,12 +193,12 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(const TModule& module, 
     return out;
 }
 
-llvm::GlobalVariable* TLLVMCodeGen::EnsureSlotGlobal(int64_t sidx, const NIR::TModule& module)
+llvm::GlobalVariable* TLLVMCodeGen::EnsureSlotGlobal(int64_t sidx, NIR::TModule& module)
 {
     if (sidx < 0) throw std::runtime_error("negative slot index");
     if (sidx >= (int64_t)ModuleSlots.size()) ModuleSlots.resize(sidx + 1, nullptr);
     if (!ModuleSlots[sidx]) {
-        auto *slotTy = GetTypeById(module.GetSlotType(sidx), module.Types, *Ctx);
+        auto *slotTy = GetTypeById(module.GlobalTypes[sidx], module.Types, *Ctx);
         llvm::Constant* init = nullptr;
         if (slotTy->isFloatingPointTy()) {
             init = llvm::ConstantFP::get(slotTy, 0.0);
@@ -217,7 +217,7 @@ llvm::GlobalVariable* TLLVMCodeGen::EnsureSlotGlobal(int64_t sidx, const NIR::TM
     return static_cast<llvm::GlobalVariable*>(ModuleSlots[sidx]);
 }
 
-llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, const NIR::TModule& module) {
+llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, NIR::TModule& module) {
     auto& ctx = *Ctx;
     auto lfun = LModule->getFunction(fun.Name);
     // Function has already been registered in Emit pre-pass
@@ -242,7 +242,7 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, const NIR::TMo
         auto* localTy = GetTypeById(fun.LocalTypes[i], module.Types, ctx);
         auto* alloca = irb->CreateAlloca(localTy, nullptr, "local" + std::to_string(i));
         // TODO: remove it after removing str_release(nullptr)
-        irb->CreateStore(llvm::ConstantInt::get(localTy, 0), alloca);
+        irb->CreateStore(llvm::Constant::getNullValue(localTy), alloca);
         CurFun->Allocas[i] = alloca;
     }
 
@@ -270,7 +270,7 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, const NIR::TMo
     return lfun;
 }
 
-void TLLVMCodeGen::LowerBlock(const TBlock& blk, const NIR::TModule& module, llvm::Function*, std::vector<llvm::BasicBlock*>& orderedBBs) {
+void TLLVMCodeGen::LowerBlock(const TBlock& blk, NIR::TModule& module, llvm::Function*, std::vector<llvm::BasicBlock*>& orderedBBs) {
     auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
     for (const auto& instr : blk.Phis) {
         if (irb->GetInsertBlock()->getTerminator()) {
@@ -287,21 +287,24 @@ void TLLVMCodeGen::LowerBlock(const TBlock& blk, const NIR::TModule& module, llv
     }
 }
 
-llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, const NIR::TModule& module)
+llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, NIR::TModule& module)
 {
     auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
     auto& ctx = irb->getContext();
     auto i64 = llvm::Type::getInt64Ty(ctx);
     auto f64 = llvm::Type::getDoubleTy(ctx);
+    auto lowStringTypeId = module.Types.Ptr(module.Types.I(EKind::I8));
+    auto lowFloatTypeId = module.Types.I(EKind::F64);
+    auto lowIntTypeId = module.Types.I(EKind::I64);
 
     switch (op.Type) {
         case TOperand::EType::Imm:
-            if (op.Imm.Kind == EKind::F64) {
+            if (op.Imm.TypeId == lowFloatTypeId) {
                 return llvm::ConstantFP::get(f64, std::bit_cast<double>(op.Imm.Value));
-            } else if (op.Imm.Kind == EKind::I64) {
+            } else if (op.Imm.TypeId == lowIntTypeId) {
                 // TODO: other immediate types
                 return llvm::ConstantInt::get(i64, op.Imm.Value, true);
-            } else if (op.Imm.Kind == EKind::Ptr) {
+            } else if (op.Imm.TypeId == lowStringTypeId) {
                 // assume char* for now
                 int id = (int)op.Imm.Value;
                 if (id < 0 || id >= module.StringLiterals.size()) {
@@ -334,7 +337,7 @@ llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, const NIR::TModule& module)
     };
 }
 
-llvm::Value* TLLVMCodeGen::EmitPhi(const NIR::TPhi& instr, const NIR::TModule& module)
+llvm::Value* TLLVMCodeGen::EmitPhi(const NIR::TPhi& instr, NIR::TModule& module)
 {
     auto opcode = instr.Op;
     if (opcode != "phi"_op && opcode != "nop"_op) {
@@ -373,7 +376,7 @@ llvm::Value* TLLVMCodeGen::EmitPhi(const NIR::TPhi& instr, const NIR::TModule& m
     return storeTmp(phi);
 }
 
-void TLLVMCodeGen::AddIncomingPhiEdges(const NIR::TPhi& instr, const NIR::TModule& module)
+void TLLVMCodeGen::AddIncomingPhiEdges(const NIR::TPhi& instr, NIR::TModule& module)
 {
     if (instr.Op == "nop"_op) {
         return;
@@ -391,7 +394,7 @@ void TLLVMCodeGen::AddIncomingPhiEdges(const NIR::TPhi& instr, const NIR::TModul
     }
 }
 
-llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModule& module) {
+llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& module) {
     auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
     auto& ctx = irb->getContext();
     auto i64 = llvm::Type::getInt64Ty(ctx);

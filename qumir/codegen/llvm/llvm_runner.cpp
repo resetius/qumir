@@ -98,16 +98,22 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
         if (bits == 1) {
             oss << (gv.IntVal.getZExtValue() ? "true" : "false");
         } else {
-            if (returnTypeIsString) {
-                int64_t value = gv.IntVal.getSExtValue();
-                char* strPtr = reinterpret_cast<char*>(std::bit_cast<uint64_t>(value));
-                oss << strPtr;
-                NRuntime::str_release(strPtr);
-            } else {
-                oss << gv.IntVal.getSExtValue();
-            }
+            oss << gv.IntVal.getSExtValue();
         }
     }
+    if (retTy->isPointerTy()) {
+        auto ptr = (char*)gv.PointerVal;
+        if (ptr) {
+            oss << ptr;
+            // Release the string if returnTypeIsString
+            if (returnTypeIsString) {
+                NRuntime::str_release(ptr);
+            }
+        } else {
+            oss << "(null)";
+        }
+    }
+
     return oss.str();
 }
 

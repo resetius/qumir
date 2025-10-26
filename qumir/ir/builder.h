@@ -76,7 +76,7 @@ inline bool operator==(const TLabel& a, const TLabel& b) {
 // Immediate value (e.g. constant)
 struct TImm {
     int64_t Value;
-    EKind Kind = EKind::I64; // type of the immediate
+    int TypeId = -1;
 };
 
 struct TOperand {
@@ -121,7 +121,7 @@ inline bool operator==(const TOperand& a, const TOperand& b) {
     case TOperand::EType::Tmp:   return a.Tmp.Idx == b.Tmp.Idx;
     case TOperand::EType::Slot:  return a.Slot.Idx == b.Slot.Idx;
     case TOperand::EType::Local: return a.Local.Idx == b.Local.Idx;
-    case TOperand::EType::Imm:   return a.Imm.Value == b.Imm.Value && a.Imm.Kind == b.Imm.Kind;
+    case TOperand::EType::Imm:   return a.Imm.Value == b.Imm.Value && a.Imm.TypeId == b.Imm.TypeId;
     case TOperand::EType::Label: return a.Label.Idx == b.Label.Idx;
     default: return false;
     }
@@ -251,15 +251,6 @@ struct TModule {
 
     TTypeTable Types;
 
-    std::vector<int> SlotTypes; // SlotId -> TypeId
-
-    int GetSlotType(int slotId) const {
-        if (slotId < 0 || slotId >= (int)SlotTypes.size()) {
-            return -1;
-        }
-        return SlotTypes[slotId];
-    }
-
     TFunction* GetFunctionByName(const std::string& name);
     TFunction* GetEntryPoint();
     void Print(std::ostream& out) const;
@@ -282,7 +273,6 @@ public:
     TTmp Emit1(TOp op, std::initializer_list<TOperand> operands);
     void SetType(TTmp tmp, int typeId);
     int GetType(TTmp tmp) const;
-    void SetType(TSlot slot, int typeId);
     void SetType(TLocal local, int typeId);
     void UnifyTypes(TTmp left, TTmp right);
     void SetReturnType(int typeId);

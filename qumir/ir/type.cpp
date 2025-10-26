@@ -107,8 +107,7 @@ int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
     }
 
     if (NAst::TMaybeType<NAst::TStringType>(t)) {
-        // TODO: fixme char*
-        return tt.I(EKind::I64);
+        return tt.Ptr(tt.I(EKind::I8));
     }
 
     if (auto p = NAst::TMaybeType<NAst::TPointerType>(t)) {
@@ -146,9 +145,13 @@ void TTypeTable::Print(std::ostream& out, int typeId) const {
     auto& type = Types[typeId];
     switch (type.Kind) {
         case EKind::I1: out << "i1"; break;
+        case EKind::I8: out << "i8"; break;
+        case EKind::I16: out << "i16"; break;
+        case EKind::I32: out << "i32"; break;
         case EKind::I64: out << "i64"; break;
         case EKind::F64: out << "f64"; break;
         case EKind::Void: out << "void"; break;
+        case EKind::Undef: out << "undef"; break;
         case EKind::Ptr: {
             out << "ptr to ";
             Print(out, type.Aux);

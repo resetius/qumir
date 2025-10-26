@@ -12,9 +12,18 @@ namespace NIR {
 
 enum class EKind : uint8_t {
     I1,
+    I8, // for char* (strings)
+    I16, // unused
+    I32, // unused
     I64,
+    U8, // unused
+    U16, // unused
+    U32, // unused
+    U64, // unused
+    F32, // unused
     F64,
     Void,
+    Undef, // bad type for optimization errors
     Ptr,
     Func,
     Struct

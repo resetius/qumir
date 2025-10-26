@@ -36,6 +36,7 @@ TExecFunc& TVMCompiler::Compile(TFunction& function) {
 
 void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
 {
+    int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
     std::unordered_map<int64_t, int64_t> labelToPC;
     std::unordered_map<int64_t, int64_t> labelToLastPC;
 
@@ -80,9 +81,9 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case TOperand::EType::Tmp:
                 return typeId(s.Tmp);
             case TOperand::EType::Imm:
-                return Module.Types.I(s.Imm.Kind);
+                return s.Imm.TypeId;
             case TOperand::EType::Slot:
-                return -1;
+                return Module.GlobalTypes[static_cast<size_t>(s.Slot.Idx)];
             default:
                 return -1;
         }
@@ -297,13 +298,13 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 // convert id to pointer
                 if (ins.Operands[0].Type == TOperand::EType::Imm) {
                     auto imm = ins.Operands[0].Imm;
-                    if (imm.Kind == EKind::Ptr) { // string literal
+                    if (imm.TypeId == lowStringTypeId) { // string literal
                         int id = (int)imm.Value;
                         if (id < 0 || id >= Module.StringLiterals.size()) {
                             throw std::runtime_error("Invalid string literal id in outs");
                         }
                         auto& str = Module.StringLiterals[id];
-                        out.Operands[0] = TImm{(int64_t)str.c_str(), EKind::Ptr};
+                        out.Operands[0] = TImm{(int64_t)str.c_str(), lowStringTypeId};
                     }
                 }
                 break;

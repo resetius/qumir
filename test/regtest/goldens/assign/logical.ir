@@ -1,7 +1,7 @@
 function функция () { ; i1
   block {
     label: label(0)
-    i2b tmp(0,i1) = imm(1) 
+    i2b tmp(0,i1) = imm(1,i64) 
     stre local(1,i1) tmp(0,i1) 
     load tmp(1,i1) = local(1,i1) 
     stre local(0,i1) tmp(1,i1) 

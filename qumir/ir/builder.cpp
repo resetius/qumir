@@ -46,7 +46,8 @@ std::ostream& Print_(std::ostream& out, const TLabel& l, int, const TModule& mod
     return out;
 }
 
-std::ostream& Print_(std::ostream& out, const TImm& i, int isCall, const TModule& module) {
+std::ostream& Print_(std::ostream& out, const TImm& i, int typeId, const TModule& module) {
+    bool isCall = typeId < 0;
     if (isCall) {
         if (module.SymIdToFuncIdx.find(i.Value) != module.SymIdToFuncIdx.end()) {
             out << module.Functions[module.SymIdToFuncIdx.at(i.Value)].Name;
@@ -57,7 +58,13 @@ std::ostream& Print_(std::ostream& out, const TImm& i, int isCall, const TModule
             return out;
         }
     }
-    out << "imm(" << i.Value << ")";
+    out << "imm(" << i.Value;
+    if (typeId >= 0) {
+        out << ",";
+        const TTypeTable& tt = module.Types;
+        tt.Print(out, typeId);
+    }
+    out << ")";
     return out;
 }
 
@@ -168,7 +175,7 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
                             Print_(out, o.Tmp, typeId(o.Tmp.Idx, TmpTypes), module) << " ";
                             break;
                         case TOperand::EType::Slot:
-                            Print_(out, o.Slot, typeId(o.Slot.Idx, module.SlotTypes), module) << " ";
+                            Print_(out, o.Slot, typeId(o.Slot.Idx, module.GlobalTypes), module) << " ";
                             break;
                         case TOperand::EType::Local:
                             Print_(out, o.Local, typeId(o.Local.Idx, LocalTypes), module) << " ";
@@ -177,7 +184,7 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
                             Print_(out, o.Label, -1, module) << " ";
                             break;
                         case TOperand::EType::Imm:
-                            Print_(out, o.Imm, isCall, module) << " ";
+                            Print_(out, o.Imm, o.Imm.TypeId, module) << " ";
                             break;
                     }
                 }
@@ -468,17 +475,6 @@ void TBuilder::UnifyTypes(TTmp left, TTmp right) {
         SetType(left, unified);
         SetType(right, unified);
     }
-}
-
-void TBuilder::SetType(TSlot slot, int typeId) {
-    // TODO: slots should be function-scoped
-    if (slot.Idx < 0) {
-        throw std::runtime_error("Negative slot index");
-    }
-    if (slot.Idx >= Module.SlotTypes.size()) {
-        Module.SlotTypes.resize(slot.Idx + 1, -1);
-    }
-    Module.SlotTypes[slot.Idx] = typeId;
 }
 
 void TBuilder::SetReturnType(int typeId) {
