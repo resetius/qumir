@@ -4,13 +4,15 @@
       (Var $__return:<Int>)
       (Var $i:<Int>)
       ($i =:<Void>
-        (*:<Float>
-          (Call:<Float>
-            ($f:<Fun () -> >)
-            (+:<Float>
-              (3.000000:<Float>)
-              (5.000000:<Float>)))
-          (10:<Int>)))
+        (Cast<Int>:<Int>
+          (*:<Float>
+            (Call:<Float>
+              ($f:<Fun () -> >)
+              (+:<Float>
+                (3.000000:<Float>)
+                (5.000000:<Float>)))
+            (Cast<Float>:<Float>
+              (10:<Int>)))))
       ($__return =:<Void>
         ($i:<Int>))
       ($__return:<Int>)))

@@ -191,7 +191,23 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& expr, TBlockScope scope) {
-    if (auto maybeNum = NAst::TMaybeNode<NAst::TNumberExpr>(expr)) {
+    if (auto maybeCast = NAst::TMaybeNode<NAst::TCastExpr>(expr)) {
+        auto cast = maybeCast.Cast();
+        auto operand = co_await Lower(cast->Operand, scope);
+        if (!operand.Value) co_return TError(cast->Operand->Location, "operand of cast must be a value");
+        TTmp tmp;
+        if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TFloatType>(cast->Operand->Type)) {
+            // float to int cast
+            tmp = Builder.Emit1("f2i"_op, {*operand.Value});
+        } else if (NAst::TMaybeType<NAst::TFloatType>(expr->Type) && NAst::TMaybeType<NAst::TIntegerType>(cast->Operand->Type)) {
+            // int to float cast
+            tmp = Builder.Emit1("i2f"_op, {*operand.Value});
+        } else {
+            co_return TError(cast->Location, "unsupported cast types: from " + std::string(cast->Operand->Type->ToString()) + " to " + std::string(expr->Type->ToString()));
+        }
+        Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
+        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
+    } else if (auto maybeNum = NAst::TMaybeNode<NAst::TNumberExpr>(expr)) {
         auto num = maybeNum.Cast();
         if (num->IsFloat) {
             co_return TValueWithBlock{ TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .Kind = EKind::F64}, Builder.CurrentBlockLabel() };

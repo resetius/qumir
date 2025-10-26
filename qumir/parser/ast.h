@@ -564,6 +564,41 @@ struct TOutputExpr : TExpr {
     }
 };
 
+struct TCastExpr : public TExpr {
+    static constexpr const char* NodeId = "Cast";
+
+    TExprPtr  Operand;
+
+    TCastExpr(TLocation loc, TExprPtr operand, TTypePtr target)
+        : TExpr(std::move(loc))
+        , Operand(std::move(operand))
+    {
+        Type = target;
+    }
+
+    std::vector<TExprPtr> Children() const override {
+        return { Operand };
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        std::vector<TExprPtr*> result;
+        result.push_back(&Operand);
+        return result;
+    }
+
+    const std::string ToString() const override {
+        return std::string("Cast<") + (Type ? std::string(Type->TypeName()) : std::string("?")) + ">";
+    }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+};
+
+inline TExprPtr MakeCast(TExprPtr e, TTypePtr to) {
+    return std::make_shared<TCastExpr>(e->Location, std::move(e), std::move(to));
+}
+
 template<typename TransformFunctor, typename FilterFunctor>
 bool TransformAst(TExprPtr& result, TExprPtr node, TransformFunctor f, FilterFunctor filter) {
     if (!node) return false;

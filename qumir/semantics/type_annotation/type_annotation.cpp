@@ -83,7 +83,7 @@ bool CanImplicit(TTypePtr S, TTypePtr D) {
         return true;
     }
     if (TMaybeType<TFloatType>(S) && TMaybeType<TIntegerType>(D)) {
-        return false;
+        return true; // float to int conversion allowed
     }
     if ((TMaybeType<TFloatType>(S) || TMaybeType<TIntegerType>(S)) && TMaybeType<TBoolType>(D)) {
         return true;
@@ -107,11 +107,40 @@ bool CanImplicit(TTypePtr S, TTypePtr D) {
     return false;
 }
 
+TExprPtr InsertImplicitCastIfNeeded(TExprPtr expr, TTypePtr toType) {
+    if (!expr->Type || !toType) {
+        return expr;
+    }
+    if (EqualTypes(expr->Type, toType)) {
+        return expr;
+    }
+    if (CanImplicit(expr->Type, toType)) {
+        return MakeCast(std::move(expr), std::move(toType));
+    }
+    return expr;
+}
+
+TTypePtr CommonNumericType(TTypePtr a, TTypePtr b) {
+    if (TMaybeType<TFloatType>(a) && TMaybeType<TFloatType>(b)) {
+        return a;
+    }
+    if (TMaybeType<TFloatType>(a) && TMaybeType<TIntegerType>(b)) {
+        return a;
+    }
+    if (TMaybeType<TIntegerType>(a) && TMaybeType<TFloatType>(b)) {
+        return b;
+    }
+    if (TMaybeType<TIntegerType>(a) && TMaybeType<TIntegerType>(b)) {
+        return a;
+    }
+    return {};
+}
+
 TExprPtr AnnotateNumber(std::shared_ptr<TNumberExpr> num) {
     if (num->IsFloat) {
-        num->Type = std::make_shared<NAst::TFloatType>();
+        num->Type = std::make_shared<TFloatType>();
     } else {
-        num->Type = std::make_shared<NAst::TIntegerType>();
+        num->Type = std::make_shared<TIntegerType>();
     }
     return num;
 }
@@ -192,21 +221,24 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
         case TOperator("+"):
         case TOperator("-"):
         case TOperator("*"):
-        case TOperator("/"):
-            if (TMaybeType<TFloatType>(left) && TMaybeType<TFloatType>(right)) {
+        case TOperator("/"): {
+            // strings
+            if (binary->Operator == TOperator("+")
+                && TMaybeType<TStringType>(left) && TMaybeType<TStringType>(right)) {
                 binary->Type = left;
-            } else if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
-                binary->Type = left;
-            } else if (TMaybeType<TIntegerType>(left) && TMaybeType<TFloatType>(right)) {
-                binary->Type = right;
-            } else if (TMaybeType<TFloatType>(left) && TMaybeType<TIntegerType>(right)) {
-                binary->Type = left;
-            } else if (binary->Operator == TOperator("+") && TMaybeType<TStringType>(left) && TMaybeType<TStringType>(right)) {
-                binary->Type = left;
-            } else {
-                co_return TError(binary->Location, std::string("binary expression operands must be both numeric types, got: left: ") + std::string(left->TypeName()) + std::string(", right: ") + std::string(right->TypeName()));
+                break;
             }
+
+            auto common = CommonNumericType(left, right);
+            if (!common) {
+                co_return TError(binary->Location, "arithmetic operands must be numbers");
+            }
+
+            binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common);
+            binary->Right = InsertImplicitCastIfNeeded(binary->Right, common);
+            binary->Type  = common;
             break;
+        }
         case TOperator("%"):
             // integer remainder
             if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
@@ -232,9 +264,22 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
         case TOperator(">="):
         case TOperator("=="):
         case TOperator("!="):
+            if ((TMaybeType<TFloatType>(left) || TMaybeType<TIntegerType>(left)) &&
+                (TMaybeType<TFloatType>(right) || TMaybeType<TIntegerType>(right))) {
+                auto common = CommonNumericType(left, right);
+                if (!common) {
+                    co_return TError(binary->Location, "comparison requires numeric operands");
+                }
+                binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common);
+                binary->Right = InsertImplicitCastIfNeeded(binary->Right, common);
+            }
+            binary->Type = std::make_shared<TBoolType>();
+            break;
         case TOperator("&&"):
         case TOperator("||"):
-            binary->Type = std::make_shared<TBoolType>();
+            binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  std::make_shared<TBoolType>());
+            binary->Right = InsertImplicitCastIfNeeded(binary->Right, std::make_shared<TBoolType>());
+            binary->Type  = std::make_shared<TBoolType>();
             break;
         default:
             co_return TError(binary->Location, "unknown binary operator: " + binary->Operator.ToString());
@@ -266,6 +311,22 @@ TTask AnnotateAssign(std::shared_ptr<TAssignExpr> assign, NSemantics::TNameResol
     if (!assign->Value->Type) {
         co_return TError(assign->Location, "cannot assign untyped value to: " + assign->Name);
     }
+    auto symbolId = context.Lookup(assign->Name, scopeId);
+    if (!symbolId) {
+        co_return TError(assign->Location, "undefined identifier in assignment: " + assign->Name);
+    }
+    auto sym = context.GetSymbolNode(NSemantics::TSymbolId{symbolId->Id});
+    if (!sym || !sym->Type) {
+        co_return TError(assign->Location, "untyped identifier in assignment: " + assign->Name);
+    }
+    if (!EqualTypes(assign->Value->Type, sym->Type)) {
+        if (!CanImplicit(assign->Value->Type, sym->Type)) {
+            co_return TError(assign->Location, std::string("cannot implicitly convert '") +
+                std::string(assign->Value->Type->TypeName()) + "' to '" + std::string(sym->Type->TypeName()) + "' in assignment");
+        }
+        assign->Value = InsertImplicitCastIfNeeded(assign->Value, sym->Type);
+    }
+
     assign->Type = std::make_shared<NAst::TVoidType>();
     co_return assign;
 }
@@ -306,6 +367,21 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
     }
     auto maybeFunType = TMaybeType<TFunctionType>(call->Callee->Type);
     if (maybeFunType) {
+        auto funT = maybeFunType.Cast();
+        if (funT->ParamTypes.size() != call->Args.size()) {
+            co_return TError(call->Location, "invalid number of arguments");
+        }
+        for (size_t i = 0; i < call->Args.size(); ++i) {
+            auto& arg = call->Args[i];
+            auto& paramT = funT->ParamTypes[i];
+            if (!EqualTypes(arg->Type, paramT)) {
+                if (!CanImplicit(arg->Type, paramT)) {
+                    co_return TError(arg->Location, "cannot implicitly convert argument " + std::to_string(i+1) +
+                        " from '" + std::string(arg->Type->TypeName()) + "' to '" + std::string(paramT->TypeName()) + "'");
+                }
+                arg = InsertImplicitCastIfNeeded(arg, paramT);
+            }
+        }
         call->Type = maybeFunType.Cast()->ReturnType;
     } else {
         call->Type = call->Callee->Type;
@@ -317,6 +393,12 @@ TTask AnnotateIf(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver& con
     ifExpr->Cond = co_await DoAnnotate(ifExpr->Cond, context, scopeId);
     if (!ifExpr->Cond->Type) {
         co_return TError(ifExpr->Cond->Location, "untyped condition in if");
+    }
+    {
+        auto boolT = std::make_shared<TBoolType>();
+        if (!EqualTypes(ifExpr->Cond->Type, boolT) && CanImplicit(ifExpr->Cond->Type, boolT)) {
+            ifExpr->Cond = InsertImplicitCastIfNeeded(ifExpr->Cond, boolT);
+        }
     }
     ifExpr->Then = co_await DoAnnotate(ifExpr->Then, context, scopeId);
     if (!ifExpr->Then->Type) {
@@ -337,9 +419,9 @@ TTask AnnotateIf(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver& con
 TTask AnnotateLoop(std::shared_ptr<TLoopStmtExpr> loop, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     loop->Type = std::make_shared<TVoidType>();
 
-    for (auto& child : loop->Children()) {
-        if (child && !child->Type) {
-            co_await DoAnnotate(child, context, scopeId);
+    for (auto* child : loop->MutableChildren()) {
+        if (*child && !(*child)->Type) {
+            *child = co_await DoAnnotate(*child, context, scopeId);
         }
     }
 
@@ -348,9 +430,9 @@ TTask AnnotateLoop(std::shared_ptr<TLoopStmtExpr> loop, NSemantics::TNameResolve
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     if (expr->Type) {
-        for (auto& child : expr->Children()) {
-            if (child && !child->Type) {
-                co_await DoAnnotate(child, context, scopeId);
+        for (auto* child : expr->MutableChildren()) {
+            if (*child && !(*child)->Type) {
+                *child = co_await DoAnnotate(*child, context, scopeId);
             }
         }
         co_return expr;

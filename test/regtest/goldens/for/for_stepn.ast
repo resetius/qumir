@@ -5,7 +5,8 @@
       (Var $i:<Int>)
       (Var $j:<Float>)
       ($j =:<Void>
-        (0:<Int>))
+        (Cast<Float>:<Float>
+          (0:<Int>)))
       (Block:<Void>
         (Var $__to:<Int>)
         (Var $__step:<Int>)
