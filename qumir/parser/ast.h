@@ -620,9 +620,12 @@ bool PreorderTransformAst(TExprPtr& result, TExprPtr node, TransformFunctor f, F
     bool changed = false;
     result = f(node);
     changed |= result != node;
-    for (auto* child : result->MutableChildren()) {
-        if (*child) {
-            changed |= PreorderTransformAst(*child, *child, f, filter);
+    if (!changed) {
+        // no change, recurse into children of the original node
+        for (auto* child : result->MutableChildren()) {
+            if (*child) {
+                changed |= PreorderTransformAst(*child, *child, f, filter);
+            }
         }
     }
     return changed;
