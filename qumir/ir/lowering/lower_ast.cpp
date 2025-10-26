@@ -397,26 +397,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(), EOwnership::Owned };
                     }
 
-                    if (leftNum->Type == TOperand::EType::Tmp && rightNum->Type == TOperand::EType::Tmp) {
-                        auto leftType = Builder.GetType(leftNum->Tmp);
-                        auto rightType = Builder.GetType(rightNum->Tmp);
-                        if (leftType != rightType) {
-                            // unify types
-                            auto unified = Module.Types.Unify(leftType, rightType);
-                            // tf64 : int -> float64
-                            // tf32 : int -> float32
-                            if (!Module.Types.IsFloat(leftType) && Module.Types.IsFloat(unified)) {
-                                auto casted = Builder.Emit1("i2f"_op, {*leftNum});
-                                Builder.SetType(casted, unified);
-                                leftNum = casted;
-                            }
-                            if (!Module.Types.IsFloat(rightType) && Module.Types.IsFloat(unified)) {
-                                auto casted = Builder.Emit1("i2f"_op, {*rightNum});
-                                Builder.SetType(casted, unified);
-                                rightNum = casted;
-                            }
-                        }
-                    }
                     auto tmp = Builder.Emit1((uint32_t)binary->Operator.Value /* ast op to ir op mapping */, {*leftNum, *rightNum});
                     Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
                     co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
@@ -494,14 +474,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
 
         if (rhs.Value->Type == TOperand::EType::Imm) {
-            // inplace casts
-            if (rhs.Value->Imm.Kind == EKind::F64 && Module.Types.IsInteger(slotType)) {
-                rhs.Value->Imm.Kind = EKind::I64;
-                rhs.Value->Imm.Value = static_cast<int64_t>(std::bit_cast<double>(rhs.Value->Imm.Value));
-            } else if (rhs.Value->Imm.Kind == EKind::I64 && Module.Types.IsFloat(slotType)) {
-                rhs.Value->Imm.Kind = EKind::F64;
-                rhs.Value->Imm.Value = std::bit_cast<int64_t>(static_cast<double>(rhs.Value->Imm.Value));
-            } else if (rhs.Value->Imm.Kind == EKind::Ptr) {
+            // Materialize immediate string literals into a tmp
+            if (rhs.Value->Imm.Kind == EKind::Ptr) {
                 // TODO: create proper kind for string literal
                 auto constructorId = co_await GlobalSymbolId("str_from_lit");
                 Builder.Emit0("arg"_op, {*rhs.Value});
@@ -510,21 +484,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 *rhs.Value = materializedString;
                 rhs.Ownership = EOwnership::Owned;
             }
-        } else if (rhs.Value->Type == TOperand::EType::Tmp) {
-            auto rhsType = Builder.GetType(rhs.Value->Tmp);
-            if (rhsType != slotType) {
-                // cast
-                if (Module.Types.IsFloat(slotType) && !Module.Types.IsFloat(rhsType)) {
-                    auto casted = Builder.Emit1("i2f"_op, {*rhs.Value});
-                    Builder.SetType(casted, slotType);
-                    *rhs.Value = casted;
-                } else if (!Module.Types.IsFloat(slotType) && Module.Types.IsFloat(rhsType)) {
-                    auto casted = Builder.Emit1("f2i"_op, {*rhs.Value});
-                    Builder.SetType(casted, slotType);
-                    *rhs.Value = casted;
-                }
-            }
         }
+
         // For string destinations: retain borrowed RHS before releasing dest (safe for s := s)
         if (NAst::TMaybeType<NAst::TStringType>(node->Type)) {
             if (rhs.Ownership == EOwnership::Borrowed) {
