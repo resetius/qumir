@@ -101,15 +101,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
         }
     };
 
-    auto fconv = [&](const TInstr& ins, TVMInstr& out) {
-        for (int i = 0; i < ins.OperandCount; i++) {
-            if (ins.Operands[i].Type == TOperand::EType::Imm && ins.Operands[i].Imm.Kind != EKind::F64) {
-                double tmp = static_cast<double>(ins.Operands[i].Imm.Value);
-                out.Operands[i+1] = TUntypedImm{.Value = std::bit_cast<int64_t>(tmp)};
-            }
-        }
-    };
-
     auto ins2vm = [&](const TInstr& ins, TVMInstr& out) {
         int offset = 0;
         if (ins.Dest.Idx >= 0) {
@@ -142,7 +133,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case '+'_op: {
                 require(ins, 1, 2);
                 if (Module.Types.IsFloat(typeId(out.Operands[0].Tmp))) {
-                    fconv(ins, out);
                     out.Op = EVMOp::FAdd;
                 } else {
                     out.Op = EVMOp::IAdd;
@@ -152,7 +142,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case '-'_op: {
                 require(ins, 1, 2);
                 if (Module.Types.IsFloat(typeId(out.Operands[0].Tmp))) {
-                    fconv(ins, out);
                     out.Op = EVMOp::FSub;
                 } else {
                     out.Op = EVMOp::ISub;
@@ -163,7 +152,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 require(ins, 1, 2);
                 auto t = typeId(out.Operands[0].Tmp);
                 if (Module.Types.IsFloat(t)) {
-                    fconv(ins, out);
                     out.Op = EVMOp::FMul;
                 } else {
                     out.Op = EVMOp::IMulS;
@@ -174,7 +162,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 require(ins, 1, 2);
                 auto t = typeId(out.Operands[0].Tmp);
                 if (Module.Types.IsFloat(t)) {
-                    fconv(ins, out);
                     out.Op = EVMOp::FDiv;
                 } else {
                     out.Op = EVMOp::IDivS;
@@ -185,7 +172,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 require(ins, 1, 2);
                 auto cType = cmpType(ins);
                 if (cType == 0) {
-                    fconv(ins, out);
                     out.Op = EVMOp::FCmpLT;
                 } else if (cType == 1) {
                     out.Op = EVMOp::ICmpLTU;
@@ -198,7 +184,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 require(ins, 1, 2);
                 auto cType = cmpType(ins);
                 if (cType == 0) {
-                    fconv(ins, out);
                     out.Op = EVMOp::FCmpGT;
                 } else if (cType == 1) {
                     out.Op = EVMOp::ICmpGTU;
@@ -211,7 +196,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 require(ins, 1, 2);
                 auto cType = cmpType(ins);
                 if (cType == 0) {
-                    fconv(ins, out);
                     out.Op = EVMOp::FCmpLE;
                 } else if (cType == 1) {
                     out.Op = EVMOp::ICmpLEU;
@@ -224,7 +208,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 require(ins, 1, 2);
                 auto cType = cmpType(ins);
                 if (cType == 0) {
-                    fconv(ins, out);
                     out.Op = EVMOp::FCmpGE;
                 } else if (cType == 1) {
                     out.Op = EVMOp::ICmpGEU;
@@ -236,7 +219,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case "=="_op: {
                 require(ins, 1, 2);
                 if (cmpType(ins) == 0) {
-                    fconv(ins, out);
                     out.Op = EVMOp::FCmpEQ;
                 } else {
                     out.Op = EVMOp::ICmpEQ;
@@ -246,7 +228,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case "!="_op: {
                 require(ins, 1, 2);
                 if (cmpType(ins) == 0) {
-                    fconv(ins, out);
                     out.Op = EVMOp::FCmpNE;
                 } else {
                     out.Op = EVMOp::ICmpNE;
@@ -256,7 +237,6 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case "neg"_op: {
                 require(ins, 1, 1);
                 if (Module.Types.IsFloat(typeId(out.Operands[0].Tmp))) {
-                    fconv(ins, out);
                     out.Op = EVMOp::FNeg;
                 } else {
                     out.Op = EVMOp::INeg;
