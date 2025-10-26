@@ -632,7 +632,6 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModu
         }
         case "i2f"_op:
         case "f2i"_op:
-        case "cmov"_op:
         case "mov"_op: {
             auto val = GetOp(instr.Operands[0], module);
             return storeTmp(cast(val, outputType));

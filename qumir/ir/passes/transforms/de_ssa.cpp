@@ -69,11 +69,8 @@ void DeSSA(TFunction& function, TModule& module) {
                     label = maybeRemapIt->second;;
                 }
                 auto& predBlock = function.Blocks[function.GetBlockIdx(label)];
-                auto op = (value.Type == TOperand::EType::Tmp)
-                    ? "mov"_op
-                    : "cmov"_op;
                 TInstr assign {
-                    .Op = op,
+                    .Op = "mov"_op,
                     .Dest = phi.Dest,
                     .Operands = {value},
                     .OperandCount = 1,

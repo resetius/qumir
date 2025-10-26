@@ -284,12 +284,9 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             }
             case "mov"_op: {
                 require(ins, 1, 1);
-                out.Op = EVMOp::Mov;
-                break;
-            }
-            case "cmov"_op: {
-                require(ins, 1, 1);
-                out.Op = EVMOp::Cmov;
+                out.Op = (ins.Operands[0].Type == TOperand::EType::Imm)
+                    ? EVMOp::Cmov
+                    : EVMOp::Mov;
                 break;
             }
             case "i2f"_op: {
