@@ -309,12 +309,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 // Evaluate left expression first (already done: leftNum) and capture its producing block.
                 auto leftProducingLabel = leftRes.ProducingLabel; // block where left value was produced
 
-                // Normalize left operand to a register if it's an immediate.
-                if (leftNum->Type == TOperand::EType::Imm) {
-                    *leftNum = Builder.Emit1("cmov"_op, {*leftNum});
-                    Builder.SetType(leftNum->Tmp, FromAstType(expr->Type, Module.Types));
-                }
-
                 // Create blocks for RHS evaluation and the end/merge.
                 auto [rhsLabel, rhsId] = Builder.NewBlock();
                 auto endLabel = Builder.NewLabel();
@@ -328,10 +322,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.SetCurrentBlock(rhsId);
                 auto r = co_await Lower(binary->Right, scope);
                 if (!r.Value) co_return TError(binary->Right->Location, "binary operands must be numbers");
-                if (r.Value->Type == TOperand::EType::Imm) {
-                    *r.Value = Builder.Emit1("cmov"_op, {*r.Value});
-                    Builder.SetType(r.Value->Tmp, FromAstType(expr->Type, Module.Types));
-                }
                 // Record truth of RHS (both edges go to end)
                 Builder.Emit0("jmp"_op, {endLabel});
                 auto rightEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was true
@@ -347,11 +337,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             case "||"_op: {
                 // Short-circuit OR using single end block + phi2 with real producing blocks.
                 auto leftProducingLabel = leftRes.ProducingLabel;
-                if (leftNum->Type == TOperand::EType::Imm) {
-                    *leftNum = Builder.Emit1("cmov"_op, {*leftNum});
-                    Builder.SetType(leftNum->Tmp, FromAstType(expr->Type, Module.Types));
-                }
-
                 auto [rhsLabel, rhsId] = Builder.NewBlock();
                 auto endLabel = Builder.NewLabel();
 
@@ -363,10 +348,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.SetCurrentBlock(rhsId);
                 auto r = co_await Lower(binary->Right, scope);
                 if (!r.Value) co_return TError(binary->Right->Location, "binary operands must be numbers");
-                if (r.Value->Type == TOperand::EType::Imm) {
-                    *r.Value = Builder.Emit1("cmov"_op, {*r.Value});
-                    Builder.SetType(r.Value->Tmp, FromAstType(expr->Type, Module.Types));
-                }
                 Builder.Emit0("jmp"_op, {endLabel});
                 auto rightEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was false
 
