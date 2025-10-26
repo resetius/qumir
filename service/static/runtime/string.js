@@ -49,7 +49,7 @@ function readCString(v) {
 }
 
 function writeStrToScratch(s) {
-    if (!MEMORY || !encoder) return 0n;
+    if (!MEMORY || !encoder) return 0;
     const bytes = encoder.encode(String(s));
     if (!_ensureScratch(bytes.length)) return 0n;
     const u8 = new Uint8Array(MEMORY.buffer);
@@ -57,17 +57,17 @@ function writeStrToScratch(s) {
     u8.set(bytes, p);
     u8[p + bytes.length] = 0;
     scratchPtr = p + bytes.length + 1;
-    return BigInt(p);
+    return p;
 }
 
 // Runtime API (pointer-based)
-export function str_from_lit(ptr) { return BigInt(_normalizePtr(ptr)); }
+export function str_from_lit(ptr) { return _normalizePtr(ptr); }
 export function str_retain(_ptr) {}
 export function str_release(_ptr) {}
 export function str_concat(a, b) { return writeStrToScratch(readCString(a) + readCString(b)); }
 export function str_compare(a, b) {
     const sa = readCString(a);
     const sb = readCString(b);
-    if (sa === sb) return 0n;
-    return sa < sb ? -1n : 1n;
+    if (sa === sb) return 0;
+    return sa < sb ? -1 : 1;
 }
