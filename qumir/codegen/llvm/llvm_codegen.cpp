@@ -254,21 +254,7 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, const NIR::TMo
         auto* ptr = CurFun->Allocas[l.Idx];
         auto& arg = *lfun->getArg(i);
         auto* dstTy = ptr->getAllocatedType();
-        llvm::Value* av = &arg;
-        if (av->getType() != dstTy) {
-            if (av->getType()->isIntegerTy() && dstTy->isIntegerTy()) {
-                av = irb->CreateIntCast(av, dstTy, true);
-            } else if (av->getType()->isFloatingPointTy() && dstTy->isFloatingPointTy()) {
-                av = irb->CreateFPCast(av, dstTy);
-            } else if (av->getType()->isIntegerTy() && dstTy->isFloatingPointTy()) {
-                av = irb->CreateSIToFP(av, dstTy);
-            } else if (av->getType()->isFloatingPointTy() && dstTy->isIntegerTy()) {
-                av = irb->CreateFPToSI(av, dstTy);
-            } else {
-                av = irb->CreateBitCast(av, dstTy);
-            }
-        }
-        irb->CreateStore(av, ptr);
+        irb->CreateStore(&arg, ptr);
     }
 
     for (size_t i = 0; i < fun.Blocks.size(); ++i) {
@@ -430,23 +416,6 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModu
         return v;
     };
 
-    auto commonType = [&](llvm::Value* a, llvm::Value* b) -> llvm::Type* {
-        auto left = a->getType();
-        auto right = b->getType();
-        if (left == right) {
-            return left;
-        } else if (left->isFloatingPointTy() || right->isFloatingPointTy()) {
-            return f64;
-        } else if (left->isFloatingPointTy() || right->isIntegerTy()) {
-            return f64;
-        } else if (left->isIntegerTy() || right->isFloatingPointTy()) {
-            return f64;
-        } else if (left->isIntegerTy() && right->isIntegerTy()) {
-            return i64;
-        }
-        throw std::runtime_error("unsupported type for commonType");
-    };
-
     auto cast = [&](llvm::Value* val, llvm::Type* expectedType) -> llvm::Value* {
         auto* actualTy = val->getType();
 
@@ -457,46 +426,16 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModu
         const bool actualIsPtr = actualTy->isPointerTy();
         const bool expectedIsPtr = expectedType->isPointerTy();
 
-        if (actualIsPtr && expectedIsPtr) {
-            // pointer-to-pointer cast
-            return irb->CreateBitCast(val, expectedType, "cast");
-        }
+        // for strings
+        // TODO: remove me after changing string type to proper pointer type
         if (actualIsPtr && expectedType->isIntegerTy()) {
-            // pointer to integer
-            if (expectedType->getIntegerBitWidth() == 1) {
-                auto zero = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(actualTy));
-                return irb->CreateICmpNE(val, zero, "asbool");
-            }
             return irb->CreatePtrToInt(val, expectedType, "cast");
         }
         if (actualTy->isIntegerTy() && expectedIsPtr) {
-            // integer to pointer
             return irb->CreateIntToPtr(val, expectedType, "cast");
         }
 
-        if (actualTy->isIntegerTy() && expectedType->isIntegerTy()) {
-            // integer to integer cast
-            if (expectedType->getIntegerBitWidth() == 1) {
-                return irb->CreateICmpNE(val, llvm::ConstantInt::get(val->getType(), 0), "asbool");
-            }
-            // extend/truncate
-            return irb->CreateIntCast(val, expectedType, true, "cast");
-        } else if (actualTy->isFloatingPointTy() && expectedType->isFloatingPointTy()) {
-            // Float cast (f32 <-> f64)
-            return irb->CreateFPCast(val, expectedType, "cast");
-        } else if (actualTy->isIntegerTy() && expectedType->isFloatingPointTy()) {
-            // Int to float
-            return irb->CreateSIToFP(val, expectedType, "cast");
-        } else if (actualTy->isFloatingPointTy() && expectedType->isIntegerTy()) {
-            if (expectedType->getIntegerBitWidth() == 1) {
-                return irb->CreateFCmpUNE(val, llvm::ConstantFP::get(val->getType(), 0.0), "asbool");
-            }
-            // Float to int
-            return irb->CreateFPToSI(val, expectedType, "cast");
-        }
-
-        // Fallback: bitcast (should be rare)
-        return irb->CreateBitCast(val, expectedType, "cast");
+        throw std::runtime_error("unexpected cast request; insert explicit cast earlier");
     };
 
     auto cmpInsr = [&](llvm::CmpInst::Predicate pred, llvm::Value* lhs, llvm::Value* rhs) -> llvm::Value* {
@@ -547,17 +486,13 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModu
         case "=="_op:
         case "!="_op: {
             // Output type is i1 (bool)
-            // Should get common type of operands and do signed comparison for integers
             auto lhs = GetOp(instr.Operands[0], module);
             auto rhs = GetOp(instr.Operands[1], module);
-            auto commonTy = commonType(lhs, rhs);
-            lhs = cast(lhs, commonTy);
-            rhs = cast(rhs, commonTy);
-            if (commonTy->isFloatingPointTy()) {
+            if (lhs->getType()->isFloatingPointTy()) {
                 auto it = fcmpMap.find(opcode);
                 if (it == fcmpMap.end()) throw std::runtime_error("unsupported fcmp opcode");
                 return storeTmp(cmpInsr(it->second, lhs, rhs));
-            } else if (commonTy->isIntegerTy()) {
+            } else if (lhs->getType()->isIntegerTy()) {
                 // todo: unsigned?
                 auto it = icmpMap.find(opcode);
                 if (it == icmpMap.end()) throw std::runtime_error("unsupported icmp opcode");
@@ -568,12 +503,13 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModu
         }
         case "!"_op: {
             auto v = GetOp(instr.Operands[0], module);
+            if (!outputType || !outputType->isIntegerTy(1)) {
+                throw std::runtime_error("logical not output type must be i1");
+            }
             if (outputType->isIntegerTy(1)) {
                 auto zero = llvm::ConstantInt::get(v->getType(), 0);
-                auto cmp = irb->CreateICmpEQ(cast(v, v->getType()), zero, "nottmp");
+                auto cmp = irb->CreateICmpEQ(v, zero, "nottmp");
                 return storeTmp(cmp);
-            } else {
-                throw std::runtime_error("logical not output type must be i1");
             }
         }
         case "neg"_op: {
@@ -624,19 +560,43 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModu
         case "ret"_op: {
             if (operandCount > 0) {
                 auto val = GetOp(instr.Operands[0], module);
-                irb->CreateRet(cast(val, CurFun->LFun->getFunctionType()->getReturnType()));
+                auto* need = CurFun->LFun->getFunctionType()->getReturnType();
+                if (val->getType() != need) {
+                    throw std::runtime_error("return type mismatch; pre-cast required");
+                }
+                irb->CreateRet(val);
             } else {
                 irb->CreateRetVoid();
             }
             return nullptr;
         }
-        case "i2b"_op:
-        case "b2i"_op:
-        case "i2f"_op:
-        case "f2i"_op:
+        case "i2b"_op: {
+            auto v = GetOp(instr.Operands[0], module);
+            auto zero = llvm::ConstantInt::get(v->getType(), 0);
+            auto cmp = irb->CreateICmpNE(v, zero, "i2b");
+            return storeTmp(cmp);
+        }
+        case "f2b"_op: {
+            auto v = GetOp(instr.Operands[0], module);
+            auto zero = llvm::ConstantFP::get(v->getType(), 0.0);
+            auto cmp = irb->CreateFCmpONE(v, zero, "f2b");
+            return storeTmp(cmp);
+        }
+        case "i2f"_op: {
+            auto v = GetOp(instr.Operands[0], module);
+            if (!outputType) throw std::runtime_error("cast/mov needs typed dest");
+            return storeTmp(irb->CreateSIToFP(v, outputType, "i2f"));
+        }
+        case "f2i"_op: {
+            auto v = GetOp(instr.Operands[0], module);
+            if (!outputType) throw std::runtime_error("cast/mov needs typed dest");
+            return storeTmp(irb->CreateFPToSI(v, outputType, "f2i"));
+        }
         case "mov"_op: {
-            auto val = GetOp(instr.Operands[0], module);
-            return storeTmp(cast(val, outputType));
+            auto v = GetOp(instr.Operands[0], module);
+            if (!outputType) throw std::runtime_error("cast/mov needs typed dest");
+            if (v->getType() != outputType) throw std::runtime_error("mov type mismatch");
+            return storeTmp(v);
         }
         case "arg"_op: {
             if (operandCount != 1) throw std::runtime_error("arg needs 1 operand");
