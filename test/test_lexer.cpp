@@ -276,6 +276,24 @@ TEST(LexerTest, EolBetweenStatements) {
     ExpectInt(tokens.Next(), 2);
 }
 
+TEST(LexerTest, String) {
+    std::istringstream input("\"Hello, World!\"");
+    TTokenStream tokens(input);
+    auto t = tokens.Next();
+    ASSERT_TRUE(t.has_value());
+    EXPECT_EQ(t->Type, TToken::String);
+    EXPECT_EQ(t->Name, std::string("Hello, World!"));
+}
+
+TEST(LexerTest, EmptyString) {
+    std::istringstream input("\"\"");
+    TTokenStream tokens(input);
+    auto t = tokens.Next();
+    ASSERT_TRUE(t.has_value());
+    EXPECT_EQ(t->Type, TToken::String);
+    EXPECT_EQ(t->Name, std::string(""));
+}
+
 // --- "иначе если" should be two keywords in control flow --------------------
 TEST(LexerTest, ElseIfAsTwoKeywords) {
     std::istringstream input("если x то\nиначе если y то\nвсе\n");

@@ -294,6 +294,7 @@ void TTokenStream::Read() {
                     } else if (ch == '-') {
                         state = InMaybeNumber;
                     } else if (ch == '"') {
+                        token = TStringLiteral{};
                         state = InString;
                     } else if (isOperatorPrefix(ch)) {
                         prev = ch;
@@ -328,9 +329,6 @@ void TTokenStream::Read() {
                     } else if (ch == '\\') {
                         unescape = true;
                     } else {
-                        if (!std::holds_alternative<TStringLiteral>(token)) {
-                            token = TStringLiteral{};
-                        }
                         if (unescape) {
                             std::get<TStringLiteral>(token).AppendUnescaped(ch);
                             unescape = false;
