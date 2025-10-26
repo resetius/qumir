@@ -195,17 +195,25 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto cast = maybeCast.Cast();
         auto operand = co_await Lower(cast->Operand, scope);
         if (!operand.Value) co_return TError(cast->Operand->Location, "operand of cast must be a value");
-        TTmp tmp;
+        std::optional<TOperand> tmp;
         if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TFloatType>(cast->Operand->Type)) {
             // float to int cast
             tmp = Builder.Emit1("f2i"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TFloatType>(expr->Type) && NAst::TMaybeType<NAst::TIntegerType>(cast->Operand->Type)) {
             // int to float cast
             tmp = Builder.Emit1("i2f"_op, {*operand.Value});
+        } else if (NAst::TMaybeType<NAst::TBoolType>(expr->Type) && NAst::TMaybeType<NAst::TIntegerType>(cast->Operand->Type)) {
+            // int to bool cast (int == bool)
+            // todo: implement i2b for simplicity, currently just treats int as bool
+            tmp = operand.Value;
+        } else if (NAst::TMaybeType<NAst::TBoolType>(expr->Type) && NAst::TMaybeType<NAst::TFloatType>(cast->Operand->Type)) {
+            tmp = Builder.Emit1("f2i"_op, {*operand.Value});
         } else {
-            co_return TError(cast->Location, "unsupported cast types: from " + std::string(cast->Operand->Type->ToString()) + " to " + std::string(expr->Type->ToString()));
+            co_return TError(cast->Location, "unsupported cast types: from " + std::string(cast->Operand->Type->TypeName()) + " to " + std::string(expr->Type->TypeName()));
         }
-        Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
+        if (tmp && tmp != operand.Value) {
+            Builder.SetType(tmp->Tmp, FromAstType(expr->Type, Module.Types));
+        }
         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
     } else if (auto maybeNum = NAst::TMaybeNode<NAst::TNumberExpr>(expr)) {
         auto num = maybeNum.Cast();
@@ -650,28 +658,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     Builder.SetType(materializedString, FromAstType(argType, Module.Types));
                     av.Value = materializedString;
                     av.Ownership = EOwnership::Owned;
-                }
-            } else if (av.Value->Type == TOperand::EType::Imm) {
-                auto maybeFloat = NAst::TMaybeType<NAst::TFloatType>(argType);
-                if (maybeFloat && av.Value->Imm.Kind != EKind::F64) {
-                    // Argument is a float but was lowered to int: convert
-                    double tmp = static_cast<double>(av.Value->Imm.Value);
-                    av.Value = TImm{.Value = std::bit_cast<int64_t>(tmp), .Kind = EKind::F64};
-                }
-            } else if (av.Value->Type == TOperand::EType::Tmp) {
-                auto argAstType = FromAstType(argType, Module.Types);
-                auto avType = Builder.GetType(av.Value->Tmp);
-                if (argAstType != avType) {
-                    // cast
-                    if (Module.Types.IsFloat(argAstType) && !Module.Types.IsFloat(avType)) {
-                        auto casted = Builder.Emit1("i2f"_op, {*av.Value});
-                        Builder.SetType(casted, argAstType);
-                        av.Value = casted;
-                    } else if (!Module.Types.IsFloat(argAstType) && Module.Types.IsFloat(avType)) {
-                        auto casted = Builder.Emit1("f2i"_op, {*av.Value});
-                        Builder.SetType(casted, argAstType);
-                        av.Value = casted;
-                    }
                 }
             }
             argv.emplace_back(*av.Value, av.Ownership);

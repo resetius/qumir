@@ -95,13 +95,13 @@ struct TFunctionType : TType {
     std::string ToString() const override {
         std::string s = "(";
         for (size_t i = 0; i < ParamTypes.size(); ++i) {
-            s += ParamTypes[i] ? ParamTypes[i]->ToString() : "unknown";
+            s += ParamTypes[i] ? ParamTypes[i]->TypeName() : "unknown";
             if (i < ParamTypes.size() - 1) {
                 s += ", ";
             }
         }
         s += ") -> ";
-        s += ReturnType ? ReturnType->ToString() : "unknown";
+        s += ReturnType ? ReturnType->TypeName() : "unknown";
         return s;
     }
 

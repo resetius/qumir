@@ -1,5 +1,5 @@
-(Block:<Fun () -> >
-  (FunDecl $ф ():<Fun () -> >
+(Block:<Fun () -> String>
+  (FunDecl $ф ():<Fun () -> String>
     (Block:<String>
       (Var $__return:<String>)
       (Var $s1:<String>)

@@ -1,20 +1,21 @@
-(Block:<Fun () -> >
-  (FunDecl $функция ():<Fun () -> >
+(Block:<Fun () -> Int>
+  (FunDecl $функция ():<Fun () -> Int>
     (Block:<Int>
       (Var $__return:<Int>)
       (Var $i:<Int>)
       ($i =:<Void>
         (Call:<Int>
-          ($mod:<Fun (, ) -> >)
+          ($mod:<Fun (Int, Int) -> Int>)
           (*:<Int>
             (+:<Int>
               (2:<Int>)
               (3:<Int>))
             (7:<Int>))
-          (Call
-            ($fpow)
-            (4:<Int>)
-            (4:<Int>))))
+          (Cast<Int>:<Int>
+            (Call:<Float>
+              ($fpow:<Fun (Float, Int) -> Float>)
+              (4.000000:<Float>)
+              (4:<Int>)))))
       ($__return =:<Void>
         ($i:<Int>))
       ($__return:<Int>))))

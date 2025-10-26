@@ -1,5 +1,5 @@
-(Block:<Fun () -> >
-  (FunDecl $функция ():<Fun () -> >
+(Block:<Fun () -> Int>
+  (FunDecl $функция ():<Fun () -> Int>
     (Block:<Int>
       (Var $__return:<Int>)
       (Var $i:<Int>)

@@ -1,5 +1,5 @@
-(Block:<Fun () -> >
-  (FunDecl $<main> ():<Fun () -> >
+(Block:<Fun () -> Void>
+  (FunDecl $<main> ():<Fun () -> Void>
     (Block:<Void>
       (Var $i:<Int>)
       (Var $j:<Int>)
@@ -7,16 +7,16 @@
         (1:<Int>))
       ($j =:<Void>
         (2:<Int>))
-      (Block
-        (Call
-          ($output_int64)
+      (Block:<Void>
+        (Call:<Void>
+          ($output_int64:<Fun (Int) -> Void>)
           ($i:<Int>))
-        (Call
-          ($output_string)
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
           (" ":<String>))
-        (Call
-          ($output_int64)
+        (Call:<Void>
+          ($output_int64:<Fun (Int) -> Void>)
           ($j:<Int>))
-        (Call
-          ($output_string)
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
           ("\n":<String>))))))

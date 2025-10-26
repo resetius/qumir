@@ -1,5 +1,5 @@
-(Block:<Fun () -> >
-  (FunDecl $main ():<Fun () -> >
+(Block:<Fun (Int) -> String>
+  (FunDecl $main ():<Fun () -> String>
     (Block:<String>
       (Var $__return:<String>)
       (Var $s:<String>)
@@ -9,12 +9,12 @@
           ("10":<String>)))
       ($s =:<Void>
         (Call:<String>
-          ($ф:<Fun () -> >)
+          ($ф:<Fun (Int) -> String>)
           (10:<Int>)))
       ($__return =:<Void>
         ($s:<String>))
       ($__return:<String>)))
-  (FunDecl $ф ($k):<Fun () -> >
+  (FunDecl $ф ($k):<Fun (Int) -> String>
     (Block:<String>
       (Var $__return:<String>)
       (Var $стр:<String>)

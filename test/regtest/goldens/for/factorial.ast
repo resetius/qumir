@@ -1,5 +1,5 @@
-(Block:<Fun () -> >
-  (FunDecl $цикл ():<Fun () -> >
+(Block:<Fun (Int) -> Int>
+  (FunDecl $цикл ():<Fun () -> Int>
     (Block:<Int>
       (Var $__return:<Int>)
       (Var $ф:<Int>)
@@ -28,7 +28,7 @@
           (Block:<Void>
             ($ф =:<Void>
               (Call:<Int>
-                ($факториал:<Fun () -> >)
+                ($факториал:<Fun (Int) -> Int>)
                 (13:<Int>))))
           ($__next =:<Void>
             (+:<Int>
@@ -37,7 +37,7 @@
       ($__return =:<Void>
         ($ф:<Int>))
       ($__return:<Int>)))
-  (FunDecl $факториал ($число):<Fun () -> >
+  (FunDecl $факториал ($число):<Fun (Int) -> Int>
     (Block:<Int>
       (Var $__return:<Int>)
       (Var $i:<Int>)

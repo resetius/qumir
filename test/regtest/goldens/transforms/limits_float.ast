@@ -1,5 +1,5 @@
-(Block:<Fun () -> >
-  (FunDecl $ф ():<Fun () -> >
+(Block:<Fun () -> Float>
+  (FunDecl $ф ():<Fun () -> Float>
     (Block:<Float>
       (Var $__return:<Float>)
       ($__return =:<Void>

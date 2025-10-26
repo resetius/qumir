@@ -1,5 +1,5 @@
-(Block:<Fun () -> >
-  (FunDecl $<main> ():<Fun () -> >
+(Block:<Fun () -> Void>
+  (FunDecl $<main> ():<Fun () -> Void>
     (Block:<Float>
       (Var $i:<Int>)
       (Var $j:<Int>)

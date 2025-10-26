@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <cassert>
 
 namespace NQumir {
 namespace NTypeAnnotation {
@@ -451,7 +452,7 @@ TTask AnnotateLoop(std::shared_ptr<TLoopStmtExpr> loop, NSemantics::TNameResolve
     loop->Type = std::make_shared<TVoidType>();
 
     for (auto* child : loop->MutableChildren()) {
-        if (*child && !(*child)->Type) {
+        if (*child) {
             *child = co_await DoAnnotate(*child, context, scopeId);
         }
     }
@@ -460,15 +461,6 @@ TTask AnnotateLoop(std::shared_ptr<TLoopStmtExpr> loop, NSemantics::TNameResolve
 }
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
-    if (expr->Type) {
-        for (auto* child : expr->MutableChildren()) {
-            if (*child && !(*child)->Type) {
-                *child = co_await DoAnnotate(*child, context, scopeId);
-            }
-        }
-        co_return expr;
-    }
-
     if (auto maybeNum = TMaybeNode<TNumberExpr>(expr)) {
         co_return AnnotateNumber(maybeNum.Cast());
     } else if (auto maybeUnary = TMaybeNode<TUnaryExpr>(expr)) {
@@ -499,9 +491,19 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         auto loop = maybeLoop.Cast();
         co_return co_await AnnotateLoop(loop, context, scopeId);
     } else {
-        co_return TError(expr->Location,
-            std::string("unknown expression type for type annotation: ") + std::string(expr->NodeName()));
+        if (!expr->Type) {
+            // if expr->Type => node was annotated on construction
+            co_return TError(expr->Location,
+                std::string("unknown expression type for type annotation: ") + std::string(expr->NodeName()));
+        }
+
+        for (auto* child : expr->MutableChildren()) {
+            if (*child) {
+                *child = co_await DoAnnotate(*child, context, scopeId);
+            }
+        }
     }
+    co_return expr;
 }
 
 } // namespace

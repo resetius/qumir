@@ -83,7 +83,7 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_string"),
                             std::move(args));
                     } else {
-                        errors.push_back(TError(arg->Location, "output argument must be int, float, or string, got: " + type->ToString()));
+                        errors.push_back(TError(arg->Location, "output argument must be int, float, or string, got: " + (type ? type->ToString() : "unknown")));
                     }
                     stmts.push_back(call);
                 }
