@@ -630,6 +630,8 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, const NIR::TModu
             }
             return nullptr;
         }
+        case "i2b"_op:
+        case "b2i"_op:
         case "i2f"_op:
         case "f2i"_op:
         case "mov"_op: {

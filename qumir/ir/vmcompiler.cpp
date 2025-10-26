@@ -269,11 +269,17 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                     : EVMOp::Mov;
                 break;
             }
+            case "i2b"_op: {
+                require(ins, 1, 1);
+                out.Op = EVMOp::Mov;
+                break;
+            }
             case "i2f"_op: {
                 require(ins, 1, 1);
                 out.Op = EVMOp::I2F;
                 break;
             }
+            case "f2b"_op:
             case "f2i"_op: {
                 require(ins, 1, 1);
                 out.Op = EVMOp::F2I;

@@ -1,10 +1,11 @@
 function функция () { ; i1
   block {
     label: label(0)
-    stre local(1,i1) imm(1) 
-    load tmp(0,i1) = local(1,i1) 
-    stre local(0,i1) tmp(0,i1) 
-    load tmp(1,i1) = local(0,i1) 
-    ret tmp(1,i1) 
+    i2b tmp(0,i1) = imm(1) 
+    stre local(1,i1) tmp(0,i1) 
+    load tmp(1,i1) = local(1,i1) 
+    stre local(0,i1) tmp(1,i1) 
+    load tmp(2,i1) = local(0,i1) 
+    ret tmp(2,i1) 
   }
 }

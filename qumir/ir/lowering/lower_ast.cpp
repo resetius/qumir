@@ -203,17 +203,13 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             // int to float cast
             tmp = Builder.Emit1("i2f"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TBoolType>(expr->Type) && NAst::TMaybeType<NAst::TIntegerType>(cast->Operand->Type)) {
-            // int to bool cast (int == bool)
-            // todo: implement i2b for simplicity, currently just treats int as bool
-            tmp = operand.Value;
+            tmp = Builder.Emit1("i2b"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TBoolType>(expr->Type) && NAst::TMaybeType<NAst::TFloatType>(cast->Operand->Type)) {
-            tmp = Builder.Emit1("f2i"_op, {*operand.Value});
+            tmp = Builder.Emit1("f2b"_op, {*operand.Value});
         } else {
             co_return TError(cast->Location, "unsupported cast types: from " + std::string(cast->Operand->Type->TypeName()) + " to " + std::string(expr->Type->TypeName()));
         }
-        if (tmp && tmp != operand.Value) {
-            Builder.SetType(tmp->Tmp, FromAstType(expr->Type, Module.Types));
-        }
+        Builder.SetType(tmp->Tmp, FromAstType(expr->Type, Module.Types));
         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
     } else if (auto maybeNum = NAst::TMaybeNode<NAst::TNumberExpr>(expr)) {
         auto num = maybeNum.Cast();
