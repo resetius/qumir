@@ -51,7 +51,7 @@ function readCString(v) {
 function writeStrToScratch(s) {
     if (!MEMORY || !encoder) return 0;
     const bytes = encoder.encode(String(s));
-    if (!_ensureScratch(bytes.length)) return 0n;
+    if (!_ensureScratch(bytes.length)) return 0;
     const u8 = new Uint8Array(MEMORY.buffer);
     const p = scratchPtr >>> 0;
     u8.set(bytes, p);
@@ -65,6 +65,19 @@ export function str_from_lit(ptr) { return _normalizePtr(ptr); }
 export function str_retain(_ptr) {}
 export function str_release(_ptr) {}
 export function str_concat(a, b) { return writeStrToScratch(readCString(a) + readCString(b)); }
+export function str_slice(strPtr, startSymbol, endSymbol) {
+    // endSymbol is inclusive
+    const s = readCString(strPtr);
+    const symbols = Array.from(s);
+    const len = symbols.length;
+    const start = Math.max(0, Math.min(len, Number(startSymbol)));
+    let endInc = Number(endSymbol);
+    if (!Number.isFinite(endInc)) endInc = len - 1;
+    endInc = Math.max(-1, Math.min(len - 1, endInc));
+    if (start > endInc) return writeStrToScratch('');
+    const out = symbols.slice(start, endInc + 1).join('');
+    return writeStrToScratch(out);
+}
 export function str_compare(a, b) {
     const sa = readCString(a);
     const sb = readCString(b);
