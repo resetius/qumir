@@ -28,13 +28,13 @@ using namespace NQumir;
 
 namespace {
 
-void GenerateAst(const std::string& inputFile, const std::string& outputFile) {
+int GenerateAst(const std::string& inputFile, const std::string& outputFile) {
     std::cerr << "Generating AST from " << inputFile << " to " << outputFile << "\n";
 
     std::ifstream in(inputFile);
     if (!in) {
         std::cerr << "Failed to open input file: " << inputFile << "\n";
-        return;
+        return 1;
     }
 
     NAst::TTokenStream ts(in);
@@ -42,25 +42,26 @@ void GenerateAst(const std::string& inputFile, const std::string& outputFile) {
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
         std::cerr << "Parse error: " << expected.error().ToString() << std::endl;
-        return;
+        return 1;
     }
     auto ast = std::move(expected.value());
     std::ofstream out(outputFile);
     if (!out) {
         std::cerr << "Failed to open output file: " << outputFile << "\n";
-        return;
+        return 1;
     }
 
     out << *ast;
+    return 0;
 }
 
-void GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel) {
+int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel) {
     std::cerr << "Generating IR from " << inputFile << " to " << outputFile << "\n";
 
     std::ifstream in(inputFile);
     if (!in) {
         std::cerr << "Failed to open input file: " << inputFile << "\n";
-        return;
+        return 1;
     }
 
     NAst::TTokenStream ts(in);
@@ -68,7 +69,7 @@ void GenerateIr(const std::string& inputFile, const std::string& outputFile, int
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
         std::cerr << "Parse error: " << expected.error().ToString() << std::endl;
-        return;
+        return 1;
     }
     auto ast = std::move(expected.value());
 
@@ -78,7 +79,7 @@ void GenerateIr(const std::string& inputFile, const std::string& outputFile, int
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
         std::cerr << "Transform error: " << error.error().ToString() << "\n";
-        return;
+        return 1;
     }
 
     NIR::TModule module;
@@ -88,7 +89,7 @@ void GenerateIr(const std::string& inputFile, const std::string& outputFile, int
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
         std::cerr << "Lowering error: " << lowerResult.error().ToString() << "\n";
-        return;
+        return 1;
     }
     if (optLevel > 0) {
         NIR::NPasses::Pipeline(module);
@@ -97,19 +98,20 @@ void GenerateIr(const std::string& inputFile, const std::string& outputFile, int
     std::ofstream out(outputFile);
     if (!out) {
         std::cerr << "Failed to open output file: " << outputFile << "\n";
-        return;
+        return 1;
     }
 
     module.Print(out);
+    return 0;
 }
 
-void GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel) {
+int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel) {
     std::cerr << "Generating LLVM IR from " << inputFile << " to " << outputFile << "\n";
 
     std::ifstream in(inputFile);
     if (!in) {
         std::cerr << "Failed to open input file: " << inputFile << "\n";
-        return;
+        return 1;
     }
 
     NAst::TTokenStream ts(in);
@@ -117,7 +119,7 @@ void GenerateLlvm(const std::string& inputFile, const std::string& outputFile, i
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
         std::cerr << "Parse error: " << expected.error().ToString() << std::endl;
-        return;
+        return 1;
     }
     auto ast = std::move(expected.value());
 
@@ -127,7 +129,7 @@ void GenerateLlvm(const std::string& inputFile, const std::string& outputFile, i
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
         std::cerr << "Transform error: " << error.error().ToString() << "\n";
-        return;
+        return 1;
     }
 
     NIR::TModule module;
@@ -137,23 +139,24 @@ void GenerateLlvm(const std::string& inputFile, const std::string& outputFile, i
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
         std::cerr << "Lowering error: " << lowerResult.error().ToString() << "\n";
-        return;
+        return 1;
     }
 
     NCodeGen::TLLVMCodeGen cg;
     auto artifacts = cg.Emit(module, optLevel);
     if (!artifacts) {
         std::cerr << "Codegen error " << "\n";
-        return;
+        return 1;
     }
 
     std::ofstream out(outputFile);
     if (!out) {
         std::cerr << "Failed to open output file: " << outputFile << "\n";
-        return;
+        return 1;
     }
 
     artifacts->PrintModule(out);
+    return 0;
 }
 
 #if 0
@@ -267,13 +270,13 @@ void GenerateObjFromAsm(const std::string& asmCode, std::ostream& objOut) {
 }
 #endif
 
-void Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, bool targetWasm) {
+int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, bool targetWasm) {
     std::cerr << "Compiling " << inputFile << " to " << outputFile << "\n";
 
     std::ifstream in(inputFile);
     if (!in) {
         std::cerr << "Failed to open input file: " << inputFile << "\n";
-        return;
+        return 1;
     }
 
     NAst::TTokenStream ts(in);
@@ -281,7 +284,7 @@ void Generate(const std::string& inputFile, const std::string& outputFile, bool 
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
         std::cerr << "Parse error: " << expected.error().ToString() << std::endl;
-        return;
+        return 1;
     }
     auto ast = std::move(expected.value());
 
@@ -291,7 +294,7 @@ void Generate(const std::string& inputFile, const std::string& outputFile, bool 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
         std::cerr << "Transform error: " << error.error().ToString() << "\n";
-        return;
+        return 1;
     }
 
     NIR::TModule module;
@@ -301,7 +304,7 @@ void Generate(const std::string& inputFile, const std::string& outputFile, bool 
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
         std::cerr << "Lowering error: " << lowerResult.error().ToString() << "\n";
-        return;
+        return 1;
     }
     if (optLevel > 0) {
         NIR::NPasses::Pipeline(module);
@@ -315,7 +318,7 @@ void Generate(const std::string& inputFile, const std::string& outputFile, bool 
     auto artifacts = cg.Emit(module, optLevel);
     if (!artifacts) {
         std::cerr << "Codegen error " << "\n";
-        return;
+        return 1;
     }
 
     // Special path: when targeting wasm and linking, produce a final .wasm via wasm-ld
@@ -326,7 +329,7 @@ void Generate(const std::string& inputFile, const std::string& outputFile, bool 
             std::ofstream objFile(objTmp, std::ios::binary);
             if (!objFile) {
                 std::cerr << "Failed to open temp object file: " << objTmp << "\n";
-                return;
+                return 1;
             }
             artifacts->Generate(objFile, /*asm*/false, /*obj*/true);
         }
@@ -334,18 +337,19 @@ void Generate(const std::string& inputFile, const std::string& outputFile, bool 
         int rc = std::system(cmd.c_str());
         if (rc != 0) {
             std::cerr << "wasm-ld failed with code " << rc << "\n";
-            return;
+            return 1;
         }
         std::remove(objTmp.c_str());
-        return;
+        return 0;
     }
 
     std::ofstream outFile(outputFile, std::ios::binary);
     if (!outFile) {
         std::cerr << "Failed to open output file: " << outputFile << "\n";
-        return;
+        return 1;
     }
     artifacts->Generate(outFile, generateAsm, compileOnly && !generateAsm);
+    return 0;
 }
 
 std::string OutputFilename(const std::string& inputFile, const std::string& newExt) {
@@ -450,35 +454,30 @@ int main(int argc, char** argv) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ast");
         }
-        GenerateAst(inputFile, outputFile);
-        return 0;
+        return GenerateAst(inputFile, outputFile);
     }
 
     if (generateIr) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ir");
         }
-        GenerateIr(inputFile, outputFile, optLevel);
-        return 0;
+        return GenerateIr(inputFile, outputFile, optLevel);
     }
 
     if (generateLlvm) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ll");
         }
-        GenerateLlvm(inputFile, outputFile, optLevel);
-        return 0;
+        return GenerateLlvm(inputFile, outputFile, optLevel);
     }
 
     if (!compileOnly && outputFile.empty()) {
         outputFile = targetWasm ? OutputFilename(inputFile, ".wasm") : A_OUT;
     }
 
-    Generate(inputFile, compileOnly
+    return Generate(inputFile, compileOnly
         ? (generateAsm
             ? OutputFilename(inputFile, ".s")
             : OutputFilename(inputFile, ".o"))
         : outputFile, compileOnly, generateAsm, optLevel, targetWasm);
-
-    return 0;
 }
