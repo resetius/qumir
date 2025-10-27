@@ -228,6 +228,9 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStrea
             co_return TError(rsbTok->Location, "ожидается ',' или ']' после границ массива");
         }
 
+        // TODO: limit arity of multi-dimensional arrays, smth like: arity <= MAX_ARRAY_DIMENSIONS = 6
+        // TODO: create hidden variables for bounds expressions, i.e.
+        // __name_dim0_left, __name_dim0_right, __name_dim1_left, __name_dim1_right, ...
         varType = std::make_shared<TArrayType>(scalarType, bounds.size());
     } else {
         // скобки после имени запрещены для скалярного типа
