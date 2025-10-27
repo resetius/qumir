@@ -192,7 +192,7 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStrea
     TTypePtr varType = scalarType;
 
     if (isArray) {
-        // ожидаем границы массива: '[' int ':' int ']'
+        // ожидаем границы массива: '[' expr ':' expr (',' expr ':' expr )* ']'
         auto t = stream.Next();
         if (!t || t->Type != TToken::Operator || static_cast<EOperator>(t->Value.i64) != EOperator::LSqBr) {
             co_return TError(stream.GetLocation(), "для табличного типа ожидаются границы массива после имени: '['");
