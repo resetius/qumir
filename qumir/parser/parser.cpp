@@ -674,11 +674,11 @@ TAstTask if_expr(TTokenStream& stream) {
     co_return std::make_shared<TIfExpr>(location, cond, thenBranch, elseBranch);
 }
 
-// Parse optional argument list after '(' then ')'
-TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_arg_list_opt(TTokenStream& stream) {
+// Parse optional argument list after '(' then ')' or after '[' then ']'
+TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_arg_list_opt(TTokenStream& stream, EOperator rParen = EOperator::RParen) {
     std::vector<TExprPtr> args;
     auto tok = co_await stream.Next();
-    if (tok.Type == TToken::Operator && (EOperator)tok.Value.i64 == EOperator::RParen) {
+    if (tok.Type == TToken::Operator && (EOperator)tok.Value.i64 == rParen) {
         co_return args; // empty
     }
     stream.Unget(tok);
@@ -687,7 +687,7 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_arg_list_opt(TToke
     args.push_back(std::move(e));
     while (true) {
         auto t = co_await stream.Next();
-        if (t.Type == TToken::Operator && (EOperator)t.Value.i64 == EOperator::RParen) {
+        if (t.Type == TToken::Operator && (EOperator)t.Value.i64 == rParen) {
             break;
         }
         if (t.Type == TToken::Operator && (EOperator)t.Value.i64 == EOperator::Comma) {
@@ -696,7 +696,11 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_arg_list_opt(TToke
             continue;
         }
         stream.Unget(t);
-        co_return TError(stream.GetLocation(), "ожидается ',' или ')' в списке аргументов функции");
+        if (rParen == EOperator::RParen) {
+            co_return TError(stream.GetLocation(), "ожидается ',' или ')'");
+        } else {
+            co_return TError(stream.GetLocation(), "ожидается ',' или ']'");
+        }
     }
     co_return args;
 }
@@ -765,8 +769,9 @@ TAstTask factor(TTokenStream& stream) {
 }
 
 // call_expr ::=  factor ( '(' arg_list_opt ')' )*
-//              | factor ( '[' expr ':' expr ']' )*
-//              | factor ( '[' expr ']' )*
+//              | factor ( '[' expr ':' expr ']' )* // <- string slice
+//              | factor ( '[' expr ']' )* // <- array index or string index
+//              | factor ( '[' expr (',' expr)? ']' )* // <- multi-dimensional array index
 TAstTask call_expr(TTokenStream& stream) {
     auto base = co_await factor(stream);
     while (auto tok = stream.Next()) {
@@ -793,6 +798,16 @@ TAstTask call_expr(TTokenStream& stream) {
                     co_return TError(rsbTok.Location, "ожидается ']' после среза массива");
                 }
                 base = std::make_shared<TSliceExpr>(tok->Location, std::move(base), std::move(indexExpr), std::move(endIndexExpr));
+                continue;
+            } else if ((EOperator)rbrOrColonTok.Value.i64 == EOperator::Comma) {
+                // multi-dimensional array index
+                auto restArgs = co_await parse_arg_list_opt(stream, EOperator::RSqBr);
+                std::vector<TExprPtr> allIndices; allIndices.reserve(1 + restArgs.size());
+                allIndices.push_back(std::move(indexExpr));
+                allIndices.insert(allIndices.end(),
+                    std::make_move_iterator(restArgs.begin()),
+                    std::make_move_iterator(restArgs.end()));
+                base = std::make_shared<TMultiIndexExpr>(tok->Location, std::move(base), std::move(allIndices));
                 continue;
             } else if ((EOperator)rbrOrColonTok.Value.i64 == EOperator::RSqBr) {
                 // single index

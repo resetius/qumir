@@ -624,6 +624,43 @@ struct TIndexExpr : public TExpr {
     }
 };
 
+struct TMultiIndexExpr : public TExpr {
+    static constexpr const char* NodeId = "MultiIndex";
+
+    TExprPtr Collection;
+    std::vector<TExprPtr> Indices;
+
+    TMultiIndexExpr(TLocation loc, TExprPtr collection, std::vector<TExprPtr> indices)
+        : TExpr(std::move(loc))
+        , Collection(std::move(collection))
+        , Indices(std::move(indices))
+    { }
+
+    std::vector<TExprPtr> Children() const override {
+        std::vector<TExprPtr> result;
+        result.reserve(1 + Indices.size());
+        result.push_back(Collection);
+        for (const auto& index : Indices) {
+            result.push_back(index);
+        }
+        return result;
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        std::vector<TExprPtr*> result;
+        result.reserve(1 + Indices.size());
+        result.push_back(&Collection);
+        for (auto& index : Indices) {
+            result.push_back(&index);
+        }
+        return result;
+    }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+};
+
 struct TSliceExpr : public TExpr {
     static constexpr const char* NodeId = "Slice";
 
