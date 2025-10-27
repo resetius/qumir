@@ -107,6 +107,43 @@ struct TAssignExpr : TExpr {
     }
 };
 
+struct TArrayAssignExpr : TExpr {
+    static constexpr const char* NodeId = "ArrayAssign";
+
+    std::string Name;
+    std::vector<TExprPtr> Indices;
+    TExprPtr Value;
+    TArrayAssignExpr(TLocation loc, std::string n, std::vector<TExprPtr> idxs, TExprPtr v)
+        : TExpr(std::move(loc))
+        , Name(std::move(n))
+        , Indices(std::move(idxs))
+        , Value(std::move(v))
+    { }
+
+    std::vector<TExprPtr> Children() const override {
+        std::vector<TExprPtr> children = Indices;
+        children.push_back(Value);
+        return children;
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        std::vector<TExprPtr*> children;
+        for (auto& idx : Indices) {
+            children.push_back(&idx);
+        }
+        children.push_back(&Value);
+        return children;
+    }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+
+    const std::string ToString() const override {
+        return std::string("$") + Name + "[...] =";
+    }
+};
+
 struct TNumberExpr : TExpr {
     static constexpr const char* NodeId = "Number";
 

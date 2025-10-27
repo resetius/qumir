@@ -1000,7 +1000,16 @@ TAstTask stmt(TTokenStream& stream) {
         co_return std::make_shared<TContinueStmt>(first->Location);
     } else if (first->Type == TToken::Identifier) {
         auto next = co_await stream.Next();
-        if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Assign) {
+        if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::LSqBr) {
+            // Array element assignment: Ident '[' expr (',' expr)* ']' ':=' expr
+            auto exprs = co_await parse_arg_list_opt(stream, EOperator::RSqBr);
+            auto assignTok = co_await stream.Next();
+            if (!(assignTok.Type == TToken::Operator && static_cast<EOperator>(assignTok.Value.i64) == EOperator::Assign)) {
+                co_return TError(assignTok.Location, "ожидался ':=' после индексов массива");
+            }
+            auto rhs = co_await expr(stream);
+            co_return std::make_shared<TArrayAssignExpr>(first->Location, first->Name, std::move(exprs), rhs);
+        } else if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Assign) {
             // Assignment statement
             auto rhs = co_await expr(stream);
             co_return std::make_shared<TAssignExpr>(first->Location, first->Name, rhs);
@@ -1014,7 +1023,7 @@ TAstTask stmt(TTokenStream& stream) {
     } else {
         // std::cerr << "Debug " << (int)first->Type << " " << first->Name << " " << first->Value.i64 << "\n";
         stream.Unget(*first);
-        co_return TError(stream.GetLocation(), "неизвестный стейтмент (пока поддерживаются только объявления переменных)");
+        co_return TError(stream.GetLocation(), "неизвестный стейтмент");
     }
 }
 

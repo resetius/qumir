@@ -363,6 +363,51 @@ TTask AnnotateAssign(std::shared_ptr<TAssignExpr> assign, NSemantics::TNameResol
     co_return assign;
 }
 
+TTask AnnotateArrayAssign(std::shared_ptr<TArrayAssignExpr> arrayAssign, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    arrayAssign->Value = co_await DoAnnotate(arrayAssign->Value, context, scopeId);
+    if (!arrayAssign->Value->Type) {
+        co_return TError(arrayAssign->Location, "cannot assign untyped value to array: " + arrayAssign->Name);
+    }
+    auto symbolId = context.Lookup(arrayAssign->Name, scopeId);
+    if (!symbolId) {
+        co_return TError(arrayAssign->Location, "undefined identifier in array assignment: " + arrayAssign->Name);
+    }
+    auto sym = context.GetSymbolNode(NSemantics::TSymbolId{symbolId->Id});
+    if (!sym || !sym->Type) {
+        co_return TError(arrayAssign->Location, "untyped identifier in array assignment: " + arrayAssign->Name);
+    }
+    auto maybeArrayType = TMaybeType<TArrayType>(sym->Type);
+    if (!maybeArrayType) {
+        co_return TError(arrayAssign->Location, "identifier is not an array in array assignment: " + arrayAssign->Name);
+    }
+    auto arrayType = maybeArrayType.Cast();
+
+    if (!EqualTypes(arrayAssign->Value->Type, arrayType->ElementType)) {
+        if (!CanImplicit(arrayAssign->Value->Type, arrayType->ElementType)) {
+            co_return TError(arrayAssign->Location, std::string("cannot implicitly convert '") +
+                std::string(arrayAssign->Value->Type->TypeName()) + "' to '" + std::string(arrayType->ElementType->TypeName()) + "' in array assignment");
+        }
+        arrayAssign->Value = InsertImplicitCastIfNeeded(arrayAssign->Value, arrayType->ElementType);
+    }
+    for (auto& indexExpr : arrayAssign->Indices) {
+        indexExpr = co_await DoAnnotate(indexExpr, context, scopeId);
+        if (!indexExpr->Type) {
+            co_return TError(arrayAssign->Location, "untyped index expression in array assignment: " + arrayAssign->Name);
+        }
+        auto maybeIntType = TMaybeType<TIntegerType>(indexExpr->Type);
+        if (!maybeIntType) {
+            co_return TError(arrayAssign->Location, "non-integer index expression in array assignment: " + arrayAssign->Name);
+        }
+    }
+    // check arity
+    if (arrayAssign->Indices.size() != arrayType->Arity) {
+        co_return TError(arrayAssign->Location, "invalid number of indices in array assignment: " + arrayAssign->Name);
+    }
+
+    arrayAssign->Type = std::make_shared<NAst::TVoidType>();
+    co_return arrayAssign;
+}
+
 TTask AnnotateVar(std::shared_ptr<TVarStmt> var) {
     if (!var->Type) {
         co_return TError(var->Location, "untyped var declaration: " + var->Name);
@@ -527,6 +572,8 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         co_return co_await AnnotateIdent(maybeIdent.Cast(), context, scopeId);
     } else if (auto maybeAssign = TMaybeNode<TAssignExpr>(expr)) {
         co_return co_await AnnotateAssign(maybeAssign.Cast(), context, scopeId);
+    } else if (auto maybeArrayAssign = TMaybeNode<TArrayAssignExpr>(expr)) {
+        co_return co_await AnnotateArrayAssign(maybeArrayAssign.Cast(), context, scopeId);
     } else if (auto maybeVar = TMaybeNode<TVarStmt>(expr)) {
         co_return co_await AnnotateVar(maybeVar.Cast());
     } else if (auto maybeFunDecl = TMaybeNode<TFunDecl>(expr)) {
