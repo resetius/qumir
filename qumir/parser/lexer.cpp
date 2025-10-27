@@ -271,9 +271,13 @@ void TTokenStream::Read() {
     while ((Tokens.empty() || state != Start) && In.get(ch)) {
         if (ch == '\n') {
             CurrentLocation.Line++;
+            CurrentLocation.Byte = 0;
             CurrentLocation.Column = 0;
         } else {
-            CurrentLocation.Column++;
+            if ((ch & 0b11000000) != 0b10000000) { // not a UTF-8 continuation byte
+                CurrentLocation.Column++;
+            }
+            CurrentLocation.Byte++;
         }
 
         do {

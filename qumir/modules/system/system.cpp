@@ -371,6 +371,17 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
             .ReturnType = stringType
         },
         {
+            .Name = "str_slice",
+            .MangledName = "str_slice",
+            .Ptr = reinterpret_cast<void*>(static_cast<char*(*)(const char*, int, int)>(NRuntime::str_slice)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto* str = NRuntime::str_slice(reinterpret_cast<const char*>(args[0]), static_cast<int>(std::bit_cast<int64_t>(args[1])), static_cast<int>(std::bit_cast<int64_t>(args[2])));
+                return std::bit_cast<uint64_t>(str);
+            },
+            .ArgTypes = { stringType, integerType, integerType },
+            .ReturnType = stringType
+        },
+        {
             .Name = "str_retain",
             .MangledName = "str_retain",
             .Ptr = reinterpret_cast<void*>(static_cast<void(*)(char*)>(NRuntime::str_retain)),

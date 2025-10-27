@@ -6,6 +6,8 @@ namespace NQumir {
 namespace NRuntime {
 
 struct TString {
+    int* Utf8Indices;
+    int64_t Symbols;
     int64_t Rc;
     int64_t Length;
     char Data[0];
@@ -13,6 +15,7 @@ struct TString {
 
 extern "C" {
 
+char* str_slice(const char* s, int startSymbol, int endSymbol);
 char* str_from_lit(const char* s);
 void str_retain(char* s);
 void str_release(char* s);
