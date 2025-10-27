@@ -114,21 +114,18 @@ struct TArrayType : TType {
     static constexpr const char* TypeId = "Array";
 
     TTypePtr ElementType;
-    std::optional<int> LeftBound;
-    std::optional<int> RightBound;
+    int Arity{0}; // 0 - scalar, 1 - 1D, 2 - 2D, etc.
 
     TArrayType() = default;
 
-    explicit TArrayType(TTypePtr et, int lb, int rb)
+    explicit TArrayType(TTypePtr et, int arity)
         : ElementType(std::move(et))
-        , LeftBound(lb)
-        , RightBound(rb)
+        , Arity(arity)
     {}
 
     std::string ToString() const override {
         return "[" + (ElementType ? std::string(ElementType->TypeName()) : "unknown") + "; " +
-               (LeftBound.has_value() ? std::to_string(LeftBound.value()) : "?") + ".." +
-               (RightBound.has_value() ? std::to_string(RightBound.value()) : "?") + "]";
+               (Arity > 0 ? std::to_string(Arity) : "?") + "]";
     }
 
     const std::string_view TypeName() const override {

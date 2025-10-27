@@ -370,14 +370,34 @@ struct TVarStmt : TExpr {
     static constexpr const char* NodeId = "Var";
 
     std::string Name;
+    std::vector<std::pair<TExprPtr, TExprPtr>> Bounds; // for array types
 
-    TVarStmt(TLocation loc, std::string name, NAst::TTypePtr type)
+    TVarStmt(TLocation loc, std::string name, NAst::TTypePtr type, std::vector<std::pair<TExprPtr, TExprPtr>> bounds = {})
         : TExpr(std::move(loc), std::move(type))
         , Name(std::move(name))
+        , Bounds(std::move(bounds))
     { }
 
     const std::string_view NodeName() const override {
         return NodeId;
+    }
+
+    std::vector<TExprPtr> Children() const override {
+        std::vector<TExprPtr> result;
+        for (const auto& b : Bounds) {
+            result.push_back(b.first);
+            result.push_back(b.second);
+        }
+        return result;
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        std::vector<TExprPtr*> result;
+        for (auto& b : Bounds) {
+            result.push_back(&b.first);
+            result.push_back(&b.second);
+        }
+        return result;
     }
 
     const std::string ToString() const override {

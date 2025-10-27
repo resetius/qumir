@@ -175,6 +175,19 @@ TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators, std::ve
     co_return list(stream.GetLocation(), std::move(stmts));
 }
 
+TExpectedTask<std::pair<TExprPtr, TExprPtr>, TError, TLocation> array_bounds(TTokenStream& stream)
+{
+    // left bound
+    auto leftExpr = co_await expr(stream);
+    auto colonTok = stream.Next();
+    if (!colonTok || colonTok->Type != TToken::Operator || static_cast<EOperator>(colonTok->Value.i64) != EOperator::Colon) {
+        co_return TError(stream.GetLocation(), "ожидается ':' между границами массива");
+    }
+    // right bound
+    auto rightExpr = co_await expr(stream);
+    co_return std::make_pair(std::move(leftExpr), std::move(rightExpr));
+}
+
 /*
 VarDecl ::= TypeKw Name (',' Name)* EOL
 TypeKw  ::= 'цел' | 'вещ' | 'лог' | 'лит' | 'таб'
@@ -190,6 +203,7 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStrea
 
     std::string name = nameTok.Name;
     TTypePtr varType = scalarType;
+    std::vector<std::pair<TExprPtr, TExprPtr>> bounds;
 
     if (isArray) {
         // ожидаем границы массива: '[' expr ':' expr (',' expr ':' expr )* ']'
@@ -197,30 +211,24 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStrea
         if (!t || t->Type != TToken::Operator || static_cast<EOperator>(t->Value.i64) != EOperator::LSqBr) {
             co_return TError(stream.GetLocation(), "для табличного типа ожидаются границы массива после имени: '['");
         }
-        // left bound
-        auto lbTok = stream.Next();
-        if (!lbTok || lbTok->Type != TToken::Integer) {
-            co_return TError(stream.GetLocation(), "левая граница массива должна быть целым числом");
-        }
-        int left = static_cast<int>(lbTok->Value.i64);
-        // ':'
-        auto colonTok = stream.Next();
-        if (!colonTok || colonTok->Type != TToken::Operator || static_cast<EOperator>(colonTok->Value.i64) != EOperator::Colon) {
-            co_return TError(stream.GetLocation(), "ожидался ':' между границами массива");
-        }
-        // right bound
-        auto rbTok = stream.Next();
-        if (!rbTok || rbTok->Type != TToken::Integer) {
-            co_return TError(stream.GetLocation(), "правая граница массива должна быть целым числом");
-        }
-        int right = static_cast<int>(rbTok->Value.i64);
-        // ']'
-        auto rsbTok = stream.Next();
-        if (!rsbTok || rsbTok->Type != TToken::Operator || static_cast<EOperator>(rsbTok->Value.i64) != EOperator::RSqBr) {
-            co_return TError(stream.GetLocation(), "ожидалась закрывающая ']' для границ массива");
+        while (true) {
+            bounds.push_back(co_await array_bounds(stream));
+            // ']'
+            auto rsbTok = stream.Next();
+            if (!rsbTok || rsbTok->Type != TToken::Operator) {
+                co_return TError(stream.GetLocation(), "ожидалась закрывающая ']' для границ массива");
+            }
+            if (static_cast<EOperator>(rsbTok->Value.i64) == EOperator::RSqBr) {
+                break;
+            }
+            if (static_cast<EOperator>(rsbTok->Value.i64) == EOperator::Comma) {
+                // multi-dimensional array index
+                continue;
+            }
+            co_return TError(rsbTok->Location, "ожидается ',' или ']' после границ массива");
         }
 
-        varType = std::make_shared<TArrayType>(scalarType, left, right);
+        varType = std::make_shared<TArrayType>(scalarType, bounds.size());
     } else {
         // скобки после имени запрещены для скалярного типа
         auto t = stream.Next();
@@ -236,7 +244,7 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStrea
         varType = std::make_shared<TPointerType>(varType);
     }
 
-    auto var = std::make_shared<TVarStmt>(nameTok.Location, name, varType);
+    auto var = std::make_shared<TVarStmt>(nameTok.Location, name, varType, bounds);
     co_return var;
 }
 

@@ -1,5 +1,13 @@
-(Block:<Array [Bool; -10..10]>
-  (Var $й:<Array [Int; 0..10]>)
-  (Var $ц:<Array [Int; 0..20]>)
-  (Var $l:<Array [Float; -1..234]>)
-  (Var $тт:<Array [Bool; -10..10]>))
+(Block:<Array [Bool; 1]>
+  (Var $й:<Array [Int; 1]>
+    (0:<Int>)
+    (10:<Int>))
+  (Var $ц:<Array [Int; 1]>
+    (0:<Int>)
+    (20:<Int>))
+  (Var $l:<Array [Float; 1]>
+    (-1:<Int>)
+    (234:<Int>))
+  (Var $тт:<Array [Bool; 1]>
+    (-10:<Int>)
+    (10:<Int>)))
