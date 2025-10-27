@@ -231,6 +231,12 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStrea
         // TODO: limit arity of multi-dimensional arrays, smth like: arity <= MAX_ARRAY_DIMENSIONS = 6
         // TODO: create hidden variables for bounds expressions, i.e.
         // __name_dim0_left, __name_dim0_right, __name_dim1_left, __name_dim1_right, ...
+        // [i,    j,    k]
+        //  ^     ^     ^
+        //  dim0  dim1  dim2
+        // flat index = i * (dim1_size * dim2_size) + j * dim2_size + k, where
+        // dimN_size = right_bound_N - left_bound_N + 1
+        // precompute sizes during variable initialization?
         varType = std::make_shared<TArrayType>(scalarType, bounds.size());
     } else {
         // скобки после имени запрещены для скалярного типа
