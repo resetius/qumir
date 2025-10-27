@@ -29,6 +29,7 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
     auto floatType = std::make_shared<NAst::TFloatType>();
     auto voidType = std::make_shared<NAst::TVoidType>();
     auto stringType = std::make_shared<NAst::TStringType>();
+    auto voidPtrType = std::make_shared<NAst::TPointerType>(voidType);
 
     std::vector<TExternalFunction> functions = {
         {
@@ -424,6 +425,29 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
             },
             .ArgTypes = { stringType, stringType },
             .ReturnType = integerType
+        },
+        // arrays
+        {
+            .Name = "array_create",
+            .MangledName = "array_create",
+            .Ptr = reinterpret_cast<void*>(static_cast<void*(*)(size_t, size_t)>(NRuntime::array_create)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto* arr = NRuntime::array_create(static_cast<size_t>(args[0]), static_cast<size_t>(args[1]));
+                return std::bit_cast<uint64_t>(arr);
+            },
+            .ArgTypes = { integerType, integerType },
+            .ReturnType = voidPtrType
+        },
+        {
+            .Name = "array_destroy",
+            .MangledName = "array_destroy",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(void*)>(NRuntime::array_destroy)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::array_destroy(reinterpret_cast<void*>(args[0]));
+                return 0;
+            },
+            .ArgTypes = { voidPtrType },
+            .ReturnType = voidType
         },
 
     };
