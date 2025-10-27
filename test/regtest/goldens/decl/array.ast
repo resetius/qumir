@@ -1,4 +1,4 @@
-(Block:<Array [Bool; 1]>
+(Block:<Array [Int; 2]>
   (Var $й:<Array [Int; 1]>
     (0:<Int>)
     (10:<Int>))
@@ -10,4 +10,19 @@
     (234:<Int>))
   (Var $тт:<Array [Bool; 1]>
     (-10:<Int>)
-    (10:<Int>)))
+    (10:<Int>))
+  (Var $multi:<Array [Int; 2]>
+    (0:<Int>)
+    (10:<Int>)
+    (0:<Int>)
+    (20:<Int>))
+  (Var $i:<Int>)
+  (Var $multi2:<Array [Int; 2]>
+    ($i)
+    (+
+      ($i)
+      (10:<Int>))
+    ($i)
+    (*
+      ($i)
+      (20:<Int>))))
