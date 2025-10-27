@@ -11,3 +11,5 @@
 20. string[index] -> symbol (not substring)
 21. strings 1-indexed
 22. slice/index out of bounds -> runtime error
+22. add support: дано, надо, утв
+23. add support: multidimentional indices (i.e. [1,2], [0:1,1:2])
