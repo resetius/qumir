@@ -441,12 +441,12 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
         {
             .Name = "array_destroy",
             .MangledName = "array_destroy",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(void*)>(NRuntime::array_destroy)),
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(void*, size_t)>(NRuntime::array_destroy)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                NRuntime::array_destroy(reinterpret_cast<void*>(args[0]));
+                NRuntime::array_destroy(reinterpret_cast<void*>(args[0]), static_cast<size_t>(args[1]));
                 return 0;
             },
-            .ArgTypes = { voidPtrType },
+            .ArgTypes = { voidPtrType, integerType },
             .ReturnType = voidType
         },
 
