@@ -28,8 +28,10 @@ using namespace NQumir;
 
 namespace {
 
-int GenerateAst(const std::string& inputFile, const std::string& outputFile) {
-    std::cerr << "Generating AST from " << inputFile << " to " << outputFile << "\n";
+int GenerateAst(const std::string& inputFile, const std::string& outputFile, bool verbose) {
+    if (verbose) {
+        std::cerr << "Generating AST from " << inputFile << " to " << outputFile << "\n";
+    }
 
     std::ifstream in(inputFile);
     if (!in) {
@@ -55,8 +57,10 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile) {
     return 0;
 }
 
-int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel) {
-    std::cerr << "Generating IR from " << inputFile << " to " << outputFile << "\n";
+int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel, bool verbose) {
+    if (verbose) {
+        std::cerr << "Generating IR from " << inputFile << " to " << outputFile << "\n";
+    }
 
     std::ifstream in(inputFile);
     if (!in) {
@@ -105,8 +109,10 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     return 0;
 }
 
-int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel) {
-    std::cerr << "Generating LLVM IR from " << inputFile << " to " << outputFile << "\n";
+int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel, bool verbose) {
+    if (verbose) {
+        std::cerr << "Generating LLVM IR from " << inputFile << " to " << outputFile << "\n";
+    }
 
     std::ifstream in(inputFile);
     if (!in) {
@@ -270,8 +276,10 @@ void GenerateObjFromAsm(const std::string& asmCode, std::ostream& objOut) {
 }
 #endif
 
-int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, bool targetWasm) {
-    std::cerr << "Compiling " << inputFile << " to " << outputFile << "\n";
+int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, bool targetWasm, bool verbose) {
+    if (verbose) {
+        std::cerr << "Compiling " << inputFile << " to " << outputFile << "\n";
+    }
 
     std::ifstream in(inputFile);
     if (!in) {
@@ -376,6 +384,7 @@ int main(int argc, char** argv) {
     bool generateAsm = false;
     int optLevel = 0;
     bool targetWasm = false;
+    bool verbose = false;
     for (int i = 1; i < argc; ++i) {
         if (!std::strcmp(argv[i], "-c")) {
             compileOnly = true;
@@ -400,6 +409,7 @@ int main(int argc, char** argv) {
                          "  -O1           Optimization level 1\n"
                          "  -O2           Optimization level 2\n"
                          "  -O3           Optimization level 3\n"
+                         "  --verbose     Enable verbose output\n"
                          "  --version, -v Show version information\n"
                          "  --help, -h    Show this help message\n";
             return 0;
@@ -438,6 +448,8 @@ int main(int argc, char** argv) {
             optLevel = 2;
         } else if (!std::strcmp(argv[i], "-O3")) {
             optLevel = 3;
+        } else if (!std::strcmp(argv[i], "--verbose")) {
+            verbose = true;
         } else if (argv[i][0] == '-') {
             std::cerr << "Unknown option: " << argv[i] << "\n";
             return 1;
@@ -454,21 +466,21 @@ int main(int argc, char** argv) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ast");
         }
-        return GenerateAst(inputFile, outputFile);
+        return GenerateAst(inputFile, outputFile, verbose);
     }
 
     if (generateIr) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ir");
         }
-        return GenerateIr(inputFile, outputFile, optLevel);
+        return GenerateIr(inputFile, outputFile, optLevel, verbose);
     }
 
     if (generateLlvm) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ll");
         }
-        return GenerateLlvm(inputFile, outputFile, optLevel);
+        return GenerateLlvm(inputFile, outputFile, optLevel, verbose);
     }
 
     if (!compileOnly && outputFile.empty()) {
@@ -479,5 +491,5 @@ int main(int argc, char** argv) {
         ? (generateAsm
             ? OutputFilename(inputFile, ".s")
             : OutputFilename(inputFile, ".o"))
-        : outputFile, compileOnly, generateAsm, optLevel, targetWasm);
+        : outputFile, compileOnly, generateAsm, optLevel, targetWasm, verbose);
 }
