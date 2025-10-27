@@ -1,0 +1,30 @@
+function ф () { ; ptr to i8
+  block {
+    label: label(0)
+    arg imm(0,ptr to i8) 
+    call tmp(0,ptr to i8) = str_from_lit 
+    load tmp(1,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(1,ptr to i8) 
+    call str_release 
+    stre local(2,ptr to i8) tmp(0,ptr to i8) 
+    stre local(1,i64) imm(1,i64) 
+    load tmp(2,ptr to i8) = local(2,ptr to i8) 
+    load tmp(3,i64) = local(1,i64) 
+    * tmp(4,i64) = tmp(3,i64) imm(2,i64) 
+    load tmp(5,i64) = local(1,i64) 
+    * tmp(6,i64) = tmp(5,i64) imm(2,i64) 
+    arg tmp(2,ptr to i8) 
+    arg tmp(4,i64) 
+    arg tmp(6,i64) 
+    call tmp(7,ptr to i8) = str_slice 
+    load tmp(8,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(8,ptr to i8) 
+    call str_release 
+    stre local(0,ptr to i8) tmp(7,ptr to i8) 
+    load tmp(9,ptr to i8) = local(0,ptr to i8) 
+    load tmp(10,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(10,ptr to i8) 
+    call str_release 
+    ret tmp(9,ptr to i8) 
+  }
+}

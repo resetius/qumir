@@ -460,6 +460,60 @@ TTask AnnotateLoop(std::shared_ptr<TLoopStmtExpr> loop, NSemantics::TNameResolve
     co_return loop;
 }
 
+TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    indexExpr->Collection = co_await DoAnnotate(indexExpr->Collection, context, scopeId);
+    if (!indexExpr->Collection->Type) {
+        co_return TError(indexExpr->Location, "untyped collection in index expression");
+    }
+    if (!TMaybeType<TStringType>(indexExpr->Collection->Type)) {
+        co_return TError(indexExpr->Location, "only string indexing is supported for now");
+    }
+    indexExpr->Index = co_await DoAnnotate(indexExpr->Index, context, scopeId);
+    if (!indexExpr->Index->Type) {
+        co_return TError(indexExpr->Location, "untyped index in index expression");
+    }
+    auto intType = std::make_shared<TIntegerType>();
+    if (!EqualTypes(indexExpr->Index->Type, intType)) {
+        if (!CanImplicit(indexExpr->Index->Type, intType)) {
+            co_return TError(indexExpr->Location, "index expression requires integer index");
+        }
+        indexExpr->Index = InsertImplicitCastIfNeeded(indexExpr->Index, intType);
+    }
+    // indexing a string yields a string (1-character substring)
+    indexExpr->Type = indexExpr->Collection->Type;
+
+    co_return indexExpr;
+}
+
+TTask AnnotateSlice(std::shared_ptr<TSliceExpr> sliceExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    sliceExpr->Collection = co_await DoAnnotate(sliceExpr->Collection, context, scopeId);
+    if (!sliceExpr->Collection->Type) {
+        co_return TError(sliceExpr->Location, "untyped collection in slice expression");
+    }
+    if (!TMaybeType<TStringType>(sliceExpr->Collection->Type)) {
+        co_return TError(sliceExpr->Location, "only string slicing is supported for now");
+    }
+    sliceExpr->Start = co_await DoAnnotate(sliceExpr->Start, context, scopeId);
+    if (!sliceExpr->Start->Type) {
+        co_return TError(sliceExpr->Location, "untyped start index in slice expression");
+    }
+    sliceExpr->End = co_await DoAnnotate(sliceExpr->End, context, scopeId);
+    if (!sliceExpr->End->Type) {
+        co_return TError(sliceExpr->Location, "untyped end index in slice expression");
+    }
+    auto intType = std::make_shared<TIntegerType>();
+    if (!EqualTypes(sliceExpr->Start->Type, intType)) {
+        if (!CanImplicit(sliceExpr->Start->Type, intType)) {
+            co_return TError(sliceExpr->Location, "slice expression requires integer start index");
+        }
+        sliceExpr->Start = InsertImplicitCastIfNeeded(sliceExpr->Start, intType);
+    }
+    // indexing a string yields a string (1-character substring)
+    sliceExpr->Type = sliceExpr->Collection->Type;
+
+    co_return sliceExpr;
+}
+
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     if (auto maybeNum = TMaybeNode<TNumberExpr>(expr)) {
         co_return AnnotateNumber(maybeNum.Cast());
@@ -481,6 +535,10 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         co_return co_await AnnotateCall(maybeCall.Cast(), context, scopeId);
     } else if (auto maybeIf = TMaybeNode<TIfExpr>(expr)) {
         co_return co_await AnnotateIf(maybeIf.Cast(), context, scopeId);
+    } else if (auto maybeIndex = TMaybeNode<TIndexExpr>(expr)) {
+        co_return co_await AnnotateIndex(maybeIndex.Cast(), context, scopeId);
+    } else if (auto maybeSlice = TMaybeNode<TSliceExpr>(expr)) {
+        co_return co_await AnnotateSlice(maybeSlice.Cast(), context, scopeId);
     } else if (TMaybeNode<TBreakStmt>(expr)) {
         expr->Type = std::make_shared<TVoidType>();
         co_return expr;

@@ -764,7 +764,9 @@ TAstTask factor(TTokenStream& stream) {
     }
 }
 
-// call_expr ::= factor ( '(' arg_list_opt ')' )*
+// call_expr ::=  factor ( '(' arg_list_opt ')' )*
+//              | factor ( '[' expr ':' expr ']' )*
+//              | factor ( '[' expr ']' )*
 TAstTask call_expr(TTokenStream& stream) {
     auto base = co_await factor(stream);
     while (auto tok = stream.Next()) {
@@ -775,6 +777,30 @@ TAstTask call_expr(TTokenStream& stream) {
             }
             auto args = co_await parse_arg_list_opt(stream);
             base = std::make_shared<TCallExpr>(tok->Location, std::move(base), std::move(args));
+            continue;
+        }
+        if (tok->Type == TToken::Operator && (EOperator)tok->Value.i64 == EOperator::LSqBr) {
+            auto indexExpr = co_await expr(stream);
+            auto rbrOrColonTok = co_await stream.Next();
+            if (rbrOrColonTok.Type != TToken::Operator) {
+                co_return TError(rbrOrColonTok.Location, "ожидается ']' или ':' после индекса массива");
+            }
+            if ((EOperator)rbrOrColonTok.Value.i64 == EOperator::Colon) {
+                // array slice
+                auto endIndexExpr = co_await expr(stream);
+                auto rsbTok = co_await stream.Next();
+                if (rsbTok.Type != TToken::Operator || (EOperator)rsbTok.Value.i64 != EOperator::RSqBr) {
+                    co_return TError(rsbTok.Location, "ожидается ']' после среза массива");
+                }
+                base = std::make_shared<TSliceExpr>(tok->Location, std::move(base), std::move(indexExpr), std::move(endIndexExpr));
+                continue;
+            } else if ((EOperator)rbrOrColonTok.Value.i64 == EOperator::RSqBr) {
+                // single index
+                // done
+            } else {
+                co_return TError(rbrOrColonTok.Location, "ожидается ']' или ':' после индекса массива");
+            }
+            base = std::make_shared<TIndexExpr>(tok->Location, std::move(base), std::move(indexExpr));
             continue;
         }
         stream.Unget(*tok);

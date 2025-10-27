@@ -599,6 +599,58 @@ inline TExprPtr MakeCast(TExprPtr e, TTypePtr to) {
     return std::make_shared<TCastExpr>(e->Location, std::move(e), std::move(to));
 }
 
+struct TIndexExpr : public TExpr {
+    static constexpr const char* NodeId = "Index";
+
+    TExprPtr Collection;
+    TExprPtr Index;
+
+    TIndexExpr(TLocation loc, TExprPtr collection, TExprPtr index)
+        : TExpr(std::move(loc))
+        , Collection(std::move(collection))
+        , Index(std::move(index))
+    { }
+
+    std::vector<TExprPtr> Children() const override {
+        return { Collection, Index };
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        return { &Collection, &Index };
+    }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+};
+
+struct TSliceExpr : public TExpr {
+    static constexpr const char* NodeId = "Slice";
+
+    TExprPtr Collection;
+    TExprPtr Start;
+    TExprPtr End;
+
+    TSliceExpr(TLocation loc, TExprPtr collection, TExprPtr start, TExprPtr end)
+        : TExpr(std::move(loc))
+        , Collection(std::move(collection))
+        , Start(std::move(start))
+        , End(std::move(end))
+    { }
+
+    std::vector<TExprPtr> Children() const override {
+        return { Collection, Start, End };
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        return { &Collection, &Start, &End };
+    }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+};
+
 template<typename TransformFunctor, typename FilterFunctor>
 bool TransformAst(TExprPtr& result, TExprPtr node, TransformFunctor f, FilterFunctor filter) {
     if (!node) return false;

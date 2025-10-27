@@ -42,6 +42,7 @@ char* str_slice(const char* s, int startSymbol, int endSymbol) {
     if (!s) {
         return nullptr;
     }
+
     TString* str = (TString*)(s - offsetof(TString, Data));
     if (!str->Utf8Indices) {
         build_utf8_indices(str);
@@ -51,6 +52,10 @@ char* str_slice(const char* s, int startSymbol, int endSymbol) {
     }
     if (endSymbol >= str->Symbols-1) {
         endSymbol = str->Symbols-1;
+    }
+
+    if (startSymbol > endSymbol) {
+        return nullptr;
     }
 
     return str_from_lit_(s + str->Utf8Indices[startSymbol], str->Utf8Indices[endSymbol + 1] - str->Utf8Indices[startSymbol]);

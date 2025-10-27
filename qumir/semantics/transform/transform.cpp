@@ -111,6 +111,32 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                     stmts.push_back(call);
                 }
                 return std::make_shared<NAst::TBlockExpr>(input->Location, std::move(stmts));
+            } else if (auto maybeIndex = NAst::TMaybeNode<NAst::TIndexExpr>(node)) {
+                auto index = maybeIndex.Cast();
+                if (NAst::TMaybeType<NAst::TStringType>(index->Collection->Type)) {
+                    // rewrite to str_slice(collection, index, index)
+                    auto funcNameIdent = std::make_shared<NAst::TIdentExpr>(index->Location, "str_slice");
+                    auto slice = std::make_shared<NAst::TCallExpr>(index->Location, funcNameIdent, std::vector<NAst::TExprPtr>{
+                        index->Collection,
+                        index->Index,
+                        index->Index
+                    });
+                    slice->Type = index->Type;
+                    return slice;
+                }
+            } else if (auto maybeSlice = NAst::TMaybeNode<NAst::TSliceExpr>(node)) {
+                auto slice = maybeSlice.Cast();
+                if (NAst::TMaybeType<NAst::TStringType>(slice->Collection->Type)) {
+                    // rewrite to str_slice(collection, start, end)
+                    auto funcNameIdent = std::make_shared<NAst::TIdentExpr>(slice->Location, "str_slice");
+                    auto sliceCall = std::make_shared<NAst::TCallExpr>(slice->Location, funcNameIdent, std::vector<NAst::TExprPtr>{
+                        slice->Collection,
+                        slice->Start,
+                        slice->End
+                    });
+                    sliceCall->Type = slice->Type;
+                    return sliceCall;
+                }
             }
             return node;
         },

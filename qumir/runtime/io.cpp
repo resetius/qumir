@@ -41,6 +41,7 @@ void output_int64(int64_t x) {
 }
 
 void output_string(const char* s) {
+    if (!s) {return;}
     (*Out) << s;
 }
 
