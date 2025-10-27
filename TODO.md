@@ -7,3 +7,7 @@
 13. implement arrays
 14. implement function args attributes (i.e. in, out, in/out)
 18. Don't generate str_release for uninitialized str vars
+19. Expression must be assigned to a var
+20. string[index] -> symbol (not substring)
+21. strings 1-indexed
+22. slice/index out of bounds -> runtime error
