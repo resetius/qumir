@@ -277,6 +277,7 @@ struct TBlockExpr : TExpr {
 
     std::vector<TExprPtr> Stmts;
     int32_t Scope = -1; // filled in by name resolver, 0 - root scope, -1 - unscoped
+    bool SkipDestructors = false;
 
     explicit TBlockExpr(TLocation loc, std::vector<TExprPtr> s)
         : TExpr(std::move(loc))

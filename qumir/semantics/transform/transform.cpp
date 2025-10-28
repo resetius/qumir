@@ -210,6 +210,7 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
                     auto block = std::make_shared<NAst::TBlockExpr>(var->Location, std::vector<NAst::TExprPtr>{});
                     auto boundaries = std::move(var->Bounds);
                     block->Scope = scopeId;
+                    block->SkipDestructors = true;
                     int i = boundaries.size() - 1;
 
                     auto symbolId = context.Lookup(var->Name, NSemantics::TScopeId{scopeId});

@@ -247,7 +247,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
         }
         // Emit destructors for strings declared in this block (LIFO)
-        if (PendingDestructors.size() > initialPendingDestructorsSize) {
+        if (!block->SkipDestructors && PendingDestructors.size() > initialPendingDestructorsSize) {
             // Release in reverse order of declaration
             for (size_t i = PendingDestructors.size(); i-- > initialPendingDestructorsSize; ) {
                 auto& dtor = PendingDestructors[i];
@@ -442,6 +442,73 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         // terminate current block by jumping to the continue target
         Builder.Emit0("jmp"_op, {*scope.ContinueLabel});
+        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+    } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TArrayAssignExpr>(expr)) {
+        auto asg = maybeAsg.Cast();
+        int n = asg->Indices.size() - 1;
+        int i = n;
+        auto i64 = Module.Types.I(EKind::I64);
+
+        std::optional<TTmp> prev;
+
+        for (; i >= 0; --i) {
+            auto indexRes = co_await Lower(asg->Indices[i], scope);
+            if (!indexRes.Value) {
+                co_return TError(asg->Indices[i]->Location, "array index must be a number");
+            }
+            // totalIndex = sum (index - lowerBound) * stride_i
+            // stride_n = 1
+            // stride_{n-1} = mulAccName_{n}
+
+            // TODO: move copy-paste to a helper function
+            auto lboundVar = Context.Lookup("__" + asg->Name + "_lbound" + std::to_string(i), scope.Id);
+            if (!lboundVar) co_return TError(asg->Location, std::string("undefined name"));
+            TOperand op = (lboundVar->FunctionLevelIdx >= 0)
+                ? TOperand { TLocal{ lboundVar->FunctionLevelIdx } }
+                : TOperand { TSlot{ lboundVar->Id } };
+
+            auto tmp = Builder.Emit1("load"_op, { op });
+            Builder.SetType(tmp, i64);
+            tmp = Builder.Emit1("-"_op, {*indexRes.Value, tmp});
+            Builder.SetType(tmp, i64);
+            if (i != n) {
+                auto strideVar = Context.Lookup("__" + asg->Name + "_mulacc" + std::to_string(i+1), scope.Id);
+                if (!strideVar) co_return TError(asg->Location, std::string("undefined name"));
+                TOperand op = (strideVar->FunctionLevelIdx >= 0)
+                    ? TOperand { TLocal{ strideVar->FunctionLevelIdx } }
+                    : TOperand { TSlot{ strideVar->Id } };
+                auto stride = Builder.Emit1("load"_op, { op });
+                Builder.SetType(stride, i64);
+                tmp = Builder.Emit1("*"_op, {tmp, stride});
+                Builder.SetType(tmp, i64);
+            }
+
+            if (prev) {
+                tmp = Builder.Emit1("+"_op, {tmp, *prev});
+                Builder.SetType(tmp, i64);
+            }
+
+            prev = tmp;
+        }
+
+        auto sidOpt = Context.Lookup(asg->Name, scope.Id);
+        if (!sidOpt) co_return TError(asg->Location, "assignment to undefined");
+        auto node = Context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id});
+
+        TOperand op = (sidOpt->FunctionLevelIdx >= 0)
+            ? TOperand { TLocal{ sidOpt->FunctionLevelIdx } }
+            : TOperand { TSlot{ sidOpt->Id } };
+
+        auto arrayType = FromAstType(node->Type, Module.Types);
+        auto arrayPtr = Builder.Emit1("load"_op, { op });
+        Builder.SetType(arrayPtr, arrayType);
+        auto destPtr = Builder.Emit1("+"_op, {arrayPtr, *prev});
+        Builder.SetType(destPtr, arrayType);
+
+        auto rhs = co_await Lower(asg->Value, scope);
+        if (!rhs.Value) co_return TError(asg->Value->Location, "right-hand side of assignment must be a number");
+
+        Builder.Emit0("ste"_op, {destPtr, *rhs.Value});
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(expr)) {
         auto asg = maybeAsg.Cast();
