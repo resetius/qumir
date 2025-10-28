@@ -93,6 +93,13 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
         const auto& instr = *frame.PC++;
 
         switch (instr.Op) {
+        case EVMOp::Ste: {
+            int64_t intAddr = ReadOperand<int64_t>(Runtime.Regs, instr.Operands[0]);
+            void* addr = reinterpret_cast<void*>(intAddr);
+            int64_t value = ReadOperand<int64_t>(Runtime.Regs, instr.Operands[1]);
+            std::memcpy(addr, &value, sizeof(int64_t)); // TODO: size (add size operand?)
+            break;
+        }
         case EVMOp::Load64: {
             assert(instr.Operands[0].Tmp.Idx >= 0);
             if (instr.Operands[1].Type == TVMOperand::EType::Slot) {

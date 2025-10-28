@@ -7,6 +7,7 @@ namespace NQumir::NRuntime {
 
 void* array_create(size_t sizeInBytes) {
     auto ptr = operator new(sizeInBytes, std::align_val_t(8));
+    memset(ptr, 0, sizeInBytes);
     return ptr;
 }
 

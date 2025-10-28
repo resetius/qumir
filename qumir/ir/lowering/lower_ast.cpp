@@ -490,6 +490,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
             prev = tmp;
         }
+        *prev = Builder.Emit1("*"_op, {*prev, TImm{8, i64}}); // TODO: element size
+        Builder.SetType(*prev, i64);
 
         auto sidOpt = Context.Lookup(asg->Name, scope.Id);
         if (!sidOpt) co_return TError(asg->Location, "assignment to undefined");

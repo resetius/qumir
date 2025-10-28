@@ -66,6 +66,10 @@ enum class EVMOp : uint8_t {
     ECall, // external call
     Ret,
     RetVoid,
+
+    // pointer arithmetic
+    Ste, // store effective address
+    Lde, // load effective address
 };
 
 std::ostream& operator<<(std::ostream& os, EVMOp op);

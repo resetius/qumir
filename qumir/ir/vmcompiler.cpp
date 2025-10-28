@@ -131,6 +131,11 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
 
         // TODO: check operand types
         switch (ins.Op) {
+            case "ste"_op: {
+                require(ins, 0, 2);
+                out.Op = EVMOp::Ste;
+                break;
+            }
             case '+'_op: {
                 require(ins, 1, 2);
                 if (Module.Types.IsFloat(typeId(out.Operands[0].Tmp))) {
