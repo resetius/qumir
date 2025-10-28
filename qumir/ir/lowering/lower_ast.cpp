@@ -189,6 +189,64 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
 }
 
+TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& name, TBlockScope scope, const TLocation& loc)
+{
+    auto var = Context.Lookup(name, scope.Id);
+    if (!var) {
+        co_return TError(loc, "undefined variable");
+    }
+
+    auto node = Context.GetSymbolNode(NSemantics::TSymbolId{var->Id});
+    if (!node) {
+        co_return TError(loc, "undefined variable");
+    }
+
+    TOperand op = (var->FunctionLevelIdx >= 0)
+        ? TOperand{ TLocal{ var->FunctionLevelIdx } }
+        : TOperand{ TSlot{ var->Id } };
+
+    auto tmp = Builder.Emit1("load"_op, { op });
+    Builder.SetType(tmp, FromAstType(node->Type, Module.Types));
+    co_return tmp;
+}
+
+TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerIndices(const std::string& name, const std::vector<NAst::TExprPtr>& indices, TBlockScope scope)
+{
+    int n = indices.size() - 1;
+    int i = n;
+    auto i64 = Module.Types.I(EKind::I64);
+
+    std::optional<TTmp> prev;
+
+    for (; i >= 0; --i) {
+        auto indexRes = co_await Lower(indices[i], scope);
+        if (!indexRes.Value) {
+            co_return TError(indices[i]->Location, "array index must be a number");
+        }
+        // totalIndex = sum (index - lowerBound) * stride_i
+        // stride_n = 1
+        // stride_{n-1} = mulAccName_{n}
+
+        auto tmp = co_await LoadVar("__" + name + "_lbound" + std::to_string(i), scope, indices[i]->Location);
+        tmp = Builder.Emit1("-"_op, {*indexRes.Value, tmp});
+        Builder.SetType(tmp, i64);
+        if (i != n) {
+            auto stride = co_await LoadVar("__" + name + "_mulacc" + std::to_string(i+1), scope, indices[i]->Location);
+            tmp = Builder.Emit1("*"_op, {tmp, stride});
+            Builder.SetType(tmp, i64);
+        }
+
+        if (prev) {
+            tmp = Builder.Emit1("+"_op, {tmp, *prev});
+            Builder.SetType(tmp, i64);
+        }
+
+        prev = tmp;
+    }
+    *prev = Builder.Emit1("*"_op, {*prev, TImm{8, i64}}); // TODO: element size
+    Builder.SetType(*prev, i64);
+    co_return TValueWithBlock{ *prev, Builder.CurrentBlockLabel() };
+}
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& expr, TBlockScope scope) {
     int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
@@ -445,66 +503,16 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TArrayAssignExpr>(expr)) {
         auto asg = maybeAsg.Cast();
-        int n = asg->Indices.size() - 1;
-        int i = n;
-        auto i64 = Module.Types.I(EKind::I64);
 
-        std::optional<TTmp> prev;
-
-        for (; i >= 0; --i) {
-            auto indexRes = co_await Lower(asg->Indices[i], scope);
-            if (!indexRes.Value) {
-                co_return TError(asg->Indices[i]->Location, "array index must be a number");
-            }
-            // totalIndex = sum (index - lowerBound) * stride_i
-            // stride_n = 1
-            // stride_{n-1} = mulAccName_{n}
-
-            // TODO: move copy-paste to a helper function
-            auto lboundVar = Context.Lookup("__" + asg->Name + "_lbound" + std::to_string(i), scope.Id);
-            if (!lboundVar) co_return TError(asg->Location, std::string("undefined name"));
-            TOperand op = (lboundVar->FunctionLevelIdx >= 0)
-                ? TOperand { TLocal{ lboundVar->FunctionLevelIdx } }
-                : TOperand { TSlot{ lboundVar->Id } };
-
-            auto tmp = Builder.Emit1("load"_op, { op });
-            Builder.SetType(tmp, i64);
-            tmp = Builder.Emit1("-"_op, {*indexRes.Value, tmp});
-            Builder.SetType(tmp, i64);
-            if (i != n) {
-                auto strideVar = Context.Lookup("__" + asg->Name + "_mulacc" + std::to_string(i+1), scope.Id);
-                if (!strideVar) co_return TError(asg->Location, std::string("undefined name"));
-                TOperand op = (strideVar->FunctionLevelIdx >= 0)
-                    ? TOperand { TLocal{ strideVar->FunctionLevelIdx } }
-                    : TOperand { TSlot{ strideVar->Id } };
-                auto stride = Builder.Emit1("load"_op, { op });
-                Builder.SetType(stride, i64);
-                tmp = Builder.Emit1("*"_op, {tmp, stride});
-                Builder.SetType(tmp, i64);
-            }
-
-            if (prev) {
-                tmp = Builder.Emit1("+"_op, {tmp, *prev});
-                Builder.SetType(tmp, i64);
-            }
-
-            prev = tmp;
+        auto indices = co_await LowerIndices(asg->Name, asg->Indices, scope);
+        if (!indices.Value) {
+            co_return TError(asg->Location, "failed to lower array indices");
         }
-        *prev = Builder.Emit1("*"_op, {*prev, TImm{8, i64}}); // TODO: element size
-        Builder.SetType(*prev, i64);
+        auto totalIndex = *indices.Value;
 
-        auto sidOpt = Context.Lookup(asg->Name, scope.Id);
-        if (!sidOpt) co_return TError(asg->Location, "assignment to undefined");
-        auto node = Context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id});
-
-        TOperand op = (sidOpt->FunctionLevelIdx >= 0)
-            ? TOperand { TLocal{ sidOpt->FunctionLevelIdx } }
-            : TOperand { TSlot{ sidOpt->Id } };
-
-        auto arrayType = FromAstType(node->Type, Module.Types);
-        auto arrayPtr = Builder.Emit1("load"_op, { op });
-        Builder.SetType(arrayPtr, arrayType);
-        auto destPtr = Builder.Emit1("+"_op, {arrayPtr, *prev});
+        auto arrayPtr = co_await LoadVar(asg->Name, scope, asg->Location);
+        auto arrayType = Builder.GetType(arrayPtr);
+        auto destPtr = Builder.Emit1("+"_op, {arrayPtr, totalIndex});
         Builder.SetType(destPtr, arrayType);
 
         auto rhs = co_await Lower(asg->Value, scope);

@@ -57,6 +57,8 @@ private:
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerWhileLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerForLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerRepeatLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope);
+    TExpectedTask<TValueWithBlock, TError, TLocation> LowerIndices(const std::string& name, const std::vector<NAst::TExprPtr>& indices, TBlockScope scope);
+    TExpectedTask<TTmp, TError, TLocation> LoadVar(const std::string& name, TBlockScope scope, const TLocation& loc);
 
     void ImportExternalFunction(int symbolId, const NAst::TFunDecl& funcDecl);
     void ImportExternalFunctions();
