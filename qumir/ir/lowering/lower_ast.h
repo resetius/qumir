@@ -28,9 +28,16 @@ private:
         std::optional<TLabel> ContinueLabel;
     };
 
-    struct TPendingDestructors {
-        std::vector<NSemantics::TSymbolInfo> Strings;
+    struct TDestructor {
+        std::vector<TOperand> Args;
+        std::vector<int> TypeIds;
+        TImm FunctionId;
     };
+
+    //struct TPendingDestructors {
+    //    std::vector<NSemantics::TSymbolInfo> Strings;
+    //};
+    using TPendingDestructors = std::vector<TDestructor>;
 
     enum class EOwnership {
         Unkwnown,

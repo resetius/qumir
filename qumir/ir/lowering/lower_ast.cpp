@@ -233,7 +233,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         newScope.Id = NSemantics::TScopeId{block->Scope};
 
         // Track scope for destructors
-        size_t initialPendingDestructorsSize = PendingDestructors.Strings.size();
+        size_t initialPendingDestructorsSize = PendingDestructors.size();
         for (auto& s : block->Stmts) {
             auto r = co_await Lower(s, newScope);
             last = r.Value;
@@ -247,27 +247,29 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
         }
         // Emit destructors for strings declared in this block (LIFO)
-        if (PendingDestructors.Strings.size() > initialPendingDestructorsSize) {
-            auto stringDestructorId = co_await GlobalSymbolId("str_release");
+        if (PendingDestructors.size() > initialPendingDestructorsSize) {
             // Release in reverse order of declaration
-            for (size_t i = PendingDestructors.Strings.size(); i-- > initialPendingDestructorsSize; ) {
-                const auto& symRef = PendingDestructors.Strings[i];
+            for (size_t i = PendingDestructors.size(); i-- > initialPendingDestructorsSize; ) {
+                auto& dtor = PendingDestructors[i];
                 // Load current value of the local (or slot) and call str_release(val)
-                TTmp val;
-                if (symRef.FunctionLevelIdx >= 0) {
-                    val = Builder.Emit1("load"_op, { TLocal{ symRef.FunctionLevelIdx } });
-                } else {
-                    val = Builder.Emit1("load"_op, { TSlot{ symRef.Id } });
+                for (size_t i = 0; i < dtor.Args.size(); ++i) {
+                    auto& operand = dtor.Args[i];
+                    if (operand.Type == TOperand::EType::Local || operand.Type == TOperand::EType::Slot) {
+                        TTmp val = Builder.Emit1("load"_op, { operand });
+                        auto typeId = dtor.TypeIds[i];
+                        if (typeId >= 0) {
+                            Builder.SetType(val, typeId);
+                        }
+                        operand = val;
+                    }
                 }
-                // Ensure the loaded tmp is typed as the symbol's type
-                auto node = Context.GetSymbolNode(NSemantics::TSymbolId{ symRef.Id });
-                Builder.SetType(val, FromAstType(node->Type, Module.Types));
-                // Pass as argument and call the destructor
-                Builder.Emit0("arg"_op, { val });
-                Builder.Emit0("call"_op, { TImm{ stringDestructorId } });
+                for (auto& operand : dtor.Args) {
+                    Builder.Emit0("arg"_op, { operand });
+                }
+                Builder.Emit0("call"_op, { TImm{ dtor.FunctionId } });
             }
             // Remove destructors belonging to this block
-            PendingDestructors.Strings.resize(initialPendingDestructorsSize);
+            PendingDestructors.resize(initialPendingDestructorsSize);
         }
 
         // TODO: return only if function block and last is 'return'
@@ -534,7 +536,26 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (NAst::TMaybeType<NAst::TStringType>(var->Type)
             && sidOpt->FunctionLevelIdx >= 0 && name != "__return" /*owned by caller*/)
         {
-            PendingDestructors.Strings.push_back(*sidOpt);
+            auto dtorId = co_await GlobalSymbolId("str_release");
+            TOperand arg = (sidOpt->FunctionLevelIdx >= 0)
+                ? TOperand { TLocal{ sidOpt->FunctionLevelIdx } }
+                : TOperand { TSlot{ sidOpt->Id } };
+            std::vector<TOperand> args = {
+                arg
+            };
+            auto node = Context.GetSymbolNode(NSemantics::TSymbolId{ sidOpt->Id });
+            std::vector<int> types = {
+                FromAstType(node->Type, Module.Types)
+            };
+            TDestructor dtor = TDestructor {
+                .Args = std::move(args),
+                .TypeIds = std::move(types),
+                .FunctionId = dtorId
+            };
+            PendingDestructors.emplace_back(std::move(dtor));
+        }
+        if (NAst::TMaybeType<NAst::TArrayType>(var->Type)) {
+
         }
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(expr)) {
