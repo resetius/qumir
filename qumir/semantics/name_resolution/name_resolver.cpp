@@ -161,6 +161,17 @@ std::expected<TSymbolId, TError> TNameResolver::Declare(const std::string& name,
     return symbol.Id;
 }
 
+TSymbolId TNameResolver::Declare(const std::string& name, NAst::TExprPtr node, TSymbolInfo parentSymbol)
+{
+    auto scope = Scopes[parentSymbol.DeclScopeId];
+    auto funcScope = parentSymbol.FuncScopeId >= 0 ? Scopes[parentSymbol.FuncScopeId] : nullptr;
+    auto res = Declare(name, node, scope, funcScope);
+    if (res) {
+        return res.value();
+    }
+    throw std::runtime_error(res.error().ToString());
+}
+
 TSymbolId TNameResolver::DeclareFunction(const std::string& name, TExprPtr node) {
     auto scope = GetOrCreateRootScope();
     auto res = Declare(name, node, scope, nullptr);

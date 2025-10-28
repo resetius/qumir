@@ -204,6 +204,75 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
                     }
                 }
                 return node;
+            } else if (auto maybeVar = NAst::TMaybeNode<NAst::TVarStmt>(node)) {
+                auto var = maybeVar.Cast();
+                if (!var->Bounds.empty() && NAst::TMaybeType<NAst::TArrayType>(node->Type)) {
+                    auto block = std::make_shared<NAst::TBlockExpr>(var->Location, std::vector<NAst::TExprPtr>{});
+                    auto boundaries = std::move(var->Bounds);
+                    block->Scope = scopeId;
+                    int i = boundaries.size() - 1;
+
+                    auto symbolId = context.Lookup(var->Name, NSemantics::TScopeId{scopeId});
+                    if (!symbolId) {
+                        errors.push_back(TError(var->Location, "undefined identifier: " + var->Name + " in scope " + std::to_string(scopeId)));
+                        return node;
+                    }
+
+                    auto declare = [&](const std::string& name) {
+                        auto newVar = std::make_shared<NAst::TVarStmt>(
+                            var->Location,
+                            name,
+                            std::make_shared<NAst::TIntegerType>());
+                        block->Stmts.push_back(newVar);
+                        context.Declare(name, newVar, *symbolId);
+                    };
+
+                    auto assign = [&](const std::string& name, NAst::TExprPtr value) {
+                        block->Stmts.push_back(std::make_shared<NAst::TAssignExpr>(
+                            var->Location,
+                            name,
+                            value));
+                    };
+
+                    auto ident = [&](const std::string& name) {
+                        return std::make_shared<NAst::TIdentExpr>(var->Location, name);
+                    };
+
+                    auto one = std::make_shared<NAst::TNumberExpr>(var->Location, (int64_t) 1);
+                    NAst::TExprPtr prevDivSize = one;
+
+                    for (; i >= 0; --i) {
+                        auto [lbound, rbound] = boundaries[i];
+                        std::string lboundName = "__" + var->Name + "_lbound" + std::to_string(i);
+                        std::string dimSizeName = "__" + var->Name + "_dimsize" + std::to_string(i);
+                        std::string mulAccName = "__" + var->Name + "_mulacc" + std::to_string(i);
+                        // lboundName = lbound
+                        // dimSizeName = rbound - lbound + 1
+                        // mulAccName = prevDivSize * dimSizeName
+                        // prevDivSize = mulAccName
+                        // 1. declare variables (TVarStmts)
+                        declare(lboundName);
+                        declare(dimSizeName);
+                        declare(mulAccName);
+                        // 2. assign variables (TAssignExpr)
+                        assign(lboundName, lbound);
+                        assign(dimSizeName, std::make_shared<NAst::TBinaryExpr>(
+                                var->Location,
+                                NAst::TOperator("+"),
+                                    std::make_shared<NAst::TBinaryExpr>(
+                                    var->Location,
+                                    NAst::TOperator("-"),
+                                    rbound,
+                                    lbound),
+                                one));
+                        auto mulAccExpr = std::make_shared<NAst::TBinaryExpr>(
+                            var->Location, NAst::TOperator("*"), prevDivSize, ident(dimSizeName));
+                        assign(mulAccName, mulAccExpr);
+                        prevDivSize = mulAccExpr;
+                    }
+                    block->Stmts.push_back(var);
+                    return block;
+                }
             } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(node)) {
                 auto block = maybeBlock.Cast();
                 scopeId = block->Scope;

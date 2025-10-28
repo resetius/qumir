@@ -109,6 +109,9 @@ int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
     if (NAst::TMaybeType<NAst::TStringType>(t)) {
         return tt.Ptr(tt.I(EKind::I8));
     }
+    if (auto maybeArray = NAst::TMaybeType<NAst::TArrayType>(t)) {
+        return tt.Ptr(FromAstType(maybeArray.Cast()->ElementType, tt));
+    }
 
     if (auto p = NAst::TMaybeType<NAst::TPointerType>(t)) {
         int to = FromAstType(p.Cast()->PointeeType, tt);

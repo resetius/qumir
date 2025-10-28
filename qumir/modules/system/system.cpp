@@ -430,23 +430,23 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
         {
             .Name = "array_create",
             .MangledName = "array_create",
-            .Ptr = reinterpret_cast<void*>(static_cast<void*(*)(size_t, size_t)>(NRuntime::array_create)),
+            .Ptr = reinterpret_cast<void*>(static_cast<void*(*)(size_t)>(NRuntime::array_create)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                auto* arr = NRuntime::array_create(static_cast<size_t>(args[0]), static_cast<size_t>(args[1]));
+                auto* arr = NRuntime::array_create(static_cast<size_t>(args[0]));
                 return std::bit_cast<uint64_t>(arr);
             },
-            .ArgTypes = { integerType, integerType },
+            .ArgTypes = { integerType },
             .ReturnType = voidPtrType
         },
         {
             .Name = "array_destroy",
             .MangledName = "array_destroy",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(void*, size_t)>(NRuntime::array_destroy)),
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(void*)>(NRuntime::array_destroy)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                NRuntime::array_destroy(reinterpret_cast<void*>(args[0]), static_cast<size_t>(args[1]));
+                NRuntime::array_destroy(reinterpret_cast<void*>(args[0]));
                 return 0;
             },
-            .ArgTypes = { voidPtrType, integerType },
+            .ArgTypes = { voidPtrType },
             .ReturnType = voidType
         },
 

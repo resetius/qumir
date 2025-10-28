@@ -1,31 +1,145 @@
 (Block:<Void>
-  (Var $й:<Array [Int; 1]>
-    (0:<Int>)
-    (10:<Int>))
-  (Var $ц:<Array [Int; 1]>
-    (0:<Int>)
-    (20:<Int>))
-  (Var $l:<Array [Float; 1]>
-    (-1:<Int>)
-    (234:<Int>))
-  (Var $тт:<Array [Bool; 1]>
-    (-10:<Int>)
-    (10:<Int>))
-  (Var $multi:<Array [Int; 2]>
-    (0:<Int>)
-    (10:<Int>)
-    (0:<Int>)
-    (20:<Int>))
+  (Block:<Array [Int; 1]>
+    (Var $__й_lbound0:<Int>)
+    (Var $__й_dimsize0:<Int>)
+    (Var $__й_mulacc0:<Int>)
+    ($__й_lbound0 =:<Void>
+      (0:<Int>))
+    ($__й_dimsize0 =:<Void>
+      (+:<Int>
+        (-:<Int>
+          (10:<Int>)
+          (0:<Int>))
+        (1:<Int>)))
+    ($__й_mulacc0 =:<Void>
+      (*:<Int>
+        (1:<Int>)
+        ($__й_dimsize0:<Int>)))
+    (Var $й:<Array [Int; 1]>))
+  (Block:<Array [Int; 1]>
+    (Var $__ц_lbound0:<Int>)
+    (Var $__ц_dimsize0:<Int>)
+    (Var $__ц_mulacc0:<Int>)
+    ($__ц_lbound0 =:<Void>
+      (0:<Int>))
+    ($__ц_dimsize0 =:<Void>
+      (+:<Int>
+        (-:<Int>
+          (20:<Int>)
+          (0:<Int>))
+        (1:<Int>)))
+    ($__ц_mulacc0 =:<Void>
+      (*:<Int>
+        (1:<Int>)
+        ($__ц_dimsize0:<Int>)))
+    (Var $ц:<Array [Int; 1]>))
+  (Block:<Array [Float; 1]>
+    (Var $__l_lbound0:<Int>)
+    (Var $__l_dimsize0:<Int>)
+    (Var $__l_mulacc0:<Int>)
+    ($__l_lbound0 =:<Void>
+      (-1:<Int>))
+    ($__l_dimsize0 =:<Void>
+      (+:<Int>
+        (-:<Int>
+          (234:<Int>)
+          (-1:<Int>))
+        (1:<Int>)))
+    ($__l_mulacc0 =:<Void>
+      (*:<Int>
+        (1:<Int>)
+        ($__l_dimsize0:<Int>)))
+    (Var $l:<Array [Float; 1]>))
+  (Block:<Array [Bool; 1]>
+    (Var $__тт_lbound0:<Int>)
+    (Var $__тт_dimsize0:<Int>)
+    (Var $__тт_mulacc0:<Int>)
+    ($__тт_lbound0 =:<Void>
+      (-10:<Int>))
+    ($__тт_dimsize0 =:<Void>
+      (+:<Int>
+        (-:<Int>
+          (10:<Int>)
+          (-10:<Int>))
+        (1:<Int>)))
+    ($__тт_mulacc0 =:<Void>
+      (*:<Int>
+        (1:<Int>)
+        ($__тт_dimsize0:<Int>)))
+    (Var $тт:<Array [Bool; 1]>))
+  (Block:<Array [Int; 2]>
+    (Var $__multi_lbound1:<Int>)
+    (Var $__multi_dimsize1:<Int>)
+    (Var $__multi_mulacc1:<Int>)
+    ($__multi_lbound1 =:<Void>
+      (0:<Int>))
+    ($__multi_dimsize1 =:<Void>
+      (+:<Int>
+        (-:<Int>
+          (20:<Int>)
+          (0:<Int>))
+        (1:<Int>)))
+    ($__multi_mulacc1 =:<Void>
+      (*:<Int>
+        (1:<Int>)
+        ($__multi_dimsize1:<Int>)))
+    (Var $__multi_lbound0:<Int>)
+    (Var $__multi_dimsize0:<Int>)
+    (Var $__multi_mulacc0:<Int>)
+    ($__multi_lbound0 =:<Void>
+      (0:<Int>))
+    ($__multi_dimsize0 =:<Void>
+      (+:<Int>
+        (-:<Int>
+          (10:<Int>)
+          (0:<Int>))
+        (1:<Int>)))
+    ($__multi_mulacc0 =:<Void>
+      (*:<Int>
+        (*:<Int>
+          (1:<Int>)
+          ($__multi_dimsize1:<Int>))
+        ($__multi_dimsize0:<Int>)))
+    (Var $multi:<Array [Int; 2]>))
   (Var $i:<Int>)
-  (Var $multi2:<Array [Int; 2]>
-    ($i)
-    (+
-      ($i)
-      (10:<Int>))
-    ($i)
-    (*
-      ($i)
-      (20:<Int>)))
+  (Block:<Array [Int; 2]>
+    (Var $__multi2_lbound1:<Int>)
+    (Var $__multi2_dimsize1:<Int>)
+    (Var $__multi2_mulacc1:<Int>)
+    ($__multi2_lbound1 =:<Void>
+      ($i:<Int>))
+    ($__multi2_dimsize1 =:<Void>
+      (+:<Int>
+        (-:<Int>
+          (*:<Int>
+            ($i:<Int>)
+            (20:<Int>))
+          ($i:<Int>))
+        (1:<Int>)))
+    ($__multi2_mulacc1 =:<Void>
+      (*:<Int>
+        (1:<Int>)
+        ($__multi2_dimsize1:<Int>)))
+    (Var $__multi2_lbound0:<Int>)
+    (Var $__multi2_dimsize0:<Int>)
+    (Var $__multi2_mulacc0:<Int>)
+    ($__multi2_lbound0 =:<Void>
+      ($i:<Int>))
+    ($__multi2_dimsize0 =:<Void>
+      (+:<Int>
+        (-:<Int>
+          (+:<Int>
+            ($i:<Int>)
+            (10:<Int>))
+          ($i:<Int>))
+        (1:<Int>)))
+    ($__multi2_mulacc0 =:<Void>
+      (*:<Int>
+        (*:<Int>
+          (1:<Int>)
+          ($__multi2_dimsize1:<Int>))
+        ($__multi2_dimsize0:<Int>)))
+    (Var $multi2:<Array [Int; 2]>))
   ($multi2[...] =:<Void>
     ($i:<Int>)
     (10:<Int>)

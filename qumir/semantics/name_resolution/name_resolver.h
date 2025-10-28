@@ -66,6 +66,8 @@ public:
     NAst::TExprPtr GetSymbolNode(TSymbolId id) const;
     std::vector<std::pair<int, std::shared_ptr<NAst::TFunDecl>>> GetExternalFunctions();
 
+    TSymbolId Declare(const std::string& name, NAst::TExprPtr node, TSymbolInfo parentSymbol);
+
     // For testing/debugging
     const std::vector<TSymbol>& GetSymbols() const {
         return Symbols;

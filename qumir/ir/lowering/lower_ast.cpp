@@ -554,8 +554,41 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             };
             PendingDestructors.emplace_back(std::move(dtor));
         }
-        if (NAst::TMaybeType<NAst::TArrayType>(var->Type)) {
+        if (auto maybeArrayType = NAst::TMaybeType<NAst::TArrayType>(var->Type)) {
+            auto arrayType = FromAstType(var->Type, Module.Types);
+            auto ctorId = co_await GlobalSymbolId("array_create");
 
+            auto totalElements = Context.Lookup("__" + var->Name + "_mulacc0", scope.Id);
+            if (!totalElements) co_return TError(var->Location, std::string("undefined name"));
+            TOperand op = (totalElements->FunctionLevelIdx >= 0)
+                ? TOperand { TLocal{ totalElements->FunctionLevelIdx } }
+                : TOperand { TSlot{ totalElements->Id } };
+            auto tmp = Builder.Emit1("load"_op, {op});
+            auto i64 = Module.Types.I(EKind::I64);
+            Builder.SetType(tmp, i64);
+            auto arraySize = Builder.Emit1("*"_op, {tmp, TImm{8, i64}}); // TODO: constant depends on element type
+            Builder.SetType(arraySize, i64);
+
+            Builder.Emit0("arg"_op, {arraySize});
+            auto arrayPtr = Builder.Emit1("call"_op, {TImm{ctorId}});
+            Builder.SetType(arrayPtr, arrayType);
+
+            auto dtorId = co_await GlobalSymbolId("array_destroy");
+            TOperand arg = (sidOpt->FunctionLevelIdx >= 0)
+                ? TOperand { TLocal{ sidOpt->FunctionLevelIdx } }
+                : TOperand { TSlot{ sidOpt->Id } };
+            std::vector<TOperand> args = {
+                arg
+            };
+            Builder.Emit0("stre"_op, {arg, arrayPtr});
+            auto node = Context.GetSymbolNode(NSemantics::TSymbolId{ sidOpt->Id });
+            std::vector<int> types = { arrayType };
+            TDestructor dtor = TDestructor {
+                .Args = std::move(args),
+                .TypeIds = std::move(types),
+                .FunctionId = dtorId
+            };
+            PendingDestructors.emplace_back(std::move(dtor));
         }
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(expr)) {
