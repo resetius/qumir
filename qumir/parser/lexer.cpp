@@ -130,6 +130,7 @@ struct TIdentifierList {
 
 TTokenStream::TTokenStream(std::istream& in)
     : In(in)
+    , CurrentLocation({1, 1, 1})
 { }
 
 std::optional<TToken> TTokenStream::Next() {
@@ -270,8 +271,8 @@ void TTokenStream::Read() {
     while ((Tokens.empty() || state != Start) && In.get(ch)) {
         if (ch == '\n') {
             CurrentLocation.Line++;
-            CurrentLocation.Byte = 0;
-            CurrentLocation.Column = 0;
+            CurrentLocation.Byte = 1;
+            CurrentLocation.Column = 1;
         } else {
             if ((ch & 0b11000000) != 0b10000000) { // not a UTF-8 continuation byte
                 CurrentLocation.Column++;
