@@ -477,6 +477,20 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                     if (it == ubinOpMap.end()) throw std::runtime_error("unsupported ubinop opcode");
                     return storeTmp(binOp(it->second));
                 }
+            } else if (outputType->isPointerTy()) {
+                if (opcode != "+"_op && opcode != "-"_op) {
+                    throw std::runtime_error("only + and - supported for pointer types");
+                }
+                auto lhs = GetOp(instr.Operands[0], module);
+                auto rhs = GetOp(instr.Operands[1], module);
+                if (opcode == "+"_op) {
+                    auto gep = irb->CreateGEP(llvm::Type::getInt8Ty(ctx), lhs, rhs, "ptraddtmp");
+                    return storeTmp(gep);
+                } else if (opcode == "-"_op) {
+                    auto negRhs = irb->CreateNeg(cast(rhs, rhs->getType()), "negtmp");
+                    auto gep = irb->CreateGEP(llvm::Type::getInt8Ty(ctx), lhs, negRhs, "ptrsubtmp");
+                    return storeTmp(gep);
+                }
             } else {
                 throw std::runtime_error("unsupported type for arithmetic op");
             }
@@ -522,6 +536,21 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             } else if (outputType->isIntegerTy()) {
                 return storeTmp(irb->CreateNeg(cast(v, outputType), "inegtmp"));
             }
+        }
+        case "lde"_op: {
+            // tmp = *ptr
+            auto ptr = GetOp(instr.Operands[0], module);
+            auto val = irb->CreateLoad(outputType, ptr, "ldtmp");
+            return storeTmp(val);
+            break;
+        }
+        case "ste"_op: {
+            // *ptr = tmp
+            auto ptr = GetOp(instr.Operands[0], module);
+            auto value = GetOp(instr.Operands[1], module);
+            irb->CreateStore(value, ptr);
+            return nullptr;
+            break;
         }
         case "load"_op: {
             if (operandCount != 1 || instr.Dest.Idx < 0) throw std::runtime_error("load needs 1 operand and a dest");
