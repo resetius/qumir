@@ -136,6 +136,11 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 out.Op = EVMOp::Ste;
                 break;
             }
+            case "lde"_op: {
+                require(ins, 1, 1);
+                out.Op = EVMOp::Lde;
+                break;
+            }
             case '+'_op: {
                 require(ins, 1, 2);
                 if (Module.Types.IsFloat(typeId(out.Operands[0].Tmp))) {

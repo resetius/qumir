@@ -505,6 +505,35 @@ TTask AnnotateLoop(std::shared_ptr<TLoopStmtExpr> loop, NSemantics::TNameResolve
     co_return loop;
 }
 
+TTask AnnotateMultiIndex(std::shared_ptr<TMultiIndexExpr> indexExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    indexExpr->Collection = co_await DoAnnotate(indexExpr->Collection, context, scopeId);
+    if (!indexExpr->Collection->Type) {
+        co_return TError(indexExpr->Location, "untyped collection in multi-index expression");
+    }
+    auto maybeArrayType = TMaybeType<TArrayType>(indexExpr->Collection->Type);
+    if (!maybeArrayType) {
+        co_return TError(indexExpr->Location, "only array indexing is supported for now");
+    }
+
+    auto intType = std::make_shared<TIntegerType>();
+    for (auto& index : indexExpr->Indices) {
+        index = co_await DoAnnotate(index, context, scopeId);
+        if (!index->Type) {
+            co_return TError(index->Location, "untyped index in multi-index expression");
+        }
+        if (!EqualTypes(index->Type, intType)) {
+            if (!CanImplicit(index->Type, intType)) {
+                co_return TError(index->Location, "index expression requires integer index");
+            }
+            index = InsertImplicitCastIfNeeded(index, intType);
+        }
+    }
+    auto arrayType = maybeArrayType.Cast();
+    indexExpr->Type = arrayType->ElementType;
+
+    co_return indexExpr;
+}
+
 TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     indexExpr->Collection = co_await DoAnnotate(indexExpr->Collection, context, scopeId);
     if (!indexExpr->Collection->Type) {
@@ -574,6 +603,8 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         co_return co_await AnnotateAssign(maybeAssign.Cast(), context, scopeId);
     } else if (auto maybeArrayAssign = TMaybeNode<TArrayAssignExpr>(expr)) {
         co_return co_await AnnotateArrayAssign(maybeArrayAssign.Cast(), context, scopeId);
+    } else if (auto maybeMultiIndex = TMaybeNode<TMultiIndexExpr>(expr)) {
+        co_return co_await AnnotateMultiIndex(maybeMultiIndex.Cast(), context, scopeId);
     } else if (auto maybeVar = TMaybeNode<TVarStmt>(expr)) {
         co_return co_await AnnotateVar(maybeVar.Cast());
     } else if (auto maybeFunDecl = TMaybeNode<TFunDecl>(expr)) {
