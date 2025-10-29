@@ -4,7 +4,8 @@
       (Var $__return:<Float>)
       (Var $i:<Float>)
       ($i =:<Void>
-        (-2.000000:<Float>))
+        (-:<Float>
+          (2.000000:<Float>)))
       ($__return =:<Void>
         ($i:<Float>))
       ($__return:<Float>))))

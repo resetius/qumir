@@ -79,7 +79,6 @@ enum EState {
     InString,
     InIdentifier,
     InMaybeComment,
-    InMaybeNumber,
     InMaybeOperator,
     InLineComment,
     InBlockComment,
@@ -245,11 +244,11 @@ void TTokenStream::Read() {
 
     // single char operators:
     // /, +, -, =, ), [, ], ,,
-    // ( - prefix for comments
     auto isSingleCharOperator = [](char ch) {
         return ch == '('
             || ch == ')'
             || ch == '+'
+            || ch == '-'
             || ch == '/'
             || ch == '='
             || ch == ','
@@ -295,8 +294,9 @@ void TTokenStream::Read() {
                         token = (int64_t)(ch - '0');
                     } else if (ch == '|') {
                         state = InLineComment;
-                    } else if (ch == '-') {
-                        state = InMaybeNumber;
+                    } else if (ch == '.') {
+                        state = InNumber;
+                        token = (double)0.0;
                     } else if (ch == '"') {
                         token = TStringLiteral{};
                         state = InString;
@@ -360,23 +360,6 @@ void TTokenStream::Read() {
                     }
                     break;
                 }
-                case InMaybeNumber:
-                    if (std::isdigit(ch)) {
-                        state = InNumber;
-                        token = (int64_t)(ch - '0');
-                        sign = 0;
-                    } else if (ch == '.') {
-                        state = InNumber;
-                        token = (double)(0.0);
-                        sign = 0;
-                    } else {
-                        // Not a negative number, just a '-' operator followed by something else
-                        emitOperator(EOperator::Minus);
-                        tokenLocation = CurrentLocation;
-                        state = Start;
-                        repeat = true;
-                    }
-                    break;
                 case InLineComment:
                     if (ch == '\n') {
                         state = Start;

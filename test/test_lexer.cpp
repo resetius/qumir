@@ -62,21 +62,24 @@ TEST(LexerTest, NegativeInt) {
     std::istringstream input("-1");
     TTokenStream tokens(input);
 
-    ExpectInt(tokens.Next(), -1);
+    ExpectOp(tokens.Next(), EOperator::Minus);
+    ExpectInt(tokens.Next(), 1);
 }
 
 TEST(LexerTest, NegativeFloat) {
     std::istringstream input("-.1");
     TTokenStream tokens(input);
 
-    ExpectFloat(tokens.Next(), -.1);
+    ExpectOp(tokens.Next(), EOperator::Minus);
+    ExpectFloat(tokens.Next(), .1);
 }
 
 TEST(LexerTest, NegativeFloat2) {
     std::istringstream input("-1.1");
     TTokenStream tokens(input);
 
-    ExpectFloat(tokens.Next(), -1.1);
+    ExpectOp(tokens.Next(), EOperator::Minus);
+    ExpectFloat(tokens.Next(), 1.1);
 }
 
 TEST(LexerTest, Assignment) {

@@ -23,7 +23,8 @@
               (102:<Int>)))
           (Block:<Void>
             ($ф =:<Void>
-              (-202:<Int>)))))
+              (-:<Int>
+                (202:<Int>))))))
       ($__return =:<Void>
         ($ф:<Int>))
       ($__return:<Int>))))

@@ -1,10 +1,11 @@
 function функция () { ; f64
   block {
     label: label(0)
-    stre local(1,f64) imm(-4611686018427387904,f64) 
-    load tmp(0,f64) = local(1,f64) 
-    stre local(0,f64) tmp(0,f64) 
-    load tmp(1,f64) = local(0,f64) 
-    ret tmp(1,f64) 
+    neg tmp(0,f64) = imm(4611686018427387904,f64) 
+    stre local(1,f64) tmp(0,f64) 
+    load tmp(1,f64) = local(1,f64) 
+    stre local(0,f64) tmp(1,f64) 
+    load tmp(2,f64) = local(0,f64) 
+    ret tmp(2,f64) 
   }
 }

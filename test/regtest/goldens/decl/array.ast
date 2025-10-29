@@ -38,12 +38,14 @@
     (Var $__l_dimsize0:<Int>)
     (Var $__l_mulacc0:<Int>)
     ($__l_lbound0 =:<Void>
-      (-1:<Int>))
+      (-:<Int>
+        (1:<Int>)))
     ($__l_dimsize0 =:<Void>
       (+:<Int>
         (-:<Int>
           (234:<Int>)
-          (-1:<Int>))
+          (-:<Int>
+            (1:<Int>)))
         (1:<Int>)))
     ($__l_mulacc0 =:<Void>
       (*:<Int>
@@ -55,12 +57,14 @@
     (Var $__тт_dimsize0:<Int>)
     (Var $__тт_mulacc0:<Int>)
     ($__тт_lbound0 =:<Void>
-      (-10:<Int>))
+      (-:<Int>
+        (10:<Int>)))
     ($__тт_dimsize0 =:<Void>
       (+:<Int>
         (-:<Int>
           (10:<Int>)
-          (-10:<Int>))
+          (-:<Int>
+            (10:<Int>)))
         (1:<Int>)))
     ($__тт_mulacc0 =:<Void>
       (*:<Int>

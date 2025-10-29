@@ -26,7 +26,8 @@ function функция () { ; i64
   }
   block {
     label: label(5)
-    stre local(1,i64) imm(-202,i64) 
+    neg tmp(6,i64) = imm(202,i64) 
+    stre local(1,i64) tmp(6,i64) 
     jmp label(6) 
   }
   block {
@@ -35,9 +36,9 @@ function функция () { ; i64
   }
   block {
     label: label(3)
-    load tmp(6,i64) = local(1,i64) 
-    stre local(0,i64) tmp(6,i64) 
-    load tmp(7,i64) = local(0,i64) 
-    ret tmp(7,i64) 
+    load tmp(7,i64) = local(1,i64) 
+    stre local(0,i64) tmp(7,i64) 
+    load tmp(8,i64) = local(0,i64) 
+    ret tmp(8,i64) 
   }
 }

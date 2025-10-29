@@ -9,5 +9,6 @@
       (Var $b:<Float>)
       (Var $c:<Float>)
       ($__return =:<Void>
-        (-1.100000:<Float>))
+        (-:<Float>
+          (1.100000:<Float>)))
       ($__return:<Float>))))
