@@ -520,6 +520,28 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         Builder.Emit0("ste"_op, {destPtr, *rhs.Value});
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+    } else if (auto maybeIndex = NAst::TMaybeNode<NAst::TIndexExpr>(expr)) {
+        auto index = maybeIndex.Cast();
+        auto indexValue = co_await Lower(index->Index, scope);
+        if (!indexValue.Value) {
+            co_return TError(index->Index->Location, "array index must be a number");
+        }
+        auto value = co_await Lower(index->Collection, scope);
+        if (!value.Value) {
+            co_return TError(index->Collection->Location, "failed to lower collection");
+        }
+        auto arrayPtr = *value.Value;
+        if (arrayPtr.Type != TOperand::EType::Tmp) {
+            co_return TError(index->Collection->Location, "collection is not an array");
+        }
+        auto arrayType = Builder.GetType(arrayPtr.Tmp);
+        auto offset = Builder.Emit1("*"_op, {*indexValue.Value, TImm{8, Module.Types.I(EKind::I64)}}); // TODO: element size
+        Builder.SetType(offset, Module.Types.I(EKind::I64));
+        auto destPtr = Builder.Emit1("+"_op, {arrayPtr, offset});
+        Builder.SetType(destPtr, arrayType);
+        auto loaded = Builder.Emit1("lde"_op, { destPtr });
+        Builder.SetType(loaded, FromAstType(expr->Type, Module.Types));
+        co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
     } else if (auto maybeMultiIndex = NAst::TMaybeNode<NAst::TMultiIndexExpr>(expr)) {
         auto multiIndex = maybeMultiIndex.Cast();
         auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(multiIndex->Collection);

@@ -539,9 +539,6 @@ TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameReso
     if (!indexExpr->Collection->Type) {
         co_return TError(indexExpr->Location, "untyped collection in index expression");
     }
-    if (!TMaybeType<TStringType>(indexExpr->Collection->Type)) {
-        co_return TError(indexExpr->Location, "only string indexing is supported for now");
-    }
     indexExpr->Index = co_await DoAnnotate(indexExpr->Index, context, scopeId);
     if (!indexExpr->Index->Type) {
         co_return TError(indexExpr->Location, "untyped index in index expression");
@@ -553,8 +550,15 @@ TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameReso
         }
         indexExpr->Index = InsertImplicitCastIfNeeded(indexExpr->Index, intType);
     }
-    // indexing a string yields a string (1-character substring)
-    indexExpr->Type = indexExpr->Collection->Type;
+    if (TMaybeType<TStringType>(indexExpr->Collection->Type)) {
+        // indexing a string yields a string (1-character substring)
+        indexExpr->Type = indexExpr->Collection->Type;
+    } else if (auto maybeArrayType = TMaybeType<TArrayType>(indexExpr->Collection->Type)) {
+        auto arrayType = maybeArrayType.Cast();
+        indexExpr->Type = arrayType->ElementType;
+    } else {
+        co_return TError(indexExpr->Location, "unsupported collection type in index expression");
+    }
 
     co_return indexExpr;
 }
