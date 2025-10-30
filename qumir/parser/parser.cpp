@@ -599,15 +599,15 @@ TAstTask switch_expr(TTokenStream& stream) {
     TExprPtr elseBranch = nullptr;
     while (true) {
         auto caseTok = co_await stream.Next();
-        if (caseTok.Type == TToken::Keyword && static_cast<EKeyword>(caseTok.Value.i64) == EKeyword::Break) {
+        if (caseTok.Type == TToken::Keyword && static_cast<EKeyword>(caseTok.Value.i64) == EKeyword::EndIf) {
             // end of switch
             break;
         }
         if (caseTok.Type == TToken::Keyword && static_cast<EKeyword>(caseTok.Value.i64) == EKeyword::Else) {
-            elseBranch = co_await stmt_list(stream, { EKeyword::Break });
+            elseBranch = co_await stmt_list(stream, { EKeyword::EndIf });
 
             auto endTok = co_await stream.Next();
-            if (!(endTok.Type == TToken::Keyword && static_cast<EKeyword>(endTok.Value.i64) == EKeyword::Break)) {
+            if (!(endTok.Type == TToken::Keyword && static_cast<EKeyword>(endTok.Value.i64) == EKeyword::EndIf)) {
                 co_return TError(endTok.Location, "ожидалось 'все' в конце оператора 'выбор'");
             }
 
@@ -623,7 +623,7 @@ TAstTask switch_expr(TTokenStream& stream) {
             co_return TError(colonTok.Location, "ожидался ':' после условия в операторе 'выбор'");
         }
 
-        auto body = co_await stmt_list(stream, { EKeyword::Case, EKeyword::Else, EKeyword::Break });
+        auto body = co_await stmt_list(stream, { EKeyword::Case, EKeyword::Else, EKeyword::EndIf });
         cases.emplace_back(std::move(cond), std::move(body));
     }
 
@@ -668,11 +668,11 @@ TAstTask if_expr(TTokenStream& stream) {
         co_return TError(thenTok.Location, "ожидалось 'то' после условия в операторе 'если'");
     }
 
-    auto thenBranch = co_await stmt_list(stream, { EKeyword::Else, EKeyword::Break });
+    auto thenBranch = co_await stmt_list(stream, { EKeyword::Else, EKeyword::EndIf });
 
     SkipEols(stream);
     auto elseTok = co_await stream.Next();
-    if (elseTok.Type == TToken::Keyword && static_cast<EKeyword>(elseTok.Value.i64) == EKeyword::Break) {
+    if (elseTok.Type == TToken::Keyword && static_cast<EKeyword>(elseTok.Value.i64) == EKeyword::EndIf) {
         // if without else
         co_return std::make_shared<TIfExpr>(location, cond, thenBranch, nullptr);
     }
@@ -681,10 +681,10 @@ TAstTask if_expr(TTokenStream& stream) {
         co_return TError(elseTok.Location, "ожидалось 'иначе' или 'все' после ветки 'то' в операторе 'если'");
     }
 
-    auto elseBranch = co_await stmt_list(stream, { EKeyword::Break });
+    auto elseBranch = co_await stmt_list(stream, { EKeyword::EndIf });
 
     auto endTok = co_await stream.Next();
-    if (endTok.Type == TToken::Keyword && static_cast<EKeyword>(endTok.Value.i64) != EKeyword::Break) {
+    if (endTok.Type == TToken::Keyword && static_cast<EKeyword>(endTok.Value.i64) != EKeyword::EndIf) {
         co_return TError(endTok.Location, "ожидалось 'все' в конце оператора 'если'");
     }
 

@@ -310,7 +310,7 @@ TEST(LexerTest, ElseIfAsTwoKeywords) {
     ExpectIdent(tokens.Next(), "y");
     ExpectKeyword(tokens.Next(), EKeyword::Then);
     ExpectOp(tokens.Next(), EOperator::Eol);
-    ExpectKeyword(tokens.Next(), EKeyword::Break);
+    ExpectKeyword(tokens.Next(), EKeyword::EndIf);
 }
 
 int main(int argc, char** argv) {

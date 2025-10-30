@@ -24,6 +24,7 @@ enum class EKeyword : uint8_t {
     If,
     Then,
     Else,
+    EndIf,
     Break,
     Continue,
     Switch,
