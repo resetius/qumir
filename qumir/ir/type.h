@@ -61,6 +61,7 @@ public:
     bool IsFloat(int typeId) const;
     bool IsInteger(int typeId) const;
     bool IsVoid(int typeId) const;
+    bool IsPointer(int typeId) const;
     EKind GetKind(int typeId) const;
 
 private:

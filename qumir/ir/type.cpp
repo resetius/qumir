@@ -257,6 +257,12 @@ bool TTypeTable::IsInteger(int typeId) const {
     return k == EKind::I1 || k == EKind::I64;
 }
 
+bool TTypeTable::IsPointer(int typeId) const {
+    if (typeId < 0 || typeId >= (int)Types.size()) return false;
+    auto k = Types[typeId].Kind;
+    return k == EKind::Ptr;
+}
+
 EKind TTypeTable::GetKind(int typeId) const {
     if (typeId < 0 || typeId >= (int)Types.size()) {
         throw std::runtime_error("Invalid typeId in GetKind");

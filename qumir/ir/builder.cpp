@@ -205,6 +205,13 @@ int TFunction::GetTmpType(int tmpId) const {
     return TmpTypes[tmpId];
 }
 
+int TFunction::GetType(TTmp tmp) const {
+    if (tmp.Idx < 0 || tmp.Idx >= (int)TmpTypes.size()) {
+        return -1;
+    }
+    return TmpTypes[tmp.Idx];
+}
+
 void TFunction::SetType(TTmp tmp, int typeId) {
     if (tmp.Idx < 0) {
         throw std::out_of_range("Invalid temporary index");

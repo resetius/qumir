@@ -230,6 +230,7 @@ struct TFunction {
     std::map<TLabel, int> LabelToBlockIdx;
 
     int GetTmpType(int tmpId) const;
+    int GetType(TTmp tmp) const;
     void SetType(TTmp tmp, int typeId);
     void Print(std::ostream& out, const TModule& module) const;
     int GetBlockIdx(const TLabel& label) const {

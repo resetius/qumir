@@ -80,11 +80,13 @@ void ConstFold(TFunction& function, TModule& module) {
             return false;
         }
 
+        auto destTypeId = function.GetType(instr.Dest);
+
         if (instr.Operands[0].Type == TOperand::EType::Imm &&
             instr.Operands[1].Type == TOperand::EType::Imm)
         {
-            if (module.Types.IsInteger(instr.Operands[0].Imm.TypeId) &&
-                module.Types.IsInteger(instr.Operands[1].Imm.TypeId))
+            if ((module.Types.IsInteger(instr.Operands[0].Imm.TypeId) || module.Types.IsPointer(instr.Operands[0].Imm.TypeId)) &&
+                (module.Types.IsInteger(instr.Operands[1].Imm.TypeId) || module.Types.IsPointer(instr.Operands[1].Imm.TypeId)))
             {
                 auto v1 = instr.Operands[0].Imm.Value;
                 auto v2 = instr.Operands[1].Imm.Value;
@@ -94,7 +96,7 @@ void ConstFold(TFunction& function, TModule& module) {
                 } else {
                     return false;
                 }
-                replaceTmpWithOp(instr.Dest, TImm{v, instr.Operands[0].Imm.TypeId});
+                replaceTmpWithOp(instr.Dest, TImm{v, destTypeId});
                 instr.Clear();
                 return true;
             }
@@ -109,7 +111,7 @@ void ConstFold(TFunction& function, TModule& module) {
                 } else {
                     return false;
                 }
-                replaceTmpWithOp(instr.Dest, TImm{std::bit_cast<int64_t>(v), instr.Operands[0].Imm.TypeId});
+                replaceTmpWithOp(instr.Dest, TImm{std::bit_cast<int64_t>(v), destTypeId});
                 instr.Clear();
                 return true;
             }
@@ -125,12 +127,12 @@ void ConstFold(TFunction& function, TModule& module) {
                     return true;
                 }
                 if (op == "*"_op) {
-                    replaceTmpWithOp(instr.Dest, TImm{0, instr.Operands[0].Imm.TypeId});
+                    replaceTmpWithOp(instr.Dest, TImm{0, destTypeId});
                     instr.Clear();
                     return true;
                 }
             }
-            if (module.Types.IsInteger(instr.Operands[1].Imm.Value) && instr.Operands[1].Imm.Value == 1) {
+            if ((module.Types.IsInteger(instr.Operands[1].Imm.Value) || module.Types.IsPointer(instr.Operands[1].Imm.Value)) && instr.Operands[1].Imm.Value == 1) {
                 // x * 1 = x, x / 1 = x
                 if (op == "*"_op || op == "/"_op) {
                     replaceTmpWithOp(instr.Dest, instr.Operands[0]);
@@ -150,17 +152,17 @@ void ConstFold(TFunction& function, TModule& module) {
                     return true;
                 }
                 if (op == "*"_op) {
-                    replaceTmpWithOp(instr.Dest, TImm{0, instr.Operands[0].Imm.TypeId});
+                    replaceTmpWithOp(instr.Dest, TImm{0, destTypeId});
                     instr.Clear();
                     return true;
                 }
                 if (op == "/"_op) {
-                    replaceTmpWithOp(instr.Dest, TImm{0, instr.Operands[0].Imm.TypeId});
+                    replaceTmpWithOp(instr.Dest, TImm{0, destTypeId});
                     instr.Clear();
                     return true;
                 }
             }
-            if (module.Types.IsInteger(instr.Operands[0].Imm.Value) && instr.Operands[0].Imm.Value == 1) {
+            if ((module.Types.IsInteger(instr.Operands[0].Imm.Value) || module.Types.IsPointer(instr.Operands[0].Imm.Value)) && instr.Operands[0].Imm.Value == 1) {
                 // 1 * x = x
                 if (op == "*"_op) {
                     replaceTmpWithOp(instr.Dest, instr.Operands[1]);
