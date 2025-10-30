@@ -28,6 +28,7 @@
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
+#include <llvm/Transforms/Vectorize/LoopVectorize.h>
 
 namespace NQumir::NCodeGen {
 
@@ -119,7 +120,17 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
 
     auto builder = std::make_unique<llvm::IRBuilder<>>(*Ctx);
     BuilderBase = std::move(builder);
-
+    if (0) {
+        // fast-math
+        auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
+        llvm::FastMathFlags FMF;
+        FMF.setAllowContract(true);
+        FMF.setAllowReassoc(true);
+        FMF.setNoNaNs(true);
+        FMF.setNoInfs(true);
+        FMF.setAllowReciprocal(true);
+        irb->setFastMathFlags(FMF);
+    }
     std::unordered_set<int> newSymIds;
     // Pass 1: predeclare all functions so calls can reference them by SymId in any order
     for (const auto& f : module.Functions) {
@@ -734,12 +745,34 @@ void TLLVMCodeGen::CreateTargetMachine() {
     if (!target) {
         throw std::runtime_error(std::string("lookupTarget failed: ") + errStr);
     }
+//    llvm::TargetOptions opt;
+//    auto RM = std::optional<llvm::Reloc::Model>(llvm::Reloc::PIC_);
+//    TM.reset(
+//        target->createTargetMachine(triple, "generic", "", opt, RM)
+//    );
     llvm::TargetOptions opt;
     auto RM = std::optional<llvm::Reloc::Model>(llvm::Reloc::PIC_);
-    TM.reset(
-        target->createTargetMachine(triple, "generic", "", opt, RM)
-    );
 
+//    std::string cpu = Opts.TargetCPU.empty()
+//        ? llvm::sys::getHostCPUName().str()
+//        : Opts.TargetCPU;
+    std::string cpu = llvm::sys::getHostCPUName().str();
+    std::string features;
+    //if (Opts.TargetFeatures.empty()) {
+        llvm::StringMap<bool> HostFeatures = llvm::sys::getHostCPUFeatures();
+        bool first = true;
+        for (auto &KV : HostFeatures) {
+            if (KV.second) {
+                if (!first) features += ",";
+                features += KV.first().str();
+                first = false;
+            }
+        }
+    //} else {
+    //    features = Opts.TargetFeatures;
+    //}
+
+    TM.reset(target->createTargetMachine(triple, cpu, features, opt, RM));
     if (!TM) {
         throw std::runtime_error("createTargetMachine failed");
     }
@@ -770,6 +803,9 @@ void TLLVMCodeGen::Optimize(int optLevel) {
         default: OL = llvm::OptimizationLevel::O2; break;
     }
     llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(OL);
+    if (OL == llvm::OptimizationLevel::O3) {
+        MPM.addPass(llvm::createModuleToFunctionPassAdaptor(llvm::LoopVectorizePass()));
+    }
     MPM.run(*LModule, MAM);
 }
 
