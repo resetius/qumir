@@ -2,6 +2,7 @@
 
 #include <new>
 #include <iostream>
+#include <cstring>
 
 namespace NQumir::NRuntime {
 
