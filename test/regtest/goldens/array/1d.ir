@@ -1,0 +1,33 @@
+function функция () { ; f64
+  block {
+    label: label(0)
+    stre local(2,i64) imm(0,i64) 
+    - tmp(0,i64) = imm(10,i64) imm(0,i64) 
+    + tmp(1,i64) = tmp(0,i64) imm(1,i64) 
+    stre local(3,i64) tmp(1,i64) 
+    load tmp(2,i64) = local(3,i64) 
+    * tmp(3,i64) = imm(1,i64) tmp(2,i64) 
+    stre local(4,i64) tmp(3,i64) 
+    load tmp(4,i64) = local(4,i64) 
+    * tmp(5,i64) = tmp(4,i64) imm(8,i64) 
+    arg tmp(5,i64) 
+    call tmp(6,ptr to f64) = array_create 
+    stre local(1,ptr to f64) tmp(6,ptr to f64) 
+    load tmp(7,i64) = local(2,i64) 
+    - tmp(8,i64) = imm(0,i64) tmp(7,i64) 
+    * tmp(9,i64) = tmp(8,i64) imm(8,i64) 
+    load tmp(10,ptr to f64) = local(1,ptr to f64) 
+    + tmp(11,ptr to f64) = tmp(10,ptr to f64) tmp(9,i64) 
+    ste tmp(11,ptr to f64) imm(4607182418800017408,f64) 
+    load tmp(12,ptr to f64) = local(1,ptr to f64) 
+    * tmp(13,i64) = imm(0,i64) imm(8,i64) 
+    + tmp(14,ptr to f64) = tmp(12,ptr to f64) tmp(13,i64) 
+    lde tmp(15,f64) = tmp(14,ptr to f64) 
+    stre local(0,f64) tmp(15,f64) 
+    load tmp(16,f64) = local(0,f64) 
+    load tmp(17,ptr to f64) = local(1,ptr to f64) 
+    arg tmp(17,ptr to f64) 
+    call array_destroy 
+    ret tmp(16,f64) 
+  }
+}
