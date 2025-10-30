@@ -3,6 +3,7 @@
 #include <qumir/ir/passes/transforms/locals2ssa.h>
 #include <qumir/ir/passes/transforms/de_ssa.h>
 #include <qumir/ir/passes/transforms/renumber_regs.h>
+#include <qumir/ir/passes/transforms/const_fold.h>
 
 namespace NQumir {
 namespace NIR {
@@ -12,6 +13,7 @@ using namespace NLiterals;
 
 void Pipeline(TFunction& function, TModule& module) {
     PromoteLocalsToSSA(function, module);
+    ConstFold(function, module);
     RenumberRegisters(function, module);
     // remove str_release(nullptr)
     // TODO: dont'generate them in the first place
