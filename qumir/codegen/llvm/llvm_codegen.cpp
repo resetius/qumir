@@ -745,37 +745,11 @@ void TLLVMCodeGen::CreateTargetMachine() {
     if (!target) {
         throw std::runtime_error(std::string("lookupTarget failed: ") + errStr);
     }
-//    llvm::TargetOptions opt;
-//    auto RM = std::optional<llvm::Reloc::Model>(llvm::Reloc::PIC_);
-//    TM.reset(
-//        target->createTargetMachine(triple, "generic", "", opt, RM)
-//    );
     llvm::TargetOptions opt;
     auto RM = std::optional<llvm::Reloc::Model>(llvm::Reloc::PIC_);
-
-//    std::string cpu = Opts.TargetCPU.empty()
-//        ? llvm::sys::getHostCPUName().str()
-//        : Opts.TargetCPU;
-    std::string cpu = llvm::sys::getHostCPUName().str();
-    std::string features;
-    //if (Opts.TargetFeatures.empty()) {
-        llvm::StringMap<bool> HostFeatures = llvm::sys::getHostCPUFeatures();
-        bool first = true;
-        for (auto &KV : HostFeatures) {
-            if (KV.second) {
-                if (!first) features += ",";
-                features += KV.first().str();
-                first = false;
-            }
-        }
-    //} else {
-    //    features = Opts.TargetFeatures;
-    //}
-
-    TM.reset(target->createTargetMachine(triple, cpu, features, opt, RM));
-    if (!TM) {
-        throw std::runtime_error("createTargetMachine failed");
-    }
+    TM.reset(
+        target->createTargetMachine(triple, "generic", "", opt, RM)
+    );
 
     LModule->setDataLayout(TM->createDataLayout());
 }
