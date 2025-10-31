@@ -6,6 +6,7 @@
 #include <vector>
 #include <variant>
 #include <iostream>
+#include <cmath>
 
 namespace NQumir {
 namespace NAst {
@@ -155,6 +156,10 @@ void TTokenStream::Read() {
     bool unescape = false;
     TLocation tokenLocation = CurrentLocation;
     EState state = Start;
+    // scientific notation state: 0 - none, 1 - just saw 'e'/'E' (expect sign or digits), 2 - in exponent digits
+    int expMode = 0;
+    int expSign = 1;
+    int expValue = 0;
 
     auto emitKeyword = [&](EKeyword kw) {
         Tokens.emplace_back(TToken {
@@ -184,6 +189,14 @@ void TTokenStream::Read() {
     };
 
     auto flush =[&]() {
+        if (expMode != 0) {
+            double baseVal = std::get<double>(token);
+            if (expValue != 0 || expSign != 1) {
+                baseVal *= std::pow(10.0, (double)expSign * (double)expValue);
+            }
+            token = baseVal;
+        }
+
         if (std::holds_alternative<int64_t>(token)) {
             Tokens.emplace_back(TToken {
                 .Value = {.i64 = sign ? std::get<int64_t>(token) : -std::get<int64_t>(token)},
@@ -242,6 +255,9 @@ void TTokenStream::Read() {
         tokenLocation = CurrentLocation;
         token = std::monostate();
         frac = 10;
+        expMode = 0;
+        expSign = 1;
+        expValue = 0;
     };
 
     // single char operators:
@@ -308,7 +324,7 @@ void TTokenStream::Read() {
                     } else if (isSingleCharOperator(ch)) {
                         emitOperator(OperatorMap.at(std::string(1, ch)));
                         tokenLocation = CurrentLocation;
-                    } else {
+                    } else if (!std::isspace(ch)) {
                         // identifiers/keywords: start with a letter, continue with letters, digits, underscores
                         TIdentifierList idList;
                         idList.Append(ch);
@@ -369,23 +385,43 @@ void TTokenStream::Read() {
                     }
                     break;
                 case InNumber:
-                    if (std::isdigit(ch)) {
-                        if (std::holds_alternative<double>(token)) {
-                            token = (double)(std::get<double>(token) * frac + (ch - '0')) / frac;
-                            frac *= 10;
+                    if (expMode == 0) {
+                        if (std::isdigit(ch)) {
+                            if (std::holds_alternative<double>(token)) {
+                                token = (double)(std::get<double>(token) * frac + (ch - '0')) / frac;
+                                frac *= 10;
+                            } else {
+                                token = (int64_t)(std::get<int64_t>(token) * 10 + (ch - '0'));
+                            }
+                        } else if (ch == '.') {
+                            if (std::holds_alternative<double>(token)) {
+                                // Second dot in a number
+                                flush();
+                            } else {
+                                token = (double)(std::get<int64_t>(token));
+                            }
+                        } else if (ch == 'E' || ch == 'e') {
+                            // start exponent part
+                            if (!std::holds_alternative<double>(token)) {
+                                token = (double)(std::get<int64_t>(token));
+                            }
+                            expMode = 1;
+                            expSign = 1;
+                            expValue = 0;
                         } else {
-                            token = (int64_t)(std::get<int64_t>(token) * 10 + (ch - '0'));
-                        }
-                    } else if (ch == '.') {
-                        // TODO: support scientific notation i.e. 1e10
-                        if (std::holds_alternative<double>(token)) {
-                            // Second dot in a number
                             flush();
-                        } else {
-                            token = (double)(std::get<int64_t>(token));
                         }
                     } else {
-                        flush();
+                        // parsing exponent
+                        if (std::isdigit(ch)) {
+                            expMode = 2;
+                            expValue = expValue * 10 + (ch - '0');
+                        } else if (expMode == 1 && (ch == '+' || ch == '-')) {
+                            expSign = (ch == '-') ? -1 : 1;
+                            expMode = 2;
+                        } else {
+                            flush();
+                        }
                     }
                     break;
                 default:

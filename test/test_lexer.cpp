@@ -313,6 +313,29 @@ TEST(LexerTest, ElseIfAsTwoKeywords) {
     ExpectKeyword(tokens.Next(), EKeyword::EndIf);
 }
 
+TEST(LexerTest, ScientificNotationBasic) {
+    // choose values that are exactly representable in binary where possible
+    std::istringstream input("1e3 2.5e1 5e-1 1.e2 .1e1 3E+4 10e0");
+    TTokenStream tokens(input);
+
+    ExpectFloat(tokens.Next(), 1000.0);   // 1e3
+    ExpectFloat(tokens.Next(), 25.0);     // 2.5e1
+    ExpectFloat(tokens.Next(), 0.5);      // 5e-1
+    ExpectFloat(tokens.Next(), 100.0);    // 1.e2
+    ExpectFloat(tokens.Next(), 1.0);      // .1e1
+    ExpectFloat(tokens.Next(), 30000.0);  // 3E+4
+    ExpectFloat(tokens.Next(), 10.0);     // 10e0
+}
+
+TEST(LexerTest, ScientificNotationWithOperators) {
+    std::istringstream input("42e-1 + 1E+1");
+    TTokenStream tokens(input);
+
+    ExpectFloat(tokens.Next(), 4.2);            // 42e-1
+    ExpectOp(tokens.Next(), EOperator::Plus);   // '+' operator
+    ExpectFloat(tokens.Next(), 10.0);           // 1E+1
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
