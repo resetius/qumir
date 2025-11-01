@@ -91,6 +91,53 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         return self._send_json({'error':'unknown endpoint'}, 404)
 
+    def do_GET(self):
+        # API: list examples and fetch example content
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == '/api/examples':
+            return self._api_list_examples()
+        if parsed.path == '/api/example':
+            qs = urllib.parse.parse_qs(parsed.query or '')
+            rel = (qs.get('path') or [''])[0]
+            return self._api_get_example(rel)
+        # Fallback to static
+        return super().do_GET()
+
+    def _api_list_examples(self):
+        base = os.path.join(REPO_ROOT, 'examples')
+        items = []
+        for root, dirs, files in os.walk(base):
+            # sort for stable order
+            dirs.sort(); files.sort()
+            rel_root = os.path.relpath(root, base)
+            for fn in files:
+                if not fn.lower().endswith('.kum'):
+                    continue
+                full = os.path.join(root, fn)
+                rel = os.path.normpath(os.path.join(rel_root, fn)) if rel_root != '.' else fn
+                items.append({
+                    'path': rel.replace('\\','/'),
+                    'name': fn,
+                })
+        return self._send_json({'examples': items})
+
+    def _api_get_example(self, rel_path: str):
+        if not rel_path:
+            return self._send_json({'error':'path required'}, 400)
+        base = os.path.join(REPO_ROOT, 'examples')
+        # normalize and ensure inside base
+        candidate = os.path.normpath(os.path.join(base, rel_path))
+        if not candidate.startswith(base):
+            return self._send_json({'error':'invalid path'}, 400)
+        if not os.path.isfile(candidate) or not candidate.lower().endswith('.kum'):
+            return self._send_json({'error':'not found'}, 404)
+        try:
+            with open(candidate, 'rb') as f:
+                data = f.read()
+            return self._send_bytes(data, 'text/plain; charset=utf-8', headers={'Cache-Control':'no-store'})
+        except Exception as e:
+            return self._send_json({'error': str(e)}, 500)
+
     def _write_temp_source(self, code_text: str) -> str:
         import tempfile
         # place temp source in system temp dir

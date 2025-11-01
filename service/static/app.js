@@ -12,6 +12,15 @@ const api = async (path, body, asBinary, signal) => {
   return asBinary ? new Uint8Array(await r.arrayBuffer()) : await r.text();
 };
 
+// Simple GET helper for text/json
+const apiGet = async (path) => {
+  const r = await fetch(path, { method: 'GET' });
+  if (!r.ok) throw new Error(await r.text());
+  const ct = r.headers.get('Content-Type') || '';
+  if (ct.includes('application/json')) return await r.json();
+  return await r.text();
+};
+
 const sample = `алг цел цикл\nнач\n    | пример комментария: горячий цикл для теста производительности\n    цел ф, i\n    нц для i от 1 до 10000000\n        ф := факториал(13)\n    кц\n    знач := ф\nкон\n\nалг цел факториал(цел число)\nнач\n    | пример комментария внутри функции\n    цел i\n    знач := 1\n    нц для i от 1 до число\n        знач := знач * i\n    кц\nкон\n`;
 
 // CodeMirror editor (initialized below if library present)
@@ -233,6 +242,25 @@ function initEditor() {
 }
 
 loadState();
+// Load examples list
+(async function initExamples(){
+  try {
+    const data = await apiGet('/api/examples');
+    const sel = $('#examples');
+    if (sel && data && Array.isArray(data.examples)) {
+      // Fill options grouped by folder prefix
+      // Build a simple flat list: "folder/file.kum"
+      data.examples.forEach(it => {
+        const opt = document.createElement('option');
+        opt.value = it.path;
+        opt.textContent = it.path;
+        sel.appendChild(opt);
+      });
+    }
+  } catch (e) {
+    console.warn('examples load failed:', e);
+  }
+})();
 // Initialize editor (assets are loaded via HTML)
 initEditor();
 ['#args', '#stdin'].forEach(sel => {
@@ -243,6 +271,22 @@ const viewSel = $('#view');
 if (viewSel) viewSel.addEventListener('change', () => { saveState(); show(viewSel.value); });
 const optSel = $('#opt');
 if (optSel) optSel.addEventListener('change', () => { saveState(); show($('#view').value); });
+
+// Load example button
+const btnLoadEx = $('#btn-load-example');
+if (btnLoadEx) btnLoadEx.addEventListener('click', async () => {
+  const sel = $('#examples');
+  const path = sel ? sel.value : '';
+  if (!path) return;
+  try {
+    const txt = await apiGet('/api/example?path=' + encodeURIComponent(path));
+    setCode(txt);
+    saveState();
+    debounceShow();
+  } catch (e) {
+    alert('Не удалось загрузить пример: ' + (e.message || String(e)));
+  }
+});
 
 // Snippet insertion
 function insertSnippet(kind) {
