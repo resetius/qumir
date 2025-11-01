@@ -69,6 +69,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
         .UsedRegs = execFunc->MaxTmpIdx + 1,
         .StackBase = 0,
         .PC = &execFunc->VMCode[0],
+        .Name = function.Name,
     });
 
     Runtime.Regs.resize(execFunc->MaxTmpIdx + 1, 0);
@@ -377,6 +378,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                 .UsedRegs = calleeExec->MaxTmpIdx + 1,
                 .StackBase = base,
                 .PC = &calleeExec->VMCode[0],
+                .Name = calleeFn->Name,
             });
             break;
         }

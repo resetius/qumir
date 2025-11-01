@@ -25,6 +25,7 @@ struct TFrame {
     const int UsedRegs = 0;
     const uint64_t StackBase = 0;
     TVMInstr* PC{nullptr};
+    std::string_view Name;
 };
 
 // Link to caller frame for returning
