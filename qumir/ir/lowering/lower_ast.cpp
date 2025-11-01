@@ -193,12 +193,12 @@ TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& n
 {
     auto var = Context.Lookup(name, scope.Id);
     if (!var) {
-        co_return TError(loc, "undefined variable");
+        co_return TError(loc, "undefined variable: `" + name + "'");
     }
 
     auto node = Context.GetSymbolNode(NSemantics::TSymbolId{var->Id});
     if (!node) {
-        co_return TError(loc, "undefined variable");
+        co_return TError(loc, "undefined variable: `" + name + "'");
     }
 
     TOperand op = (var->FunctionLevelIdx >= 0)

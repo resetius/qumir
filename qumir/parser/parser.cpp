@@ -308,6 +308,11 @@ TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_dec
             stream.Unget(*t);
         }
     }
+    // TODO: fix attributes
+    if (isArray) {
+        // Arrays are already handled as non-pointer types
+        isPointer = false;
+    }
     while (true) {
         decls.push_back(co_await var_decl(stream, scalarType, isArray, isPointer));
 

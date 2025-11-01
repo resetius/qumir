@@ -176,6 +176,69 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
     int scopeId = -1;
     // Need PreorderTransformAst for scope tracking: update scopeId when entering a block
     // TODO: implement scrope tracking in TransformAst and use it here
+
+    auto generateBounds = [&](std::shared_ptr<NAst::TVarStmt> var, const NSemantics::TSymbolInfo& symbolInfo) -> auto {
+        auto block = std::make_shared<NAst::TBlockExpr>(var->Location, std::vector<NAst::TExprPtr>{});
+        auto boundaries = std::move(var->Bounds);
+        block->Scope = scopeId;
+        block->SkipDestructors = true;
+        int i = boundaries.size() - 1;
+
+        auto declare = [&](const std::string& name) {
+            auto newVar = std::make_shared<NAst::TVarStmt>(
+                var->Location,
+                name,
+                std::make_shared<NAst::TIntegerType>());
+            block->Stmts.push_back(newVar);
+            context.Declare(name, newVar, symbolInfo);
+        };
+
+        auto assign = [&](const std::string& name, NAst::TExprPtr value) {
+            block->Stmts.push_back(std::make_shared<NAst::TAssignExpr>(
+                var->Location,
+                name,
+                value));
+        };
+
+        auto ident = [&](const std::string& name) {
+            return std::make_shared<NAst::TIdentExpr>(var->Location, name);
+        };
+
+        auto one = std::make_shared<NAst::TNumberExpr>(var->Location, (int64_t) 1);
+        NAst::TExprPtr prevDivSize = one;
+
+        for (; i >= 0; --i) {
+            auto [lbound, rbound] = boundaries[i];
+            std::string lboundName = "__" + var->Name + "_lbound" + std::to_string(i);
+            std::string dimSizeName = "__" + var->Name + "_dimsize" + std::to_string(i);
+            std::string mulAccName = "__" + var->Name + "_mulacc" + std::to_string(i);
+            // lboundName = lbound
+            // dimSizeName = rbound - lbound + 1
+            // mulAccName = prevDivSize * dimSizeName
+            // prevDivSize = mulAccName
+            // 1. declare variables (TVarStmts)
+            declare(lboundName);
+            declare(dimSizeName);
+            declare(mulAccName);
+            // 2. assign variables (TAssignExpr)
+            assign(lboundName, lbound);
+            assign(dimSizeName, std::make_shared<NAst::TBinaryExpr>(
+                    var->Location,
+                    NAst::TOperator("+"),
+                        std::make_shared<NAst::TBinaryExpr>(
+                        var->Location,
+                        NAst::TOperator("-"),
+                        rbound,
+                        lbound),
+                    one));
+            auto mulAccExpr = std::make_shared<NAst::TBinaryExpr>(
+                var->Location, NAst::TOperator("*"), prevDivSize, ident(dimSizeName));
+            assign(mulAccName, mulAccExpr);
+            prevDivSize = mulAccExpr;
+        }
+        return block;
+    };
+
     bool changed = PreorderTransformAst(expr, expr,
         [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
             if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(node)) {
@@ -207,73 +270,51 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
             } else if (auto maybeVar = NAst::TMaybeNode<NAst::TVarStmt>(node)) {
                 auto var = maybeVar.Cast();
                 if (!var->Bounds.empty() && NAst::TMaybeType<NAst::TArrayType>(node->Type)) {
-                    auto block = std::make_shared<NAst::TBlockExpr>(var->Location, std::vector<NAst::TExprPtr>{});
-                    auto boundaries = std::move(var->Bounds);
-                    block->Scope = scopeId;
-                    block->SkipDestructors = true;
-                    int i = boundaries.size() - 1;
-
                     auto symbolId = context.Lookup(var->Name, NSemantics::TScopeId{scopeId});
                     if (!symbolId) {
                         errors.push_back(TError(var->Location, "undefined identifier: " + var->Name + " in scope " + std::to_string(scopeId)));
                         return node;
                     }
 
-                    auto declare = [&](const std::string& name) {
-                        auto newVar = std::make_shared<NAst::TVarStmt>(
-                            var->Location,
-                            name,
-                            std::make_shared<NAst::TIntegerType>());
-                        block->Stmts.push_back(newVar);
-                        context.Declare(name, newVar, *symbolId);
-                    };
-
-                    auto assign = [&](const std::string& name, NAst::TExprPtr value) {
-                        block->Stmts.push_back(std::make_shared<NAst::TAssignExpr>(
-                            var->Location,
-                            name,
-                            value));
-                    };
-
-                    auto ident = [&](const std::string& name) {
-                        return std::make_shared<NAst::TIdentExpr>(var->Location, name);
-                    };
-
-                    auto one = std::make_shared<NAst::TNumberExpr>(var->Location, (int64_t) 1);
-                    NAst::TExprPtr prevDivSize = one;
-
-                    for (; i >= 0; --i) {
-                        auto [lbound, rbound] = boundaries[i];
-                        std::string lboundName = "__" + var->Name + "_lbound" + std::to_string(i);
-                        std::string dimSizeName = "__" + var->Name + "_dimsize" + std::to_string(i);
-                        std::string mulAccName = "__" + var->Name + "_mulacc" + std::to_string(i);
-                        // lboundName = lbound
-                        // dimSizeName = rbound - lbound + 1
-                        // mulAccName = prevDivSize * dimSizeName
-                        // prevDivSize = mulAccName
-                        // 1. declare variables (TVarStmts)
-                        declare(lboundName);
-                        declare(dimSizeName);
-                        declare(mulAccName);
-                        // 2. assign variables (TAssignExpr)
-                        assign(lboundName, lbound);
-                        assign(dimSizeName, std::make_shared<NAst::TBinaryExpr>(
-                                var->Location,
-                                NAst::TOperator("+"),
-                                    std::make_shared<NAst::TBinaryExpr>(
-                                    var->Location,
-                                    NAst::TOperator("-"),
-                                    rbound,
-                                    lbound),
-                                one));
-                        auto mulAccExpr = std::make_shared<NAst::TBinaryExpr>(
-                            var->Location, NAst::TOperator("*"), prevDivSize, ident(dimSizeName));
-                        assign(mulAccName, mulAccExpr);
-                        prevDivSize = mulAccExpr;
-                    }
+                    auto block = generateBounds(var, *symbolId);
                     block->Stmts.push_back(var);
                     return block;
                 }
+            } else if (auto maybeFunDecl = NAst::TMaybeNode<NAst::TFunDecl>(node)) {
+                auto funDecl = maybeFunDecl.Cast();
+                if (!funDecl->Body) {
+                    // external function declaration, skip
+                    return node;
+                }
+
+                std::vector<std::shared_ptr<NAst::TBlockExpr>> preBlocks;
+                for (auto& param : funDecl->Params) {
+                    if (param->Bounds.empty()) {
+                        continue;
+                    }
+
+                    auto symbolId = context.Lookup(param->Name, NSemantics::TScopeId{funDecl->Scope});;
+                    if (!symbolId) {
+                        errors.push_back(TError(param->Location, "undefined identifier: " + param->Name + " in scope " + std::to_string(funDecl->Scope)));
+                        return node;
+                    }
+
+                    auto block = generateBounds(param, *symbolId);
+                    preBlocks.emplace_back(std::move(block));
+                }
+                auto functionBody = std::move(funDecl->Body);
+                auto newBody = std::make_shared<NAst::TBlockExpr>(functionBody->Location, std::vector<NAst::TExprPtr>{});
+                newBody->Scope = functionBody->Scope;
+                for (auto& preBlock : preBlocks) {
+                    for (auto& stmt : preBlock->Stmts) {
+                        newBody->Stmts.push_back(stmt);
+                    }
+                }
+                for (auto& stmt : functionBody->Stmts) {
+                    newBody->Stmts.push_back(stmt);
+                }
+                funDecl->Body = newBody;
+                return funDecl;
             } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(node)) {
                 auto block = maybeBlock.Cast();
                 scopeId = block->Scope;
