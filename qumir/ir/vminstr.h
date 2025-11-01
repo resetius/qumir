@@ -68,8 +68,9 @@ enum class EVMOp : uint8_t {
     RetVoid,
 
     // pointer arithmetic
-    Ste, // store effective address
-    Lde, // load effective address
+    Ste, // store by address (*a = i)
+    Lde, // load by address (a = *i)
+    Lea, // load effective address (a = &i)
 };
 
 std::ostream& operator<<(std::ostream& os, EVMOp op);

@@ -61,6 +61,9 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                 for (const auto& arg : output->Args) {
                     NAst::TExprPtr call;
                     auto type = arg->Type;
+                    if (auto refType = NAst::TMaybeType<NAst::TReferenceType>(type)) {
+                        type = refType.Cast()->ReferencedType;
+                    }
                     if (NAst::TMaybeType<NAst::TFloatType>(type)) {
                         std::vector<NAst::TExprPtr> args;
                         args.push_back(arg);

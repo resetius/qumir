@@ -110,6 +110,24 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             Runtime.Regs[instr.Operands[0].Tmp.Idx] = value;
             break;
         }
+        case EVMOp::Lea: {
+            // load addr of local or slot operand
+            assert(instr.Operands[0].Tmp.Idx >= 0);
+            if (instr.Operands[1].Type == TVMOperand::EType::Slot) {
+                const auto& s = instr.Operands[1].Slot;
+                assert(s.Idx >= 0 && s.Idx < Runtime.Globals.size());
+                int64_t addr = reinterpret_cast<int64_t>(&Runtime.Globals[s.Idx]);
+                Runtime.Regs[instr.Operands[0].Tmp.Idx] = addr;
+            } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
+                const auto& l = instr.Operands[1].Local;
+                assert(l.Idx >= 0 && l.Idx < Runtime.Stack.size() - frame.StackBase);
+                int64_t addr = reinterpret_cast<int64_t>(&Runtime.Stack[frame.StackBase + l.Idx]);
+                Runtime.Regs[instr.Operands[0].Tmp.Idx] = addr;
+            } else {
+                assert(false && "Invalid operand for lea");
+            }
+            break;
+        }
         case EVMOp::Load64: {
             assert(instr.Operands[0].Tmp.Idx >= 0);
             if (instr.Operands[1].Type == TVMOperand::EType::Slot) {

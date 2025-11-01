@@ -194,7 +194,7 @@ TypeKw  ::= 'цел' | 'вещ' | 'лог' | 'лит' | 'таб'
 Name    ::= NamePart (' ' NamePart)*
 NamePart::= Identifier | Keyword
 */
-TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStream& stream, TTypePtr scalarType, bool isArray, bool isPointer) {
+TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStream& stream, TTypePtr scalarType, bool isArray, bool isPointer, bool isReference) {
     auto nameTok = co_await stream.Next();
     if (nameTok.Type != TToken::Identifier) {
         // Если здесь пошёл новый тип — пусть внешняя логика разрулит (мы вернём ошибку)
@@ -251,6 +251,8 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStrea
 
     if (isPointer) {
         varType = std::make_shared<TPointerType>(varType);
+    } else if (isReference) {
+        varType = std::make_shared<TReferenceType>(varType);
     }
 
     auto var = std::make_shared<TVarStmt>(nameTok.Location, name, varType, bounds);
@@ -276,9 +278,10 @@ TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_dec
     auto first = co_await stream.Next();
 
     bool isPointer = false;
+    bool isReference = false;
     if (parseAttributes) {
         if (first.Type == TToken::Keyword && static_cast<EKeyword>(first.Value.i64) == EKeyword::OutArg) {
-            isPointer = true;
+            isReference = true;
             isMutable = true; // mutability of underlying data is implied by being an out-parameter
             first = co_await stream.Next();
         }
@@ -312,9 +315,10 @@ TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_dec
     if (isArray) {
         // Arrays are already handled as non-pointer types
         isPointer = false;
+        isReference = false;
     }
     while (true) {
-        decls.push_back(co_await var_decl(stream, scalarType, isArray, isPointer));
+        decls.push_back(co_await var_decl(stream, scalarType, isArray, isPointer, isReference));
 
         auto t = stream.Next();
         if (!t) {

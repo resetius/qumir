@@ -1,4 +1,5 @@
 #include "type.h"
+#include "qumir/parser/type.h"
 
 #include <iostream>
 #include <sstream>
@@ -115,6 +116,10 @@ int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
 
     if (auto p = NAst::TMaybeType<NAst::TPointerType>(t)) {
         int to = FromAstType(p.Cast()->PointeeType, tt);
+        return tt.Ptr(to);
+    }
+    if (auto p = NAst::TMaybeType<NAst::TReferenceType>(t)) {
+        int to = FromAstType(p.Cast()->ReferencedType, tt);
         return tt.Ptr(to);
     }
 

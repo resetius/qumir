@@ -151,6 +151,24 @@ struct TPointerType : TType {
     }
 };
 
+struct TReferenceType : TType {
+    static constexpr const char* TypeId = "Ref";
+
+    TTypePtr ReferencedType;
+
+    explicit TReferenceType(TTypePtr rt)
+        : ReferencedType(std::move(rt))
+    {}
+
+    std::string ToString() const override {
+        return "&" + (ReferencedType ? std::string(ReferencedType->TypeName()) : "unknown");
+    }
+
+    const std::string_view TypeName() const override {
+        return TReferenceType::TypeId;
+    }
+};
+
 std::ostream& operator<<(std::ostream& os, const TType& expr);
 
 } // namespace NAst
