@@ -56,31 +56,60 @@ void DeSSA(TFunction& function, TModule& module) {
     }
 
     for (auto& block : function.Blocks) {
+        // Collect all phi transfers per predecessor to preserve parallel semantics
+        std::map<TLabel, std::vector<std::pair<TTmp, TOperand>>> perPred; // pred -> [(dest, src)]
         for (const auto& phi : block.Phis) {
-            if (phi.Op != "phi"_op) {
-                // skip nops
-                continue;
-            }
+            if (phi.Op != "phi"_op) continue; // skip nops
             for (size_t i = 0; i < phi.Operands.size(); i += 2) {
-                auto value = phi.Operands[i];
-                auto label = phi.Operands[i + 1].Label;
-                auto maybeRemapIt = remap.find({label, block.Label});
-                if (maybeRemapIt != remap.end()) {
-                    label = maybeRemapIt->second;;
+                auto src = phi.Operands[i];
+                auto plabel = phi.Operands[i + 1].Label;
+                auto it = remap.find({plabel, block.Label});
+                if (it != remap.end()) {
+                    plabel = it->second;
                 }
-                auto& predBlock = function.Blocks[function.GetBlockIdx(label)];
-                TInstr assign {
-                    .Op = "mov"_op,
-                    .Dest = phi.Dest,
-                    .Operands = {value},
-                    .OperandCount = 1,
-                };
-                if (predBlock.Instrs.empty()) {
-                    throw std::runtime_error("DeSSA: cannot insert phi assignment into empty predecessor block: " + std::to_string(label.Idx));
-                }
-                predBlock.Instrs.insert(predBlock.Instrs.end()-1, assign);
+                perPred[plabel].push_back({phi.Dest, src});
             }
         }
+
+        // For each predecessor, insert two-phase copies: capture sources into fresh tmps, then assign to dests
+        for (const auto& entry : perPred) {
+            const TLabel predLabel = entry.first;
+            const auto& pairs = entry.second;
+            auto& predBlock = function.Blocks[function.GetBlockIdx(predLabel)];
+            if (predBlock.Instrs.empty()) {
+                throw std::runtime_error("DeSSA: cannot insert phi assignment into empty predecessor block: " + std::to_string(predLabel.Idx));
+            }
+            // Build sequences
+            std::vector<TInstr> preCopies; preCopies.reserve(pairs.size());
+            std::vector<TInstr> postCopies; postCopies.reserve(pairs.size());
+            std::vector<TTmp> temps; temps.reserve(pairs.size());
+            for (const auto& [dest, src] : pairs) {
+                // fresh tmp of the same type as dest
+                TTmp t{ function.NextTmpIdx++ };
+                function.SetType(t, function.GetTmpType(dest.Idx));
+                temps.push_back(t);
+                // t = src
+                preCopies.push_back(TInstr{
+                    .Op = "mov"_op,
+                    .Dest = t,
+                    .Operands = { src },
+                    .OperandCount = 1,
+                });
+                // dest = t
+                postCopies.push_back(TInstr{
+                    .Op = "mov"_op,
+                    .Dest = dest,
+                    .Operands = { TOperand(t) },
+                    .OperandCount = 1,
+                });
+            }
+            // Insert before the terminator, first all pre-copies then all post-copies
+            auto termIt = predBlock.Instrs.end() - 1;
+            predBlock.Instrs.insert(termIt, preCopies.begin(), preCopies.end());
+            termIt = predBlock.Instrs.end() - 1; // iterator invalidated; recompute
+            predBlock.Instrs.insert(termIt, postCopies.begin(), postCopies.end());
+        }
+        // Remove phis from the block after lowering
         block.Phis.clear();
     }
 }
