@@ -407,6 +407,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                     Runtime.Regs[link.CallerDst] = *retVal;
                 }
                 Runtime.Stack.resize(base - callerFrame.UsedRegs);
+                retVal = std::nullopt;
             }
             break;
         }
