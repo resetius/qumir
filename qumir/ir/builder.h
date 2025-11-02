@@ -221,6 +221,7 @@ struct TFunction {
     std::vector<int> Label2Idx; // LabelIdx -> BlockIdx
     int ReturnTypeId = -1;
     bool ReturnTypeIsString = false; // TODO: remove me, clutch: support string returnType
+    bool CfgBuilt = false;
 
     int SymId;
     int UniqueId; // unique within module, updated function will have same SymId and new UniqueId

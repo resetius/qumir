@@ -13,6 +13,10 @@ using namespace NLiterals;
 
 void BuildCfg(TFunction& function)
 {
+    if (function.CfgBuilt) {
+        return;
+    }
+    function.CfgBuilt = true;
     function.Label2Idx.resize(function.Blocks.size());
 
     int idx = 0;
