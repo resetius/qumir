@@ -189,7 +189,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
 }
 
-TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& name, TBlockScope scope, const TLocation& loc)
+TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& name, TBlockScope scope, const TLocation& loc, bool ref)
 {
     auto var = Context.Lookup(name, scope.Id);
     if (!var) {
@@ -205,7 +205,8 @@ TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& n
         ? TOperand{ TLocal{ var->FunctionLevelIdx } }
         : TOperand{ TSlot{ var->Id } };
 
-    auto tmp = Builder.Emit1("load"_op, { op });
+    TOp opcode = ref ? "lea"_op : "load"_op;
+    auto tmp = Builder.Emit1(opcode, { op });
     Builder.SetType(tmp, FromAstType(node->Type, Module.Types));
     co_return tmp;
 }
@@ -789,9 +790,21 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         argv.reserve(call->Args.size());
         int i = 0;
         for (auto& a : call->Args) {
-            auto av = co_await Lower(a, scope);
+            auto& argType = (*argTypes)[i++];
+            TValueWithBlock av;
+            if (auto maybeRef = NAst::TMaybeType<NAst::TReferenceType>(argType)) {
+                // a must be an identifier
+                auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(a);
+                if (!maybeIdent) {
+                    co_return TError(a->Location, "argument for reference parameter must be an identifier");
+                }
+                av.Value = co_await LoadVar(maybeIdent.Cast()->Name, scope, a->Location, true /*address*/);
+            } else {
+                av = co_await Lower(a, scope);
+            }
+
             if (!av.Value) co_return TError(a->Location, "invalid argument");
-            const auto& argType = (*argTypes)[i++];
+
             if (av.Value->Type == TOperand::EType::Imm && av.Value->Imm.TypeId == lowStringTypeId) {
                 // Argument is a string literal pointer: materialize to string
                 if (NAst::TMaybeType<NAst::TStringType>(argType)) {
