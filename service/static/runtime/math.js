@@ -49,7 +49,7 @@ export function fpow(a, n) {
 
 export function pow(a, b) { return Math.pow(a, b); }
 
-export function trunc_double(x) { return (x < 0 ? Math.ceil(x) : Math.floor(x)); }
+export function trunc_double(x) { return (x < 0 ? BigInt(Math.ceil(x)) : BigInt(Math.floor(x))); }
 
 export function rand_double(x) { return Math.random() * x; }
 export function rand_double_range(a, b) { return a + Math.random() * (b - a); }
