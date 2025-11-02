@@ -20,6 +20,13 @@ using TTask = TExpectedTask<TExprPtr, TError, TLocation>;
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId);
 
+TTypePtr UnwrapReferenceType(TTypePtr type) {
+    if (auto maybeRef = TMaybeType<TReferenceType>(type)) {
+        return maybeRef.Cast()->ReferencedType;
+    }
+    return type;
+}
+
 bool WideningIntOK(TTypePtr typeSrc, TTypePtr typeDst) {
     auto src = TMaybeType<TIntegerType>(typeSrc).Cast();
     auto dst = TMaybeType<TIntegerType>(typeDst).Cast();
@@ -351,10 +358,12 @@ TTask AnnotateAssign(std::shared_ptr<TAssignExpr> assign, NSemantics::TNameResol
     if (!sym || !sym->Type) {
         co_return TError(assign->Location, "untyped identifier in assignment: " + assign->Name);
     }
-    if (!EqualTypes(assign->Value->Type, sym->Type)) {
-        if (!CanImplicit(assign->Value->Type, sym->Type)) {
+    auto symbolType = UnwrapReferenceType(sym->Type);
+    auto valueType = UnwrapReferenceType(assign->Value->Type);
+    if (!EqualTypes(valueType, symbolType)) {
+        if (!CanImplicit(valueType, symbolType)) {
             co_return TError(assign->Location, std::string("cannot implicitly convert '") +
-                std::string(assign->Value->Type->TypeName()) + "' to '" + std::string(sym->Type->TypeName()) + "' in assignment");
+                std::string(valueType->TypeName()) + "' to '" + std::string(symbolType->TypeName()) + "' in assignment");
         }
         assign->Value = InsertImplicitCastIfNeeded(assign->Value, sym->Type);
     }
@@ -382,10 +391,11 @@ TTask AnnotateArrayAssign(std::shared_ptr<TArrayAssignExpr> arrayAssign, NSemant
     }
     auto arrayType = maybeArrayType.Cast();
 
-    if (!EqualTypes(arrayAssign->Value->Type, arrayType->ElementType)) {
-        if (!CanImplicit(arrayAssign->Value->Type, arrayType->ElementType)) {
+    auto valueType = UnwrapReferenceType(arrayAssign->Value->Type);
+    if (!EqualTypes(valueType, arrayType->ElementType)) {
+        if (!CanImplicit(valueType, arrayType->ElementType)) {
             co_return TError(arrayAssign->Location, std::string("cannot implicitly convert '") +
-                std::string(arrayAssign->Value->Type->TypeName()) + "' to '" + std::string(arrayType->ElementType->TypeName()) + "' in array assignment");
+                std::string(valueType->TypeName()) + "' to '" + std::string(arrayType->ElementType->TypeName()) + "' in array assignment");
         }
         arrayAssign->Value = InsertImplicitCastIfNeeded(arrayAssign->Value, arrayType->ElementType);
     }
@@ -451,6 +461,18 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
         for (size_t i = 0; i < call->Args.size(); ++i) {
             auto& arg = call->Args[i];
             auto& paramT = funT->ParamTypes[i];
+            // if ParamT is reference type, arg must be of the same referenced type or ident of that underlying type
+            if (auto maybeRef = TMaybeType<TReferenceType>(paramT)) {
+                auto paramRefT = maybeRef.Cast();
+                auto argTypeUnwrapped = UnwrapReferenceType(arg->Type);
+                if (!EqualTypes(argTypeUnwrapped, paramRefT->ReferencedType)) {
+                    co_return TError(arg->Location, "cannot pass argument " + std::to_string(i+1) +
+                        " of type '" + std::string(arg->Type->TypeName()) + "' to reference parameter of type '" +
+                        std::string(paramT->TypeName()) + "'");
+                }
+                // no implicit cast for reference parameters
+                continue;
+            }
             if (!EqualTypes(arg->Type, paramT)) {
                 if (!CanImplicit(arg->Type, paramT)) {
                     co_return TError(arg->Location, "cannot implicitly convert argument " + std::to_string(i+1) +
@@ -473,7 +495,8 @@ TTask AnnotateIf(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver& con
     }
     {
         auto boolT = std::make_shared<TBoolType>();
-        if (!EqualTypes(ifExpr->Cond->Type, boolT) && CanImplicit(ifExpr->Cond->Type, boolT)) {
+        auto condType = UnwrapReferenceType(ifExpr->Cond->Type);
+        if (!EqualTypes(condType, boolT) && CanImplicit(condType, boolT)) {
             ifExpr->Cond = InsertImplicitCastIfNeeded(ifExpr->Cond, boolT);
         }
     }
