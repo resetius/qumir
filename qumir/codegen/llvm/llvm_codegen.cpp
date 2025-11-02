@@ -581,6 +581,24 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             }
             return nullptr;
         }
+        case "lea"_op: {
+            // like load byt get address of slot/local
+            if (operandCount != 1 || instr.Dest.Idx < 0) throw std::runtime_error("lea needs 1 operand and a dest");
+            if (instr.Operands[0].Type == TOperand::EType::Slot) {
+                auto idx = instr.Operands[0].Slot.Idx;
+                auto g = EnsureSlotGlobal(idx, module);
+                return storeTmp(g);
+            } else if (instr.Operands[0].Type == TOperand::EType::Local) {
+                auto lidx = instr.Operands[0].Local.Idx;
+                if (lidx < 0 || lidx >= CurFun->Allocas.size()) throw std::runtime_error("invalid local index");
+                auto ptr = CurFun->Allocas[lidx];
+                return storeTmp(ptr);
+            } else {
+                throw std::runtime_error("lea operand must be slot or local");
+            }
+            return nullptr;
+            break;
+        }
         case "stre"_op: {
             if (operandCount != 2)  throw std::runtime_error("store needs 2 operands");
             if (instr.Operands[0].Type == TOperand::EType::Slot) {
