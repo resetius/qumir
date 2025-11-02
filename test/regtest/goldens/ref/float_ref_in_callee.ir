@@ -1,0 +1,24 @@
+function функция () { ; f64
+  block {
+    label: label(0)
+    stre local(1,f64) imm(4609434218613702656,f64) 
+    lea tmp(0,ptr to f64) = local(1,f64) 
+    arg tmp(0,ptr to f64) 
+    call g 
+    load tmp(1,f64) = local(1,f64) 
+    stre local(0,f64) tmp(1,f64) 
+    load tmp(2,f64) = local(0,f64) 
+    ret tmp(2,f64) 
+  }
+}
+function g (local(0)) { ; void
+  block {
+    label: label(0)
+    load tmp(0,ptr to f64) = local(0,ptr to f64) 
+    lde tmp(1,f64) = tmp(0,ptr to f64) 
+    * tmp(2,f64) = tmp(1,f64) imm(4611686018427387904,f64) 
+    load tmp(3,ptr to f64) = local(0,ptr to f64) 
+    ste tmp(3,ptr to f64) tmp(2,f64) 
+    ret 
+  }
+}
