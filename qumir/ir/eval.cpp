@@ -72,7 +72,10 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
         .Name = function.Name,
     });
 
+    static constexpr size_t MaxStackSize = 1024 * 1024 * 1024; // 1 GB
+
     Runtime.Regs.resize(execFunc->MaxTmpIdx + 1, 0);
+    Runtime.Stack.reserve(MaxStackSize);
     Runtime.Stack.resize(execFunc->NumLocals, 0);
     if (args.size() != function.ArgLocals.size()) {
         std::cerr << "Function " << function.Name << " expects " << function.ArgLocals.size() << " arguments, got " << args.size() << "\n";
@@ -98,6 +101,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             int64_t intAddr = ReadOperand<int64_t>(Runtime.Regs, instr.Operands[0]);
             void* addr = reinterpret_cast<void*>(intAddr);
             int64_t value = ReadOperand<int64_t>(Runtime.Regs, instr.Operands[1]);
+            //std::cerr << "ste addr " << std::hex << addr << std::dec << " = " << value << "\n";
             std::memcpy(addr, &value, sizeof(int64_t)); // TODO: size (add size operand?)
             break;
         }
@@ -122,6 +126,7 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
                 const auto& l = instr.Operands[1].Local;
                 assert(l.Idx >= 0 && l.Idx < Runtime.Stack.size() - frame.StackBase);
                 int64_t addr = reinterpret_cast<int64_t>(&Runtime.Stack[frame.StackBase + l.Idx]);
+                //std::cerr << "set addr of local " << frame.StackBase + l.Idx << " to " << std::hex << addr << std::dec << "\n";
                 Runtime.Regs[instr.Operands[0].Tmp.Idx] = addr;
             } else {
                 assert(false && "Invalid operand for lea");
@@ -137,6 +142,8 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
             } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[1].Local;
                 assert(l.Idx >= 0 && l.Idx < Runtime.Stack.size() - frame.StackBase);
+                //std::cerr << "load local " << frame.StackBase + l.Idx << " value " << Runtime.Stack[frame.StackBase + l.Idx] << "\n";
+                //std::cerr << "addr of local " << frame.StackBase + l.Idx << " is " << std::hex << &Runtime.Stack[frame.StackBase + l.Idx] << std::dec << "\n";
                 Runtime.Regs[instr.Operands[0].Tmp.Idx] = Runtime.Stack[frame.StackBase + l.Idx];
             } else {
                 assert(false && "Invalid operand for load");
@@ -378,6 +385,9 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
 
             Runtime.Regs.resize(calleeExec->MaxTmpIdx + 1, 0);
             Runtime.Stack.resize(Runtime.Stack.size() + calleeExec->NumLocals, 0);
+            if (Runtime.Stack.size() > MaxStackSize) {
+                throw std::runtime_error("Stack overflow in interpreter");
+            }
 
             // save slots that will be overwritten by parameters
             for (int i = 0; i < argCount; ++i) {

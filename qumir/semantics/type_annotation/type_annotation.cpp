@@ -253,8 +253,8 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
     if (!binary->Left->Type || !binary->Right->Type) {
         co_return TError(binary->Location, "cannot type binary expression with untyped operand");
     }
-    auto left = binary->Left->Type;
-    auto right = binary->Right->Type;
+    auto left = UnwrapReferenceType(binary->Left->Type);
+    auto right = UnwrapReferenceType(binary->Right->Type);
 
     switch (binary->Operator) {
         case TOperator("+"):

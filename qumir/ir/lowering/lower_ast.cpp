@@ -584,6 +584,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (localSlot.Idx >= 0) {
             Builder.SetType(localSlot, slotType);
         }
+        TOperand storeOperand = (localSlot.Idx >= 0) ? TOperand{localSlot} : TOperand{storeSlot};
         // slot type was set on variable declaration
 
         if (rhs.Value->Type == TOperand::EType::Imm) {
@@ -623,17 +624,32 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.Emit0("call"_op, { TImm{dtorId} });
             }
         }
-        // TODO: unify
-        if (localSlot.Idx >= 0) {
-            Builder.Emit0("stre"_op, {localSlot, *rhs.Value});
+
+        if (auto maybeRef = NAst::TMaybeType<NAst::TReferenceType>(node->Type)) {
+            auto ref = maybeRef.Cast();
+            auto addrTmp = Builder.Emit1("load"_op, {storeOperand});
+            Builder.SetType(addrTmp, FromAstType(node->Type, Module.Types));
+            Builder.Emit0("ste"_op, {addrTmp, *rhs.Value});
         } else {
-            Builder.Emit0("stre"_op, {storeSlot, *rhs.Value});
+            Builder.Emit0("stre"_op, {storeOperand, *rhs.Value});
         }
+
         // store does not produce a value
         co_return TValueWithBlock{ {}, Builder.CurrentBlockLabel() };
     } else if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(expr)) {
         auto ident = maybeIdent.Cast();
         auto tmp = co_await LoadVar(ident->Name, scope, ident->Location);
+        // if variable is a ref, need to dereference
+        auto var = Context.Lookup(ident->Name, scope.Id);
+        auto node = Context.GetSymbolNode(NSemantics::TSymbolId{var->Id});
+        // tmp contains the address of the variable
+        if (auto maybeRef = NAst::TMaybeType<NAst::TReferenceType>(node->Type)) {
+            auto ref = maybeRef.Cast();
+            auto derefTmp = Builder.Emit1("lde"_op, { tmp });
+            Builder.SetType(derefTmp, FromAstType(ref->ReferencedType, Module.Types));
+            tmp = derefTmp;
+        }
+
         // Borrowed for stack values ignored
         // For strings, we need to track destructors for owned temporaries
         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
@@ -799,6 +815,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     co_return TError(a->Location, "argument for reference parameter must be an identifier");
                 }
                 av.Value = co_await LoadVar(maybeIdent.Cast()->Name, scope, a->Location, true /*address*/);
+                Builder.SetType(av.Value->Tmp, FromAstType(argType, Module.Types));
             } else {
                 av = co_await Lower(a, scope);
             }
