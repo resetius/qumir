@@ -632,20 +632,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         co_return TValueWithBlock{ {}, Builder.CurrentBlockLabel() };
     } else if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(expr)) {
         auto ident = maybeIdent.Cast();
-        auto sidOpt = Context.Lookup(ident->Name, scope.Id);
-        if (!sidOpt) co_return TError(ident->Location, std::string("undefined name: ") + ident->Name);
-
-        auto loadSlot = TSlot{sidOpt->Id};
-        auto localSlot = TLocal{sidOpt->FunctionLevelIdx};
-        auto node = Context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id});
-        // we don't set type of loadSlot here, as it was typed on store
-        TTmp tmp;
-        if (localSlot.Idx >= 0) {
-            tmp = Builder.Emit1("load"_op, {localSlot});
-        } else {
-            tmp = Builder.Emit1("load"_op, {loadSlot});
-        }
-        Builder.SetType(tmp, FromAstType(node->Type, Module.Types));
+        auto tmp = co_await LoadVar(ident->Name, scope, ident->Location);
         // Borrowed for stack values ignored
         // For strings, we need to track destructors for owned temporaries
         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
