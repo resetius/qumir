@@ -9,6 +9,9 @@ import sys
 from io import BytesIO
 import time
 import shlex
+import hashlib
+import base64
+import re
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(ROOT, 'static')
@@ -16,6 +19,7 @@ REPO_ROOT = os.path.abspath(os.path.join(ROOT, '..'))
 BIN_DIR = os.path.join(REPO_ROOT, 'build', 'bin')
 QUMIRC = os.path.join(BIN_DIR, 'qumirc')
 QUMIRI = os.path.join(BIN_DIR, 'qumiri')
+SHARED_DIR = os.path.join(ROOT, 'shared')  # filesystem storage for shared links
 
 PORT = int(os.environ.get('PORT', '8080'))
 
@@ -84,6 +88,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._compile_wasm(payload)
         if self.path == '/api/compile-wasm-text':
             return self._compile_wasm_text(payload)
+        if self.path == '/api/share':
+            return self._api_share_create(payload)
         #if self.path == '/api/run-ir':
         #    return self._run_interpreter(payload, jit=False)
         #if self.path == '/api/run-jit':
@@ -100,6 +106,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             qs = urllib.parse.parse_qs(parsed.query or '')
             rel = (qs.get('path') or [''])[0]
             return self._api_get_example(rel)
+        if parsed.path == '/api/share':
+            qs = urllib.parse.parse_qs(parsed.query or '')
+            sid = (qs.get('id') or [''])[0]
+            return self._api_share_get(sid)
+        # Pretty share link: /s/<id> -> /index.html?share=<id>
+        if parsed.path.startswith('/s/'):
+            sid = parsed.path[len('/s/'):] or ''
+            if not self._is_valid_share_id(sid):
+                return self._send_json({'error':'invalid id'}, 400)
+            # If share doesn't exist, 404
+            spath = self._share_path(sid)
+            if not os.path.isfile(spath):
+                return self._send_json({'error':'not found'}, 404)
+            dest = f'/{HTML_INDEX}?share={urllib.parse.quote(sid)}'
+            self.send_response(302)
+            self.send_header('Location', dest)
+            self.end_headers()
+            return
         # Fallback to static
         return super().do_GET()
 
@@ -271,6 +295,94 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if rc != 0:
             return self._send_json({'error':se.decode('utf-8','ignore')}, 400)
         return self._send_bytes(so, 'text/plain; charset=utf-8')
+
+    # ========== Shared links support (filesystem-based, no DB) ==========
+
+    _ID_RE = re.compile(r'^[A-Za-z0-9_-]{6,64}$')
+
+    def _ensure_shared_dir(self):
+        try:
+            os.makedirs(SHARED_DIR, exist_ok=True)
+        except Exception:
+            pass
+
+    def _is_valid_share_id(self, sid: str) -> bool:
+        return bool(self._ID_RE.match(sid or ''))
+
+    def _share_id_for_code(self, code_text: str) -> str:
+        # content-addressed ID: urlsafe base64 of sha256 digest prefix
+        digest = hashlib.sha256(code_text.encode('utf-8')).digest()
+        # 12 chars from first 9 bytes (~72 bits) to keep links short with negligible collision risk
+        sid = base64.urlsafe_b64encode(digest[:9]).decode('ascii').rstrip('=')
+        return sid
+
+    def _share_path(self, sid: str) -> str:
+        return os.path.join(SHARED_DIR, f'{sid}.kum')
+
+    def _api_share_create(self, payload):
+        code = payload.get('code','')
+        if not code:
+            return self._send_json({'error':'empty code'}, 400)
+        # Optional preferred id, must be valid
+        pref = payload.get('id') or ''
+        if pref and not self._is_valid_share_id(pref):
+            return self._send_json({'error':'invalid id'}, 400)
+
+        self._ensure_shared_dir()
+        sid = pref or self._share_id_for_code(code)
+        path = self._share_path(sid)
+
+        # If file exists, ensure same content; otherwise, pick a longer ID variant
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    existing = f.read()
+                if existing != code:
+                    # Extend ID using more digest bytes until unique
+                    digest = hashlib.sha256(code.encode('utf-8')).digest()
+                    for n in range(10, 17):  # up to ~128 bits
+                        sid2 = base64.urlsafe_b64encode(digest[:n]).decode('ascii').rstrip('=')
+                        path2 = self._share_path(sid2)
+                        if not os.path.exists(path2):
+                            sid, path = sid2, path2
+                            break
+                    else:
+                        # Fallback to time-based suffix
+                        suffix = base64.urlsafe_b64encode(os.urandom(6)).decode('ascii').rstrip('=')
+                        sid = f'{sid}-{suffix}'
+                        path = self._share_path(sid)
+            except Exception:
+                pass
+
+        # Write file if not exists
+        if not os.path.exists(path):
+            try:
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(code)
+            except Exception as e:
+                return self._send_json({'error': f'write failed: {e}'}, 500)
+
+        host = self.headers.get('Host') or f'localhost:{PORT}'
+        base = f'http://{host}'
+        return self._send_json({
+            'id': sid,
+            'url': f'{base}/s/{sid}',
+            'raw_url': f'{base}/api/share?id={urllib.parse.quote(sid)}',
+        })
+
+    def _api_share_get(self, sid: str):
+        if not self._is_valid_share_id(sid):
+            return self._send_json({'error':'invalid id'}, 400)
+        path = self._share_path(sid)
+        if not os.path.isfile(path):
+            return self._send_json({'error':'not found'}, 404)
+        try:
+            with open(path, 'rb') as f:
+                data = f.read()
+            # shared snippets are immutable; allow caching if desired
+            return self._send_bytes(data, 'text/plain; charset=utf-8', headers={'Cache-Control':'public, max-age=31536000, immutable'})
+        except Exception as e:
+            return self._send_json({'error': str(e)}, 500)
 
 
 def main():

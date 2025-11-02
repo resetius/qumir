@@ -31,3 +31,25 @@ footer .cookies-note { margin-left: auto; opacity: 0.9; }
 
 /* JS-driven tooltip */
 .q-tooltip { position: fixed; background: #2d2d2d; color: #eee; padding: 6px 8px; border-radius: 4px; font-size: 12px; white-space: pre; border: 1px solid #555; box-shadow: 0 6px 16px rgba(0,0,0,0.5); z-index: 4000; pointer-events: none; max-width: 60vw; }
+
+/* Toast notification */
+.q-toast {
+	position: fixed;
+	top: 12px;
+	left: 50%;
+	transform: translate(-50%, -12px);
+	background: #2e7d32; /* green */
+	color: #fff;
+	padding: 10px 14px;
+	border-radius: 6px;
+	font-size: 13px;
+	box-shadow: 0 8px 22px rgba(0,0,0,0.6);
+	z-index: 5000;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity .2s ease, transform .2s ease;
+}
+.q-toast.show {
+	opacity: 1;
+	transform: translate(-50%, 0);
+}

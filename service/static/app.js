@@ -263,6 +263,24 @@ loadState();
 })();
 // Initialize editor (assets are loaded via HTML)
 initEditor();
+// If URL has ?share=<id>, load the shared snippet and override code
+(async function loadSharedFromQuery(){
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const sid = params.get('share');
+    if (!sid) return;
+    const txt = await apiGet('/api/share?id=' + encodeURIComponent(sid));
+    if (typeof txt === 'string') {
+      setCode(txt);
+      saveState();
+      debounceShow();
+      const statusEl = document.getElementById('status');
+      if (statusEl) statusEl.textContent = `Загружено из ссылки: ${sid}`;
+    }
+  } catch (e) {
+    console.warn('failed to load share:', e);
+  }
+})();
 ['#args', '#stdin'].forEach(sel => {
   const el = $(sel);
   if (el) el.addEventListener('input', saveState);
@@ -424,3 +442,51 @@ $('#btn-run').addEventListener('click', async () => {
   await runWasm();
   show($('#view').value);
 });
+
+// Toast helper
+let __toastEl = null;
+let __toastTimer = null;
+function showToast(message, ms = 2000) {
+  if (!__toastEl) {
+    __toastEl = document.createElement('div');
+    __toastEl.className = 'q-toast';
+    document.body.appendChild(__toastEl);
+  }
+  __toastEl.textContent = message;
+  __toastEl.classList.add('show');
+  if (__toastTimer) clearTimeout(__toastTimer);
+  __toastTimer = setTimeout(() => {
+    __toastEl.classList.remove('show');
+  }, Math.max(500, ms|0));
+}
+
+// Share: POST current code to /api/share and copy link
+const btnShare = document.getElementById('btn-share');
+if (btnShare) {
+  btnShare.addEventListener('click', async () => {
+    const code = getCode();
+    try {
+      const r = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const res = await r.json();
+      const url = res && res.url ? res.url : (res.raw_url || '');
+      if (url) {
+        try { await navigator.clipboard.writeText(url); } catch {}
+        // Update location without reload
+        try {
+          if (res.id) {
+            const pretty = `/s/${encodeURIComponent(res.id)}`;
+            window.history.replaceState({}, '', pretty);
+          }
+        } catch {}
+        showToast('Ссылка скопирована в буфер обмена', 2000);
+      }
+    } catch (e) {
+      alert('Не удалось создать ссылку: ' + (e.message || String(e)));
+    }
+  });
+}
