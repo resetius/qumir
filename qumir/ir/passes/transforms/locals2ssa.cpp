@@ -3,6 +3,7 @@
 
 #include <qumir/ir/passes/analysis/cfg.h>
 #include <unordered_set>
+#include <vector>
 
 #include <iostream>
 
@@ -26,6 +27,28 @@ struct TSSABuilder {
         : Module(module)
         , Function(function)
     {}
+
+    void ComputeLocalPromotable() {
+        LocalPromotable.assign(Function.LocalTypes.size(), true);
+        for (auto& block : Function.Blocks) {
+            for (auto& instr : block.Instrs) {
+                // If a local's address is taken (lea local), don't promote that local to SSA.
+                // Rationale: once the address escapes, the variable can be modified indirectly
+                // via that pointer (pass-by-reference arguments, stores through the pointer,
+                // or mutations in callees). Without alias/escape analysis we can't prove it is
+                // safe to keep the value purely in SSA registers; otherwise we risk reading a
+                // stale cached value after a call instead of the memory updated through the pointer.
+                if (instr.Op == "lea"_op) {
+                    if (instr.OperandCount >= 1 && instr.Operands[0].Type == TOperand::EType::Local) {
+                        int localIdx = instr.Operands[0].Local.Idx;
+                        if (localIdx >= 0 && localIdx < (int)LocalPromotable.size()) {
+                            LocalPromotable[localIdx] = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     void ReplaceTmpEverywhere(TOperand fromTmp, TOperand toTmp) {
         for (auto& block : Function.Blocks) {
@@ -274,6 +297,9 @@ struct TSSABuilder {
             }
         }
 
+        // Pre-compute which locals are safe to promote
+        ComputeLocalPromotable();
+
         // SSA conversion
         for (auto blockLabel : rpo) {
             auto& block = Function.Blocks[Function.GetBlockIdx(blockLabel)];
@@ -284,7 +310,8 @@ struct TSSABuilder {
                             throw std::runtime_error("Store instruction must have exactly two operands");
                         }
                         int localIdx = instr.Operands[0].Local.Idx;
-                        if (localIdx >= Function.ArgLocals.size()) {
+                        if (localIdx >= Function.ArgLocals.size() &&
+                            (localIdx < (int)LocalPromotable.size() && LocalPromotable[localIdx])) {
                             auto valueTmp = instr.Operands[1];
                             instr.Clear();
                             WriteVariable(localIdx, blockLabel, valueTmp);
@@ -299,7 +326,8 @@ struct TSSABuilder {
                             throw std::runtime_error("Load instruction operand must be a local");
                         }
                         int localIdx = instr.Operands[0].Local.Idx;
-                        if (localIdx >= Function.ArgLocals.size()) {
+                        if (localIdx >= Function.ArgLocals.size() &&
+                            (localIdx < (int)LocalPromotable.size() && LocalPromotable[localIdx])) {
                             auto valueTmp = ReadVariable(localIdx, blockLabel);
                             auto oldDest = instr.Dest;
                             instr.Clear();
@@ -336,6 +364,8 @@ struct TSSABuilder {
     std::set<TLabel> SealedBlocks;
     // Deferred tmp replacements collected while processing blocks (from tmp -> to operand)
     std::vector<std::pair<TOperand, TOperand>> GlobalPendingReplacements;
+    // Locals that are safe to promote (no address taken)
+    std::vector<char> LocalPromotable;
 };
 
 } // anonymous namespace
