@@ -359,6 +359,11 @@ TTask AnnotateAssign(std::shared_ptr<TAssignExpr> assign, NSemantics::TNameResol
         co_return TError(assign->Location, "untyped identifier in assignment: " + assign->Name);
     }
     auto symbolType = UnwrapReferenceType(sym->Type);
+
+    if (!symbolType->Mutable) {
+        co_return TError(assign->Location, "cannot assign to immutable variable: " + assign->Name);
+    }
+
     auto valueType = UnwrapReferenceType(assign->Value->Type);
     if (!EqualTypes(valueType, symbolType)) {
         if (!CanImplicit(valueType, symbolType)) {

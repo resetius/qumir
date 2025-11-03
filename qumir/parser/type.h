@@ -9,6 +9,7 @@ namespace NAst {
 
 struct TType {
     bool Mutable = true;
+    bool Readable = true;
 
     virtual ~TType() = default;
     virtual std::string ToString() const { return ""; }

@@ -48,6 +48,7 @@ enum class EKeyword : uint8_t {
     NewLine,
     InArg,
     OutArg,
+    InOutArg,
     Return,
 };
 

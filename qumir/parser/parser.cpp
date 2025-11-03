@@ -46,7 +46,7 @@ inline TExprPtr ident(TLocation loc, std::string n) {
 using TAstTask = TExpectedTask<TExprPtr, TError, TLocation>;
 TAstTask stmt(TTokenStream& stream);
 TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts = {});
-TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes = false, bool isMutable = true);
+TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes = false);
 TAstTask expr(TTokenStream& stream);
 
 void SkipEols(TTokenStream& stream) {
@@ -128,6 +128,7 @@ inline bool IsTypeKeyword(EKeyword kw) {
         || kw == EKeyword::Array
         || kw == EKeyword::InArg // for function parameter declarations
         || kw == EKeyword::OutArg // for function parameter declarations
+        || kw == EKeyword::InOutArg // for function parameter declarations
         ;
 }
 
@@ -274,19 +275,33 @@ TTypePtr getScalarType(EKeyword kw) {
     }
 }
 
-TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes, bool isMutable) {
+TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes) {
     auto first = co_await stream.Next();
 
     bool isPointer = false;
     bool isReference = false;
+    bool isMutable = true;
+    bool isReadable = true;
     if (parseAttributes) {
-        if (first.Type == TToken::Keyword && static_cast<EKeyword>(first.Value.i64) == EKeyword::OutArg) {
+        isMutable = false;
+        if (first.Type == TToken::Keyword && static_cast<EKeyword>(first.Value.i64) == EKeyword::InArg) {
+            // skip
+            first = co_await stream.Next();
+            if (first.Type == TToken::Keyword && static_cast<EKeyword>(first.Value.i64) == EKeyword::OutArg) {
+                isReference = true;
+                isMutable = true;
+                isReadable = true;
+                first = co_await stream.Next();
+            }
+        } else if (first.Type == TToken::Keyword && static_cast<EKeyword>(first.Value.i64) == EKeyword::OutArg) {
             isReference = true;
             isMutable = true; // mutability of underlying data is implied by being an out-parameter
+            isReadable = false;
             first = co_await stream.Next();
-        }
-        else if (first.Type == TToken::Keyword && static_cast<EKeyword>(first.Value.i64) == EKeyword::InArg) {
-            // skip
+        } else if (first.Type == TToken::Keyword && static_cast<EKeyword>(first.Value.i64) == EKeyword::InOutArg) {
+            isReference = true;
+            isMutable = true;
+            isReadable = true;
             first = co_await stream.Next();
         }
     }
@@ -302,6 +317,7 @@ TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_dec
         co_return TError(first.Location, "неизвестный тип переменной");
     }
     scalarType->Mutable = isMutable;
+    scalarType->Readable = isReadable;
     // опциональный признак массива после базового типа: 'таб'
     bool isArray = false;
     if (auto t = stream.Next()) {
@@ -394,7 +410,7 @@ TAstTask fun_decl(TTokenStream& stream) {
                 next = co_await stream.Next();
                 if (next.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(next.Value.i64))) {
                     stream.Unget(next);
-                    auto tmpArgs = co_await var_decl_list(stream, true, false);
+                    auto tmpArgs = co_await var_decl_list(stream, true);
                     args.insert(args.end(), tmpArgs.begin(), tmpArgs.end());
                 } else {
                     break;

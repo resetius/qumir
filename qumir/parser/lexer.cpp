@@ -47,6 +47,7 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"нс", EKeyword::NewLine},
     {"арг", EKeyword::InArg},
     {"рез", EKeyword::OutArg},
+    {"аргрез", EKeyword::InOutArg},
     {"знач", EKeyword::Return},
 };
 
