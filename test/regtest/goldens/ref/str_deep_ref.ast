@@ -1,0 +1,20 @@
+(Block:<Fun (Ref) -> Void>
+  (FunDecl $f ():<Fun () -> String>
+    (Block:<String>
+      (Var $__return:<String>)
+      (Var $s:<String>)
+      (Call:<Void>
+        ($инит:<Fun (Ref) -> Void>)
+        ($s:<String>))
+      ($__return =:<Void>
+        ($s:<String>))
+      ($__return:<String>)))
+  (FunDecl $инит ($s):<Fun (Ref) -> Void>
+    (Block:<Void>
+      (Call:<Void>
+        ($deep:<Fun (Ref) -> Void>)
+        ($s:<Ref &String>))))
+  (FunDecl $deep ($s):<Fun (Ref) -> Void>
+    (Block:<Void>
+      ($s =:<Void>
+        ("abc":<String>)))))
