@@ -476,14 +476,13 @@ struct TFunDecl : TExpr {
     TFunDecl(TLocation loc, std::string name, std::vector<TParam> args, std::shared_ptr<TBlockExpr> body, NAst::TTypePtr type)
         : TExpr(std::move(loc))
         , Name(std::move(name))
-        , MangledName(Name)
         , Params(std::move(args))
         , Body(std::move(body))
         , RetType(std::move(type))
     { }
 
     bool IsExternal() const {
-        return Ptr || Packed || !MangledName.empty();
+        return !MangledName.empty();
     }
 
     std::vector<TExprPtr> Children() const override {
