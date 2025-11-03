@@ -189,7 +189,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
 }
 
-TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& name, TBlockScope scope, const TLocation& loc, bool ref)
+TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& name, TBlockScope scope, const TLocation& loc, bool takeRefOfNotRef)
 {
     auto var = Context.Lookup(name, scope.Id);
     if (!var) {
@@ -200,12 +200,15 @@ TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& n
     if (!node) {
         co_return TError(loc, "undefined variable: `" + name + "'");
     }
+    if (NAst::TMaybeType<NAst::TReferenceType>(node->Type) && takeRefOfNotRef) {
+        takeRefOfNotRef = false;
+    }
 
     TOperand op = (var->FunctionLevelIdx >= 0)
         ? TOperand{ TLocal{ var->FunctionLevelIdx } }
         : TOperand{ TSlot{ var->Id } };
 
-    TOp opcode = ref ? "lea"_op : "load"_op;
+    TOp opcode = takeRefOfNotRef ? "lea"_op : "load"_op;
     auto tmp = Builder.Emit1(opcode, { op });
     Builder.SetType(tmp, FromAstType(node->Type, Module.Types));
     co_return tmp;
@@ -808,7 +811,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         for (auto& a : call->Args) {
             auto& argType = (*argTypes)[i++];
             TValueWithBlock av;
-            if (auto maybeRef = NAst::TMaybeType<NAst::TReferenceType>(argType)) {
+
+            if (NAst::TMaybeType<NAst::TReferenceType>(argType)) {
                 // a must be an identifier
                 auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(a);
                 if (!maybeIdent) {
