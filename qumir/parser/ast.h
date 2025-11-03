@@ -482,6 +482,10 @@ struct TFunDecl : TExpr {
         , RetType(std::move(type))
     { }
 
+    bool IsExternal() const {
+        return Ptr || Packed || !MangledName.empty();
+    }
+
     std::vector<TExprPtr> Children() const override {
         return { Body };
     }

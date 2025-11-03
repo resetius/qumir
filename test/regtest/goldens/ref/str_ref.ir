@@ -1,0 +1,30 @@
+function f () { ; ptr to i8
+  block {
+    label: label(0)
+    lea tmp(0,ptr to ptr to i8) = local(1,ptr to i8) 
+    arg tmp(0,ptr to ptr to i8) 
+    call инит 
+    load tmp(1,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(1,ptr to i8) 
+    call str_retain 
+    load tmp(2,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(2,ptr to i8) 
+    call str_release 
+    stre local(0,ptr to i8) tmp(1,ptr to i8) 
+    load tmp(3,ptr to i8) = local(0,ptr to i8) 
+    load tmp(4,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(4,ptr to i8) 
+    call str_release 
+    ret tmp(3,ptr to i8) 
+  }
+}
+function инит (local(0)) { ; void
+  block {
+    label: label(0)
+    arg imm(0,ptr to i8) 
+    call tmp(0,ptr to ptr to i8) = str_from_lit 
+    load tmp(1,ptr to ptr to i8) = local(0,ptr to ptr to i8) 
+    ste tmp(1,ptr to ptr to i8) tmp(0,ptr to ptr to i8) 
+    ret 
+  }
+}
