@@ -58,9 +58,9 @@ TInterpreter::TInterpreter(TModule& module, std::ostream& out, std::istream& in)
     , In(in)
 { }
 
-std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<int64_t> args) {
+std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<int64_t> args, TInterpreter::TOptions options) {
     if (!function.Exec) {
-        function.Exec = &Compiler.Compile(function);
+        function.Exec = &Compiler.Compile(function, options.PrintByteCode);
     }
     std::vector<TFrame> callStack; callStack.reserve(16);
     auto* execFunc = function.Exec;

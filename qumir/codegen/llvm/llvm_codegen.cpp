@@ -2,7 +2,6 @@
 #include "llvm_codegen_impl.h"
 
 #include <qumir/ir/builder.h>
-#include <qumir/ir/eval.h>
 
 #include <memory>
 #include <string>

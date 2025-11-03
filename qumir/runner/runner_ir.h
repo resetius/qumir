@@ -22,6 +22,7 @@ namespace NQumir {
 struct TIRRunnerOptions {
     bool PrintAst = false;
     bool PrintIr = false;
+    bool PrintByteCode = false;
     int OptLevel = 0;
 };
 

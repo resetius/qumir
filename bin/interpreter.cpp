@@ -33,6 +33,7 @@ int main(int argc, char ** argv) {
     bool printAst = false;
     bool printIr = false;
     bool printLlvm = false;
+    bool printByteCode = false;
     int optLevel = 0;
     std::string inputFile; // stdin by default if empty
 
@@ -47,6 +48,8 @@ int main(int argc, char ** argv) {
             printIr = true;
         } else if (!std::strcmp(argv[i], "--print-llvm")) {
             printLlvm = true;
+        } else if (!std::strcmp(argv[i], "--print-bytecode")) {
+            printByteCode = true;
         } else if (!std::strcmp(argv[i], "--input-file") || !std::strcmp(argv[i], "-i")) {
             if (i + 1 < argc) {
                 inputFile = argv[++i];
@@ -112,6 +115,7 @@ int main(int argc, char ** argv) {
         TIRRunnerOptions {
             .PrintAst = printAst,
             .PrintIr = printIr,
+            .PrintByteCode = printByteCode,
             .OptLevel = optLevel
         }
     );

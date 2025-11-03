@@ -38,7 +38,11 @@ class TInterpreter {
 public:
     TInterpreter(TModule& module, std::ostream& out, std::istream& in);
 
-    std::optional<std::string> Eval(TFunction& function, std::vector<int64_t> args);
+    struct TOptions {
+        bool PrintByteCode = false;
+    };
+
+    std::optional<std::string> Eval(TFunction& function, std::vector<int64_t> args, TOptions options);
 
 private:
     //TExecFunc Compile(TFunction& function);

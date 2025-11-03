@@ -80,7 +80,7 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     }
 
     // Interpret
-    auto res = Interpreter.Eval(*mainFun, {});
+    auto res = Interpreter.Eval(*mainFun, {}, TInterpreter::TOptions{.PrintByteCode = Options.PrintByteCode});
 
     return res;
 }

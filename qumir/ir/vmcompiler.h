@@ -20,7 +20,7 @@ public:
         : Module(module)
     {}
 
-    TExecFunc& Compile(TFunction& function);
+    TExecFunc& Compile(TFunction& function, bool printByteCode = false);
 
 private:
     void CompileUltraLow(const TFunction& function, TExecFunc& out);

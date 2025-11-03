@@ -127,7 +127,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .ContinueLabel = continueTarget
     });
     if (!Builder.IsCurrentBlockTerminated()) {
-        Builder.Emit0("jmp"_op, { loop->PostBody ? postLabel : condLabel });
+        Builder.Emit0("jmp"_op, { postLabel });
     }
 
     // PostBody, then back to condition
