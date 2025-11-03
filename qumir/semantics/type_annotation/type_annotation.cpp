@@ -478,9 +478,11 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
             auto& arg = call->Args[i];
             auto maybeIdent = TMaybeNode<TIdentExpr>(arg);
             // TODO: support array cells as ref arguments?
-            arg = !!maybeIdent ?
-                co_await AnnotateIdent(maybeIdent.Cast(), context, scopeId, /* path-through = */ true)
-                : co_await DoAnnotate(arg, context, scopeId);
+            if (maybeIdent) {
+                arg = co_await AnnotateIdent(maybeIdent.Cast(), context, scopeId, /* path-through = */ true);
+            } else {
+                arg = co_await DoAnnotate(arg, context, scopeId);
+            }
             if (!arg->Type) {
                 co_return TError(arg->Location, "cannot pass untyped argument in function call");
             }
