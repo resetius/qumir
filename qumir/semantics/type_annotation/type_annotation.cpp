@@ -430,7 +430,10 @@ TTask AnnotateVar(std::shared_ptr<TVarStmt> var) {
     co_return var;
 }
 
-TTask AnnotateIdent(std::shared_ptr<TIdentExpr> ident, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+TTask AnnotateIdent(std::shared_ptr<TIdentExpr> ident, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId, bool pathThrough = false) {
+    if (!ident) {
+        co_return TError(ident->Location, "passing not an identifier to function as ref argument");
+    }
     auto symbolId = context.Lookup(ident->Name, scopeId);
     if (!symbolId) {
         co_return TError(ident->Location, "undefined identifier: " + ident->Name);
@@ -443,6 +446,20 @@ TTask AnnotateIdent(std::shared_ptr<TIdentExpr> ident, NSemantics::TNameResolver
     if (!ident->Type) {
         co_return TError(ident->Location, "untyped identifier: " + ident->Name);
     }
+    if (pathThrough) {
+        co_return ident;
+    }
+    auto unwrappedType = UnwrapReferenceType(ident->Type);
+    if (!unwrappedType->Readable) {
+        co_return TError(ident->Location, "cannot read from write-only identifier: " + ident->Name);
+    }
+    if (auto maybeArray = TMaybeType<TArrayType>(unwrappedType)) {
+        auto arrayType = maybeArray.Cast();
+        if (!arrayType->ElementType->Readable) {
+            co_return TError(ident->Location, "cannot read from write-only array elements: " + ident->Name);
+        }
+    }
+
     co_return ident;
 }
 
@@ -451,12 +468,6 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
     if (!call->Callee->Type) {
         co_return TError(call->Location, "cannot call untyped expression");
     }
-    for (auto& arg : call->Args) {
-        arg = co_await DoAnnotate(arg, context, scopeId);
-        if (!arg->Type) {
-            co_return TError(arg->Location, "cannot pass untyped argument in function call");
-        }
-    }
     auto maybeFunType = TMaybeType<TFunctionType>(call->Callee->Type);
     if (maybeFunType) {
         auto funT = maybeFunType.Cast();
@@ -464,11 +475,27 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
             co_return TError(call->Location, "invalid number of arguments");
         }
         for (size_t i = 0; i < call->Args.size(); ++i) {
-            auto& arg = call->Args[i];
             auto& paramT = funT->ParamTypes[i];
+            auto maybeRef = TMaybeType<TReferenceType>(paramT);
+
+            auto& arg = call->Args[i];
+            auto maybeIdent = TMaybeNode<TIdentExpr>(arg);
+            // TODO: support array cells as ref arguments?
+            arg = !!maybeRef ?
+                co_await AnnotateIdent(maybeIdent.Cast(), context, scopeId, /* path-through = */ true)
+                : co_await DoAnnotate(arg, context, scopeId);
+            if (!arg->Type) {
+                co_return TError(arg->Location, "cannot pass untyped argument in function call");
+            }
+
             // if ParamT is reference type, arg must be of the same referenced type or ident of that underlying type
-            if (auto maybeRef = TMaybeType<TReferenceType>(paramT)) {
+            if (maybeRef) {
                 auto paramRefT = maybeRef.Cast();
+                auto identType = UnwrapReferenceType(maybeIdent.Cast()->Type);
+                // ident must be writable
+                if (!identType->Mutable) {
+                    co_return TError(arg->Location, "cannot pass read-only identifier as reference argument");
+                }
                 auto argTypeUnwrapped = UnwrapReferenceType(arg->Type);
                 if (!EqualTypes(argTypeUnwrapped, paramRefT->ReferencedType)) {
                     co_return TError(arg->Location, "cannot pass argument " + std::to_string(i+1) +
