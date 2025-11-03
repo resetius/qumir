@@ -431,9 +431,6 @@ TTask AnnotateVar(std::shared_ptr<TVarStmt> var) {
 }
 
 TTask AnnotateIdent(std::shared_ptr<TIdentExpr> ident, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId, bool pathThrough = false) {
-    if (!ident) {
-        co_return TError(ident->Location, "passing not an identifier to function as ref argument");
-    }
     auto symbolId = context.Lookup(ident->Name, scopeId);
     if (!symbolId) {
         co_return TError(ident->Location, "undefined identifier: " + ident->Name);
@@ -481,7 +478,7 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
             auto& arg = call->Args[i];
             auto maybeIdent = TMaybeNode<TIdentExpr>(arg);
             // TODO: support array cells as ref arguments?
-            arg = !!maybeRef ?
+            arg = !!maybeIdent ?
                 co_await AnnotateIdent(maybeIdent.Cast(), context, scopeId, /* path-through = */ true)
                 : co_await DoAnnotate(arg, context, scopeId);
             if (!arg->Type) {
@@ -491,10 +488,12 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
             // if ParamT is reference type, arg must be of the same referenced type or ident of that underlying type
             if (maybeRef) {
                 auto paramRefT = maybeRef.Cast();
-                auto identType = UnwrapReferenceType(maybeIdent.Cast()->Type);
-                // ident must be writable
-                if (!identType->Mutable) {
-                    co_return TError(arg->Location, "cannot pass read-only identifier as reference argument");
+                if (maybeIdent) {
+                    auto identType = UnwrapReferenceType(maybeIdent.Cast()->Type);
+                    // ident must be writable
+                    if (maybeIdent && !identType->Mutable) {
+                        co_return TError(arg->Location, "cannot pass read-only identifier as reference argument");
+                    }
                 }
                 auto argTypeUnwrapped = UnwrapReferenceType(arg->Type);
                 if (!EqualTypes(argTypeUnwrapped, paramRefT->ReferencedType)) {
