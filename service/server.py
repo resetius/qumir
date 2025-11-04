@@ -100,6 +100,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         # API: list examples and fetch example content
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == '/api/version':
+            return self._api_version()
         if parsed.path == '/api/examples':
             return self._api_list_examples()
         if parsed.path == '/api/example':
@@ -126,6 +128,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
         # Fallback to static
         return super().do_GET()
+
+    def _git(self, args):
+        try:
+            proc = subprocess.run(['git'] + args, cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+            if proc.returncode != 0:
+                return None
+            return proc.stdout.decode('utf-8', 'ignore').strip()
+        except Exception:
+            return None
+
+    def _api_version(self):
+        short = self._git(['rev-parse', '--short', 'HEAD']) or '-'
+        date = self._git(['log', '-1', '--date=iso-strict', "--format=%cd"]) or '-'
+        branch = self._git(['rev-parse', '--abbrev-ref', 'HEAD']) or '-'
+        return self._send_json({ 'hash': short, 'date': date, 'branch': branch })
 
     def _api_list_examples(self):
         base = os.path.join(REPO_ROOT, 'examples')

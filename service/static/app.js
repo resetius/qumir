@@ -281,6 +281,23 @@ initEditor();
     console.warn('failed to load share:', e);
   }
 })();
+
+// Populate version from backend git
+(async function showVersion(){
+  try {
+    const v = await apiGet('/api/version');
+    const el = document.getElementById('version');
+    if (el) {
+      if (typeof v === 'string') {
+        el.textContent = 'v ' + v;
+      } else if (v && v.hash && v.date) {
+        el.textContent = `v ${v.hash} • ${v.date}`;
+      }
+    }
+  } catch (e) {
+    // ignore if endpoint not available
+  }
+})();
 ['#args', '#stdin'].forEach(sel => {
   const el = $(sel);
   if (el) el.addEventListener('input', saveState);
