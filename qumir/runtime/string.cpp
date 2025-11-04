@@ -105,5 +105,38 @@ int64_t str_compare(const char* a, const char* b) {
     return (lenA < lenB) ? -1 : (lenA > lenB) ? 1 : 0;
 }
 
+char* assign_from_lit(char* dest, const char* src) {
+    if (!src) {
+        str_release(dest);
+        return dest;
+    }
+    if (!dest) {
+        return str_from_lit(src);
+    }
+    auto srcLen = std::strlen(src);
+    TString* destStr = (TString*)(dest - offsetof(TString, Data));
+    if (destStr->Length >= (int)srcLen) {
+        // can fit in existing allocation
+        std::memcpy(dest, src, destStr->Length + 1);
+        destStr->Length = srcLen;
+        return dest;
+    } else {
+        // need to reallocate inplace
+        int newSize = sizeof(TString) + srcLen + 1;
+        TString* newStr = (TString*)realloc(destStr, newSize);
+        newStr->Length = srcLen;
+        std::memcpy(newStr->Data, src, newStr->Length + 1);
+        return newStr->Data;
+    }
+}
+
+char* assign_from_str(char* dest, char* src, int borrowed) {
+    if (borrowed) {
+        str_retain(src);
+    }
+    str_release(dest);
+    return src;
+}
+
 } // namespace NRuntime
 } // namespace NQumir
