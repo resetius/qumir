@@ -39,6 +39,7 @@ void build_utf8_indices(TString* str) {
 }
 
 char* str_slice(const char* s, int startSymbol, int endSymbol) {
+    // strings are 1-indexed
     if (!s) {
         return nullptr;
     }
@@ -47,18 +48,18 @@ char* str_slice(const char* s, int startSymbol, int endSymbol) {
     if (!str->Utf8Indices) {
         build_utf8_indices(str);
     }
-    if (startSymbol < 0) {
-        startSymbol = 0;
+    if (startSymbol < 1) {
+        startSymbol = 1;
     }
-    if (endSymbol >= str->Symbols-1) {
-        endSymbol = str->Symbols-1;
+    if (endSymbol >= str->Symbols) {
+        endSymbol = str->Symbols;
     }
 
     if (startSymbol > endSymbol) {
         return nullptr;
     }
 
-    return str_from_lit_(s + str->Utf8Indices[startSymbol], str->Utf8Indices[endSymbol + 1] - str->Utf8Indices[startSymbol]);
+    return str_from_lit_(s + str->Utf8Indices[startSymbol-1], str->Utf8Indices[endSymbol] - str->Utf8Indices[startSymbol-1]);
 }
 
 void str_retain(char* s) {
