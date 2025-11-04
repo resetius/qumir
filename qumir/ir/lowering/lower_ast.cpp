@@ -651,12 +651,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             // delete previous string value if any
             if (NAst::TMaybeType<NAst::TStringType>(node->Type)) {
                 auto dtorId = co_await GlobalSymbolId("str_release");
-                TTmp currentVal;
-                if (localSlot.Idx >= 0) {
-                    currentVal = Builder.Emit1("load"_op, {localSlot});
-                } else {
-                    currentVal = Builder.Emit1("load"_op, {storeSlot});
-                }
+                TTmp currentVal = Builder.Emit1("load"_op, {storeOperand});
                 Builder.SetType(currentVal, slotType);
                 Builder.Emit0("arg"_op, { currentVal });
                 Builder.Emit0("call"_op, { TImm{dtorId} });
