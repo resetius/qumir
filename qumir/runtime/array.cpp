@@ -4,6 +4,8 @@
 #include <iostream>
 #include <cstring>
 
+#include "string.h"
+
 namespace NQumir::NRuntime {
 
 void* array_create(size_t sizeInBytes) {
@@ -14,6 +16,16 @@ void* array_create(size_t sizeInBytes) {
 
 void array_destroy(void* ptr) {
     operator delete(ptr, std::align_val_t(8));
+}
+
+void array_str_destroy(void* ptr, size_t arraySize) {
+    if (!ptr) return;
+    char** strArray = static_cast<char**>(ptr);
+    auto elements = arraySize / sizeof(char*);
+    for (size_t i = 0; i < elements; ++i) {
+        str_release(strArray[i]);
+    }
+    array_destroy(ptr);
 }
 
 } // namespace NQumir::NRuntime

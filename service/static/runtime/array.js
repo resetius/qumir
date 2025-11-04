@@ -41,3 +41,7 @@ export function array_create(size) {
 
 // Free is a no-op for bump-only allocator.
 export function array_destroy(_ptr) { /* intentionally empty */ }
+
+export function array_str_destroy(ptr, arraySize) {
+  // No-op under JS GC; signature exists to match lowered calls.
+}

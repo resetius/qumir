@@ -622,6 +622,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // slot type was set on variable declaration
 
         // copy-paste
+        // TODO: copy-paste
         if (rhs.Value->Type == TOperand::EType::Imm) {
             // Materialize immediate string literals into a tmp
             if (rhs.Value->Imm.TypeId == lowStringTypeId) {
@@ -635,6 +636,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
         }
 
+        // TODO: copy-paste
         // For string destinations: retain borrowed RHS before releasing dest (safe for s := s)
         if (NAst::TMaybeType<NAst::TStringType>(node->Type)) {
             if (rhs.Ownership == EOwnership::Borrowed) {
@@ -645,6 +647,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
         }
         {
+            // TODO: copy-paste
             // delete previous string value if any
             if (NAst::TMaybeType<NAst::TStringType>(node->Type)) {
                 auto dtorId = co_await GlobalSymbolId("str_release");
@@ -738,12 +741,20 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.SetType(arrayPtr, arrayType);
 
             auto dtorId = co_await GlobalSymbolId("array_destroy");
+            bool arrayOfStrings = false;
+            if (Module.Types.UnderlyingType(arrayType) == lowStringTypeId) {
+                dtorId = co_await GlobalSymbolId("array_str_destroy");
+                arrayOfStrings = true;
+            }
             TOperand arg = (sidOpt->FunctionLevelIdx >= 0)
                 ? TOperand { TLocal{ sidOpt->FunctionLevelIdx } }
                 : TOperand { TSlot{ sidOpt->Id } };
             std::vector<TOperand> args = {
                 arg
             };
+            if (arrayOfStrings) {
+                args.push_back(arraySize);
+            }
             Builder.Emit0("stre"_op, {arg, arrayPtr});
             auto node = Context.GetSymbolNode(NSemantics::TSymbolId{ sidOpt->Id });
             std::vector<int> types = { arrayType };
