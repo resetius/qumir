@@ -9,3 +9,4 @@
 22. slice/index out of bounds -> runtime error
 23. add support: дано, надо, утв
 24. support array cells as ref arguments (not supported by kumir)
+25. add types support: лог, сим
