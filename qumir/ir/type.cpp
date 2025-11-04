@@ -275,6 +275,16 @@ EKind TTypeTable::GetKind(int typeId) const {
     return Types[typeId].Kind;
 }
 
+int TTypeTable::UnderlyingType(int typeId) const {
+    if (typeId < 0 || typeId >= (int)Types.size()) {
+        throw std::runtime_error("Invalid typeId in UnderlyingType");
+    }
+    auto& type = Types[typeId];
+    if (type.Kind == EKind::Ptr || type.Kind == EKind::Func || type.Kind == EKind::Struct) {
+        return type.Aux;
+    }
+    throw std::runtime_error("Type is not Ptr, Func, or Struct in UnderlyingType");
+}
 
 } // namespace NIR
 } // namespace NQumir

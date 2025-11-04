@@ -63,6 +63,7 @@ public:
     bool IsVoid(int typeId) const;
     bool IsPointer(int typeId) const;
     EKind GetKind(int typeId) const;
+    int UnderlyingType(int typeId) const; // for Ptr, Func, Struct
 
 private:
     std::vector<TType> Types;

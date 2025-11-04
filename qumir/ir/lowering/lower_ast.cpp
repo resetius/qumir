@@ -522,6 +522,37 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto rhs = co_await Lower(asg->Value, scope);
         if (!rhs.Value) co_return TError(asg->Value->Location, "right-hand side of assignment must be a number");
 
+        int arrayElemType = Module.Types.UnderlyingType(arrayType);
+        // copy-paste
+        if (rhs.Value->Type == TOperand::EType::Imm) {
+            // Materialize immediate string literals into a tmp
+            if (rhs.Value->Imm.TypeId == lowStringTypeId) {
+                // TODO: create proper kind for string literal
+                auto constructorId = co_await GlobalSymbolId("str_from_lit");
+                Builder.Emit0("arg"_op, {*rhs.Value});
+                auto materializedString = Builder.Emit1("call"_op, {TImm{constructorId}});
+                Builder.SetType(materializedString, arrayElemType);
+                *rhs.Value = materializedString;
+                rhs.Ownership = EOwnership::Owned;
+            }
+        }
+
+        // copy-paste
+        if (arrayElemType == lowStringTypeId && rhs.Ownership == EOwnership::Borrowed) {
+            auto retainId = co_await GlobalSymbolId("str_retain");
+            Builder.Emit0("arg"_op, {*rhs.Value});
+            Builder.Emit0("call"_op, { TImm{ retainId } });
+        }
+
+        // copy-paste
+        if (arrayElemType == lowStringTypeId) {
+            auto dtorId = co_await GlobalSymbolId("str_release");
+            auto existingVal = Builder.Emit1("lde"_op, { destPtr });
+            Builder.SetType(existingVal, arrayElemType);
+            Builder.Emit0("arg"_op, { existingVal });
+            Builder.Emit0("call"_op, { TImm{ dtorId } });
+        }
+
         Builder.Emit0("ste"_op, {destPtr, *rhs.Value});
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeIndex = NAst::TMaybeNode<NAst::TIndexExpr>(expr)) {
@@ -590,6 +621,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         TOperand storeOperand = (localSlot.Idx >= 0) ? TOperand{localSlot} : TOperand{storeSlot};
         // slot type was set on variable declaration
 
+        // copy-paste
         if (rhs.Value->Type == TOperand::EType::Imm) {
             // Materialize immediate string literals into a tmp
             if (rhs.Value->Imm.TypeId == lowStringTypeId) {
