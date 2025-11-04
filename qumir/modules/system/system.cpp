@@ -284,20 +284,20 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
         },
         {
             .Name = "irnd",
-            .MangledName = "rand_uint64",
-            .Ptr = reinterpret_cast<void*>(static_cast<uint64_t(*)(uint64_t)>(rand_uint64)),
+            .MangledName = "rand_int64",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t)>(rand_int64)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                return std::bit_cast<uint64_t>(rand_uint64(std::bit_cast<uint64_t>(args[0])));
+                return std::bit_cast<uint64_t>(rand_int64(std::bit_cast<int64_t>(args[0])));
             },
             .ArgTypes = { integerType },
             .ReturnType = integerType,
         },
         {
             .Name = "irand",
-            .MangledName = "rand_uint64_range",
-            .Ptr = reinterpret_cast<void*>(static_cast<uint64_t(*)(uint64_t, uint64_t)>(rand_uint64_range)),
+            .MangledName = "rand_int64_range",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, int64_t)>(rand_int64_range)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                return std::bit_cast<uint64_t>(rand_uint64_range(std::bit_cast<uint64_t>(args[0]), std::bit_cast<uint64_t>(args[1])));
+                return std::bit_cast<uint64_t>(rand_int64_range(std::bit_cast<int64_t>(args[0]), std::bit_cast<int64_t>(args[1])));
             },
             .ArgTypes = { integerType, integerType },
             .ReturnType = integerType,

@@ -45,16 +45,16 @@ double rand_double_range(double a, double b) {
     return a + static_cast<double>(rand()) / RAND_MAX * (b - a);
 }
 
-uint64_t rand_uint64(uint64_t x) {
+int64_t rand_int64(int64_t x) {
     // random on [0,x]
     if (x == 0) return 0;
-    return static_cast<uint64_t>(rand()) % x;
+    return static_cast<int64_t>(rand()) % x;
 }
 
-uint64_t rand_uint64_range(uint64_t a, uint64_t b) {
+int64_t rand_int64_range(int64_t a, int64_t b) {
     // random on [a,b]
     if (b <= a) return a;
-    return a + static_cast<uint64_t>(rand()) % (b - a);
+    return a + static_cast<int64_t>(rand()) % (b - a);
 }
 
 int64_t div_qum(int64_t a, int64_t b) {

@@ -53,8 +53,8 @@ export function trunc_double(x) { return (x < 0 ? BigInt(Math.ceil(x)) : BigInt(
 
 export function rand_double(x) { return Math.random() * x; }
 export function rand_double_range(a, b) { return a + Math.random() * (b - a); }
-export function rand_uint64(x) { return BigInt(Math.floor(Math.random() * Number(x))); }
-export function rand_uint64_range(a, b) {
+export function rand_int64(x) { return BigInt(Math.floor(Math.random() * Number(x))); }
+export function rand_int64_range(a, b) {
   const A = BigInt(a), B = BigInt(b);
   if (B <= A) return A;
   const span = B - A;
