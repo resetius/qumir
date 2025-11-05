@@ -186,6 +186,7 @@ TEST_P(RegAst, IR) {
 
 TEST_P(RegExec, ExecIR) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
+    const fs::path stdin = fs::path(CasesDir / GetParam().base).replace_extension(".stdin");
     const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
     const fs::path goldenStdOut = fs::path(GoldensDir / GetParam().base).replace_extension(".result.stdout");
 
@@ -198,6 +199,13 @@ TEST_P(RegExec, ExecIR) {
 
     std::ostringstream out;
     NRuntime::SetOutputStream(&out);
+    std::istream* inStream = nullptr;
+    std::ifstream fin;
+    if (fs::exists(stdin)) {
+        fin.open(stdin, std::ios::binary);
+        inStream = &fin;
+    }
+    NRuntime::SetInputStream(inStream);
 
     TIRRunner runner(std::cout, std::cin, {});
     auto res = runner.Run(input);
@@ -245,6 +253,7 @@ TEST_P(RegExec, ExecIR) {
 
 TEST_P(RegExec, ExecIROPT) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
+    const fs::path stdin = fs::path(CasesDir / GetParam().base).replace_extension(".stdin");
     const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
     const fs::path goldenStdOut = fs::path(GoldensDir / GetParam().base).replace_extension(".result.stdout");
 
@@ -257,6 +266,13 @@ TEST_P(RegExec, ExecIROPT) {
 
     std::ostringstream out;
     NRuntime::SetOutputStream(&out);
+    std::istream* inStream = nullptr;
+    std::ifstream fin;
+    if (fs::exists(stdin)) {
+        fin.open(stdin, std::ios::binary);
+        inStream = &fin;
+    }
+    NRuntime::SetInputStream(inStream);
 
     TIRRunner runner(std::cout, std::cin, {.OptLevel = 1});
     auto res = runner.Run(input);
@@ -304,6 +320,7 @@ TEST_P(RegExec, ExecIROPT) {
 
 TEST_P(RegExec, ExecLLVM) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
+    const fs::path stdin = fs::path(CasesDir / GetParam().base).replace_extension(".stdin");
     const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
     const fs::path goldenStdOut = fs::path(GoldensDir / GetParam().base).replace_extension(".result.stdout");
 
@@ -316,6 +333,13 @@ TEST_P(RegExec, ExecLLVM) {
 
     std::ostringstream out;
     NRuntime::SetOutputStream(&out);
+    std::istream* inStream = nullptr;
+    std::ifstream fin;
+    if (fs::exists(stdin)) {
+        fin.open(stdin, std::ios::binary);
+        inStream = &fin;
+    }
+    NRuntime::SetInputStream(inStream);
 
     TLLVMRunner runner;
     auto res = runner.Run(input);

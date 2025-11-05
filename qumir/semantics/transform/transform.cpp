@@ -111,6 +111,46 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                     } else {
                         errors.push_back(TError(arg->Location, "input argument must be float or int64, got: " + type->ToString()));
                     }
+
+                    if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(arg)) {
+                        auto ident = maybeIdent.Cast();
+                        // assign to ident
+                        call = std::make_shared<NAst::TAssignExpr>(
+                            input->Location,
+                            ident->Name,
+                            call);
+                    } else if (auto maybeIndex = NAst::TMaybeNode<NAst::TIndexExpr>(arg)) {
+                        auto index = maybeIndex.Cast();
+                        auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(index->Collection);
+                        if (!maybeIdent) {
+                            errors.push_back(TError(arg->Location, "input argument index expression must index an identifier"));
+                            continue;
+                        }
+                        auto ident = maybeIdent.Cast();
+                        // assign to index
+                        call = std::make_shared<NAst::TArrayAssignExpr>(
+                            input->Location,
+                            ident->Name,
+                            std::vector<NAst::TExprPtr>{index->Index},
+                            call);
+                    } else if (auto maybeMultiIndex = NAst::TMaybeNode<NAst::TMultiIndexExpr>(arg)) {
+                        auto multiIndex = maybeMultiIndex.Cast();
+                        auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(multiIndex->Collection);
+                        if (!maybeIdent) {
+                            errors.push_back(TError(arg->Location, "input argument multi-index expression must index an identifier"));
+                            continue;
+                        }
+                        auto ident = maybeIdent.Cast();
+                        // assign to multi-index
+                        call = std::make_shared<NAst::TArrayAssignExpr>(
+                            input->Location,
+                            ident->Name,
+                            multiIndex->Indices,
+                            call);
+                    } else {
+                        errors.push_back(TError(arg->Location, "input argument must be an identifier or an index expression"));
+                    }
+
                     stmts.push_back(call);
                 }
                 return std::make_shared<NAst::TBlockExpr>(input->Location, std::move(stmts));

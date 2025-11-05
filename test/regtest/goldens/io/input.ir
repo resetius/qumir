@@ -1,7 +1,11 @@
-function <main> () { ; void
+function ф () { ; i64
   block {
     label: label(0)
     call tmp(0,i64) = input_int64 
-    ret 
+    stre local(1,i64) tmp(0,i64) 
+    load tmp(1,i64) = local(1,i64) 
+    stre local(0,i64) tmp(1,i64) 
+    load tmp(2,i64) = local(0,i64) 
+    ret tmp(2,i64) 
   }
 }
