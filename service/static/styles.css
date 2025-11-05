@@ -67,10 +67,12 @@ footer .version { opacity: 0.9; }
 	/* Stack panes into single column */
 	main { grid-template-columns: 1fr; }
 
-	/* Input/Output section stacked */
-	section.io { grid-template-columns: 1fr; height: auto; }
-		section.io textarea { height: 18vh; }
-		#stdout { height: 18vh; }
+		/* Input/Output section stacked vertically and flexible */
+		section.io { display: flex; flex-direction: column; gap: 8px; padding: 8px; height: auto; }
+		section.io > div { display: flex; flex-direction: column; width: 100%; }
+		section.io .pane-title { margin-bottom: 4px; }
+		section.io textarea { height: 20vh; }
+		#stdout { height: 20vh; max-height: 28vh; }
 
 	/* Editor height relative to viewport */
 		.CodeMirror { height: 55vh; }
