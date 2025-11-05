@@ -100,6 +100,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         # API: list examples and fetch example content
         parsed = urllib.parse.urlparse(self.path)
+    # default: not a static response (used by end_headers to inject headers)
+        self._is_static = False
         if parsed.path == '/api/version':
             return self._api_version()
         if parsed.path == '/api/examples':
@@ -127,7 +129,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
         # Fallback to static
+        self._is_static = True
         return super().do_GET()
+
+    def end_headers(self):
+        # For static assets, set short caching (1 minute)
+        try:
+            if getattr(self, '_is_static', False):
+                path_only = (self.path or '').split('?', 1)[0].lower()
+                if path_only.endswith(('.js', '.css', '.html', '.htm')):
+                    self.send_header('Cache-Control', 'public, max-age=60')
+        except Exception:
+            pass
+        return super().end_headers()
 
     def _git(self, args):
         try:
