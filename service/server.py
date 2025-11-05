@@ -333,11 +333,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         sid = base64.urlsafe_b64encode(digest[:9]).decode('ascii').rstrip('=')
         return sid
 
+    def _share_id_for_bundle(self, code_text: str, args: str, stdin: str) -> str:
+        # content-addressed ID from code+args+stdin (stable JSON, UTF-8)
+        bundle = json.dumps({
+            'code': code_text,
+            'args': args or '',
+            'stdin': stdin or ''
+        }, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
+        digest = hashlib.sha256(bundle.encode('utf-8')).digest()
+        sid = base64.urlsafe_b64encode(digest[:9]).decode('ascii').rstrip('=')
+        return sid
+
     def _share_path(self, sid: str) -> str:
         return os.path.join(SHARED_DIR, f'{sid}.kum')
 
+    def _share_meta_path(self, sid: str) -> str:
+        return os.path.join(SHARED_DIR, f'{sid}.json')
+
     def _api_share_create(self, payload):
         code = payload.get('code','')
+        args = payload.get('args') or ''
+        stdin = payload.get('stdin') or ''
         if not code:
             return self._send_json({'error':'empty code'}, 400)
         # Optional preferred id, must be valid
@@ -346,28 +362,41 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._send_json({'error':'invalid id'}, 400)
 
         self._ensure_shared_dir()
-        sid = pref or self._share_id_for_code(code)
+        # Compute ID from the full bundle (code + args + stdin) unless a valid preferred is given
+        sid = pref or self._share_id_for_bundle(code, args, stdin)
         path = self._share_path(sid)
+        mpath = self._share_meta_path(sid)
 
         # If file exists, ensure same content; otherwise, pick a longer ID variant
         if os.path.exists(path):
             try:
                 with open(path, 'r', encoding='utf-8') as f:
                     existing = f.read()
-                if existing != code:
+                # Compare both code and metadata if present
+                same_meta = True
+                if os.path.exists(mpath):
+                    try:
+                        with open(mpath, 'r', encoding='utf-8') as mf:
+                            meta = json.load(mf)
+                        same_meta = (meta.get('args','') == args) and (meta.get('stdin','') == stdin)
+                    except Exception:
+                        same_meta = False
+                if existing != code or not same_meta:
                     # Extend ID using more digest bytes until unique
-                    digest = hashlib.sha256(code.encode('utf-8')).digest()
+                    digest = hashlib.sha256(json.dumps({'code': code, 'args': args, 'stdin': stdin}, ensure_ascii=False, separators=(',', ':'), sort_keys=True).encode('utf-8')).digest()
                     for n in range(10, 17):  # up to ~128 bits
                         sid2 = base64.urlsafe_b64encode(digest[:n]).decode('ascii').rstrip('=')
                         path2 = self._share_path(sid2)
                         if not os.path.exists(path2):
                             sid, path = sid2, path2
+                            mpath = self._share_meta_path(sid2)
                             break
                     else:
                         # Fallback to time-based suffix
                         suffix = base64.urlsafe_b64encode(os.urandom(6)).decode('ascii').rstrip('=')
                         sid = f'{sid}-{suffix}'
                         path = self._share_path(sid)
+                        mpath = self._share_meta_path(sid)
             except Exception:
                 pass
 
@@ -378,6 +407,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     f.write(code)
             except Exception as e:
                 return self._send_json({'error': f'write failed: {e}'}, 500)
+
+        # Write/update metadata JSON alongside (args/stdin)
+        try:
+            with open(mpath, 'w', encoding='utf-8') as mf:
+                json.dump({'args': args, 'stdin': stdin}, mf, ensure_ascii=False)
+        except Exception:
+            # Non-fatal: sharing still works with just code
+            pass
 
         host = self.headers.get('Host') or f'localhost:{PORT}'
         base = f'http://{host}'
@@ -391,12 +428,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if not self._is_valid_share_id(sid):
             return self._send_json({'error':'invalid id'}, 400)
         path = self._share_path(sid)
+        mpath = self._share_meta_path(sid)
         if not os.path.isfile(path):
             return self._send_json({'error':'not found'}, 404)
         try:
+            # If metadata exists, return a JSON bundle { code, args, stdin }
+            if os.path.isfile(mpath):
+                with open(path, 'r', encoding='utf-8') as f:
+                    code = f.read()
+                meta = {'args': '', 'stdin': ''}
+                try:
+                    with open(mpath, 'r', encoding='utf-8') as mf:
+                        m = json.load(mf)
+                        if isinstance(m, dict):
+                            meta['args'] = m.get('args','')
+                            meta['stdin'] = m.get('stdin','')
+                except Exception:
+                    pass
+                return self._send_json({'code': code, 'args': meta['args'], 'stdin': meta['stdin']})
+            # Otherwise return raw code as text
             with open(path, 'rb') as f:
                 data = f.read()
-            # shared snippets are immutable; allow caching if desired
             return self._send_bytes(data, 'text/plain; charset=utf-8', headers={'Cache-Control':'public, max-age=31536000, immutable'})
         except Exception as e:
             return self._send_json({'error': str(e)}, 500)

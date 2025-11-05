@@ -263,20 +263,24 @@ loadState();
 })();
 // Initialize editor (assets are loaded via HTML)
 initEditor();
-// If URL has ?share=<id>, load the shared snippet and override code
+// If URL has ?share=<id>, load the shared snippet (code, args, stdin) and override state
 (async function loadSharedFromQuery(){
   try {
     const params = new URLSearchParams(window.location.search);
     const sid = params.get('share');
     if (!sid) return;
-    const txt = await apiGet('/api/share?id=' + encodeURIComponent(sid));
-    if (typeof txt === 'string') {
-      setCode(txt);
-      saveState();
-      debounceShow();
-      const statusEl = document.getElementById('status');
-      if (statusEl) statusEl.textContent = `Загружено из ссылки: ${sid}`;
+    const data = await apiGet('/api/share?id=' + encodeURIComponent(sid));
+    if (typeof data === 'string') {
+      setCode(data);
+    } else if (data && typeof data === 'object') {
+      if (typeof data.code === 'string') setCode(data.code);
+      if (typeof data.args === 'string' && $('#args')) $('#args').value = data.args;
+      if (typeof data.stdin === 'string' && $('#stdin')) $('#stdin').value = data.stdin;
     }
+    saveState();
+    debounceShow();
+    const statusEl = document.getElementById('status');
+    if (statusEl) statusEl.textContent = `Загружено из ссылки: ${sid}`;
   } catch (e) {
     console.warn('failed to load share:', e);
   }
@@ -482,11 +486,13 @@ const btnShare = document.getElementById('btn-share');
 if (btnShare) {
   btnShare.addEventListener('click', async () => {
     const code = getCode();
+  const args = $('#args') ? $('#args').value : '';
+  const stdin = $('#stdin') ? $('#stdin').value : '';
     try {
       const r = await fetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code })
+    body: JSON.stringify({ code, args, stdin })
       });
       if (!r.ok) throw new Error(await r.text());
       const res = await r.json();
