@@ -224,7 +224,17 @@ function initEditor() {
       'Ctrl-/': cm => cm.execCommand('toggleComment')
     }
   });
-  editor.setSize(null, 420);
+  // Responsive height: fixed on desktop, auto on mobile (CSS controls heights)
+  const __applyEditorHeight = () => {
+    if (window.innerWidth <= 900) {
+      editor.setSize(null, 'auto');
+    } else {
+      editor.setSize(null, 420);
+    }
+    editor.refresh();
+  };
+  __applyEditorHeight();
+  window.addEventListener('resize', __applyEditorHeight);
   // Set initial text explicitly (getCode would query editor and return empty on first init)
   editor.setValue(initialText);
   // Cursor status line
