@@ -2,6 +2,8 @@
 
 Qumir is a tiny experimental programming language and toolchain with Russian keywords, inspired by KUMIR and the educational language designed by Academician Andrei P. Ershov. It includes a parser, semantic passes, a simple IR, an interpreter, and an LLVM-based code generator/JIT and ahead-of-time compiler.
 
+- Online playground: https://qumir.dev
+
 - Interpreter: `qumiri` (IR or LLVM JIT execution)
 - Compiler driver: `qumirc` (emit LLVM IR/ASM/OBJ, link native; can also target WebAssembly)
 
@@ -249,3 +251,7 @@ This project is licensed under the BSD 2-Clause License (BSD-2-Clause). See the 
 
 - Based on and inspired by the educational language of Academician Andrei P. Ershov (Ершов) and the KUMIR tradition.
 - Thanks to the LLVM project for the compiler infrastructure tools.
+
+---
+
+Try it online: https://qumir.dev
