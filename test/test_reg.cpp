@@ -15,6 +15,8 @@
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/ir/builder.h>
 
+#include <qumir/runtime/runtime.h>
+
 #include <qumir/runner/runner_llvm.h>
 #include <qumir/runner/runner_ir.h>
 
@@ -185,6 +187,7 @@ TEST_P(RegAst, IR) {
 TEST_P(RegExec, ExecIR) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
     const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
+    const fs::path goldenStdOut = fs::path(GoldensDir / GetParam().base).replace_extension(".result.stdout");
 
     const auto code = ReadAll(src);
     auto header = code.substr(0, code.find('\n'));
@@ -192,6 +195,9 @@ TEST_P(RegExec, ExecIR) {
         GTEST_SKIP() << "Execution disabled for this test case";
     }
     std::istringstream input(code);
+
+    std::ostringstream out;
+    NRuntime::SetOutputStream(&out);
 
     TIRRunner runner(std::cout, std::cin, {});
     auto res = runner.Run(input);
@@ -208,25 +214,39 @@ TEST_P(RegExec, ExecIR) {
 
     if (printOutput) {
         std::cout << "=== Output IR RUN for " << src << " ===\n";
-        std::cout << got << "\n";
+        std::cout << "Result: " << got << "\n";
+        std::cout << "StdOut: " << out.str() << "\n";
         std::cout << "=== End of output ===\n";
     }
 
     if (updateGoldens) {
         WriteAll(golden, got);
+        if (!out.str().empty()) {
+            WriteAll(goldenStdOut, out.str());
+        }
     }
     if (!fs::exists(golden)) {
         // fail if golden missing
         std::cerr << "Missing golden IR RUN file: " << golden << "\n";
         FAIL();
     }
+    if (!fs::exists(goldenStdOut) && !out.str().empty()) {
+        // fail if golden missing
+        std::cerr << "Missing golden IR RUN stdout file: " << goldenStdOut << "\n";
+        FAIL();
+    }
     const auto exp = ReadAll(golden);
     EXPECT_EQ(got, exp);
+    if (fs::exists(goldenStdOut)) {
+        const auto expOut = ReadAll(goldenStdOut);
+        EXPECT_EQ(out.str(), expOut);
+    }
 }
 
 TEST_P(RegExec, ExecIROPT) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
     const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
+    const fs::path goldenStdOut = fs::path(GoldensDir / GetParam().base).replace_extension(".result.stdout");
 
     const auto code = ReadAll(src);
     auto header = code.substr(0, code.find('\n'));
@@ -234,6 +254,9 @@ TEST_P(RegExec, ExecIROPT) {
         GTEST_SKIP() << "Execution disabled for this test case";
     }
     std::istringstream input(code);
+
+    std::ostringstream out;
+    NRuntime::SetOutputStream(&out);
 
     TIRRunner runner(std::cout, std::cin, {.OptLevel = 1});
     auto res = runner.Run(input);
@@ -250,25 +273,39 @@ TEST_P(RegExec, ExecIROPT) {
 
     if (printOutput) {
         std::cout << "=== Output IR RUN for " << src << " ===\n";
-        std::cout << got << "\n";
+        std::cout << "Result: " << got << "\n";
+        std::cout << "StdOut: " << out.str() << "\n";
         std::cout << "=== End of output ===\n";
     }
 
     if (updateGoldens) {
         WriteAll(golden, got);
+        if (!out.str().empty()) {
+            WriteAll(goldenStdOut, out.str());
+        }
     }
     if (!fs::exists(golden)) {
         // fail if golden missing
         std::cerr << "Missing golden IR RUN file: " << golden << "\n";
         FAIL();
     }
+    if (!fs::exists(goldenStdOut) && !out.str().empty()) {
+        // fail if golden missing
+        std::cerr << "Missing golden IR RUN stdout file: " << goldenStdOut << "\n";
+        FAIL();
+    }
     const auto exp = ReadAll(golden);
     EXPECT_EQ(got, exp);
+    if (fs::exists(goldenStdOut)) {
+        const auto expOut = ReadAll(goldenStdOut);
+        EXPECT_EQ(out.str(), expOut);
+    }
 }
 
 TEST_P(RegExec, ExecLLVM) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
     const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
+    const fs::path goldenStdOut = fs::path(GoldensDir / GetParam().base).replace_extension(".result.stdout");
 
     const auto code = ReadAll(src);
     auto header = code.substr(0, code.find('\n'));
@@ -276,6 +313,9 @@ TEST_P(RegExec, ExecLLVM) {
         GTEST_SKIP() << "Execution disabled for this test case";
     }
     std::istringstream input(code);
+
+    std::ostringstream out;
+    NRuntime::SetOutputStream(&out);
 
     TLLVMRunner runner;
     auto res = runner.Run(input);
@@ -291,21 +331,34 @@ TEST_P(RegExec, ExecLLVM) {
     }
 
     if (printOutput) {
-        std::cout << "=== Output LLVM RUN for " << src << " ===\n";
-        std::cout << got << "\n";
+        std::cout << "=== Output IR RUN for " << src << " ===\n";
+        std::cout << "Result: " << got << "\n";
+        std::cout << "StdOut: " << out.str() << "\n";
         std::cout << "=== End of output ===\n";
     }
 
     if (updateGoldens) {
         WriteAll(golden, got);
+        if (!out.str().empty()) {
+            WriteAll(goldenStdOut, out.str());
+        }
     }
     if (!fs::exists(golden)) {
         // fail if golden missing
         std::cerr << "Missing golden LLVM RUN file: " << golden << "\n";
         FAIL();
     }
+    if (!fs::exists(goldenStdOut) && !out.str().empty()) {
+        // fail if golden missing
+        std::cerr << "Missing golden IR RUN stdout file: " << goldenStdOut << "\n";
+        FAIL();
+    }
     const auto exp = ReadAll(golden);
     EXPECT_EQ(got, exp);
+    if (fs::exists(goldenStdOut)) {
+        const auto expOut = ReadAll(goldenStdOut);
+        EXPECT_EQ(out.str(), expOut);
+    }
 }
 
 INSTANTIATE_TEST_SUITE_P(
