@@ -498,6 +498,72 @@ $('#btn-run').addEventListener('click', async () => {
   show($('#view').value);
 });
 
+// Fullscreen viewer for outputs (stdout/output)
+(function setupFullscreenViewer(){
+  const overlay = document.getElementById('fs-overlay');
+  const body = document.getElementById('fs-body');
+  const title = document.getElementById('fs-title');
+  const closeBtn = document.getElementById('fs-close');
+  if (!overlay || !body || !title || !closeBtn) return;
+  let restore = null;
+  const open = (label, nodeOrText) => {
+    title.textContent = label || 'Output';
+    body.innerHTML = '';
+    overlay.classList.add('show');
+    overlay.setAttribute('aria-hidden', 'false');
+    // If node passed, move it; otherwise render text in <pre>
+    if (nodeOrText && (nodeOrText.nodeType === 1)) {
+      const node = nodeOrText;
+      const parent = node.parentNode;
+      const next = node.nextSibling;
+      body.appendChild(node);
+      // Special handling for CodeMirror: refresh after move
+      try { if (editor) { editor.refresh(); } } catch {}
+      restore = () => { if (parent) parent.insertBefore(node, next); try { if (editor) { editor.refresh(); } } catch {} };
+    } else {
+      const pre = document.createElement('pre');
+      pre.textContent = nodeOrText || '';
+      body.appendChild(pre);
+      restore = null;
+    }
+  };
+  const close = () => {
+    overlay.classList.remove('show');
+    overlay.setAttribute('aria-hidden', 'true');
+    if (restore) { try { restore(); } finally { restore = null; } }
+  };
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  const stdoutEl = document.getElementById('stdout');
+  const titleStdout = document.getElementById('title-stdout');
+  if (stdoutEl && titleStdout) {
+    titleStdout.addEventListener('mousedown', e => e.preventDefault());
+    titleStdout.addEventListener('click', () => open('Program output (stdout)', stdoutEl));
+  }
+  const compOutEl = document.getElementById('output');
+  const titleOutput = document.getElementById('title-output');
+  if (compOutEl && titleOutput) {
+    titleOutput.addEventListener('mousedown', e => e.preventDefault());
+    titleOutput.addEventListener('click', () => open('Compiler output', compOutEl));
+  }
+  const stdinEl = document.getElementById('stdin');
+  const titleStdin = document.getElementById('title-stdin');
+  if (stdinEl && titleStdin) {
+    titleStdin.addEventListener('mousedown', e => e.preventDefault());
+    titleStdin.addEventListener('click', () => open('Program input (stdin)', stdinEl));
+  }
+  const titleCode = document.getElementById('title-code');
+  if (titleCode) {
+    titleCode.addEventListener('mousedown', e => e.preventDefault());
+    titleCode.addEventListener('click', () => {
+      // Move the CodeMirror wrapper if exists, otherwise textarea
+      const cm = editor && editor.getWrapperElement ? editor.getWrapperElement() : null;
+      if (cm) open('Code', cm); else open('Code', document.getElementById('code'));
+    });
+  }
+})();
+
 // Toast helper
 let __toastEl = null;
 let __toastTimer = null;

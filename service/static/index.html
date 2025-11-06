@@ -45,23 +45,23 @@
   </header>
   <main>
     <section class="pane left">
-      <div class="pane-title">Language</div>
+      <div class="pane-title" id="title-code">Language</div>
       <textarea id="code" spellcheck="false"></textarea>
       <div id="status" class="status"></div>
     </section>
     <section class="pane right">
-      <div class="pane-title">Output</div>
+      <div class="pane-title" id="title-output">Output</div>
   <div id="view-slot" class="view-slot"></div>
       <pre id="output" class="scroll"></pre>
     </section>
   </main>
   <section class="io">
     <div>
-      <div class="pane-title">Program input (stdin)</div>
+      <div class="pane-title" id="title-stdin">Program input (stdin)</div>
       <textarea id="stdin" placeholder="input for your program" spellcheck="false"></textarea>
     </div>
     <div>
-      <div class="pane-title">Program output (stdout)</div>
+      <div class="pane-title" id="title-stdout">Program output (stdout)</div>
       <pre id="stdout" class="scroll"></pre>
     </div>
   </section>
@@ -72,6 +72,16 @@
   <small><a href="https://github.com/resetius/qumir" target="_blank" rel="noopener">source code</a></small>
   <small class="cookies-note">We use cookies only to save your code and settings.</small>
   </footer>
+  <!-- Fullscreen Output Overlay -->
+  <div id="fs-overlay" class="fs-overlay" aria-hidden="true">
+    <div class="fs-panel" role="dialog" aria-modal="true">
+      <div class="fs-header">
+        <span id="fs-title">Output</span>
+        <button id="fs-close" class="fs-close" aria-label="Закрыть">✕</button>
+      </div>
+      <div id="fs-body" class="fs-body"></div>
+    </div>
+  </div>
   <script src="https://unpkg.com/codemirror@5/lib/codemirror.js"></script>
   <script src="https://unpkg.com/codemirror@5/addon/comment/comment.js"></script>
   <script src="https://unpkg.com/codemirror@5/addon/edit/matchbrackets.js"></script>
