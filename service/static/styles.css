@@ -61,11 +61,22 @@ footer .version { opacity: 0.9; }
 	/* Allow page scroll on mobile */
 	body { overflow: auto; }
 
-	/* Let main content flow and be scrollable if needed */
-	main { overflow: visible; }
+  /* Flatten main so its children participate in body flex ordering */
+  main { display: contents; }
 
-	/* Stack panes into single column */
-	main { grid-template-columns: 1fr; }
+  /* Order of sections:
+	  1) code pane (left)
+	  2) stdin
+	  3) stdout
+	  4) compiler output (right)
+	  5) footer */
+  header { order: 0; }
+  .pane.left { order: 1; }
+  section.io { order: 2; }
+  .pane.right { order: 3; }
+  footer { order: 4; margin-top: auto; }
+
+		/* (grid no longer applies due to display: contents) */
 
 		/* Input/Output section stacked vertically and flexible */
 		section.io { display: flex; flex-direction: column; gap: 8px; padding: 8px; height: auto; }
@@ -75,10 +86,10 @@ footer .version { opacity: 0.9; }
 		#stdout { height: 20vh; max-height: 28vh; }
 
 	/* Editor height relative to viewport */
-		.CodeMirror { height: 55vh; }
-		.pane.left { min-height: 56vh; }
-		.pane.right { min-height: 24vh; }
-		pre.scroll { max-height: 26vh; }
+			.CodeMirror { height: 50vh; }
+			.pane.left { min-height: 52vh; }
+			.pane.right { min-height: 24vh; }
+			pre.scroll { max-height: 28vh; }
 
 	/* Wrap controls/buttons in header */
 	.controls { flex-wrap: wrap; row-gap: 6px; }
