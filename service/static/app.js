@@ -321,11 +321,10 @@ if (viewSel) viewSel.addEventListener('change', () => { saveState(); show(viewSe
 const optSel = $('#opt');
 if (optSel) optSel.addEventListener('change', () => { saveState(); show($('#view').value); });
 
-// Load example button
-const btnLoadEx = $('#btn-load-example');
-if (btnLoadEx) btnLoadEx.addEventListener('click', async () => {
-  const sel = $('#examples');
-  const path = sel ? sel.value : '';
+// Auto-load example when selection changes
+const examplesSel = $('#examples');
+if (examplesSel) examplesSel.addEventListener('change', async () => {
+  const path = examplesSel.value || '';
   if (!path) return;
   try {
     const txt = await apiGet('/api/example?path=' + encodeURIComponent(path));
