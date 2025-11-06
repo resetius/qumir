@@ -58,6 +58,8 @@ footer .version { opacity: 0.9; }
 
 /* Responsive adjustments */
 @media (max-width: 900px) {
+	/* Hide header title on mobile */
+	header h1 { display: none; }
 	/* Allow page scroll on mobile */
 	body { overflow: auto; }
 
@@ -94,6 +96,8 @@ footer .version { opacity: 0.9; }
 	/* Wrap controls/buttons in header */
 	.controls { flex-wrap: wrap; row-gap: 6px; }
 	.toolbar { flex-wrap: wrap; gap: 6px; }
+		/* Hide snippet toolbar on mobile to reduce clutter */
+		.toolbar { display: none !important; }
 
 	/* Make args input flexible to line width */
 	.controls input#args { flex: 1 1 180px; min-width: 140px; }
