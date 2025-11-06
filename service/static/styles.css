@@ -56,8 +56,14 @@ footer .version { opacity: 0.9; }
 	transform: translate(-50%, 0);
 }
 
+/* View selector slot above output (mobile) */
+.view-slot { display: none; padding: 6px 8px; background: #222; border-bottom: 1px solid #333; }
+.view-slot select { background: #333; border: 1px solid #555; }
+
 /* Responsive adjustments */
 @media (max-width: 900px) {
+	/* Show view selector slot above output on mobile */
+	.view-slot { display: block; }
 	/* Hide header title on mobile */
 	header h1 { display: none; }
 	/* Allow page scroll on mobile */

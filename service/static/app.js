@@ -273,6 +273,31 @@ loadState();
 })();
 // Initialize editor (assets are loaded via HTML)
 initEditor();
+
+// Relocate the compiler view selector above the Output on mobile
+(function relocateViewSelector(){
+  const viewEl = document.getElementById('view');
+  if (!viewEl) return;
+  // Create an anchor to restore original position in header controls
+  let anchor = document.getElementById('view-anchor');
+  if (!anchor) {
+    anchor = document.createElement('span');
+    anchor.id = 'view-anchor';
+    viewEl.insertAdjacentElement('afterend', anchor);
+  }
+  const slot = document.getElementById('view-slot');
+  const place = () => {
+    if (!viewEl) return;
+    if (window.innerWidth <= 900 && slot && viewEl.parentElement !== slot) {
+      slot.appendChild(viewEl);
+    } else if (window.innerWidth > 900 && anchor && viewEl.previousSibling !== anchor) {
+      // Put it back before the anchor to keep control layout
+      anchor.parentNode.insertBefore(viewEl, anchor);
+    }
+  };
+  place();
+  window.addEventListener('resize', place);
+})();
 // If URL has ?share=<id>, load the shared snippet (code, args, stdin) and override state
 (async function loadSharedFromQuery(){
   try {
