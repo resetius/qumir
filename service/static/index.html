@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Qumir — Playground</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20251106">
   <link rel="stylesheet" href="https://unpkg.com/codemirror@5/lib/codemirror.css">
   <link rel="stylesheet" href="https://unpkg.com/codemirror@5/theme/material-darker.css">
 </head>
@@ -49,6 +49,7 @@
       <textarea id="code" spellcheck="false"></textarea>
       <div id="status" class="status"></div>
     </section>
+  <div id="output-anchor"></div>
     <section class="pane right">
       <div class="pane-title" id="title-output">Output</div>
   <div id="view-slot" class="view-slot"></div>
@@ -57,12 +58,12 @@
   </main>
   <section class="io">
     <div>
-      <div class="pane-title" id="title-stdin">Program input (stdin)</div>
-      <textarea id="stdin" placeholder="input for your program" spellcheck="false"></textarea>
-    </div>
-    <div>
       <div class="pane-title" id="title-stdout">Program output (stdout)</div>
       <pre id="stdout" class="scroll"></pre>
+    </div>
+    <div>
+      <div class="pane-title" id="title-stdin">Program input (stdin)</div>
+      <textarea id="stdin" placeholder="input for your program" spellcheck="false"></textarea>
     </div>
   </section>
   <footer>

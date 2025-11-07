@@ -298,6 +298,29 @@ initEditor();
   place();
   window.addEventListener('resize', place);
 })();
+
+// On mobile, place compiler output below IO section to ensure strict vertical flow
+(function relocateOutputMobile(){
+  const rightPane = document.querySelector('section.pane.right');
+  const io = document.querySelector('section.io');
+  const anchor = document.getElementById('output-anchor');
+  if (!rightPane || !io || !anchor) return;
+  const place = () => {
+    if (window.innerWidth <= 900) {
+      // Move right pane after IO
+      if (rightPane.previousElementSibling !== io) {
+        io.insertAdjacentElement('afterend', rightPane);
+      }
+    } else {
+      // Restore to anchor position inside main
+      if (anchor.parentNode && rightPane !== anchor.nextSibling) {
+        anchor.parentNode.insertBefore(rightPane, anchor.nextSibling);
+      }
+    }
+  };
+  place();
+  window.addEventListener('resize', place);
+})();
 // If URL has ?share=<id>, load the shared snippet (code, args, stdin) and override state
 (async function loadSharedFromQuery(){
   try {
