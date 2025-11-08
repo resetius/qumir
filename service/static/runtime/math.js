@@ -61,6 +61,13 @@ export function rand_int64_range(a, b) {
   const r = BigInt(Math.floor(Math.random() * Number(span)));
   return A + r;
 }
+export function mod_qum(a, b) {
+  const ai = BigInt(a), bi = BigInt(b);
+  if (bi === 0n) return 0n;
+  let r = ai % bi;
+  if (r < 0n) r += bi;
+  return r;
+}
 
 // Common compiler-rt builtins that may be referenced when --allow-undefined is used.
 // Minimal shims to satisfy linkage; adjust if exact semantics are needed.
