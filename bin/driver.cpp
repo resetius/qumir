@@ -28,18 +28,52 @@ using namespace NQumir;
 
 namespace {
 
+std::shared_ptr<std::istream> OpenInputFile(const std::string& filename) {
+    if (filename == "-") {
+        return std::make_shared<std::istream>(std::cin.rdbuf());
+    } else {
+        auto fileStream = std::make_shared<std::ifstream>(filename);
+        if (!fileStream->is_open()) {
+            return nullptr;
+        }
+        return fileStream;
+    }
+}
+
+std::shared_ptr<std::ostream> OpenOutputFile(const std::string& filename, bool randomAccess = false) {
+    if (filename == "-") {
+        if (!randomAccess) {
+            return std::make_shared<std::ostream>(std::cout.rdbuf());
+        } else {
+            std::shared_ptr<std::ostream> stream;
+            stream.reset(new std::ostringstream(), [](std::ostream* os) {
+                auto sstr = static_cast<std::ostringstream*>(os);
+                std::cout << sstr->str();
+                delete sstr;
+            });
+            return stream;
+        }
+    } else {
+        auto fileStream = std::make_shared<std::ofstream>(filename, std::ios::binary);
+        if (!fileStream->is_open()) {
+            return nullptr;
+        }
+        return fileStream;
+    }
+}
+
 int GenerateAst(const std::string& inputFile, const std::string& outputFile, bool verbose) {
     if (verbose) {
         std::cerr << "Generating AST from " << inputFile << " to " << outputFile << "\n";
     }
 
-    std::ifstream in(inputFile);
+    auto in = OpenInputFile(inputFile);
     if (!in) {
         std::cerr << "Failed to open input file: " << inputFile << "\n";
         return 1;
     }
 
-    NAst::TTokenStream ts(in);
+    NAst::TTokenStream ts(*in);
     NAst::TParser p;
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
@@ -47,13 +81,13 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
         return 1;
     }
     auto ast = std::move(expected.value());
-    std::ofstream out(outputFile);
+    auto out = OpenOutputFile(outputFile);
     if (!out) {
         std::cerr << "Failed to open output file: " << outputFile << "\n";
         return 1;
     }
 
-    out << *ast;
+    *out << *ast;
     return 0;
 }
 
@@ -62,13 +96,13 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
         std::cerr << "Generating IR from " << inputFile << " to " << outputFile << "\n";
     }
 
-    std::ifstream in(inputFile);
+    auto in = OpenInputFile(inputFile);
     if (!in) {
         std::cerr << "Failed to open input file: " << inputFile << "\n";
         return 1;
     }
 
-    NAst::TTokenStream ts(in);
+    NAst::TTokenStream ts(*in);
     NAst::TParser p;
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
@@ -99,13 +133,13 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
         NIR::NPasses::Pipeline(module);
     }
 
-    std::ofstream out(outputFile);
+    auto out = OpenOutputFile(outputFile);
     if (!out) {
         std::cerr << "Failed to open output file: " << outputFile << "\n";
         return 1;
     }
 
-    module.Print(out);
+    module.Print(*out);
     return 0;
 }
 
@@ -114,13 +148,13 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
         std::cerr << "Generating LLVM IR from " << inputFile << " to " << outputFile << "\n";
     }
 
-    std::ifstream in(inputFile);
+    auto in = OpenInputFile(inputFile);
     if (!in) {
         std::cerr << "Failed to open input file: " << inputFile << "\n";
         return 1;
     }
 
-    NAst::TTokenStream ts(in);
+    NAst::TTokenStream ts(*in);
     NAst::TParser p;
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
@@ -155,13 +189,13 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
         return 1;
     }
 
-    std::ofstream out(outputFile);
+    auto out = OpenOutputFile(outputFile);
     if (!out) {
         std::cerr << "Failed to open output file: " << outputFile << "\n";
         return 1;
     }
 
-    artifacts->PrintModule(out);
+    artifacts->PrintModule(*out);
     return 0;
 }
 
@@ -281,13 +315,13 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
         std::cerr << "Compiling " << inputFile << " to " << outputFile << "\n";
     }
 
-    std::ifstream in(inputFile);
+    auto in = OpenInputFile(inputFile);
     if (!in) {
         std::cerr << "Failed to open input file: " << inputFile << "\n";
         return 1;
     }
 
-    NAst::TTokenStream ts(in);
+    NAst::TTokenStream ts(*in);
     NAst::TParser p;
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
@@ -351,12 +385,12 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
         return 0;
     }
 
-    std::ofstream outFile(outputFile, std::ios::binary);
+    auto outFile = OpenOutputFile(outputFile, /*randomAccess*/ !generateAsm);
     if (!outFile) {
         std::cerr << "Failed to open output file: " << outputFile << "\n";
         return 1;
     }
-    artifacts->Generate(outFile, generateAsm, compileOnly && !generateAsm);
+    artifacts->Generate(*outFile, generateAsm, compileOnly && !generateAsm);
     return 0;
 }
 
@@ -450,7 +484,7 @@ int main(int argc, char** argv) {
             optLevel = 3;
         } else if (!std::strcmp(argv[i], "--verbose")) {
             verbose = true;
-        } else if (argv[i][0] == '-') {
+        } else if (argv[i][0] == '-' && argv[i][1] != '\0') {
             std::cerr << "Unknown option: " << argv[i] << "\n";
             return 1;
         } else {
