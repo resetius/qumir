@@ -487,9 +487,14 @@ int main(int argc, char** argv) {
         outputFile = targetWasm ? OutputFilename(inputFile, ".wasm") : A_OUT;
     }
 
-    return Generate(inputFile, compileOnly
-        ? (generateAsm
-            ? OutputFilename(inputFile, ".s")
-            : OutputFilename(inputFile, ".o"))
-        : outputFile, compileOnly, generateAsm, optLevel, targetWasm, verbose);
+    std::string finalOutput = outputFile;
+    if (finalOutput.empty()) {
+        finalOutput = compileOnly
+            ? (generateAsm
+                ? OutputFilename(inputFile, ".s")
+                : OutputFilename(inputFile, ".o"))
+            : outputFile;
+    }
+
+    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, targetWasm, verbose);
 }
