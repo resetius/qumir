@@ -3,7 +3,10 @@
 const $ = sel => document.querySelector(sel);
 let currentAbort = null;
 const api = async (path, body, asBinary, signal) => {
-  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal });
+  // New protocol: send raw code as text/plain and pass optimization level via X-Qumir-O
+  const code = body.code || '';
+  const O = body.O || '0';
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'text/plain', 'X-Qumir-O': String(O) }, body: code, signal });
   if (!r.ok) {
     let msg;
     try { const j = await r.json(); msg = j.error || r.statusText; } catch { msg = r.statusText; }

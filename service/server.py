@@ -67,27 +67,41 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_response(204)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Qumir-O')
         self.end_headers()
 
     def do_POST(self):
         length = int(self.headers.get('Content-Length','0'))
         raw = self.rfile.read(length)
+        # Raw body protocol for compile endpoints
+        if self.path in ('/api/compile-ir','/api/compile-llvm','/api/compile-asm','/api/compile-wasm','/api/compile-wasm-text'):
+            code = raw.decode('utf-8', 'ignore')
+            if not code:
+                return self._send_json({'error':'empty body'}, 400)
+            olevel = self.headers.get('X-Qumir-O') or '0'
+            try:
+                oi = int(olevel)
+            except Exception:
+                return self._send_json({'error':'X-Qumir-O must be numeric'}, 400)
+            if oi < 0: oi = 0
+            if oi > 3: oi = 3
+            olevel = str(oi)
+            if self.path == '/api/compile-ir':
+                return self._compile_emit(code, olevel, mode='ir')
+            if self.path == '/api/compile-llvm':
+                return self._compile_emit(code, olevel, mode='llvm')
+            if self.path == '/api/compile-asm':
+                return self._compile_emit(code, olevel, mode='asm')
+            if self.path == '/api/compile-wasm':
+                return self._compile_wasm(code, olevel)
+            if self.path == '/api/compile-wasm-text':
+                return self._compile_wasm_text(code, olevel)
+
+        # JSON only for share
         try:
             payload = json.loads(raw.decode('utf-8'))
         except Exception:
             return self._send_json({'error':'invalid json'}, 400)
-
-        if self.path == '/api/compile-ir':
-            return self._compile_emit(payload, mode='ir')
-        if self.path == '/api/compile-llvm':
-            return self._compile_emit(payload, mode='llvm')
-        if self.path == '/api/compile-asm':
-            return self._compile_emit(payload, mode='asm')
-        if self.path == '/api/compile-wasm':
-            return self._compile_wasm(payload)
-        if self.path == '/api/compile-wasm-text':
-            return self._compile_wasm_text(payload)
         if self.path == '/api/share':
             return self._api_share_create(payload)
         #if self.path == '/api/run-ir':
@@ -217,9 +231,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._log(f"EXIT: rc=127 ({msg})")
             return 127, b'', msg.encode('utf-8')
 
-    def _compile_emit(self, payload, mode: str):
-        code = payload.get('code','')
-        olevel = str(payload.get('O','0'))
+    def _compile_emit(self, code: str, olevel: str, mode: str):
         if not code:
             return self._send_json({'error':'empty code'}, 400)
         src = self._write_temp_source(code)
@@ -266,9 +278,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception:
                 pass
 
-    def _compile_wasm(self, payload):
-        code = payload.get('code','')
-        olevel = str(payload.get('O','0'))
+    def _compile_wasm(self, code: str, olevel: str):
         if not code:
             return self._send_json({'error':'empty code'}, 400)
         src = self._write_temp_source(code)
@@ -290,9 +300,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception:
                 pass
 
-    def _compile_wasm_text(self, payload):
-        code = payload.get('code','')
-        olevel = str(payload.get('O','0'))
+    def _compile_wasm_text(self, code: str, olevel: str):
         if not code:
             return self._send_json({'error':'empty code'}, 400)
         src = self._write_temp_source(code)

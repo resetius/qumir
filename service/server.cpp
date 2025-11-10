@@ -82,7 +82,7 @@ public:
             response.SetStatus(200);
             response.SetHeader("Access-Control-Allow-Origin", "*");
             response.SetHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            response.SetHeader("Access-Control-Allow-Headers", "Content-Type");
+            response.SetHeader("Access-Control-Allow-Headers", "Content-Type, X-Qumir-O");
             response.SetHeader("Content-Length", "0");
             co_await response.SendHeaders();
         } else if (request.Method() == "GET") {
@@ -214,78 +214,27 @@ private:
     }
 
     TFuture<void> Compile(TRequest& request, TResponse& response, const std::string& target) {
-        std::string payloadJson = co_await request.ReadBodyFull();
-        // Parse JSON payload and extract 'code' and optional optimization level 'O'
-        llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(payloadJson);
-        if (!parsed) {
-            std::string errMsg;
-            llvm::handleAllErrors(parsed.takeError(), [&](const llvm::ErrorInfoBase &E){ errMsg = E.message(); });
-            response.SetStatus(400);
-            response.SetHeader("Content-Type", "application/json");
-            response.SetHeader("Connection", "close");
-            co_await response.SendHeaders();
-            co_await response.WriteBodyFull(std::string("{\"error\":\"json parse failed: ") + errMsg + "\"}");
+        std::string code = co_await request.ReadBodyFull();
+        if (code.empty()) {
+            co_await SendJson(response, "{\"error\":\"empty body\"}", 400);
             co_return;
         }
-
-        llvm::json::Value &root = *parsed;
-        auto *obj = root.getAsObject();
-        if (!obj) {
-            response.SetStatus(400);
-            response.SetHeader("Content-Type", "application/json");
-            response.SetHeader("Connection", "close");
-            co_await response.SendHeaders();
-            co_await response.WriteBodyFull("{\"error\":\"object root required\"}");
-            co_return;
-        }
-
-        // code
-        std::string code;
-        if (auto *codeVal = obj->get("code")) {
-            if (auto codeStr = codeVal->getAsString()) {
-                code = *codeStr;
-            } else {
-                response.SetStatus(400);
-                response.SetHeader("Content-Type", "application/json");
-                response.SetHeader("Connection", "close");
-                co_await response.SendHeaders();
-                co_await response.WriteBodyFull("{\"error\":\"code must be string\"}");
-                co_return;
-            }
-        } else {
-            response.SetStatus(400);
-            response.SetHeader("Content-Type", "application/json");
-            response.SetHeader("Connection", "close");
-            co_await response.SendHeaders();
-            co_await response.WriteBodyFull("{\"error\":\"code missing\"}");
-            co_return;
-        }
-
-        // optimization level 'O' (integer; accept number or numeric string). Default 0 if absent.
         int olevel = 0;
-        if (auto oVal = obj->get("O")) {
-            if (auto num = oVal->getAsNumber()) {
-                // Stored as double; clamp to [0,3] typical range if needed later
-                olevel = static_cast<int>(*num);
-            } else if (auto ostr = oVal->getAsString()) {
-                bool ok = true;
-                try {
-                    olevel = std::stoi(std::string(*ostr));
-                } catch (...) {
-                    ok = false;
-                }
-                if (!ok) {
-                    co_await SendJson(response, "{\"error\":\"O must be numeric\"}", 400);
-                    co_return;
-                }
-            } else if (auto b = oVal->getAsBoolean()) {
-                // Treat true as 1, false as 0 (fallback)
-                olevel = *b ? 1 : 0;
-            } else {
-                co_await SendJson(response, "{\"error\":\"O invalid type\"}", 400);
+        auto it = request.Headers().find("X-Qumir-O");
+        if (it != request.Headers().end()) {
+            std::string val(it->second);
+            bool ok = true;
+            try {
+                olevel = std::stoi(val);
+            } catch (...) {
+                ok = false;
+            }
+            if (!ok) {
+                co_await SendJson(response, "{\"error\":\"X-Qumir-O must be numeric\"}", 400);
                 co_return;
             }
         }
+        if (olevel < 0) olevel = 0; if (olevel > 3) olevel = 3;
 
         auto src = WriteTemp(code);
         std::string dst;
@@ -346,6 +295,7 @@ private:
             response.SetStatus(200);
             response.SetHeader("Content-Type", contentType);
             response.SetHeader("Content-Length", std::to_string(content.size()));
+            response.SetHeader("X-Qumir-O", std::to_string(olevel));
             co_await response.SendHeaders();
             co_await response.WriteBodyFull(content);
         }
@@ -420,22 +370,14 @@ private:
         if (!parsed) {
             std::string errMsg;
             llvm::handleAllErrors(parsed.takeError(), [&](const llvm::ErrorInfoBase &E){ errMsg = E.message(); });
-            response.SetStatus(400);
-            response.SetHeader("Content-Type", "application/json");
-            response.SetHeader("Connection", "close");
-            co_await response.SendHeaders();
-            co_await response.WriteBodyFull(std::string("{\"error\":\"json parse failed: ") + errMsg + "\"}");
+            co_await SendJson(response, std::string("{\"error\":\"json parse failed: ") + errMsg + "\"}", 400);
             co_return;
         }
 
         llvm::json::Value &root = *parsed;
         auto *obj = root.getAsObject();
         if (!obj) {
-            response.SetStatus(400);
-            response.SetHeader("Content-Type", "application/json");
-            response.SetHeader("Connection", "close");
-            co_await response.SendHeaders();
-            co_await response.WriteBodyFull("{\"error\":\"object root required\"}");
+            co_await SendJson(response, "{\"error\":\"object root required\"}", 400);
             co_return;
         }
 
@@ -445,19 +387,11 @@ private:
             if (auto codeStr = codeVal->getAsString()) {
                 code = *codeStr;
             } else {
-                response.SetStatus(400);
-                response.SetHeader("Content-Type", "application/json");
-                response.SetHeader("Connection", "close");
-                co_await response.SendHeaders();
-                co_await response.WriteBodyFull("{\"error\":\"code must be string\"}");
+                co_await SendJson(response, "{\"error\":\"code must be string\"}", 400);
                 co_return;
             }
         } else {
-            response.SetStatus(400);
-            response.SetHeader("Content-Type", "application/json");
-            response.SetHeader("Connection", "close");
-            co_await response.SendHeaders();
-            co_await response.WriteBodyFull("{\"error\":\"code missing\"}");
+            co_await SendJson(response, "{\"error\":\"code missing\"}", 400);
             co_return;
         }
 
