@@ -21,7 +21,7 @@ namespace {
 std::string UrlEncode(const std::string& str) {
     std::string result;
     for (char c : str) {
-        if (isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' || c == '.' || c == '~') {
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
             result += c;
         } else {
             char buf[16];
@@ -262,12 +262,7 @@ private:
                 while (true) {
                     ssize_t n = co_await request.ReadBodySome(ibuf, sizeof(ibuf));
                     if (n <= 0) break;
-                    ssize_t off = 0;
-                    while (off < n) {
-                        ssize_t w = co_await pipe.WriteSome(ibuf + off, n - off);
-                        if (w <= 0) { off = n; break; }
-                        off += w;
-                    }
+                    co_await TByteWriter(pipe).Write(ibuf, n);
                 }
                 pipe.CloseWrite();
             }
