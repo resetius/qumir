@@ -35,7 +35,7 @@ std::string UrlEncode(const std::string& str) {
 } // namespace
 
 struct TOptions {
-    std::function<TPipe(const std::string&, const std::vector<std::string>&)> PipeFactory;
+    std::function<TPipe(const std::string&, const std::vector<std::string>&, bool)> PipeFactory;
     std::string StaticDir = "static";
     std::string BinaryDir = "bin";
     std::string ExamplesDir = "examples";
@@ -255,7 +255,7 @@ private:
             }
 
             printCmd();
-            auto pipe = PipeFactory(qumirc, args);
+            auto pipe = PipeFactory(qumirc, args, /* stderr to stdout */ true);
 
             {
                 char ibuf[1024];
@@ -303,7 +303,7 @@ private:
         args = {"--wasm", "-O" + std::to_string(olevel), "-o", dst, src};
 
         printCmd();
-        auto [output, exitCode] = co_await ReadPipe(qumirc, args);
+        auto [output, exitCode] = co_await ReadPipe(qumirc, args, /*stderr*/ false, /*searchExe*/ false, /*stderrToStdout*/ true);
         if (exitCode != 0) {
             std::string errBody;
             llvm::json::Object obj;
@@ -501,11 +501,11 @@ private:
         return hashHex;
     }
 
-    TFuture<std::pair<std::string,int>> ReadPipe(std::string exe, const std::vector<std::string>& args, bool stderr = true, bool searchExe = false) {
+    TFuture<std::pair<std::string,int>> ReadPipe(std::string exe, const std::vector<std::string>& args, bool stderr = true, bool searchExe = false, bool stderrToStdout = false) {
         if (searchExe) {
             exe = SearchInPath(exe);
         }
-        auto pipe = PipeFactory(exe, args);
+        auto pipe = PipeFactory(exe, args, stderrToStdout);
         pipe.CloseWrite();
         if (stderr) {
             pipe.CloseRead();
@@ -641,7 +641,7 @@ private:
         {".json", "application/json"},
     };
 
-    std::function<TPipe(const std::string&, const std::vector<std::string>&)> PipeFactory;
+    std::function<TPipe(const std::string&, const std::vector<std::string>&, bool)> PipeFactory;
     std::string StaticDir;
     std::filesystem::path StaticBaseCanonical = std::filesystem::weakly_canonical(std::filesystem::path(StaticDir));
     std::string BinaryDir;
@@ -689,8 +689,8 @@ int main(int argc, char** argv) {
     listenSocket.Listen();
     std::cerr << "Listening on: " << listenSocket.LocalAddr()->ToString() << std::endl;
 
-    auto pipeFactory = [&](const std::string& cmd, const std::vector<std::string>& args) {
-        return TPipe(loop.Poller(), cmd, args);
+    auto pipeFactory = [&](const std::string& cmd, const std::vector<std::string>& args, bool stderrToStdout) {
+        return TPipe(loop.Poller(), cmd, args, stderrToStdout);
     };
 
     options.PipeFactory = pipeFactory;
