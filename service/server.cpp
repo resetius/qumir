@@ -214,11 +214,6 @@ private:
     }
 
     TFuture<void> Compile(TRequest& request, TResponse& response, const std::string& target) {
-        std::string code = co_await request.ReadBodyFull();
-        if (code.empty()) {
-            co_await SendJson(response, "{\"error\":\"empty body\"}", 400);
-            co_return;
-        }
         int olevel = 0;
         auto it = request.Headers().find("X-Qumir-O");
         if (it != request.Headers().end()) {
@@ -236,62 +231,90 @@ private:
         }
         if (olevel < 0) olevel = 0; if (olevel > 3) olevel = 3;
 
-        auto src = WriteTemp(code);
-        std::string dst;
-
         // qumirc: BinaryBaseCanonical / qumirc
         auto qumirc = (BinaryBaseCanonical / "qumirc").generic_string();
         std::vector<std::string> args;
-        std::string contentType = "text/plain; charset=utf-8";
-        if (target == "ir") {
-            dst = src + ".ir";
-            args = {"--ir", "-O" + std::to_string(olevel), "-o", dst, src};
-        } else if (target == "llvm") {
-            dst = src + ".ll";
-            args = {"--llvm", "-O" + std::to_string(olevel), "-o", dst, src};
-        } else if (target == "asm") {
-            dst = src + ".s";
-            args = {"-S", "-O" + std::to_string(olevel), "-o", dst, src};
-        } else if (target == "wasm") {
-            contentType = "application/wasm";
-            dst = src + ".wasm";
-            args = {"--wasm", "-O" + std::to_string(olevel), "-o", dst, src};
-        } else if (target == "wasm-text") {
-            // cannot override dst for wasm-text
-            // it is always `basename src`.s
-            auto dotPos = src.rfind('.');
-            if (dotPos != std::string::npos) {
-                dst = src.substr(0, dotPos) + ".s";
-            } else {
-                dst = src + ".s";
+
+        auto printCmd = [&]() {
+            std::string cmdStr = qumirc;
+            for (const auto& arg : args) cmdStr += " " + arg;
+            std::cerr << "Running command: " << cmdStr << std::endl;
+        };
+
+        // Stream for all but wasm binary (wasm-ld does not support streaming)
+
+        if (target != "wasm") {
+            if (target == "ir") {
+                args = {"--ir", "-O" + std::to_string(olevel), "-o", "-", "-"};
+            } else if (target == "llvm") {
+                args = {"--llvm", "-O" + std::to_string(olevel), "-o", "-", "-"};
+            } else if (target == "asm") {
+                args = {"-S", "-O" + std::to_string(olevel), "-o", "-", "-"};
+            } else if (target == "wasm-text") {
+                args = {"--wasm", "-S", "-O" + std::to_string(olevel), "-o", "-", "-"};
             }
-            args = {"--wasm", "-S", "-O" + std::to_string(olevel), "-o", dst, src};
+
+            printCmd();
+            auto pipe = PipeFactory(qumirc, args);
+
+            {
+                char ibuf[1024];
+                while (true) {
+                    ssize_t n = co_await request.ReadBodySome(ibuf, sizeof(ibuf));
+                    if (n <= 0) break;
+                    ssize_t off = 0;
+                    while (off < n) {
+                        ssize_t w = co_await pipe.WriteSome(ibuf + off, n - off);
+                        if (w <= 0) { off = n; break; }
+                        off += w;
+                    }
+                }
+                pipe.CloseWrite();
+            }
+
+            response.SetStatus(200);
+            response.SetHeader("Content-Type", "text/plain; charset=utf-8");
+            response.SetHeader("Transfer-Encoding", "chunked");
+            response.SetHeader("X-Qumir-O", std::to_string(olevel));
+            co_await response.SendHeaders();
+
+            char obuf[4096];
+            auto reader = TByteReader(pipe); // buffered reader for pipe
+            while (true) {
+                ssize_t r = co_await reader.ReadSome(obuf, sizeof(obuf));
+                if (r <= 0) break;
+                co_await response.WriteBodyChunk(obuf, r);
+            }
+            co_await response.WriteBodyChunk("", 0);
+            pipe.Wait();
+            co_return;
         }
 
-        // print cmd string
-        std::string cmdStr = qumirc;
-        for (const auto& arg : args) {
-            cmdStr += " " + arg;
+        // wasm binary: keep file-based path (read entire body)
+        std::string code = co_await request.ReadBodyFull();
+        if (code.empty()) {
+            co_await SendJson(response, "{\"error\":\"empty body\"}", 400);
+            co_return;
         }
-        std::cerr << "Running command: " << cmdStr << std::endl;
+        auto src = WriteTemp(code);
+        std::string dst;
+        std::string contentType = "application/wasm";
+        dst = src + ".wasm";
+        args = {"--wasm", "-O" + std::to_string(olevel), "-o", dst, src};
 
+        printCmd();
         auto [output, exitCode] = co_await ReadPipe(qumirc, args);
-
         if (exitCode != 0) {
             std::string errBody;
-            {
-                llvm::json::Object obj;
-                obj["error"] = std::string("compilation failed with code ") + std::to_string(exitCode);
-                obj["output"] = output;
-                llvm::raw_string_ostream os(errBody);
-                os << llvm::json::Value(std::move(obj));
-            }
+            llvm::json::Object obj;
+            obj["error"] = std::string("compilation failed with code ") + std::to_string(exitCode);
+            obj["output"] = output;
+            llvm::raw_string_ostream os(errBody);
+            os << llvm::json::Value(std::move(obj));
             co_await SendJson(response, errBody);
         } else {
-            // send dst file content as text/plain utf-8
             std::ifstream ifs(dst, std::ios::binary);
             std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-
             response.SetStatus(200);
             response.SetHeader("Content-Type", contentType);
             response.SetHeader("Content-Length", std::to_string(content.size()));
