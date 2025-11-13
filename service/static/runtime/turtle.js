@@ -220,6 +220,12 @@ function scheduleAutoFit() {
 
 function fitToContent() {
   if (!canvas || !state.hasPath) return;
+  // If canvas is hidden (display:none), its CSS size is near zero; defer fitting until visible
+  const rect0 = canvas.getBoundingClientRect();
+  if ((rect0.width|0) < 10 || (rect0.height|0) < 10) {
+    // Keep autoFitPending so we can refit on show
+    return;
+  }
   const { minX, minY, maxX, maxY } = state.bounds;
   if (!(isFinite(minX) && isFinite(minY) && isFinite(maxX) && isFinite(maxY))) return;
   const rect = canvas.getBoundingClientRect();
@@ -341,6 +347,20 @@ export function __resetTurtle(clear = true) {
   if (autoFitTimer) { clearTimeout(autoFitTimer); autoFitTimer = null; }
   if (clear) state.path = [];
   scheduleDraw();
+}
+
+// Notify runtime that canvas has just become visible; ensure correct sizing and fit
+export function __onCanvasShown() {
+  if (!canvas) return;
+  fitCanvasToCss();
+  if (autoFitPending) {
+    // Try to fit now that we have real dimensions
+    fitToContent();
+    // If still pending due to immediate zero size, schedule another try
+    scheduleAutoFit();
+  } else {
+    scheduleDraw();
+  }
 }
 
 function moveBy(dist) {

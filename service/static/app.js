@@ -188,6 +188,8 @@ function setCompilerOutputMode(mode) {
     if (__turtleCanvas && out && out.clientHeight > 32) {
       __turtleCanvas.style.height = out.clientHeight + 'px';
     }
+    // Inform turtle runtime that canvas is now visible so it can refit using real dimensions
+    try { if (__turtleModule && typeof __turtleModule.__onCanvasShown === 'function') __turtleModule.__onCanvasShown(); } catch {}
   } else {
     if (out) out.style.display = '';
     if (__turtleCanvas) __turtleCanvas.style.display = 'none';
