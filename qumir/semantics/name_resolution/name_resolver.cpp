@@ -1,5 +1,7 @@
 #include "name_resolver.h"
 
+#include <qumir/modules/module.h>
+
 #include <iostream>
 
 namespace NQumir {
@@ -229,6 +231,38 @@ void TNameResolver::PrintSymbols(std::ostream& os) const {
         os << "Symbol: " << symbol.Name << ", Scope: " << symbol.ScopeId.Id << "\n";
     }
 }
+
+void TNameResolver::RegisterModule(NRegistry::IModule* module) {
+    auto [it, flag] = Modules.insert({module->Name(), module});
+    if (flag == false && it->second != module) {
+        throw std::runtime_error("Module with conflicting name: " + module->Name());
+    }
+}
+
+bool TNameResolver::ImportModule(const std::string& name) {
+    auto it = Modules.find(name);
+    if (it == Modules.end()) {
+        return false;
+    }
+    auto* module = it->second;
+
+    for (const auto& fn : module->ExternalFunctions()) {
+        auto funType = std::make_shared<NAst::TFunctionType>(fn.ArgTypes, fn.ReturnType);
+        std::vector<NAst::TParam> params;
+        for (size_t i = 0; i < fn.ArgTypes.size(); ++i) {
+            params.push_back(std::make_shared<NAst::TVarStmt>(TLocation{}, "arg" + std::to_string(i), fn.ArgTypes[i]));
+        }
+        auto funDecl = std::make_shared<NAst::TFunDecl>(TLocation{}, fn.Name, params, nullptr, fn.ReturnType);
+        funDecl->MangledName = fn.MangledName;
+        funDecl->Type = funType;
+        funDecl->Ptr = fn.Ptr;
+        funDecl->Packed = fn.Packed;
+        DeclareFunction(fn.Name, funDecl);
+    }
+
+    return true;
+}
+
 
 } // namespace NSemantics
 } // namespace NQumir

@@ -49,6 +49,7 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"рез", EKeyword::OutArg},
     {"аргрез", EKeyword::InOutArg},
     {"знач", EKeyword::Return},
+    {"использовать", EKeyword::Use},
 };
 
 std::map<std::string, EOperator> OperatorMap = {

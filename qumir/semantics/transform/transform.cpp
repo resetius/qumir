@@ -376,6 +376,25 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
 std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics::TNameResolver& r)
 {
     static constexpr int MaxIterations = 10;
+
+    // 1. extract using directives
+    if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
+        // 2. using must be the first statements in the block
+        // 3. we don't support > 1 using directives
+        auto block = maybeBlock.Cast();
+        auto& stmts = block->Stmts;
+        if (!stmts.empty()) {
+            auto first = stmts.front();
+            if (auto maybeUse = NAst::TMaybeNode<NAst::TUseExpr>(first)) {
+                auto use = maybeUse.Cast();
+                if (!r.ImportModule(use->ModuleName)) {
+                    return std::unexpected(TError(use->Location, "unknown module: " + use->ModuleName));
+                }
+                stmts.erase(stmts.begin());
+            }
+        }
+    }
+
     if (auto error = PreNameResolutionTransform(expr); !error) {
         return std::unexpected(error.error());
     }

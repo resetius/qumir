@@ -12,6 +12,7 @@
 #include <qumir/codegen/llvm/llvm_codegen.h>
 #include <qumir/codegen/llvm/llvm_initializer.h>
 #include <qumir/modules/system/system.h>
+#include <qumir/modules/turtle/turtle.h>
 #include <sstream>
 #include <string>
 
@@ -113,6 +114,8 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
 
     NSemantics::TNameResolver r;
     NRegistry::SystemModule().Register(r);
+    NRegistry::TurtleModule turtle;
+    r.RegisterModule(&turtle);
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
@@ -165,6 +168,8 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
 
     NSemantics::TNameResolver r;
     NRegistry::SystemModule().Register(r);
+    NRegistry::TurtleModule turtle;
+    r.RegisterModule(&turtle);
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
@@ -332,6 +337,8 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
 
     NSemantics::TNameResolver r;
     NRegistry::SystemModule().Register(r);
+    NRegistry::TurtleModule turtle;
+    r.RegisterModule(&turtle);
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {

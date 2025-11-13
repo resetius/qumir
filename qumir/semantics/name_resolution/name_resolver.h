@@ -9,6 +9,13 @@
 #include <unordered_set>
 
 namespace NQumir {
+
+namespace NRegistry {
+
+class IModule;
+
+} // namespace NRegistry
+
 namespace NSemantics {
 
 struct TScopeId {
@@ -68,6 +75,11 @@ public:
 
     TSymbolId Declare(const std::string& name, NAst::TExprPtr node, TSymbolInfo parentSymbol);
 
+    // just adds module to dict of modules
+    void RegisterModule(NRegistry::IModule* module);
+    // adds modules symbols to list of symbols
+    bool ImportModule(const std::string& name);
+
     // For testing/debugging
     const std::vector<TSymbol>& GetSymbols() const {
         return Symbols;
@@ -86,6 +98,8 @@ private:
     std::vector<TSymbol> Symbols;
 
     std::vector<TScopePtr> Scopes;
+
+    std::unordered_map<std::string, NRegistry::IModule*> Modules;
 };
 
 } // namespace NSemantics

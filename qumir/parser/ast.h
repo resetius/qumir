@@ -749,6 +749,25 @@ struct TSliceExpr : public TExpr {
     }
 };
 
+class TUseExpr : public TExpr {
+public:
+    static constexpr const char* NodeId = "Use";
+    std::string ModuleName;
+
+    explicit TUseExpr(TLocation loc, std::string moduleName)
+        : TExpr(std::move(loc))
+        , ModuleName(std::move(moduleName))
+    { }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+
+    const std::string ToString() const override {
+        return "use \"" + ModuleName + "\"";
+    }
+};
+
 template<typename TransformFunctor, typename FilterFunctor>
 bool TransformAst(TExprPtr& result, TExprPtr node, TransformFunctor f, FilterFunctor filter) {
     if (!node) return false;

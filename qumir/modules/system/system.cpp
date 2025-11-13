@@ -10,21 +10,7 @@
 namespace NQumir {
 namespace NRegistry {
 
-namespace {
-
-struct TExternalFunction {
-    std::string Name;
-    std::string MangledName;
-    void* Ptr;
-    using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
-    TPacked Packed = nullptr; // packed thunk
-    std::vector<NAst::TTypePtr> ArgTypes;
-    NAst::TTypePtr ReturnType;
-};
-
-} // namespace
-
-void SystemModule::Register(NSemantics::TNameResolver& ctx) {
+SystemModule::SystemModule() {
     auto integerType = std::make_shared<NAst::TIntegerType>();
     auto floatType = std::make_shared<NAst::TFloatType>();
     auto voidType = std::make_shared<NAst::TVoidType>();
@@ -460,22 +446,9 @@ void SystemModule::Register(NSemantics::TNameResolver& ctx) {
             .ArgTypes = { voidPtrType, integerType },
             .ReturnType = voidType
         }
-
     };
 
-    for (const auto& fn : functions) {
-        auto funType = std::make_shared<NAst::TFunctionType>(fn.ArgTypes, fn.ReturnType);
-        std::vector<NAst::TParam> params;
-        for (size_t i = 0; i < fn.ArgTypes.size(); ++i) {
-            params.push_back(std::make_shared<NAst::TVarStmt>(TLocation{}, "arg" + std::to_string(i), fn.ArgTypes[i]));
-        }
-        auto funDecl = std::make_shared<NAst::TFunDecl>(TLocation{}, fn.Name, params, nullptr, fn.ReturnType);
-        funDecl->MangledName = fn.MangledName;
-        funDecl->Type = funType;
-        funDecl->Ptr = fn.Ptr;
-        funDecl->Packed = fn.Packed;
-        ctx.DeclareFunction(fn.Name, funDecl);
-    }
+    ExternalFunctions_.swap(functions);
 }
 
 } // namespace NRegistry

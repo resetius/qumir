@@ -970,6 +970,7 @@ Stmt ::= VarDecl
     | Break
     | Continue
     | FunDecl
+    | Use
 */
 TAstTask stmt(TTokenStream& stream) {
     // Variable declarations:
@@ -1045,6 +1046,17 @@ TAstTask stmt(TTokenStream& stream) {
             stream.Unget(*first);
             co_return co_await expr(stream);
         }
+    } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Use) {
+        auto next = co_await stream.Next();
+        if (next.Type != TToken::Identifier) {
+            co_return TError(next.Location, "ожидалось имя модуля после 'использовать'");
+        }
+        auto moduleName = next.Name;
+        next = co_await stream.Next();
+        if (next.Type != TToken::Operator && static_cast<EOperator>(next.Value.i64) != EOperator::Eol) {
+            co_return TError(next.Location, "ожидается новая строка после имени модуля");
+        }
+        co_return std::make_shared<TUseExpr>(first->Location, moduleName);
     } else {
         // std::cerr << "Debug " << (int)first->Type << " " << first->Name << " " << first->Value.i64 << "\n";
         stream.Unget(*first);

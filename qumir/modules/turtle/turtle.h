@@ -5,12 +5,12 @@
 namespace NQumir {
 namespace NRegistry {
 
-class SystemModule : public IModule {
+class TurtleModule : public IModule {
 public:
-    SystemModule();
+    TurtleModule();
 
     const std::string& Name() const override {
-        static const std::string name = "System";
+        static const std::string name = "Черепаха";
         return name;
     }
 

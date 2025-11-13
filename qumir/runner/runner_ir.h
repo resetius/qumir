@@ -49,6 +49,7 @@ private:
     NSemantics::TNameResolver Resolver;
 
     std::vector<std::shared_ptr<NRegistry::IModule>> RegisteredModules;
+    std::vector<std::shared_ptr<NRegistry::IModule>> AvailableModules;
 };
 
 } // namespace NQumir

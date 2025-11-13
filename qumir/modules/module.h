@@ -5,11 +5,22 @@
 namespace NQumir {
 namespace NRegistry {
 
+struct TExternalFunction {
+    std::string Name;
+    std::string MangledName;
+    void* Ptr;
+    using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
+    TPacked Packed = nullptr; // packed thunk
+    std::vector<NAst::TTypePtr> ArgTypes;
+    NAst::TTypePtr ReturnType;
+};
+
 class IModule {
 public:
     virtual ~IModule() = default;
-    virtual const std::string& GetName() const = 0;
-    virtual void Register(NSemantics::TNameResolver& ctx) = 0;
+    virtual const std::string& Name() const = 0;
+    virtual void Register(NSemantics::TNameResolver& ctx);
+    virtual const std::vector<TExternalFunction>& ExternalFunctions() const = 0;
 };
 
 } // namespace NRegistry

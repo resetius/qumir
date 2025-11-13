@@ -50,6 +50,7 @@ enum class EKeyword : uint8_t {
     OutArg,
     InOutArg,
     Return,
+    Use,
 };
 
 enum class EOperator : uint8_t {

@@ -2,6 +2,11 @@
 
 const $ = sel => document.querySelector(sel);
 let currentAbort = null;
+// Output view selection for the compiler pane (text or turtle)
+let __compilerOutputMode = 'text';
+let __turtleCanvas = null;
+let __turtleToggle = null;
+let __turtleModule = null;
 const api = async (path, body, asBinary, signal) => {
   // New protocol: send raw code as text/plain and pass optimization level via X-Qumir-O
   const code = body.code || '';
@@ -92,6 +97,110 @@ async function show(mode) {
     $('#output').classList.add('error');
   }
 }
+// Helpers: turtle UI in the compiler output pane
+function ensureTurtleUI() {
+  const out = document.getElementById('output');
+  if (!out) return;
+  // Toggle UI (radio buttons)
+  if (!__turtleToggle) {
+    const ctr = document.createElement('div');
+    ctr.id = 'output-mode';
+    ctr.className = 'output-mode';
+    ctr.style.margin = '6px 0';
+    ctr.style.display = 'flex';
+    ctr.style.gap = '12px';
+    const makeOpt = (label, value) => {
+      const lab = document.createElement('label');
+      lab.style.cursor = 'pointer';
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'q-out-mode';
+      input.value = value;
+      input.style.marginRight = '6px';
+      input.addEventListener('change', () => { if (input.checked) setCompilerOutputMode(value); });
+      lab.appendChild(input);
+      lab.appendChild(document.createTextNode(label));
+      return lab;
+    };
+    ctr.appendChild(makeOpt('Текст', 'text'));
+    ctr.appendChild(makeOpt('Черепаха', 'turtle'));
+    out.parentNode.insertBefore(ctr, out);
+    __turtleToggle = ctr;
+  }
+  __turtleToggle.style.display = '';
+  // Sync radios with current mode or saved cookie
+  const saved = getCookie('q_out_mode');
+  const targetMode = (saved === 'turtle') ? 'turtle' : __compilerOutputMode;
+  const radios = __turtleToggle.querySelectorAll('input[name="q-out-mode"]');
+  radios.forEach(r => { r.checked = (r.value === targetMode); });
+
+  if (!__turtleCanvas) {
+    const cnv = document.createElement('canvas');
+    cnv.id = 'turtle-canvas';
+    cnv.style.display = 'none';
+    cnv.style.width = '100%';
+    // try to mirror output height if fixed; otherwise default
+    cnv.style.height = (out.clientHeight > 0 ? out.clientHeight + 'px' : (out.style.height || '300px'));
+    cnv.style.background = '#fff';
+    cnv.style.border = '1px solid #2b2b2b44';
+    cnv.style.borderRadius = '4px';
+    out.parentNode.insertBefore(cnv, out.nextSibling);
+    __turtleCanvas = cnv;
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => {
+        if (__turtleCanvas && out) {
+          const h = out.clientHeight;
+          if (h > 32) __turtleCanvas.style.height = h + 'px';
+        }
+      });
+      try { ro.observe(out); } catch {}
+    }
+    // One-time async adjust in case layout not settled yet
+    setTimeout(() => {
+      if (__turtleCanvas && out) {
+        const h = out.clientHeight;
+        if (h > 32) __turtleCanvas.style.height = h + 'px';
+      }
+    }, 0);
+  } else {
+    // Update existing canvas height if output grew before first toggle
+    if (out.clientHeight > 32) __turtleCanvas.style.height = out.clientHeight + 'px';
+  }
+}
+
+function hideTurtleUI() {
+  __compilerOutputMode = 'text';
+  setCookie('q_out_mode', 'text');
+  if (__turtleToggle) __turtleToggle.style.display = 'none';
+  const out = document.getElementById('output');
+  if (out) out.style.display = '';
+  if (__turtleCanvas) __turtleCanvas.style.display = 'none';
+}
+
+function setCompilerOutputMode(mode) {
+  __compilerOutputMode = (mode === 'turtle') ? 'turtle' : 'text';
+  setCookie('q_out_mode', __compilerOutputMode);
+  const out = document.getElementById('output');
+  if (__compilerOutputMode === 'turtle') {
+    if (out) out.style.display = 'none';
+    if (__turtleCanvas) __turtleCanvas.style.display = '';
+    // Sync height again to avoid initial gap
+    if (__turtleCanvas && out && out.clientHeight > 32) {
+      __turtleCanvas.style.height = out.clientHeight + 'px';
+    }
+  } else {
+    if (out) out.style.display = '';
+    if (__turtleCanvas) __turtleCanvas.style.display = 'none';
+  }
+  if (__turtleToggle) {
+    const radios = __turtleToggle.querySelectorAll('input[name="q-out-mode"]');
+    radios.forEach(r => { r.checked = (r.value === __compilerOutputMode); });
+  }
+}
+
+function getCurrentCompilerOutputNode() {
+  return (__compilerOutputMode === 'turtle' && __turtleCanvas) ? __turtleCanvas : document.getElementById('output');
+}
 
 async function runWasm() {
   const code = getCode();
@@ -102,9 +211,10 @@ async function runWasm() {
     const ioEnv = await import('./runtime/io.js');
     const stringEnv = await import('./runtime/string.js');
     const arrayEnv = await import('./runtime/array.js');
-    const env = { ...mathEnv, ...ioEnv, ...stringEnv, ...arrayEnv };
+    if (!__turtleModule) { try { __turtleModule = await import('./runtime/turtle.js'); } catch {} }
+    const env = { ...mathEnv, ...ioEnv, ...stringEnv, ...arrayEnv, ...(__turtleModule || {}) };
     const imports = { env };
-    const { instance } = await WebAssembly.instantiate(bytes, imports);
+    const { instance, module } = await WebAssembly.instantiate(bytes, imports);
     const mem = instance.exports && instance.exports.memory;
     if (mem && typeof ioEnv.__bindMemory === 'function') {
       ioEnv.__bindMemory(mem);
@@ -114,6 +224,25 @@ async function runWasm() {
     }
     if (mem && typeof arrayEnv.__bindMemory === 'function') {
       arrayEnv.__bindMemory(mem);
+    }
+    // Turtle integration: detect if wasm imports turtle_* and prepare canvas/toggle
+    let usesTurtle = false;
+    try {
+      const imps = module ? WebAssembly.Module.imports(module) : [];
+      usesTurtle = Array.isArray(imps) && imps.some(imp => imp && imp.module === 'env' && typeof imp.name === 'string' && imp.name.startsWith('turtle_'));
+    } catch {}
+    if (usesTurtle && __turtleModule) {
+      ensureTurtleUI();
+      if (__turtleCanvas && typeof __turtleModule.__bindTurtleCanvas === 'function') {
+        __turtleModule.__bindTurtleCanvas(__turtleCanvas);
+      }
+      if (typeof __turtleModule.__resetTurtle === 'function') {
+        __turtleModule.__resetTurtle(true);
+      }
+      const saved = getCookie('q_out_mode');
+      setCompilerOutputMode(saved === 'turtle' ? 'turtle' : __compilerOutputMode);
+    } else {
+      hideTurtleUI();
     }
     if (typeof ioEnv.__resetIO === 'function') {
       ioEnv.__resetIO(true);
@@ -571,7 +700,10 @@ $('#btn-run').addEventListener('click', async () => {
   const titleOutput = document.getElementById('title-output');
   if (compOutEl && titleOutput) {
     titleOutput.addEventListener('mousedown', e => e.preventDefault());
-    titleOutput.addEventListener('click', () => open('Compiler output', compOutEl));
+    titleOutput.addEventListener('click', () => {
+      const node = getCurrentCompilerOutputNode();
+      open('Compiler output', node);
+    });
   }
   const stdinEl = document.getElementById('stdin');
   const titleStdin = document.getElementById('title-stdin');

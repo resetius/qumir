@@ -3,6 +3,7 @@
 #include <qumir/parser/lexer.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
+#include <qumir/modules/turtle/turtle.h>
 #include <qumir/ir/passes/transforms/pipeline.h>
 
 #include <iostream>
@@ -25,8 +26,13 @@ TIRRunner::TIRRunner(
     RegisteredModules.push_back(std::make_shared<NRegistry::SystemModule>());
     // TODO: register other modules
 
+    AvailableModules.push_back(std::make_shared<NRegistry::TurtleModule>());
+
     for (const auto& mod : RegisteredModules) {
         mod->Register(Resolver);
+    }
+    for (const auto& mod : AvailableModules) {
+        Resolver.RegisterModule(mod.get());
     }
 }
 

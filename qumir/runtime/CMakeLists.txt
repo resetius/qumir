@@ -10,5 +10,7 @@ add_library(qumir_runtime
     runtime.h
     string.cpp
     string.h
+    turtle.cpp
+    turtle.h
     )
 target_compile_features(qumir_runtime PUBLIC cxx_std_23)
