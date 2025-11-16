@@ -161,6 +161,23 @@ char* str_from_unicode(int64_t codepoint) {
     return str_from_lit_(buffer, std::strlen(buffer));
 }
 
+int64_t str_str(const char* haystack, const char* needle) {
+    if (!haystack || !needle) return 0; // strings are 1-indexed
+    auto* pos = std::strstr(haystack, needle);
+    if (!pos) return 0;
+    // compute symbol index
+    auto* p = haystack;
+    int64_t haystackIndex = 0;
+    while (p < pos) {
+        unsigned char c = static_cast<unsigned char>(p[0]);
+        if ((c & 0b11000000) != 0b10000000) {
+            ++haystackIndex; // symbol index
+        }
+        ++p;
+    }
+    return haystackIndex + 1; // strings are 1-indexed
+}
+
 char* assign_from_lit(char* dest, const char* src) {
     if (!src) {
         str_release(dest);

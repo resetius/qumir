@@ -99,3 +99,18 @@ export function str_from_unicode(codepoint) {
     if (!Number.isFinite(cp) || cp < 0 || cp > 0x10FFFF) return writeStrToScratch('');
     return writeStrToScratch(String.fromCodePoint(cp));
 }
+export function str_str(haystackPtr, needlePtr) {
+    const haystack = readCString(haystackPtr);
+    const needle = readCString(needlePtr);
+    const index = haystack.indexOf(needle);
+    // need 1-indexed symbol position, 0 if not found
+    if (index === -1) return BigInt(0);
+    let symbolIndex = 0;
+    for (let i = 0; i < index; ) {
+        const cp = haystack.codePointAt(i);
+        i += cp > 0xFFFF ? 2 : 1;
+        symbolIndex++;
+    }
+    symbolIndex++; // convert to 1-based
+    return BigInt(symbolIndex);
+}

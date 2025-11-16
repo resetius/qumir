@@ -1,0 +1,11 @@
+function strstr () { ; i64
+  block {
+    label: label(0)
+    arg imm(0,ptr to i8) 
+    arg imm(1,ptr to i8) 
+    call tmp(0,i64) = позиция 
+    stre local(0,i64) tmp(0,i64) 
+    load tmp(1,i64) = local(0,i64) 
+    ret tmp(1,i64) 
+  }
+}

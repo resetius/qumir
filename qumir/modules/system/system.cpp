@@ -446,6 +446,28 @@ SystemModule::SystemModule() {
             .ArgTypes = { integerType },
             .ReturnType = stringType,
         },
+        {
+            .Name = "позиция",
+            .MangledName = "str_str",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(const char*, const char*)>(NRuntime::str_str)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto ret = NRuntime::str_str(reinterpret_cast<const char*>(args[0]), reinterpret_cast<const char*>(args[1]));
+                return std::bit_cast<uint64_t>(ret);
+            },
+            .ArgTypes = { stringType, stringType },
+            .ReturnType = integerType,
+        },
+        {
+            .Name = "поз", // alias for позиция
+            .MangledName = "str_str",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(const char*, const char*)>(NRuntime::str_str)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto ret = NRuntime::str_str(reinterpret_cast<const char*>(args[0]), reinterpret_cast<const char*>(args[1]));
+                return std::bit_cast<uint64_t>(ret);
+            },
+            .ArgTypes = { stringType, stringType },
+            .ReturnType = integerType,
+        },
         // arrays
         {
             .Name = "array_create",
