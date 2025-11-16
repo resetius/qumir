@@ -1,10 +1,12 @@
 #include "pipeline.h"
-#include "qumir/ir/passes/analysis/cfg.h"
 
+#include <qumir/ir/passes/analysis/cfg.h>
 #include <qumir/ir/passes/transforms/locals2ssa.h>
 #include <qumir/ir/passes/transforms/de_ssa.h>
 #include <qumir/ir/passes/transforms/renumber_regs.h>
 #include <qumir/ir/passes/transforms/const_fold.h>
+
+#include <algorithm>
 
 namespace NQumir {
 namespace NIR {
