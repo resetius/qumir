@@ -178,6 +178,32 @@ int64_t str_str(const char* haystack, const char* needle) {
     return haystackIndex + 1; // strings are 1-indexed
 }
 
+int64_t str_str_from(int64_t symbolStartPos, const char* haystack, const char* needle) {
+    if (!haystack || !needle) return 0; // strings are 1-indexed
+    // shift haystack to symbolStartPos
+    auto* p = haystack;
+    int64_t haystackIndex = 0;
+    while (haystackIndex < symbolStartPos - 1 && p[0] != '\0') {
+        unsigned char c = static_cast<unsigned char>(p[0]);
+        if ((c & 0b11000000) != 0b10000000) {
+            ++haystackIndex; // symbol index
+        }
+        ++p;
+    }
+    auto* pos = std::strstr(p, needle);
+    if (!pos) return 0;
+    // compute symbol index
+    int64_t needleIndex = 0;
+    while (p < pos) {
+        unsigned char c = static_cast<unsigned char>(p[0]);
+        if ((c & 0b11000000) != 0b10000000) {
+            ++needleIndex; // symbol index
+        }
+        ++p;
+    }
+    return haystackIndex + needleIndex + 1; // strings are 1-indexed
+}
+
 char* assign_from_lit(char* dest, const char* src) {
     if (!src) {
         str_release(dest);

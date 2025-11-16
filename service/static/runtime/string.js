@@ -114,3 +114,28 @@ export function str_str(haystackPtr, needlePtr) {
     symbolIndex++; // convert to 1-based
     return BigInt(symbolIndex);
 }
+export function str_str_from(startSymbolPos, haystackPtr, needlePtr) {
+    const startPos = Number(startSymbolPos);
+    if (!Number.isFinite(startPos) || startPos < 1) return BigInt(0);
+    const haystack = readCString(haystackPtr);
+    const needle = readCString(needlePtr);
+    // Convert symbol position to string index
+    let symbolIndex = 1;
+    let strIndex = 0;
+    while (strIndex < haystack.length && symbolIndex < startPos) {
+        const cp = haystack.codePointAt(strIndex);
+        strIndex += cp > 0xFFFF ? 2 : 1;
+        symbolIndex++;
+    }
+    const index = haystack.indexOf(needle, strIndex);
+    // need 1-indexed symbol position, 0 if not found
+    if (index === -1) return BigInt(0);
+    symbolIndex = 1;
+    for (let i = 0; i < index; ) {
+        const cp = haystack.codePointAt(i);
+        i += cp > 0xFFFF ? 2 : 1;
+        symbolIndex++;
+    }
+    symbolIndex++; // convert to 1-based
+    return BigInt(strIndex + symbolIndex);
+}

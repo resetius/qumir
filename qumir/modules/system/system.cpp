@@ -468,6 +468,28 @@ SystemModule::SystemModule() {
             .ArgTypes = { stringType, stringType },
             .ReturnType = integerType,
         },
+        {
+            .Name = "позиция после",
+            .MangledName = "str_str_from",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, const char*, const char*)>(NRuntime::str_str_from)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto ret = NRuntime::str_str_from(std::bit_cast<int64_t>(args[0]), reinterpret_cast<const char*>(args[1]), reinterpret_cast<const char*>(args[2]));
+                return std::bit_cast<uint64_t>(ret);
+            },
+            .ArgTypes = { integerType, stringType, stringType },
+            .ReturnType = integerType,
+        },
+        {
+            .Name = "поз после", // alias for позиция после
+            .MangledName = "str_str_from",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, const char*, const char*)>(NRuntime::str_str_from)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto ret = NRuntime::str_str_from(std::bit_cast<int64_t>(args[0]), reinterpret_cast<const char*>(args[1]), reinterpret_cast<const char*>(args[2]));
+                return std::bit_cast<uint64_t>(ret);
+            },
+            .ArgTypes = { integerType, stringType, stringType },
+            .ReturnType = integerType,
+        },
         // arrays
         {
             .Name = "array_create",
