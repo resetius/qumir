@@ -1,9 +1,10 @@
 #include "cfg.h"
-#include "qumir/ir/builder.h"
+#include <qumir/ir/builder.h>
 
-#include <unordered_set>
+#include <set>
 #include <stack>
-#include <iostream>
+#include <algorithm>
+
 
 namespace NQumir {
 namespace NIR {
