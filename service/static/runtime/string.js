@@ -84,3 +84,13 @@ export function str_compare(a, b) {
     if (sa === sb) return 0;
     return sa < sb ? -1 : 1;
 }
+export function str_len(ptr) {
+    const s = readCString(ptr);
+    return BigInt(Array.from(s).length);
+}
+export function str_unicode(ptr) {
+    const s = readCString(ptr);
+    const symbols = Array.from(s);
+    if (symbols.length === 0) return BigInt(0);
+    return BigInt(symbols[0].codePointAt(0));
+}

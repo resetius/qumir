@@ -115,6 +115,30 @@ int64_t str_len(const char* s) {
     return str->Symbols;
 }
 
+int64_t str_unicode(const char* s) {
+    if (!s) return -1;
+    unsigned char c = static_cast<unsigned char>(s[0]);
+    if (c < 0x80) {
+        return c;
+    } else if ((c & 0b11100000) == 0b11000000) {
+        // 2-byte sequence
+        unsigned char c2 = static_cast<unsigned char>(s[1]);
+        return ((c & 0b00011111) << 6) | (c2 & 0b00111111);
+    } else if ((c & 0b11110000) == 0b11100000) {
+        // 3-byte sequence
+        unsigned char c2 = static_cast<unsigned char>(s[1]);
+        unsigned char c3 = static_cast<unsigned char>(s[2]);
+        return ((c & 0b00001111) << 12) | ((c2 & 0b00111111) << 6) | (c3 & 0b00111111);
+    } else if ((c & 0b11111000) == 0b11110000) {
+        // 4-byte sequence
+        unsigned char c2 = static_cast<unsigned char>(s[1]);
+        unsigned char c3 = static_cast<unsigned char>(s[2]);
+        unsigned char c4 = static_cast<unsigned char>(s[3]);
+        return ((c & 0b00000111) << 18) | ((c2 & 0b00111111) << 12) | ((c3 & 0b00111111) << 6) | (c4 & 0b00111111);
+    }
+    return -1; // invalid UTF-8
+}
+
 char* assign_from_lit(char* dest, const char* src) {
     if (!src) {
         str_release(dest);

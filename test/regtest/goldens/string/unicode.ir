@@ -1,0 +1,26 @@
+function ф () { ; i64
+  block {
+    label: label(0)
+    arg imm(0,ptr to i8) 
+    call tmp(0,ptr to i8) = str_from_lit 
+    load tmp(1,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(1,ptr to i8) 
+    call str_release 
+    stre local(1,ptr to i8) tmp(0,ptr to i8) 
+    load tmp(2,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(2,ptr to i8) 
+    arg imm(2,i64) 
+    arg imm(2,i64) 
+    call tmp(3,ptr to i8) = str_slice 
+    arg tmp(3,ptr to i8) 
+    call tmp(4,i64) = юникод 
+    arg tmp(3,ptr to i8) 
+    call str_release 
+    stre local(0,i64) tmp(4,i64) 
+    load tmp(5,i64) = local(0,i64) 
+    load tmp(6,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(6,ptr to i8) 
+    call str_release 
+    ret tmp(5,i64) 
+  }
+}
