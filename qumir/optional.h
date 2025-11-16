@@ -4,6 +4,7 @@
 #include <coroutine>
 #include <exception>
 #include <expected>
+#include <variant>
 #include <type_traits>
 #include <concepts>
 
