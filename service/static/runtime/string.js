@@ -82,8 +82,8 @@ export function str_slice(strPtr, startSymbol, endSymbol) {
 export function str_compare(a, b) {
     const sa = readCString(a);
     const sb = readCString(b);
-    if (sa === sb) return 0;
-    return sa < sb ? -1 : 1;
+    if (sa === sb) return BigInt(0);
+    return sa < sb ? BigInt(-1) : BigInt(1);
 }
 export function str_len(ptr) {
     const s = readCString(ptr);
