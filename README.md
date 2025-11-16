@@ -252,6 +252,100 @@ This project is licensed under the BSD 2-Clause License (BSD-2-Clause). See the 
 - Based on and inspired by the educational language of Academician Andrei P. Ershov (Ершов) and the KUMIR tradition.
 - Thanks to the LLVM project for the compiler infrastructure tools.
 
+## Feature Comparison with KUMIR
+
+Legend: ✔ = supported, ✖ = not supported / not yet implemented. Notes highlight semantic differences.
+
+### Data Types & Core
+
+| Feature | KUMIR | Qumir | Notes |
+|---------|:-----:|:-----:|-------|
+| `цел` (int) | ✔ | ✔ | |
+| `вещ` (float) | ✔ | ✔ | |
+| `лит` (string) | ✔ | ✔ | |
+| `сим` (char) | ✔ | ✖ | Indexing a string returns a one‑character `лит` |
+| `лог` (bool) | ✔ | ✖ | |
+| `таб` (arrays) | ✔ | ✔ | Dimension count not limited to 3 in Qumir |
+| Index ranges `a[L:R]` | ✔ | ✔ | |
+
+### Operators & Expressions
+
+| Operator / Group | KUMIR | Qumir | Notes |
+|------------------|:-----:|:-----:|-------|
+| Arithmetic `+ - * /` | ✔ | ✔ | |
+| Exponentiation `**` | ✔ | ✔ | |
+| Comparisons `= <> < <= > >=` | ✔ | ✔ | |
+| Logical `и` (and) | ✔ | ✔ | Short‑circuit |
+| Logical `или` (or) | ✔ | ✔ | Short‑circuit |
+| Logical `не` (not) | ✔ | ✔ | Prefix operator |
+| String concatenation | ✔ | ✔ | Same `+` operator |
+| Precedence & parentheses | ✔ | ✔ | C‑like precedence ordering |
+
+### Function Parameters
+
+| Feature | KUMIR | Qumir | Notes |
+|---------|:-----:|:-----:|-------|
+| Input `арг` | ✔ | ✔ | Passed by value |
+| Output `рез/знач` | ✔ | ✔ | Result via out parameter |
+| Inout `аргрез` | ✔ | ✔ | Combines input & modification |
+| Overloading | ✖ | ✖ | Not supported |
+
+### Control Flow
+
+| Construct | KUMIR | Qumir | Notes |
+|-----------|:-----:|:-----:|-------|
+| `нц для ... от .. до .. шаг ..` | ✔ | ✔ | Negative step allowed |
+| `нц пока` (while) | ✔ | ✔ | |
+| `нц` ... `кц при` (repeat‑until) | ✔ | ✔ | Post‑condition loop |
+| `нц N раз` (repeat N times) | ✔ | ✖ | Emulate with `нц для` |
+| Infinite `нц .. кц` | ✔ | ✖ | Emulate with `нц пока истина` |
+| `выбор / при / иначе` (switch) | ✔ | ✔ | Multi‑branch selection |
+| `если/то/иначе/все` (if/else) | ✔ | ✔ | |
+
+### Executors (Turtle & Others)
+
+| Executor / Function | KUMIR | Qumir | Notes |
+|---------------------|:-----:|:-----:|-------|
+| Turtle base | ✔ | ✔ | Movement & rotation |
+| `вперёд(len)` / `назад(len)` | ✔ | ✔ | |
+| `влево(угол)` / `вправо(угол)` | ✔ | ✔ | |
+| Pen up/down | ✔ | ✔ | Functions: `поднять хвост`, `опустить хвост` (tail up/down) |
+| Save/restore state | ✖ | ✔ | State stack (pos, angle, pen). Functions: `сохранить состояние`, `восстановить состояние` |
+| Other classic executors (Robot, Drawing, etc.) | ✔ | ✖ | Not implemented |
+
+### String Algorithms / Functions
+
+| Function | KUMIR | Qumir | Notes |
+|----------|:-----:|:-----:|-------|
+| `длин(лит s)` length | ✔ | ✔ | Returns number of characters |
+| `код(сим c)` CP‑1251 code | ✔ | ✖ | Not implemented (use `юникод` for Unicode) |
+| `юникод(сим c)` Unicode code point | ✔ | ✔ | Qumir returns Unicode scalar value |
+| `символ(цел n)` CP‑1251 to char | ✔ | ✖ | Not implemented (Unicode: use `юнисимвол`) |
+| `юнисимвол(цел n)` Unicode to char | ✔ | ✔ | Creates single‑char string from code point |
+| `верхний регистр(лит s)` to upper | ✔ | ✖ | Not implemented (future: Unicode upper) |
+| `нижний регистр(лит s)` to lower | ✔ | ✖ | Not implemented (future: Unicode lower) |
+| `позиция(лит s, лит frag)` find | ✔ | ✔ | 1‑based index or 0 if not found |
+| `поз(лит s, лит frag)` alias | ✔ | ✔ | Alias of `позиция` |
+| `позиция после(цел start, лит s, лит frag)` find from | ✔ | ✔ | Search starting at position `start` |
+| `поз после(цел start, лит s, лит frag)` alias | ✔ | ✔ | Alias of `позиция после` |
+| `вставить(лит frag, аргрез лит s, арг цел pos)` insert | ✔ | ✖ | Not implemented |
+| `заменить(аргрез лит s, арг лит old, арг лит neu, арг лог каждый)` replace | ✔ | ✖ | Not implemented |
+| `удалить(аргрез лит s, арг цел pos, арг цел count)` delete | ✔ | ✖ | Not implemented |
+
+> Qumir focuses on core search/length/code‑point operations first; mutation helpers (`вставить/заменить/удалить`) and case conversion may be added later with full Unicode support.
+
+### Miscellaneous
+
+| Capability | KUMIR | Qumir | Notes |
+|------------|:-----:|:-----:|-------|
+| LLVM JIT / AOT | ✖ | ✔ | IR & LLVM codegen |
+| WebAssembly target | ✖ | ✔ | Optional (`--wasm`) |
+| Streaming online playground | ✖ | ✔ | https://qumir.dev |
+| Lazy logical evaluation | ✖ | ✔ | Short‑circuit like C/C++ |
+| Multi‑dim arrays > 3 | ✖ | ✔ | No dimension cap |
+
+> If a Qumir status looks wrong, please open an issue or PR — the table will evolve with the language.
+
 ---
 
 Try it online: https://qumir.dev
