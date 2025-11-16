@@ -435,6 +435,17 @@ SystemModule::SystemModule() {
             .ArgTypes = { stringType },
             .ReturnType = integerType,
         },
+        {
+            .Name = "юнисимвол",
+            .MangledName = "str_from_unicode",
+            .Ptr = reinterpret_cast<void*>(static_cast<char*(*)(int64_t)>(NRuntime::str_from_unicode)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto* str = NRuntime::str_from_unicode(std::bit_cast<int64_t>(args[0]));
+                return std::bit_cast<uint64_t>(str);
+            },
+            .ArgTypes = { integerType },
+            .ReturnType = stringType,
+        },
         // arrays
         {
             .Name = "array_create",

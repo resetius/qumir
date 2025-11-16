@@ -139,6 +139,28 @@ int64_t str_unicode(const char* s) {
     return -1; // invalid UTF-8
 }
 
+char* str_from_unicode(int64_t codepoint) {
+    char buffer[5] = {0};
+    if (codepoint < 0x80) {
+        buffer[0] = static_cast<char>(codepoint);
+    } else if (codepoint < 0x800) {
+        buffer[0] = static_cast<char>(0b11000000 | ((codepoint >> 6) & 0b00011111));
+        buffer[1] = static_cast<char>(0b10000000 | (codepoint & 0b00111111));
+    } else if (codepoint < 0x10000) {
+        buffer[0] = static_cast<char>(0b11100000 | ((codepoint >> 12) & 0b00001111));
+        buffer[1] = static_cast<char>(0b10000000 | ((codepoint >> 6) & 0b00111111));
+        buffer[2] = static_cast<char>(0b10000000 | (codepoint & 0b00111111));
+    } else if (codepoint <= 0x10FFFF) {
+        buffer[0] = static_cast<char>(0b11110000 | ((codepoint >> 18) & 0b00000111));
+        buffer[1] = static_cast<char>(0b10000000 | ((codepoint >> 12) & 0b00111111));
+        buffer[2] = static_cast<char>(0b10000000 | ((codepoint >> 6) & 0b00111111));
+        buffer[3] = static_cast<char>(0b10000000 | (codepoint & 0b00111111));
+    } else {
+        return nullptr; // invalid codepoint
+    }
+    return str_from_lit_(buffer, std::strlen(buffer));
+}
+
 char* assign_from_lit(char* dest, const char* src) {
     if (!src) {
         str_release(dest);

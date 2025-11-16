@@ -94,3 +94,8 @@ export function str_unicode(ptr) {
     if (symbols.length === 0) return BigInt(0);
     return BigInt(symbols[0].codePointAt(0));
 }
+export function str_from_unicode(codepoint) {
+    const cp = Number(codepoint);
+    if (!Number.isFinite(cp) || cp < 0 || cp > 0x10FFFF) return writeStrToScratch('');
+    return writeStrToScratch(String.fromCodePoint(cp));
+}
