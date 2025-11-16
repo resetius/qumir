@@ -5,6 +5,7 @@
 #include <qumir/semantics/type_annotation/type_annotation.h>
 
 #include <iostream>
+#include <limits>
 
 namespace NQumir {
 namespace NTransform {
