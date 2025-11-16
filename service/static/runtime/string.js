@@ -66,12 +66,13 @@ export function str_retain(_ptr) {}
 export function str_release(_ptr) {}
 export function str_concat(a, b) { return writeStrToScratch(readCString(a) + readCString(b)); }
 export function str_slice(strPtr, startSymbol, endSymbol) {
-    // endSymbol is inclusive
+    // 1-indexed, endSymbol is inclusive
     const s = readCString(strPtr);
     const symbols = Array.from(s);
     const len = symbols.length;
-    const start = Math.max(0, Math.min(len, Number(startSymbol)));
-    let endInc = Number(endSymbol);
+    // Convert from 1-indexed to 0-indexed
+    const start = Math.max(0, Math.min(len, Number(startSymbol) - 1));
+    let endInc = Number(endSymbol) - 1;
     if (!Number.isFinite(endInc)) endInc = len - 1;
     endInc = Math.max(-1, Math.min(len - 1, endInc));
     if (start > endInc) return writeStrToScratch('');
