@@ -7,7 +7,7 @@ macro(ut name source)
     target_link_libraries(${name} qumir qumir_runtime qumir_codegen_llvm ${GTEST_LIBRARIES})
     target_include_directories(${name} PRIVATE ${GTEST_INCLUDE_DIRS})
     target_link_directories(${name} PRIVATE ${GTEST_LIBRARY_DIRS})
-    add_test(NAME ${name} COMMAND ${name} ${ARGN})
+    add_test(NAME ${name} COMMAND ${name} ${ARGN} --gtest_output=xml:${name}.xml)
 endmacro()
 
 ut(test_lexer test_lexer.cpp)
