@@ -257,6 +257,7 @@ bool TNameResolver::ImportModule(const std::string& name) {
         funDecl->Type = funType;
         funDecl->Ptr = fn.Ptr;
         funDecl->Packed = fn.Packed;
+        funDecl->RequireArgsMaterialization = fn.RequireArgsMaterialization;
         DeclareFunction(fn.Name, funDecl);
     }
 

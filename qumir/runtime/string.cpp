@@ -106,6 +106,15 @@ int64_t str_compare(const char* a, const char* b) {
     return (lenA < lenB) ? -1 : (lenA > lenB) ? 1 : 0;
 }
 
+int64_t str_len(const char* s) {
+    if (!s) return 0;
+    TString* str = (TString*)(s - offsetof(TString, Data));
+    if (!str->Utf8Indices) {
+        build_utf8_indices(str);
+    }
+    return str->Symbols;
+}
+
 char* assign_from_lit(char* dest, const char* src) {
     if (!src) {
         str_release(dest);

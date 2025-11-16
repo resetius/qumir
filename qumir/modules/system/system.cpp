@@ -412,6 +412,18 @@ SystemModule::SystemModule() {
             .ArgTypes = { stringType, stringType },
             .ReturnType = integerType
         },
+        {
+            .Name = "длин",
+            .MangledName = "str_len",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(const char*)>(NRuntime::str_len)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto ret = NRuntime::str_len(reinterpret_cast<const char*>(args[0]));
+                return std::bit_cast<uint64_t>(ret);
+            },
+            .ArgTypes = { stringType },
+            .ReturnType = integerType,
+            .RequireArgsMaterialization = true
+        },
         // arrays
         {
             .Name = "array_create",

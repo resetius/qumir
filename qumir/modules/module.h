@@ -13,6 +13,7 @@ struct TExternalFunction {
     TPacked Packed = nullptr; // packed thunk
     std::vector<NAst::TTypePtr> ArgTypes;
     NAst::TTypePtr ReturnType;
+    bool RequireArgsMaterialization = false; // if true, arguments must be materialized before calling, used for strings
 };
 
 class IModule {

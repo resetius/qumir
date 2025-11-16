@@ -864,7 +864,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
             if (!av.Value) co_return TError(a->Location, "invalid argument");
 
-            if (av.Value->Type == TOperand::EType::Imm && av.Value->Imm.TypeId == lowStringTypeId && !funDecl->IsExternal()) {
+            if (av.Value->Type == TOperand::EType::Imm && av.Value->Imm.TypeId == lowStringTypeId && (!funDecl->IsExternal() || funDecl->RequireArgsMaterialization)) {
                 // Argument is a string literal pointer: materialize to string object
                 if (NAst::TMaybeType<NAst::TStringType>(argType)) {
                     auto constructorId = co_await GlobalSymbolId("str_from_lit");

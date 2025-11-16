@@ -1,0 +1,14 @@
+function ф () { ; i64
+  block {
+    label: label(0)
+    arg imm(0,ptr to i8) 
+    call tmp(0,ptr to i8) = str_from_lit 
+    arg tmp(0,ptr to i8) 
+    call tmp(1,i64) = длин 
+    arg tmp(0,ptr to i8) 
+    call str_release 
+    stre local(0,i64) tmp(1,i64) 
+    load tmp(2,i64) = local(0,i64) 
+    ret tmp(2,i64) 
+  }
+}

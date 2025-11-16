@@ -1,0 +1,12 @@
+(Block:<Fun () -> Int>
+  (FunDecl $ф ():<Fun () -> Int>
+    (Block:<Int>
+      (Var $__return:<Int>)
+      (Var $c:<String>)
+      ($c =:<Void>
+        ("строка":<String>))
+      ($__return =:<Void>
+        (Call:<Int>
+          ($длин:<Fun (String) -> Int>)
+          ($c:<String>)))
+      ($__return:<Int>))))

@@ -21,6 +21,7 @@ void str_retain(char* s);
 void str_release(char* s);
 char* str_concat(const char* a, const char* b);
 int64_t str_compare(const char* a, const char* b);
+int64_t str_len(const char* s);
 
 char* assign_from_lit(char* dest, const char* src);
 char* assign_from_str(char* dest, char* src, int borrowed);
