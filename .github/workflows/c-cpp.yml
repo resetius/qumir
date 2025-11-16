@@ -25,7 +25,9 @@ jobs:
     - name: configure
       run: |
         mkdir build
-        cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+        cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+          -DLLVM_DIR="$(llvm-config-20 --cmakedir)" \
+          -DCMAKE_PREFIX_PATH="$(llvm-config-20 --prefix)"
     - name: make
       run: cmake --build build
     - name: test
