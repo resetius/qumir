@@ -1,10 +1,10 @@
 (Block:<Fun () -> String>
   (FunDecl $ф ():<Fun () -> String>
     (Block:<String>
-      (Var $__return:<String>)
+      (Var $$$return:<String>)
       (Var $стр:<String>)
       ($стр =:<Void>
         ("ыыы":<String>))
-      ($__return =:<Void>
+      ($$$return =:<Void>
         ($стр:<String>))
-      ($__return:<String>))))
+      ($$$return:<String>))))

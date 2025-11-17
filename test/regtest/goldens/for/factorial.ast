@@ -1,76 +1,76 @@
 (Block:<Fun (Int) -> Int>
   (FunDecl $цикл ():<Fun () -> Int>
     (Block:<Int>
-      (Var $__return:<Int>)
+      (Var $$$return:<Int>)
       (Var $ф:<Int>)
       (Var $i:<Int>)
       (Block:<Void>
-        (Var $__to:<Int>)
-        (Var $__step:<Int>)
-        (Var $__next:<Int>)
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
         ($i =:<Void>
           (1:<Int>))
-        ($__step =:<Void>
+        ($$$step =:<Void>
           (1:<Int>))
-        ($__next =:<Void>
+        ($$$next =:<Void>
           ($i:<Int>))
-        ($__to =:<Void>
+        ($$$to =:<Void>
           (+:<Int>
             (1000:<Int>)
-            ($__step:<Int>)))
+            ($$$step:<Int>)))
         (Loop:<Void>
           (!=:<Bool>
-            ($__next:<Int>)
-            ($__to:<Int>))
+            ($$$next:<Int>)
+            ($$$to:<Int>))
           nil
           ($i =:<Void>
-            ($__next:<Int>))
+            ($$$next:<Int>))
           (Block:<Void>
             ($ф =:<Void>
               (Call:<Int>
                 ($факториал:<Fun (Int) -> Int>)
                 (13:<Int>))))
-          ($__next =:<Void>
+          ($$$next =:<Void>
             (+:<Int>
-              ($__next:<Int>)
-              ($__step:<Int>)))))
-      ($__return =:<Void>
+              ($$$next:<Int>)
+              ($$$step:<Int>)))))
+      ($$$return =:<Void>
         ($ф:<Int>))
-      ($__return:<Int>)))
+      ($$$return:<Int>)))
   (FunDecl $факториал ($число):<Fun (Int) -> Int>
     (Block:<Int>
-      (Var $__return:<Int>)
+      (Var $$$return:<Int>)
       (Var $i:<Int>)
-      ($__return =:<Void>
+      ($$$return =:<Void>
         (1:<Int>))
       (Block:<Void>
-        (Var $__to:<Int>)
-        (Var $__step:<Int>)
-        (Var $__next:<Int>)
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
         ($i =:<Void>
           (1:<Int>))
-        ($__step =:<Void>
+        ($$$step =:<Void>
           (1:<Int>))
-        ($__next =:<Void>
+        ($$$next =:<Void>
           ($i:<Int>))
-        ($__to =:<Void>
+        ($$$to =:<Void>
           (+:<Int>
             ($число:<Int>)
-            ($__step:<Int>)))
+            ($$$step:<Int>)))
         (Loop:<Void>
           (!=:<Bool>
-            ($__next:<Int>)
-            ($__to:<Int>))
+            ($$$next:<Int>)
+            ($$$to:<Int>))
           nil
           ($i =:<Void>
-            ($__next:<Int>))
+            ($$$next:<Int>))
           (Block:<Void>
-            ($__return =:<Void>
+            ($$$return =:<Void>
               (*:<Int>
-                ($__return:<Int>)
+                ($$$return:<Int>)
                 ($i:<Int>))))
-          ($__next =:<Void>
+          ($$$next =:<Void>
             (+:<Int>
-              ($__next:<Int>)
-              ($__step:<Int>)))))
-      ($__return:<Int>))))
+              ($$$next:<Int>)
+              ($$$step:<Int>)))))
+      ($$$return:<Int>))))

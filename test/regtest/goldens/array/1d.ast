@@ -1,29 +1,29 @@
 (Block:<Fun () -> Float>
   (FunDecl $функция ():<Fun () -> Float>
     (Block:<Float>
-      (Var $__return:<Float>)
+      (Var $$$return:<Float>)
       (Block:<Array [Float; 1]>
-        (Var $__A_lbound0:<Int>)
-        (Var $__A_dimsize0:<Int>)
-        (Var $__A_mulacc0:<Int>)
-        ($__A_lbound0 =:<Void>
+        (Var $$$A_lbound0:<Int>)
+        (Var $$$A_dimsize0:<Int>)
+        (Var $$$A_mulacc0:<Int>)
+        ($$$A_lbound0 =:<Void>
           (0:<Int>))
-        ($__A_dimsize0 =:<Void>
+        ($$$A_dimsize0 =:<Void>
           (+:<Int>
             (-:<Int>
               (10:<Int>)
               (0:<Int>))
             (1:<Int>)))
-        ($__A_mulacc0 =:<Void>
+        ($$$A_mulacc0 =:<Void>
           (*:<Int>
             (1:<Int>)
-            ($__A_dimsize0:<Int>)))
+            ($$$A_dimsize0:<Int>)))
         (Var $A:<Array [Float; 1]>))
       ($A[...] =:<Void>
         (0:<Int>)
         (1.000000:<Float>))
-      ($__return =:<Void>
+      ($$$return =:<Void>
         (Index:<Float>
           ($A:<Array [Float; 1]>)
           (0:<Int>)))
-      ($__return:<Float>))))
+      ($$$return:<Float>))))

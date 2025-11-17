@@ -1,7 +1,7 @@
 (Block:<Fun () -> String>
   (FunDecl $ф ():<Fun () -> String>
     (Block:<String>
-      (Var $__return:<String>)
+      (Var $$$return:<String>)
       (Var $s1:<String>)
       (Var $s2:<String>)
       (Var $s3:<String>)
@@ -17,6 +17,6 @@
             ($s1:<String>)
             ($s2:<String>))
           ($s3:<String>)))
-      ($__return =:<Void>
+      ($$$return =:<Void>
         ($s1:<String>))
-      ($__return:<String>))))
+      ($$$return:<String>))))

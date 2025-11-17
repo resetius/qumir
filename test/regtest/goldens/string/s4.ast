@@ -1,7 +1,7 @@
 (Block:<Fun (Int) -> String>
   (FunDecl $main ():<Fun () -> String>
     (Block:<String>
-      (Var $__return:<String>)
+      (Var $$$return:<String>)
       (Var $s:<String>)
       ($s =:<Void>
         (+:<String>
@@ -11,49 +11,49 @@
         (Call:<String>
           ($ф:<Fun (Int) -> String>)
           (10:<Int>)))
-      ($__return =:<Void>
+      ($$$return =:<Void>
         ($s:<String>))
-      ($__return:<String>)))
+      ($$$return:<String>)))
   (FunDecl $ф ($k):<Fun (Int) -> String>
     (Block:<String>
-      (Var $__return:<String>)
+      (Var $$$return:<String>)
       (Var $стр:<String>)
       (Var $i:<Int>)
       (Var $j:<Int>)
       ($стр =:<Void>
         ("ыыы":<String>))
-      ($__return =:<Void>
+      ($$$return =:<Void>
         ($стр:<String>))
       ($j =:<Void>
         (0:<Int>))
       (Block:<Void>
-        (Var $__to:<Int>)
-        (Var $__step:<Int>)
-        (Var $__next:<Int>)
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
         ($i =:<Void>
           (0:<Int>))
-        ($__step =:<Void>
+        ($$$step =:<Void>
           (1:<Int>))
-        ($__next =:<Void>
+        ($$$next =:<Void>
           ($i:<Int>))
-        ($__to =:<Void>
+        ($$$to =:<Void>
           (+:<Int>
             (10:<Int>)
-            ($__step:<Int>)))
+            ($$$step:<Int>)))
         (Loop:<Void>
           (!=:<Bool>
-            ($__next:<Int>)
-            ($__to:<Int>))
+            ($$$next:<Int>)
+            ($$$to:<Int>))
           nil
           ($i =:<Void>
-            ($__next:<Int>))
+            ($$$next:<Int>))
           (Block:<Void>
             ($j =:<Void>
               (+:<Int>
                 ($j:<Int>)
                 (1:<Int>))))
-          ($__next =:<Void>
+          ($$$next =:<Void>
             (+:<Int>
-              ($__next:<Int>)
-              ($__step:<Int>)))))
-      ($__return:<String>))))
+              ($$$next:<Int>)
+              ($$$step:<Int>)))))
+      ($$$return:<String>))))

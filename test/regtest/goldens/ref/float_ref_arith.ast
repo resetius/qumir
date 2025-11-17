@@ -1,18 +1,18 @@
 (Block:<Fun (Ref) -> Void>
   (FunDecl $функция ():<Fun () -> Float>
     (Block:<Float>
-      (Var $__return:<Float>)
+      (Var $$$return:<Float>)
       (Var $x:<Float>)
       ($x =:<Void>
         (1.500000:<Float>))
       (Call:<Void>
         ($g:<Fun (Ref) -> Void>)
         ($x:<Float>))
-      ($__return =:<Void>
+      ($$$return =:<Void>
         (*:<Float>
           ($x:<Float>)
           (2.000000:<Float>)))
-      ($__return:<Float>)))
+      ($$$return:<Float>)))
   (FunDecl $g ($x):<Fun (Ref) -> Void>
     (Block:<Void>
       ($x =:<Void>

@@ -1,14 +1,14 @@
 (Block:<Fun () -> String>
   (FunDecl $ф ():<Fun () -> String>
     (Block:<String>
-      (Var $__return:<String>)
+      (Var $$$return:<String>)
       (Var $с:<String>)
       ($с =:<Void>
         ("строка":<String>))
-      ($__return =:<Void>
+      ($$$return =:<Void>
         (Call:<String>
           ($str_slice:<Fun (String, Int, Int) -> String>)
           ($с:<String>)
           (1:<Int>)
           (3:<Int>)))
-      ($__return:<String>))))
+      ($$$return:<String>))))

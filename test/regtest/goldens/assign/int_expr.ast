@@ -1,7 +1,7 @@
 (Block:<Fun () -> Int>
   (FunDecl $функция ():<Fun () -> Int>
     (Block:<Int>
-      (Var $__return:<Int>)
+      (Var $$$return:<Int>)
       (Var $i:<Int>)
       ($i =:<Void>
         (Call:<Int>
@@ -12,6 +12,6 @@
               (3:<Int>))
             (7:<Int>))
           (4:<Int>)))
-      ($__return =:<Void>
+      ($$$return =:<Void>
         ($i:<Int>))
-      ($__return:<Int>))))
+      ($$$return:<Int>))))

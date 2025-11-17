@@ -1,10 +1,10 @@
 (Block:<Fun () -> Int>
   (FunDecl $strstr ():<Fun () -> Int>
     (Block:<Int>
-      (Var $__return:<Int>)
-      ($__return =:<Void>
+      (Var $$$return:<Int>)
+      ($$$return =:<Void>
         (Call:<Int>
           ($позиция:<Fun (String, String) -> Int>)
           ("длинная строка":<String>)
           ("строка":<String>)))
-      ($__return:<Int>))))
+      ($$$return:<Int>))))

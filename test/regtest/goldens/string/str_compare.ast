@@ -1,23 +1,23 @@
 (Block:<Fun () -> Int>
   (FunDecl $ф ():<Fun () -> Int>
     (Block:<Int>
-      (Var $__return:<Int>)
+      (Var $$$return:<Int>)
       (Var $s1:<String>)
       (Var $s2:<String>)
       ($s1 =:<Void>
         ("строка1":<String>))
       ($s2 =:<Void>
         ("строка2":<String>))
-      ($__return =:<Void>
+      ($$$return =:<Void>
         (0:<Int>))
       (If:<Void>
         (==:<Bool>
           ($s1:<String>)
           ($s2:<String>))
         (Block:<Void>
-          ($__return =:<Void>
+          ($$$return =:<Void>
             (+:<Int>
-              ($__return:<Int>)
+              ($$$return:<Int>)
               (1:<Int>))))
         nil)
       (If:<Void>
@@ -25,9 +25,9 @@
           ($s1:<String>)
           ($s2:<String>))
         (Block:<Void>
-          ($__return =:<Void>
+          ($$$return =:<Void>
             (+:<Int>
-              ($__return:<Int>)
+              ($$$return:<Int>)
               (1:<Int>))))
         nil)
       (If:<Void>
@@ -35,9 +35,9 @@
           ($s1:<String>)
           ($s2:<String>))
         (Block:<Void>
-          ($__return =:<Void>
+          ($$$return =:<Void>
             (+:<Int>
-              ($__return:<Int>)
+              ($$$return:<Int>)
               (1:<Int>))))
         nil)
       (If:<Void>
@@ -45,9 +45,9 @@
           ($s1:<String>)
           ($s2:<String>))
         (Block:<Void>
-          ($__return =:<Void>
+          ($$$return =:<Void>
             (+:<Int>
-              ($__return:<Int>)
+              ($$$return:<Int>)
               (1:<Int>))))
         nil)
       (If:<Void>
@@ -55,9 +55,9 @@
           ($s1:<String>)
           ($s2:<String>))
         (Block:<Void>
-          ($__return =:<Void>
+          ($$$return =:<Void>
             (+:<Int>
-              ($__return:<Int>)
+              ($$$return:<Int>)
               (1:<Int>))))
         nil)
       (If:<Void>
@@ -65,9 +65,9 @@
           ($s1:<String>)
           ($s2:<String>))
         (Block:<Void>
-          ($__return =:<Void>
+          ($$$return =:<Void>
             (+:<Int>
-              ($__return:<Int>)
+              ($$$return:<Int>)
               (1:<Int>))))
         nil)
-      ($__return:<Int>))))
+      ($$$return:<Int>))))

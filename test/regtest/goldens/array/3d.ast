@@ -1,62 +1,62 @@
 (Block:<Fun () -> Float>
   (FunDecl $функция ():<Fun () -> Float>
     (Block:<Float>
-      (Var $__return:<Float>)
+      (Var $$$return:<Float>)
       (Var $i:<Int>)
       ($i =:<Void>
         (10:<Int>))
       (Block:<Array [Float; 3]>
-        (Var $__A_lbound2:<Int>)
-        (Var $__A_dimsize2:<Int>)
-        (Var $__A_mulacc2:<Int>)
-        ($__A_lbound2 =:<Void>
+        (Var $$$A_lbound2:<Int>)
+        (Var $$$A_dimsize2:<Int>)
+        (Var $$$A_mulacc2:<Int>)
+        ($$$A_lbound2 =:<Void>
           (1:<Int>))
-        ($__A_dimsize2 =:<Void>
+        ($$$A_dimsize2 =:<Void>
           (+:<Int>
             (-:<Int>
               ($i:<Int>)
               (1:<Int>))
             (1:<Int>)))
-        ($__A_mulacc2 =:<Void>
+        ($$$A_mulacc2 =:<Void>
           (*:<Int>
             (1:<Int>)
-            ($__A_dimsize2:<Int>)))
-        (Var $__A_lbound1:<Int>)
-        (Var $__A_dimsize1:<Int>)
-        (Var $__A_mulacc1:<Int>)
-        ($__A_lbound1 =:<Void>
+            ($$$A_dimsize2:<Int>)))
+        (Var $$$A_lbound1:<Int>)
+        (Var $$$A_dimsize1:<Int>)
+        (Var $$$A_mulacc1:<Int>)
+        ($$$A_lbound1 =:<Void>
           (0:<Int>))
-        ($__A_dimsize1 =:<Void>
+        ($$$A_dimsize1 =:<Void>
           (+:<Int>
             (-:<Int>
               ($i:<Int>)
               (0:<Int>))
             (1:<Int>)))
-        ($__A_mulacc1 =:<Void>
+        ($$$A_mulacc1 =:<Void>
           (*:<Int>
             (*:<Int>
               (1:<Int>)
-              ($__A_dimsize2:<Int>))
-            ($__A_dimsize1:<Int>)))
-        (Var $__A_lbound0:<Int>)
-        (Var $__A_dimsize0:<Int>)
-        (Var $__A_mulacc0:<Int>)
-        ($__A_lbound0 =:<Void>
+              ($$$A_dimsize2:<Int>))
+            ($$$A_dimsize1:<Int>)))
+        (Var $$$A_lbound0:<Int>)
+        (Var $$$A_dimsize0:<Int>)
+        (Var $$$A_mulacc0:<Int>)
+        ($$$A_lbound0 =:<Void>
           (0:<Int>))
-        ($__A_dimsize0 =:<Void>
+        ($$$A_dimsize0 =:<Void>
           (+:<Int>
             (-:<Int>
               (10:<Int>)
               (0:<Int>))
             (1:<Int>)))
-        ($__A_mulacc0 =:<Void>
+        ($$$A_mulacc0 =:<Void>
           (*:<Int>
             (*:<Int>
               (*:<Int>
                 (1:<Int>)
-                ($__A_dimsize2:<Int>))
-              ($__A_dimsize1:<Int>))
-            ($__A_dimsize0:<Int>)))
+                ($$$A_dimsize2:<Int>))
+              ($$$A_dimsize1:<Int>))
+            ($$$A_dimsize0:<Int>)))
         (Var $A:<Array [Float; 3]>))
       (Var $j:<Int>)
       ($j =:<Void>
@@ -68,7 +68,7 @@
           ($j:<Int>)
           (1:<Int>))
         (1.000000:<Float>))
-      ($__return =:<Void>
+      ($$$return =:<Void>
         (MultiIndex:<Float>
           ($A:<Array [Float; 3]>)
           (0:<Int>)
@@ -76,4 +76,4 @@
           (+:<Int>
             ($j:<Int>)
             (1:<Int>))))
-      ($__return:<Float>))))
+      ($$$return:<Float>))))

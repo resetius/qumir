@@ -1,41 +1,41 @@
 (Block:<Fun () -> Float>
   (FunDecl $функция ():<Fun () -> Float>
     (Block:<Float>
-      (Var $__return:<Float>)
+      (Var $$$return:<Float>)
       (Var $i:<Int>)
       (Var $j:<Float>)
       ($j =:<Void>
         (0.000000:<Float>))
       (Block:<Void>
-        (Var $__to:<Int>)
-        (Var $__step:<Int>)
-        (Var $__next:<Int>)
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
         ($i =:<Void>
           (0:<Int>))
-        ($__step =:<Void>
+        ($$$step =:<Void>
           (10:<Int>))
-        ($__next =:<Void>
+        ($$$next =:<Void>
           ($i:<Int>))
-        ($__to =:<Void>
+        ($$$to =:<Void>
           (+:<Int>
             (10:<Int>)
-            ($__step:<Int>)))
+            ($$$step:<Int>)))
         (Loop:<Void>
           (!=:<Bool>
-            ($__next:<Int>)
-            ($__to:<Int>))
+            ($$$next:<Int>)
+            ($$$to:<Int>))
           nil
           ($i =:<Void>
-            ($__next:<Int>))
+            ($$$next:<Int>))
           (Block:<Void>
             ($j =:<Void>
               (+:<Float>
                 ($j:<Float>)
                 (1.000000:<Float>))))
-          ($__next =:<Void>
+          ($$$next =:<Void>
             (+:<Int>
-              ($__next:<Int>)
-              ($__step:<Int>)))))
-      ($__return =:<Void>
+              ($$$next:<Int>)
+              ($$$step:<Int>)))))
+      ($$$return =:<Void>
         ($j:<Float>))
-      ($__return:<Float>))))
+      ($$$return:<Float>))))
