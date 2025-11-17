@@ -46,7 +46,7 @@ inline TExprPtr ident(TLocation loc, std::string n) {
 using TAstTask = TExpectedTask<TExprPtr, TError, TLocation>;
 TAstTask stmt(TTokenStream& stream);
 TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts = {});
-TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes = false);
+TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes = false);
 TAstTask expr(TTokenStream& stream);
 
 void SkipEols(TTokenStream& stream) {
@@ -275,7 +275,7 @@ TTypePtr getScalarType(EKeyword kw) {
     }
 }
 
-TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes) {
+TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes) {
     auto first = co_await stream.Next();
 
     bool isPointer = false;
@@ -311,7 +311,7 @@ TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_dec
     }
 
     // Parse one or more names
-    std::vector<std::shared_ptr<TVarStmt>> decls;
+    std::vector<TExprPtr> decls;
     TTypePtr scalarType = getScalarType(static_cast<EKeyword>(first.Value.i64));
     if (!scalarType) {
         co_return TError(first.Location, "неизвестный тип переменной");
@@ -334,7 +334,8 @@ TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_dec
         isReference = false;
     }
     while (true) {
-        decls.push_back(co_await var_decl(stream, scalarType, isArray, isPointer, isReference));
+        auto decl = co_await var_decl(stream, scalarType, isArray, isPointer, isReference);
+        decls.push_back(decl);
 
         auto t = stream.Next();
         if (!t) {
@@ -343,6 +344,24 @@ TExpectedTask<std::vector<std::shared_ptr<TVarStmt>>, TError, TLocation> var_dec
         }
         if (t->Type == TToken::Operator) {
             auto op = static_cast<EOperator>(t->Value.i64);
+            if (op == EOperator::Eq) {
+                // цел a = 5
+                // read scalar value
+                auto initExpr = co_await expr(stream);
+                // insert assignment to variable
+                auto name = decl->Name;
+                auto assignStmt = std::make_shared<TAssignExpr>(t->Location,
+                    name,
+                    initExpr);
+                decls.push_back(assignStmt);
+
+                t = stream.Next();
+                if (t->Type == TToken::Operator) {
+                    op = static_cast<EOperator>(t->Value.i64);
+                } else {
+                    co_return TError(t->Location, "ожидалась ',' или перевод строки после имени переменной");
+                }
+            }
             if (op == EOperator::Comma) {
                 // после запятой может идти либо следующее имя, либо новый базовый тип —
                 // в последнем случае завершаем текущий стейтмент
@@ -411,7 +430,13 @@ TAstTask fun_decl(TTokenStream& stream) {
                 if (next.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(next.Value.i64))) {
                     stream.Unget(next);
                     auto tmpArgs = co_await var_decl_list(stream, true);
-                    args.insert(args.end(), tmpArgs.begin(), tmpArgs.end());
+                    for (auto& arg : tmpArgs) {
+                        if (auto varArg = TMaybeNode<TVarStmt>(arg)) {
+                            args.push_back(varArg.Cast());
+                        } else {
+                            co_return TError(arg->Location, "ожидался параметр функции");
+                        }
+                    }
                 } else {
                     break;
                 }

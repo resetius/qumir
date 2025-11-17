@@ -447,9 +447,9 @@ struct TVarsBlockExpr : TExpr {
     // like TBlockExpr but without scope, used during parsing
     static constexpr const char* NodeId = "VarsBlock";
 
-    std::vector<std::shared_ptr<TVarStmt>> Vars;
+    std::vector<TExprPtr> Vars; // decl or assignments
 
-    explicit TVarsBlockExpr(TLocation loc, std::vector<std::shared_ptr<TVarStmt>> vars)
+    explicit TVarsBlockExpr(TLocation loc, std::vector<TExprPtr> vars)
         : TExpr(std::move(loc))
         , Vars(std::move(vars))
     { }

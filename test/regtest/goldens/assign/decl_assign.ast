@@ -1,0 +1,12 @@
+(Block:<Fun () -> Int>
+  (FunDecl $ф ():<Fun () -> Int>
+    (Block:<Int>
+      (Var $__return:<Int>)
+      (Var $а:<Int>)
+      ($а =:<Void>
+        (+:<Int>
+          (10:<Int>)
+          (2:<Int>)))
+      ($__return =:<Void>
+        ($а:<Int>))
+      ($__return:<Int>))))
