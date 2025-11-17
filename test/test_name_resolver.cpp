@@ -122,7 +122,7 @@ b := 10
     EXPECT_EQ(x->FunctionLevelIdx, 0);
     EXPECT_EQ(y->FunctionLevelIdx, 1);
     EXPECT_EQ(z->FunctionLevelIdx, 2);
-    auto __return = r.Lookup("__return", {6});
+    auto __return = r.Lookup("$$return", {6});
     auto a = r.Lookup("a", {6});
     auto b = r.Lookup("b", {6});
     auto c = r.Lookup("c", {6});

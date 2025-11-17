@@ -253,9 +253,9 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
 
         for (; i >= 0; --i) {
             auto [lbound, rbound] = boundaries[i];
-            std::string lboundName = "__" + var->Name + "_lbound" + std::to_string(i);
-            std::string dimSizeName = "__" + var->Name + "_dimsize" + std::to_string(i);
-            std::string mulAccName = "__" + var->Name + "_mulacc" + std::to_string(i);
+            std::string lboundName = "$$" + var->Name + "_lbound" + std::to_string(i);
+            std::string dimSizeName = "$$" + var->Name + "_dimsize" + std::to_string(i);
+            std::string mulAccName = "$$" + var->Name + "_mulacc" + std::to_string(i);
             // lboundName = lbound
             // dimSizeName = rbound - lbound + 1
             // mulAccName = prevDivSize * dimSizeName

@@ -231,11 +231,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // stride_n = 1
         // stride_{n-1} = mulAccName_{n}
 
-        auto tmp = co_await LoadVar("__" + name + "_lbound" + std::to_string(i), scope, indices[i]->Location);
+        auto tmp = co_await LoadVar("$$" + name + "_lbound" + std::to_string(i), scope, indices[i]->Location);
         tmp = Builder.Emit1("-"_op, {*indexRes.Value, tmp});
         Builder.SetType(tmp, i64);
         if (i != n) {
-            auto stride = co_await LoadVar("__" + name + "_mulacc" + std::to_string(i+1), scope, indices[i]->Location);
+            auto stride = co_await LoadVar("$$" + name + "_mulacc" + std::to_string(i+1), scope, indices[i]->Location);
             tmp = Builder.Emit1("*"_op, {tmp, stride});
             Builder.SetType(tmp, i64);
         }
@@ -710,7 +710,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         Builder.SetType(TLocal{sidOpt->FunctionLevelIdx}, FromAstType(var->Type, Module.Types));
         if (NAst::TMaybeType<NAst::TStringType>(var->Type)
-            && sidOpt->FunctionLevelIdx >= 0 && name != "__return" /*owned by caller*/)
+            && sidOpt->FunctionLevelIdx >= 0 && name != "$$return" /*owned by caller*/)
         {
             auto dtorId = co_await GlobalSymbolId("str_release");
             TOperand arg = (sidOpt->FunctionLevelIdx >= 0)
@@ -734,7 +734,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto arrayType = FromAstType(var->Type, Module.Types);
             auto ctorId = co_await GlobalSymbolId("array_create");
 
-            auto totalElements = Context.Lookup("__" + var->Name + "_mulacc0", scope.Id);
+            auto totalElements = Context.Lookup("$$" + var->Name + "_mulacc0", scope.Id);
             if (!totalElements) co_return TError(var->Location, std::string("undefined name"));
             TOperand op = (totalElements->FunctionLevelIdx >= 0)
                 ? TOperand { TLocal{ totalElements->FunctionLevelIdx } }

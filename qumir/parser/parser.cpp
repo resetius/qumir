@@ -465,7 +465,7 @@ TAstTask fun_decl(TTokenStream& stream) {
     bool hasReturn = false;
     if (!TMaybeType<TVoidType>(returnType)) {
         hasReturn = true;
-        bodyStmts.push_back(std::make_shared<TVarStmt>(next.Location, "__return", returnType));
+        bodyStmts.push_back(std::make_shared<TVarStmt>(next.Location, "$$return", returnType));
     }
 
     auto body = co_await stmt_list(stream, { EKeyword::End }, std::move(bodyStmts));
@@ -479,8 +479,8 @@ TAstTask fun_decl(TTokenStream& stream) {
         auto block = maybeBlock.Cast();
         // ok
         if (hasReturn) {
-            // Implicit return of __return variable at the end of function
-            block->Stmts.push_back(ident(next.Location, "__return"));
+            // Implicit return of $$return variable at the end of function
+            block->Stmts.push_back(ident(next.Location, "$$return"));
         }
         auto funDecl = std::make_shared<TFunDecl>(next.Location,
             name, std::move(args),
@@ -542,25 +542,24 @@ TAstTask for_loop(TTokenStream& stream) {
         co_return TError(endTok.Location, "ожидалось 'кц' в конце оператора 'для'");
     }
 
-    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__to", std::make_shared<TIntegerType>()));
-    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__step", std::make_shared<TIntegerType>()));
-    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "__next", std::make_shared<TIntegerType>()));
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "$$to", std::make_shared<TIntegerType>()));
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "$$step", std::make_shared<TIntegerType>()));
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "$$next", std::make_shared<TIntegerType>()));
     block->Stmts.push_back(std::make_shared<TAssignExpr>(varTok.Location, varTok.Name, fromExpr)); // var = from
-    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "__step", stepExpr)); // __step = step
-    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "__next", ident(location, varTok.Name))); // __next = var
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "$$step", stepExpr)); // $$step = step
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "$$next", ident(location, varTok.Name))); // $$next = var
 
-    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "__to",
-        binary(location, TOperator("+"), toExpr, ident(location, "__step"))
-    )); // __to = (to + step)
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "$$to",
+        binary(location, TOperator("+"), toExpr, ident(location, "$$step"))
+    )); // $$to = (to + step)
+    // pre-condition: $$next <> ($$to + $$step)
+    auto preCond = binary(location, TOperator("!="), ident(location, "$$next"), ident(location, "$$to"));
 
-    // pre-condition: __next <> (__to + step)
-    auto preCond = binary(location, TOperator("!="), ident(location, "__next"), ident(location, "__to"));
-
-    // pre-body: var = __next
-    auto preBody = std::make_shared<TAssignExpr>(location, varTok.Name, ident(location, "__next"));
-    // post-body: __next = __next + __step
-    auto postBody = std::make_shared<TAssignExpr>(location, "__next",
-        binary(location, TOperator("+"), ident(location, "__next"), ident(location, "__step"))
+    // pre-body: var = $$next
+    auto preBody = std::make_shared<TAssignExpr>(location, varTok.Name, ident(location, "$$next"));
+    // post-body: $$next = $$next + $$step
+    auto postBody = std::make_shared<TAssignExpr>(location, "$$next",
+        binary(location, TOperator("+"), ident(location, "$$next"), ident(location, "$$step"))
     );
 
     block->Stmts.push_back(std::make_shared<TLoopStmtExpr>(location, preCond, preBody, body, postBody, nullptr));
@@ -815,7 +814,7 @@ TAstTask factor(TTokenStream& stream) {
     } else if (token.Type == TToken::Identifier) {
         co_return ident(token.Location, token.Name);
     } else if (token.Type == TToken::Keyword && static_cast<EKeyword>(token.Value.i64) == EKeyword::Return) {
-        co_return ident(token.Location, "__return");
+        co_return ident(token.Location, "$$return");
     } else if (token.Type == TToken::Operator) {
         if ((EOperator)token.Value.i64 == EOperator::LParen) {
             auto ret = co_await expr(stream);
@@ -1025,7 +1024,7 @@ TAstTask stmt(TTokenStream& stream) {
             co_return TError(stream.GetLocation(), "ожидался ':=' после 'знач'");
         }
         auto value = co_await expr(stream);
-        co_return std::make_shared<TAssignExpr>(first->Location, "__return", value);
+        co_return std::make_shared<TAssignExpr>(first->Location, "$$return", value);
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::LoopStart) {
         auto next = co_await stream.Next();
         if (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::For) {
