@@ -264,7 +264,7 @@ Legend: ✔ = supported, ✖ = not supported / not yet implemented. Notes highli
 | `вещ` (float) | ✔ | ✔ | |
 | `лит` (string) | ✔ | ✔ | |
 | `сим` (char) | ✔ | ✖ | Indexing a string returns a one‑character `лит` |
-| `лог` (bool) | ✔ | ✖ | |
+| `лог` (bool) | ✔ | ✔ | |
 | `таб` (arrays) | ✔ | ✔ | Dimension count not limited to 3 in Qumir |
 | Index ranges `a[L:R]` | ✔ | ✔ | |
 
