@@ -14,8 +14,8 @@ namespace NAst {
 namespace {
 
 std::map<std::string, EKeyword> KeywordMapRu = {
-    {"ложь", EKeyword::False},
-    {"истина", EKeyword::True},
+    {"нет", EKeyword::False},
+    {"да", EKeyword::True},
     {"алг", EKeyword::Alg},
     {"нач", EKeyword::Begin},
     {"кон", EKeyword::End},

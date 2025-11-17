@@ -13,6 +13,7 @@ namespace NRegistry {
 SystemModule::SystemModule() {
     auto integerType = std::make_shared<NAst::TIntegerType>();
     auto floatType = std::make_shared<NAst::TFloatType>();
+    auto boolType = std::make_shared<NAst::TBoolType>();
     auto voidType = std::make_shared<NAst::TVoidType>();
     auto stringType = std::make_shared<NAst::TStringType>();
     auto voidPtrType = std::make_shared<NAst::TPointerType>(voidType);
@@ -342,6 +343,17 @@ SystemModule::SystemModule() {
             },
             // TODO:
             .ArgTypes = { stringType },
+            .ReturnType = voidType,
+        },
+        {
+            .Name = "output_bool",
+            .MangledName = "output_bool",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int64_t)>(NRuntime::output_bool)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::output_bool(std::bit_cast<int64_t>(args[0]));
+                return 0;
+            },
+            .ArgTypes = { boolType },
             .ReturnType = voidType,
         },
 

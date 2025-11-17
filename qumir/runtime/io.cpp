@@ -45,6 +45,10 @@ void output_string(const char* s) {
     (*Out) << s;
 }
 
+void output_bool(int64_t b) {
+    (*Out) << (b ? "да" : "нет");
+}
+
 } // extern "C"
 
 } // namespace NRuntime

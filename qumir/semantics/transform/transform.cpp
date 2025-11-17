@@ -79,6 +79,13 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                             output->Location,
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_int64"),
                             std::move(args));
+                    } else if (NAst::TMaybeType<NAst::TBoolType>(type)) {
+                        std::vector<NAst::TExprPtr> args;
+                        args.push_back(arg);
+                        call = std::make_shared<NAst::TCallExpr>(
+                            output->Location,
+                            std::make_shared<NAst::TIdentExpr>(output->Location, "output_bool"),
+                            std::move(args));
                     } else if (NAst::TMaybeType<NAst::TStringType>(type)) {
                         std::vector<NAst::TExprPtr> args;
                         args.push_back(arg);

@@ -51,6 +51,7 @@ export function input_int64() {
 
 export function output_double(x) { appendStdout(String(x)); }
 export function output_int64(x) { appendStdout(BigInt(x).toString()); }
+export function output_bool(x) { appendStdout(x ? "да" : "нет"); }
 export function output_string(v) {
   // Support both: C-string pointer OR handle returned by string runtime
   const n = Number(v);
