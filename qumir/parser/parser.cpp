@@ -36,7 +36,9 @@ inline TExprPtr num(TLocation loc, double v) {
 }
 
 inline TExprPtr num(TLocation loc, bool v) {
-    return std::make_shared<TNumberExpr>(std::move(loc), v);
+    return std::make_shared<TCastExpr>(loc,
+        std::make_shared<TNumberExpr>(loc, v),
+        std::make_shared<TBoolType>());
 }
 
 inline TExprPtr ident(TLocation loc, std::string n) {

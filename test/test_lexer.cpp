@@ -114,7 +114,7 @@ TEST(LexerTest, MultiWordIdentifierDeclarationAndUse) {
 TEST(LexerTest, NotAsIdentifierAndOperator) {
     std::istringstream input(
         "лог не\n"
-        "не := ложь\n"
+        "не := нет\n"
         "если не x то\n"
     );
     TTokenStream tokens(input);
@@ -141,7 +141,7 @@ TEST(LexerTest, NotAsIdentifierAndOperator) {
 TEST(LexerTest, NotWordChainAsLhsAndInExpr) {
     std::istringstream input(
         "лог не готов\n"
-        "не готов := истина\n"
+        "не готов := да\n"
         "если не готов то\n"
     );
     TTokenStream tokens(input);
