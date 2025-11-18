@@ -109,6 +109,9 @@ int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
     if (NAst::TMaybeType<NAst::TSymbolType>(t)) {
         return tt.I(EKind::I32);
     }
+    if (NAst::TMaybeType<NAst::TFileType>(t)) {
+        return tt.I(EKind::I32); // represent file handles as i32 for now
+    }
 
     if (NAst::TMaybeType<NAst::TStringType>(t)) {
         return tt.Ptr(tt.I(EKind::I8));

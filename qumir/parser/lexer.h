@@ -40,6 +40,7 @@ enum class EKeyword : uint8_t {
     String,
     Char,
     Array,
+    File,
     For,
     While,
     From,

@@ -17,6 +17,7 @@ SystemModule::SystemModule() {
     auto voidType = std::make_shared<NAst::TVoidType>();
     auto stringType = std::make_shared<NAst::TStringType>();
     auto voidPtrType = std::make_shared<NAst::TPointerType>(voidType);
+    auto fileType = std::make_shared<NAst::TFileType>();
 
     std::vector<TExternalFunction> functions = {
         {
@@ -546,7 +547,41 @@ SystemModule::SystemModule() {
             },
             .ArgTypes = { voidPtrType, integerType },
             .ReturnType = voidType
-        }
+        },
+
+        // files
+        {
+            .Name = "открыть на чтение",
+            .MangledName = "file_open_for_read",
+            .Ptr = reinterpret_cast<void*>(static_cast<int32_t(*)(const char*)>(NRuntime::file_open_for_read)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return static_cast<uint64_t>(NRuntime::file_open_for_read(reinterpret_cast<const char*>(args[0])));
+            },
+            .ArgTypes = { stringType },
+            .ReturnType = fileType,
+        },
+        {
+            .Name = "закрыть",
+            .MangledName = "file_close",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int32_t)>(NRuntime::file_close)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::file_close(static_cast<int32_t>(args[0]));
+                return 0;
+            },
+            .ArgTypes = { fileType },
+            .ReturnType = voidType,
+        },
+        {
+            .Name = "есть данные",
+            .MangledName = "file_has_more_data",
+            .Ptr = reinterpret_cast<void*>(static_cast<bool(*)(int32_t)>(NRuntime::file_has_more_data)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto ret = NRuntime::file_has_more_data(static_cast<int32_t>(args[0]));
+                return static_cast<uint64_t>(ret);
+            },
+            .ArgTypes = { fileType },
+            .ReturnType = boolType,
+        },
     };
 
     ExternalFunctions_.swap(functions);

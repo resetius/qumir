@@ -135,6 +135,7 @@ inline bool IsTypeKeyword(EKeyword kw) {
         || kw == EKeyword::String
         || kw == EKeyword::Char
         || kw == EKeyword::Array
+        || kw == EKeyword::File
         || kw == EKeyword::InArg // for function parameter declarations
         || kw == EKeyword::OutArg // for function parameter declarations
         || kw == EKeyword::InOutArg // for function parameter declarations
@@ -281,6 +282,8 @@ TTypePtr getScalarType(EKeyword kw) {
             return std::make_shared<TStringType>();
         case EKeyword::Char:
             return std::make_shared<TSymbolType>();
+        case EKeyword::File:
+            return std::make_shared<TFileType>();
         default:
             return nullptr;
     }

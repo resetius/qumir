@@ -1,5 +1,9 @@
 #include "io.h"
 
+#include <unordered_map>
+#include <forward_list>
+#include <fstream>
+
 namespace NQumir {
 namespace NRuntime {
 
@@ -68,6 +72,47 @@ void output_symbol(int32_t s) {
     }
 }
 
+namespace {
+    std::unordered_map<int32_t, std::ifstream> OpenFiles;
+    std::forward_list<int32_t> FreeFileHandles;
+    int32_t NextFileHandle = 1;
+};
+
+int32_t file_open_for_read(const char* filename) {
+    if (!filename) {
+        return -1;
+    }
+    std::ifstream fileStream(filename, std::ios::binary);
+    if (!fileStream.is_open()) {
+        return -1;
+    }
+    int32_t handle;
+    if (!FreeFileHandles.empty()) {
+        handle = FreeFileHandles.front();
+        FreeFileHandles.pop_front();
+    } else {
+        handle = NextFileHandle++;
+    }
+    OpenFiles.emplace(handle, std::move(fileStream));
+    return handle;
+}
+
+void file_close(int32_t fileHandle) {
+    auto it = OpenFiles.find(fileHandle);
+    if (it != OpenFiles.end()) {
+        it->second.close();
+        OpenFiles.erase(it);
+        FreeFileHandles.push_front(fileHandle);
+    }
+}
+
+bool file_has_more_data(int32_t fileHandle) {
+    auto it = OpenFiles.find(fileHandle);
+    if (it == OpenFiles.end()) {
+        return false;
+    }
+    return !it->second.eof();
+}
 
 } // extern "C"
 

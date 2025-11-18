@@ -82,6 +82,16 @@ struct TSymbolType : TType {
     }
 };
 
+struct TFileType : TType {
+    static constexpr const char* TypeId = "File";
+
+    TFileType() = default;
+
+    const std::string_view TypeName() const override {
+        return TFileType::TypeId;
+    }
+};
+
 struct TVoidType : TType {
     static constexpr const char* TypeId = "Void";
 
