@@ -1,0 +1,54 @@
+алг цел ф
+нач
+	цел a
+	a := 0
+	| Simple ascending chain
+	если 1<2<3
+	то
+		a := a + 1 | +1 => 1
+	все
+
+	| Mixed chain with equality
+	если 1<2=2<3
+	то
+		a := a + 10 | +10 => 11
+	все
+
+	| Long descending chain
+	если 5>4>3>2>1
+	то
+		a := a + 100 | +100 => 111
+	все
+
+	| Mixed directions (still valid): (1<2)&&(2>1)
+	если 1<2>1
+	то
+		a := a + 1000 | +1000 => 1111
+	все
+
+	| Failing first link: (2<1)&&(1<3) => false
+	если 2<1<3
+	то
+		a := a + 2000 | not executed
+	все
+
+	| NOT applied to whole chain: !(1<2 && 2<3) => false
+	если не 1<2<3
+	то
+		a := a + 3000 | not executed
+	все
+
+	| Chain with <= and >= mixed
+	если 1<2<=2<3>=3
+	то
+		a := a + 10000 | +10000 => 11111
+	все
+
+	| Fully false chain: first link false
+	если 3<2<1
+	то
+		a := a + 40000 | not executed
+	все
+
+	знач := a | expect 11111
+кон

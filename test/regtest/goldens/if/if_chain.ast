@@ -1,0 +1,143 @@
+(Block:<Fun () -> Int>
+  (FunDecl $ф ():<Fun () -> Int>
+    (Block:<Int>
+      (Var $$$return:<Int>)
+      (Var $a:<Int>)
+      ($a =:<Void>
+        (0:<Int>))
+      (If:<Void>
+        (&&:<Bool>
+          (<:<Bool>
+            (1:<Int>)
+            (2:<Int>))
+          (<:<Bool>
+            (2:<Int>)
+            (3:<Int>)))
+        (Block:<Void>
+          ($a =:<Void>
+            (+:<Int>
+              ($a:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (&&:<Bool>
+          (&&:<Bool>
+            (<:<Bool>
+              (1:<Int>)
+              (2:<Int>))
+            (==:<Bool>
+              (2:<Int>)
+              (2:<Int>)))
+          (<:<Bool>
+            (2:<Int>)
+            (3:<Int>)))
+        (Block:<Void>
+          ($a =:<Void>
+            (+:<Int>
+              ($a:<Int>)
+              (10:<Int>))))
+        nil)
+      (If:<Void>
+        (&&:<Bool>
+          (&&:<Bool>
+            (&&:<Bool>
+              (>:<Bool>
+                (5:<Int>)
+                (4:<Int>))
+              (>:<Bool>
+                (4:<Int>)
+                (3:<Int>)))
+            (>:<Bool>
+              (3:<Int>)
+              (2:<Int>)))
+          (>:<Bool>
+            (2:<Int>)
+            (1:<Int>)))
+        (Block:<Void>
+          ($a =:<Void>
+            (+:<Int>
+              ($a:<Int>)
+              (100:<Int>))))
+        nil)
+      (If:<Void>
+        (&&:<Bool>
+          (<:<Bool>
+            (1:<Int>)
+            (2:<Int>))
+          (>:<Bool>
+            (2:<Int>)
+            (1:<Int>)))
+        (Block:<Void>
+          ($a =:<Void>
+            (+:<Int>
+              ($a:<Int>)
+              (1000:<Int>))))
+        nil)
+      (If:<Void>
+        (&&:<Bool>
+          (<:<Bool>
+            (2:<Int>)
+            (1:<Int>))
+          (<:<Bool>
+            (1:<Int>)
+            (3:<Int>)))
+        (Block:<Void>
+          ($a =:<Void>
+            (+:<Int>
+              ($a:<Int>)
+              (2000:<Int>))))
+        nil)
+      (If:<Void>
+        (!:<Bool>
+          (&&:<Bool>
+            (<:<Bool>
+              (1:<Int>)
+              (2:<Int>))
+            (<:<Bool>
+              (2:<Int>)
+              (3:<Int>))))
+        (Block:<Void>
+          ($a =:<Void>
+            (+:<Int>
+              ($a:<Int>)
+              (3000:<Int>))))
+        nil)
+      (If:<Void>
+        (&&:<Bool>
+          (&&:<Bool>
+            (&&:<Bool>
+              (<:<Bool>
+                (1:<Int>)
+                (2:<Int>))
+              (<=:<Bool>
+                (2:<Int>)
+                (2:<Int>)))
+            (<:<Bool>
+              (2:<Int>)
+              (3:<Int>)))
+          (>=:<Bool>
+            (3:<Int>)
+            (3:<Int>)))
+        (Block:<Void>
+          ($a =:<Void>
+            (+:<Int>
+              ($a:<Int>)
+              (10000:<Int>))))
+        nil)
+      (If:<Void>
+        (&&:<Bool>
+          (<:<Bool>
+            (3:<Int>)
+            (2:<Int>))
+          (<:<Bool>
+            (2:<Int>)
+            (1:<Int>)))
+        (Block:<Void>
+          ($a =:<Void>
+            (+:<Int>
+              ($a:<Int>)
+              (40000:<Int>))))
+        nil)
+      ($$$return =:<Void>
+        ($a:<Int>))
+      ($$$return:<Int>))))

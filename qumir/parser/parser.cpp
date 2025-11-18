@@ -976,17 +976,63 @@ TAstTask add_expr(TTokenStream& stream) {
     co_return co_await binary_op_helper(stream, mul_expr, EOperator::Plus, EOperator::Minus);
 }
 
-/* RelExpr ::= AddExpr (("<" | "<=" | ">" | ">=") AddExpr)*  */
-TAstTask rel_expr(TTokenStream& stream) {
-    co_return co_await binary_op_helper(stream, add_expr, EOperator::Lt, EOperator::Gt, EOperator::Leq, EOperator::Geq);
+/*
+Comparison / equality chain level (replaces former rel_expr + eq_expr):
+Grammar sugar:
+  AddExpr (CompOp AddExpr)+
+Builds: (a op1 b) && (b op2 c) && ...
+If zero operators -> returns the sole AddExpr.
+If one operator  -> returns single binary comparison node (backwards compatible).
+Mixed operators allowed (e.g. a < b == c <= d).
+Precedence: sits where equality used to sit (above AND, below + / -).
+*/
+TAstTask comp_chain_expr(TTokenStream& stream) {
+    auto first = co_await add_expr(stream);
+    std::vector<EOperator> ops;
+    std::vector<TExprPtr> operands; operands.push_back(first);
+    while (true) {
+        auto tok = stream.Next();
+        if (!tok || tok->Type != TToken::Operator) {
+            if (tok) stream.Unget(*tok);
+            break;
+        }
+        auto op = static_cast<EOperator>(tok->Value.i64);
+        switch (op) {
+            case EOperator::Eq: case EOperator::Neq:
+            case EOperator::Lt: case EOperator::Gt:
+            case EOperator::Leq: case EOperator::Geq:
+                break;
+            default:
+                stream.Unget(*tok);
+                tok = std::nullopt;
+                break;
+        }
+        if (!tok) break;
+        auto nextOperand = co_await add_expr(stream);
+        ops.push_back(op);
+        operands.push_back(nextOperand);
+    }
+    if (ops.size() <= 1) {
+        if (ops.empty()) {
+            co_return operands.front();
+        }
+        auto loc = operands[0]->Location;
+        co_return binary(loc, MakeOperator(ops[0]), operands[0], operands[1]);
+    }
+    std::vector<TExprPtr> pairwise; pairwise.reserve(ops.size());
+    for (size_t i = 0; i < ops.size(); ++i) {
+        auto loc = operands[i]->Location;
+        pairwise.push_back(binary(loc, MakeOperator(ops[i]), operands[i], operands[i+1]));
+    }
+    auto result = pairwise[0];
+    for (size_t i = 1; i < pairwise.size(); ++i) {
+        auto loc = pairwise[i]->Location;
+        result = binary(loc, MakeOperator(EOperator::And), result, pairwise[i]);
+    }
+    co_return result;
 }
 
-/* EqExpr ::= RelExpr (("==" | "!=") RelExpr)* */
-TAstTask eq_expr(TTokenStream& stream) {
-    co_return co_await binary_op_helper(stream, rel_expr, EOperator::Eq, EOperator::Neq);
-}
-
-/* NotExpr ::= '!' NotExpr | EqExpr */
+/* NotExpr ::= '!' NotExpr | CompChain */
 TAstTask not_expr(TTokenStream& stream) {
     auto tok = co_await stream.Next();
     if (tok.Type == TToken::Operator && (EOperator)tok.Value.i64 == EOperator::Not) {
@@ -994,7 +1040,7 @@ TAstTask not_expr(TTokenStream& stream) {
         co_return unary(tok.Location, MakeOperator(EOperator::Not), std::move(inner));
     }
     stream.Unget(tok);
-    co_return co_await eq_expr(stream);
+    co_return co_await comp_chain_expr(stream);
 }
 
 /* AndExpr ::= NotExpr ( "&&" NotExpr )* */
