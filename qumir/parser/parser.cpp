@@ -905,6 +905,8 @@ TAstTask call_expr(TTokenStream& stream) {
 
 // Forward declaration for mutual recursion with power_expr
 TAstTask unary_expr(TTokenStream& stream);
+// Forward declaration to place logical NOT between equality and AND
+TAstTask not_expr(TTokenStream& stream);
 
 // power_expr ::= call_expr ( '**' unary_expr )?
 // Right-associative: a ** b ** c == a ** (b ** c)
@@ -923,11 +925,13 @@ TAstTask power_expr(TTokenStream& stream) {
 // unary ::= call_expr | '+' unary | '-' unary
 TAstTask unary_expr(TTokenStream& stream) {
     auto tok = co_await stream.Next();
-    if (tok.Type == TToken::Operator && ((EOperator)tok.Value.i64 == EOperator::Plus || (EOperator)tok.Value.i64 == EOperator::Minus)) {
+    if (tok.Type == TToken::Operator && ((EOperator)tok.Value.i64 == EOperator::Plus
+        || (EOperator)tok.Value.i64 == EOperator::Minus))
+    {
         auto inner = co_await unary_expr(stream);
         if ((EOperator)tok.Value.i64 == EOperator::Plus) {
             co_return unary(tok.Location, MakeOperator(EOperator::Plus), std::move(inner));
-        } else {
+        } else if ((EOperator)tok.Value.i64 == EOperator::Minus) {
             co_return unary(tok.Location, MakeOperator(EOperator::Minus), std::move(inner));
         }
     }
@@ -982,9 +986,20 @@ TAstTask eq_expr(TTokenStream& stream) {
     co_return co_await binary_op_helper(stream, rel_expr, EOperator::Eq, EOperator::Neq);
 }
 
-/* AndExpr ::= EqExpr ( "&&" EqExpr )* */
+/* NotExpr ::= '!' NotExpr | EqExpr */
+TAstTask not_expr(TTokenStream& stream) {
+    auto tok = co_await stream.Next();
+    if (tok.Type == TToken::Operator && (EOperator)tok.Value.i64 == EOperator::Not) {
+        auto inner = co_await not_expr(stream);
+        co_return unary(tok.Location, MakeOperator(EOperator::Not), std::move(inner));
+    }
+    stream.Unget(tok);
+    co_return co_await eq_expr(stream);
+}
+
+/* AndExpr ::= NotExpr ( "&&" NotExpr )* */
 TAstTask and_expr(TTokenStream& stream) {
-    co_return co_await binary_op_helper(stream, eq_expr, EOperator::And);
+    co_return co_await binary_op_helper(stream, not_expr, EOperator::And);
 }
 
 /* OrExpr ::= AndExpr ( "||" OrExpr )* */

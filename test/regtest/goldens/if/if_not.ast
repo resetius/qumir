@@ -1,0 +1,19 @@
+(Block:<Fun () -> Int>
+  (FunDecl $ф ():<Fun () -> Int>
+    (Block:<Int>
+      (Var $$$return:<Int>)
+      (Var $i:<Int>)
+      ($i =:<Void>
+        (2:<Int>))
+      (If:<Void>
+        (!:<Bool>
+          (==:<Bool>
+            ($i:<Int>)
+            (3:<Int>)))
+        (Block:<Void>
+          ($i =:<Void>
+            (1:<Int>)))
+        nil)
+      ($$$return =:<Void>
+        ($i:<Int>))
+      ($$$return:<Int>))))
