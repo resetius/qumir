@@ -240,6 +240,13 @@ void TNameResolver::RegisterModule(NRegistry::IModule* module) {
 }
 
 bool TNameResolver::ImportModule(const std::string& name) {
+    std::unordered_set<std::string> implicitImports = {
+        "Файлы",
+        "Строки",
+    };
+    if (implicitImports.find(name) != implicitImports.end()) {
+        return true;
+    }
     auto it = Modules.find(name);
     if (it == Modules.end()) {
         return false;
