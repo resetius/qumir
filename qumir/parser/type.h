@@ -72,6 +72,16 @@ struct TStringType : TType {
     }
 };
 
+struct TSymbolType : TType {
+    static constexpr const char* TypeId = "Char";
+
+    TSymbolType() = default;
+
+    const std::string_view TypeName() const override {
+        return TSymbolType::TypeId;
+    }
+};
+
 struct TVoidType : TType {
     static constexpr const char* TypeId = "Void";
 

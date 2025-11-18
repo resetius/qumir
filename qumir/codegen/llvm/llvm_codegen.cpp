@@ -43,6 +43,7 @@ llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx
     }
     switch (tt.GetKind(typeId)) {
         case EKind::I1: return llvm::Type::getInt1Ty(ctx);
+        case EKind::I32: return llvm::Type::getInt32Ty(ctx);
         case EKind::I64: return llvm::Type::getInt64Ty(ctx);
         case EKind::F64: return llvm::Type::getDoubleTy(ctx);
         case EKind::Void: return llvm::Type::getVoidTy(ctx);
@@ -655,7 +656,14 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
         case "mov"_op: {
             auto v = GetOp(instr.Operands[0], module);
             if (!outputType) throw std::runtime_error("cast/mov needs typed dest");
-            if (v->getType() != outputType) throw std::runtime_error("mov type mismatch");
+            if (v->getType() != outputType) {
+                auto sourceType = v->getType();
+                if (sourceType->isIntegerTy() && outputType->isIntegerTy()) {
+                    v = irb->CreateIntCast(v, outputType, /*isSigned=*/true, "movcast");
+                } else {
+                    throw std::runtime_error("mov type mismatch");
+                }
+            }
             return storeTmp(v);
         }
         case "arg"_op: {

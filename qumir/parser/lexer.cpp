@@ -35,6 +35,7 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"вещ", EKeyword::Float},
     {"лог", EKeyword::Bool},
     {"лит", EKeyword::String},
+    {"сим", EKeyword::Char},
     {"таб", EKeyword::Array},
     {"для", EKeyword::For},
     {"пока", EKeyword::While},
@@ -81,6 +82,7 @@ enum EState {
     Start,
     InNumber,
     InString,
+    InCharacter,
     InIdentifier,
     InMaybeComment,
     InMaybeOperator,
@@ -162,6 +164,7 @@ void TTokenStream::Read() {
     int expMode = 0;
     int expSign = 1;
     int expValue = 0;
+    int utf8bytesLeft = -1;
 
     auto emitKeyword = [&](EKeyword kw) {
         Tokens.emplace_back(TToken {
@@ -202,7 +205,7 @@ void TTokenStream::Read() {
         if (std::holds_alternative<int64_t>(token)) {
             Tokens.emplace_back(TToken {
                 .Value = {.i64 = sign ? std::get<int64_t>(token) : -std::get<int64_t>(token)},
-                .Type = TToken::Integer,
+                .Type = utf8bytesLeft == -1 ? TToken::Integer : TToken::Char,
                 .Location = tokenLocation
             });
         } else if (std::holds_alternative<double>(token)) {
@@ -260,6 +263,7 @@ void TTokenStream::Read() {
         expMode = 0;
         expSign = 1;
         expValue = 0;
+        utf8bytesLeft = -1;
     };
 
     // single char operators:
@@ -317,6 +321,9 @@ void TTokenStream::Read() {
                     } else if (ch == '.') {
                         state = InNumber;
                         token = (double)0.0;
+                    } else if (ch == '\'') {
+                        state = InCharacter;
+                        token = 0;
                     } else if (ch == '"') {
                         token = TStringLiteral{};
                         state = InString;
@@ -358,6 +365,62 @@ void TTokenStream::Read() {
                             unescape = false;
                         } else {
                             std::get<TStringLiteral>(token).Append(ch);
+                        }
+                    }
+                    break;
+                }
+                case InCharacter: {
+                    if (ch == '\'') {
+                        flush();
+                        repeat = false; // need to skip closing '\''
+                    } else if (unescape) {
+                        char c = 0;
+                        switch (ch) {
+                            case 'n': c = '\n'; break;
+                            case 't': c = '\t'; break;
+                            case '\'': c = '\''; break;
+                            case '\\': c = '\\'; break;
+                            default:
+                                throw std::runtime_error("unknown escape sequence in character literal: \\" + std::string(1, ch));
+                        }
+                        token = static_cast<int64_t>(c);
+                        unescape = false;
+                        utf8bytesLeft = 0;
+                    } else {
+                        if (utf8bytesLeft == 0) {
+                            throw std::runtime_error("character literal can only contain a single character");
+                        }
+                        if (ch == '\\') {
+                            unescape = true;
+                        } else {
+                            // part of utf-8 character
+                            int64_t sequence = static_cast<int64_t>(ch);
+                            int64_t& tokenRef = std::get<int64_t>(token);
+                            if (utf8bytesLeft == -1) {
+                                // determine number of bytes in UTF-8 character
+                                if ((sequence & 0b10000000) == 0) {
+                                    utf8bytesLeft = 0; // 1-byte character
+                                    tokenRef = sequence;
+                                } else if ((sequence & 0b11100000) == 0b11000000) {
+                                    utf8bytesLeft = 1; // 2-byte character
+                                    tokenRef = sequence & 0b00011111;
+                                } else if ((sequence & 0b11110000) == 0b11100000) {
+                                    utf8bytesLeft = 2; // 3-byte character
+                                    tokenRef = sequence & 0b00001111;
+                                } else if ((sequence & 0b11111000) == 0b11110000) {
+                                    utf8bytesLeft = 3; // 4-byte character
+                                    tokenRef = sequence & 0b00000111;
+                                } else {
+                                    throw std::runtime_error("invalid UTF-8 byte in character literal");
+                                }
+                                tokenRef <<= utf8bytesLeft * 6;
+                            } else {
+                                if ((sequence & 0b11000000) != 0b10000000) {
+                                    throw std::runtime_error("invalid UTF-8 continuation byte in character literal");
+                                }
+                                utf8bytesLeft--;
+                                tokenRef |= (sequence & 0b00111111) << (utf8bytesLeft * 6);
+                            }
                         }
                     }
                     break;

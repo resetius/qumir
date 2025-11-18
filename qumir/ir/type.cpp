@@ -106,6 +106,9 @@ int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
     if (NAst::TMaybeType<NAst::TVoidType>(t)) {
         return tt.I(EKind::Void);
     }
+    if (NAst::TMaybeType<NAst::TSymbolType>(t)) {
+        return tt.I(EKind::I32);
+    }
 
     if (NAst::TMaybeType<NAst::TStringType>(t)) {
         return tt.Ptr(tt.I(EKind::I8));
@@ -199,6 +202,10 @@ void TTypeTable::Format(std::ostream& out, uint64_t bitRepr, int typeId) const {
     switch (type.Kind) {
         case EKind::I1: {
             ss << (bitRepr ? "true" : "false");
+            break;
+        }
+        case EKind::I32: {
+            ss << (int32_t)bitRepr;
             break;
         }
         case EKind::I64: {

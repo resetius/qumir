@@ -41,6 +41,12 @@ inline TExprPtr num(TLocation loc, bool v) {
         std::make_shared<TBoolType>());
 }
 
+inline TExprPtr sym(TLocation loc, int64_t v) {
+    return std::make_shared<TCastExpr>(loc,
+        std::make_shared<TNumberExpr>(loc, v),
+        std::make_shared<TSymbolType>());
+}
+
 inline TExprPtr ident(TLocation loc, std::string n) {
     return std::make_shared<TIdentExpr>(loc, std::move(n));
 }
@@ -127,6 +133,7 @@ inline bool IsTypeKeyword(EKeyword kw) {
         || kw == EKeyword::Float
         || kw == EKeyword::Bool
         || kw == EKeyword::String
+        || kw == EKeyword::Char
         || kw == EKeyword::Array
         || kw == EKeyword::InArg // for function parameter declarations
         || kw == EKeyword::OutArg // for function parameter declarations
@@ -272,6 +279,8 @@ TTypePtr getScalarType(EKeyword kw) {
             return std::make_shared<TBoolType>();
         case EKeyword::String:
             return std::make_shared<TStringType>();
+        case EKeyword::Char:
+            return std::make_shared<TSymbolType>();
         default:
             return nullptr;
     }
@@ -809,6 +818,8 @@ TAstTask factor(TTokenStream& stream) {
         co_return num(token.Location, token.Value.i64);
     } else if (token.Type == TToken::Float) {
         co_return num(token.Location, token.Value.f64);
+    } else if (token.Type == TToken::Char) {
+        co_return sym(token.Location, token.Value.i64);
     } else if (token.Type == TToken::Keyword && static_cast<EKeyword>(token.Value.i64) == EKeyword::NewLine) {
         co_return std::make_shared<TStringLiteralExpr>(token.Location, "\n");
     } else if (token.Type == TToken::String) {
