@@ -1,0 +1,22 @@
+function <main> () { ; void
+  block {
+    label: label(0)
+    call tmp(0,i32) = f 
+    stre local(0,i32) tmp(0,i32) 
+    load tmp(1,i32) = local(0,i32) 
+    arg tmp(1,i32) 
+    call output_symbol 
+    arg imm(0,ptr to i8) 
+    call output_string 
+    ret 
+  }
+}
+function f () { ; i32
+  block {
+    label: label(0)
+    mov tmp(0,i32) = imm(1103,i64) 
+    stre local(0,i32) tmp(0,i32) 
+    load tmp(1,i32) = local(0,i32) 
+    ret tmp(1,i32) 
+  }
+}

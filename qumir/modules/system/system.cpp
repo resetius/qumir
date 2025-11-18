@@ -356,6 +356,17 @@ SystemModule::SystemModule() {
             .ArgTypes = { boolType },
             .ReturnType = voidType,
         },
+        {
+            .Name = "output_symbol",
+            .MangledName = "output_symbol",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int32_t)>(NRuntime::output_symbol)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::output_symbol(static_cast<int32_t>(std::bit_cast<int64_t>(args[0])));
+                return 0;
+            },
+            .ArgTypes = { std::make_shared<NAst::TSymbolType>() },
+            .ReturnType = voidType,
+        },
 
         // strings
         {

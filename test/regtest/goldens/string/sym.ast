@@ -1,0 +1,21 @@
+(Block:<Fun () -> Char>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $a:<Char>)
+      ($a =:<Void>
+        (Call:<Char>
+          ($f:<Fun () -> Char>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_symbol:<Fun (Char) -> Void>)
+          ($a:<Char>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))))
+  (FunDecl $f ():<Fun () -> Char>
+    (Block:<Char>
+      (Var $$$return:<Char>)
+      ($$$return =:<Void>
+        (Cast<Char>:<Char>
+          (1103:<Int>)))
+      ($$$return:<Char>))))

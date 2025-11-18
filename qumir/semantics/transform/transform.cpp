@@ -93,6 +93,13 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                             output->Location,
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_string"),
                             std::move(args));
+                    } else if (NAst::TMaybeType<NAst::TSymbolType>(type)) {
+                        std::vector<NAst::TExprPtr> args;
+                        args.push_back(arg);
+                        call = std::make_shared<NAst::TCallExpr>(
+                            output->Location,
+                            std::make_shared<NAst::TIdentExpr>(output->Location, "output_symbol"),
+                            std::move(args));
                     } else {
                         errors.push_back(TError(arg->Location, "output argument must be int, float, or string, got: " + (type ? type->ToString() : "unknown")));
                     }

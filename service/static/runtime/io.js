@@ -52,6 +52,22 @@ export function input_int64() {
 export function output_double(x) { appendStdout(String(x)); }
 export function output_int64(x) { appendStdout(BigInt(x).toString()); }
 export function output_bool(x) { appendStdout(x ? "да" : "нет"); }
+export function output_symbol(x) {
+  // convert 32-bit unicode to string
+  const codePoint = Number(x) >>> 0;
+  let str = '';
+  if (codePoint <= 0xFFFF) {
+    str = String.fromCharCode(codePoint);
+  } else if (codePoint <= 0x10FFFF) {
+    const cp = codePoint - 0x10000;
+    const highSurrogate = 0xD800 + ((cp >> 10) & 0x3FF);
+    const lowSurrogate = 0xDC00 + (cp & 0x3FF);
+    str = String.fromCharCode(highSurrogate, lowSurrogate);
+  } else {
+    str = '\uFFFD'; // Replacement character for invalid code points
+  }
+  appendStdout(str);
+}
 export function output_string(v) {
   // Support both: C-string pointer OR handle returned by string runtime
   const n = Number(v);

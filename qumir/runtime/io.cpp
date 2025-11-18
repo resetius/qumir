@@ -49,6 +49,26 @@ void output_bool(int64_t b) {
     (*Out) << (b ? "да" : "нет");
 }
 
+void output_symbol(int32_t s) {
+    // convert unicode to utf-8
+    if (s < 0x80) {
+        (*Out) << static_cast<char>(s);
+    } else if (s < 0x800) {
+        (*Out) << static_cast<char>(0b11000000 | ((s >> 6) & 0b00011111));
+        (*Out) << static_cast<char>(0b10000000 | (s & 0b00111111));
+    } else if (s < 0x10000) {
+        (*Out) << static_cast<char>(0b11100000 | ((s >> 12) & 0b00001111));
+        (*Out) << static_cast<char>(0b10000000 | ((s >> 6) & 0b00111111));
+        (*Out) << static_cast<char>(0b10000000 | (s & 0b00111111));
+    } else if (s <= 0x10FFFF) {
+        (*Out) << static_cast<char>(0b11110000 | ((s >> 18) & 0b00000111));
+        (*Out) << static_cast<char>(0b10000000 | ((s >> 12) & 0b00111111));
+        (*Out) << static_cast<char>(0b10000000 | ((s >> 6) & 0b00111111));
+        (*Out) << static_cast<char>(0b10000000 | (s & 0b00111111));
+    }
+}
+
+
 } // extern "C"
 
 } // namespace NRuntime
