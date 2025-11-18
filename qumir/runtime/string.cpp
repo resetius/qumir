@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 
 namespace NQumir {
 namespace NRuntime {
@@ -202,6 +203,21 @@ int64_t str_str_from(int64_t symbolStartPos, const char* haystack, const char* n
         ++p;
     }
     return haystackIndex + needleIndex + 1; // strings are 1-indexed
+}
+
+char* str_from_double(double x) {
+    std::ostringstream ss;
+    ss.precision(15);
+    ss << x;
+    std::string str = ss.str();
+    return str_from_lit_(str.c_str(), static_cast<int>(str.length()));
+}
+
+char* str_from_int(int64_t x) {
+    std::ostringstream ss;
+    ss << x;
+    std::string str = ss.str();
+    return str_from_lit_(str.c_str(), static_cast<int>(str.length()));
 }
 
 char* assign_from_lit(char* dest, const char* src) {

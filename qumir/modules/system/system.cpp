@@ -241,6 +241,46 @@ SystemModule::SystemModule() {
             .ReturnType = floatType,
         },
         {
+            .Name = "лит_в_вещ",
+            .MangledName = "atof",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(const char*)>(atof)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(atof(reinterpret_cast<const char*>(args[0])));
+            },
+            .ArgTypes = { stringType },
+            .ReturnType = floatType,
+        },
+        {
+            .Name = "лит_в_цел",
+            .MangledName = "atoll",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(const char*)>(atoll)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(atoll(reinterpret_cast<const char*>(args[0])));
+            },
+            .ArgTypes = { stringType },
+            .ReturnType = integerType,
+        },
+        {
+            .Name = "вещ_в_лит",
+            .MangledName = "str_from_double",
+            .Ptr = reinterpret_cast<void*>(static_cast<char*(*)(double)>(NRuntime::str_from_double)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(NRuntime::str_from_double(std::bit_cast<double>(args[0])));
+            },
+            .ArgTypes = { floatType },
+            .ReturnType = stringType,
+        },
+        {
+            .Name = "цел_в_лит",
+            .MangledName = "str_from_int",
+            .Ptr = reinterpret_cast<void*>(static_cast<char*(*)(int64_t)>(NRuntime::str_from_int)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(NRuntime::str_from_int(std::bit_cast<int64_t>(args[0])));
+            },
+            .ArgTypes = { integerType },
+            .ReturnType = stringType,
+        },
+        {
             .Name = "int",
             .MangledName = "trunc_double",
             .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(double)>(trunc_double)),
