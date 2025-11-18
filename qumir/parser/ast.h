@@ -769,6 +769,29 @@ public:
     }
 };
 
+class TAssertStmt : public TExpr {
+public:
+    static constexpr const char* NodeId = "Assert";
+    TExprPtr Expr;
+
+    explicit TAssertStmt(TLocation loc, TExprPtr expr)
+        : TExpr(std::move(loc))
+        , Expr(std::move(expr))
+    { }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+
+    std::vector<TExprPtr> Children() const override {
+        return { Expr };
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        return { &Expr };
+    }
+};
+
 template<typename TransformFunctor, typename FilterFunctor>
 bool TransformAst(TExprPtr& result, TExprPtr node, TransformFunctor f, FilterFunctor filter) {
     if (!node) return false;

@@ -52,6 +52,9 @@ enum class EKeyword : uint8_t {
     InOutArg,
     Return,
     Use,
+    Assert,
+    AssertBefore,
+    AssertAfter
 };
 
 enum class EOperator : uint8_t {

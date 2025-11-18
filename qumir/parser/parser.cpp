@@ -462,6 +462,31 @@ TAstTask fun_decl(TTokenStream& stream) {
         // else: no signature (empty parameter list)
     }
 
+    // 1. optional дано EKeyword::AssertBefore
+    // 2. optional надо EKeyword::AssertAfter
+    // 3. required нач EKeyword::Begin
+    std::shared_ptr<TAssertStmt> assertBefore = nullptr;
+    std::shared_ptr<TAssertStmt> assertAfter = nullptr;
+    if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Eol) {
+        // optional EOL after 'алг' or after return type
+        next = co_await stream.Next();
+    }
+    if (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::AssertBefore) {
+        assertBefore = std::make_shared<TAssertStmt>(next.Location, co_await expr(stream));
+        next = co_await stream.Next();
+    }
+    if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Eol) {
+        // optional EOL after 'алг' or after return type
+        next = co_await stream.Next();
+    }
+    if (next.Type == TToken::Keyword && static_cast<EKeyword>(next.Value.i64) == EKeyword::AssertAfter) {
+        assertAfter = std::make_shared<TAssertStmt>(next.Location, co_await expr(stream));
+        next = co_await stream.Next();
+    }
+    if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Eol) {
+        // optional EOL after 'алг' or after return type
+        next = co_await stream.Next();
+    }
     if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Eol) {
         // optional EOL after 'алг' or after return type
         next = co_await stream.Next();
@@ -1122,6 +1147,8 @@ TAstTask stmt(TTokenStream& stream) {
         co_return std::make_shared<TBreakStmt>(first->Location);
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Continue) {
         co_return std::make_shared<TContinueStmt>(first->Location);
+    } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Assert) {
+        co_return std::make_shared<TAssertStmt>(first->Location, co_await expr(stream));
     } else if (first->Type == TToken::Identifier) {
         auto next = co_await stream.Next();
         if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::LSqBr) {
