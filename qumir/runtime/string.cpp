@@ -110,6 +110,8 @@ char* str_concat(const char* a, const char* b) {
 
 int64_t str_compare(const char* a, const char* b) {
     if (a == b) return 0;
+    if (!a) return -1;
+    if (!b) return 1;
     TString* strA = (TString*)(a - offsetof(TString, Data));
     TString* strB = (TString*)(b - offsetof(TString, Data));
     int lenA = strA->Length;

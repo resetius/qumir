@@ -478,7 +478,7 @@ SystemModule::SystemModule() {
                 return std::bit_cast<uint64_t>(str);
             },
             .ArgTypes = { stringType, stringType },
-            .ReturnType = stringType
+            .ReturnType = stringType,
         },
         {
             .Name = "str_compare",

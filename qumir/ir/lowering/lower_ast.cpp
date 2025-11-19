@@ -433,31 +433,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
             default:
                 {
-                    if (NAst::TMaybeType<NAst::TStringType>(binary->Type) && binary->Operator == "+") {
-                        // string concatenation with last-use releases for owned temporaries
-                        auto concatId = co_await GlobalSymbolId("str_concat");
-                        Builder.Emit0("arg"_op, {*leftNum});
-                        Builder.Emit0("arg"_op, {*rightNum});
-                        auto tmp = Builder.Emit1("call"_op, { TImm{concatId} });
-                        Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
-
-                        // Last-use: release inner concat results used as operands
-                        bool leftIsOwned = leftRes.Ownership == EOwnership::Owned;
-                        bool rightIsOwned = rightRes.Ownership == EOwnership::Owned;
-
-                        auto dtorId = co_await GlobalSymbolId("str_release");
-                        if (leftIsOwned && leftNum->Type == TOperand::EType::Tmp) {
-                            Builder.Emit0("arg"_op, {*leftNum});
-                            Builder.Emit0("call"_op, { TImm{dtorId} });
-                        }
-                        if (rightIsOwned && rightNum->Type == TOperand::EType::Tmp) {
-                            Builder.Emit0("arg"_op, {*rightNum});
-                            Builder.Emit0("call"_op, { TImm{dtorId} });
-                        }
-
-                        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(), EOwnership::Owned };
-                    }
-
                     if (NAst::TMaybeType<NAst::TStringType>(binary->Left->Type) && (binary->Operator == "==" || binary->Operator == "!=" || binary->Operator == "<=" || binary->Operator == ">=" || binary->Operator == "<" || binary->Operator == ">")) {
                         auto cmpId = co_await GlobalSymbolId("str_compare");
                         Builder.Emit0("arg"_op, {*leftNum});

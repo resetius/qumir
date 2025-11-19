@@ -264,11 +264,38 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
         case TOperator("-"):
         case TOperator("*"):
         case TOperator("/"): {
-            // strings
-            if (binary->Operator == TOperator("+")
-                && TMaybeType<TStringType>(left) && TMaybeType<TStringType>(right)) {
-                binary->Type = left;
-                break;
+            // string and symbol concatenation cases
+            if (binary->Operator == TOperator("+")) {
+                auto maybeStrLeft = TMaybeType<TStringType>(left);
+                auto maybeStrRight = TMaybeType<TStringType>(right);
+                auto maybeSymLeft = TMaybeType<TSymbolType>(left);
+                auto maybeSymRight = TMaybeType<TSymbolType>(right);
+
+                // string + string
+                if (maybeStrLeft && maybeStrRight) {
+                    binary->Type = left;
+                    break;
+                }
+                // string + symbol
+                if (maybeStrLeft && maybeSymRight) {
+                    binary->Right = InsertImplicitCastIfNeeded(binary->Right, maybeStrLeft.Cast());
+                    binary->Type = maybeStrLeft.Cast();
+                    break;
+                }
+                // symbol + string
+                if (maybeSymLeft && maybeStrRight) {
+                    binary->Left = InsertImplicitCastIfNeeded(binary->Left, maybeStrRight.Cast());
+                    binary->Type = maybeStrRight.Cast();
+                    break;
+                }
+                // symbol + symbol => string
+                if (maybeSymLeft && maybeSymRight) {
+                    auto strT = std::make_shared<TStringType>();
+                    binary->Left = InsertImplicitCastIfNeeded(binary->Left, strT);
+                    binary->Right = InsertImplicitCastIfNeeded(binary->Right, strT);
+                    binary->Type = strT;
+                    break;
+                }
             }
 
             auto common = CommonNumericType(left, right);

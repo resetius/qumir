@@ -74,6 +74,18 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
         [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
             if (auto maybeBinary = NAst::TMaybeNode<NAst::TBinaryExpr>(node)) {
                 auto binary = maybeBinary.Cast();
+                if (binary->Operator == NAst::TOperator("+")) {
+                    bool leftStr = NAst::TMaybeType<NAst::TStringType>(binary->Left->Type);
+                    bool rightStr = NAst::TMaybeType<NAst::TStringType>(binary->Right->Type);
+
+                    // string + string (string + symbol handled with implicit cast)
+                    if (leftStr && rightStr) {
+                        auto call = std::make_shared<NAst::TCallExpr>(binary->Location,
+                            std::make_shared<NAst::TIdentExpr>(binary->Location, "str_concat"),
+                            std::vector<NAst::TExprPtr>{binary->Left, binary->Right});
+                        return call;
+                    }
+                }
                 if (binary->Operator == NAst::TOperator("^")) {
                     // transform a**b into pow(a, b)
                     std::vector<NAst::TExprPtr> args;
