@@ -1,0 +1,7 @@
+string + string: Hello World
+string + symbol: Test!
+symbol + string: ABC
+symbol + symbol: XY
+chain: Start-Middle-End
+empty + symbol: Z
+symbol + empty: @

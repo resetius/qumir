@@ -1,0 +1,175 @@
+(Block:<Fun () -> Void>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $s1:<String>)
+      (Var $s2:<String>)
+      (Var $result1:<String>)
+      ($s1 =:<Void>
+        ("Hello":<String>))
+      ($s2 =:<Void>
+        (" World":<String>))
+      ($result1 =:<Void>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
+          ($s1:<String>)
+          ($s2:<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("string + string: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($result1:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $s3:<String>)
+      (Var $sym1:<Char>)
+      (Var $result2:<String>)
+      ($s3 =:<Void>
+        ("Test":<String>))
+      ($sym1 =:<Void>
+        (Cast<Char>:<Char>
+          (33:<Int>)))
+      ($result2 =:<Void>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
+          ($s3:<String>)
+          (Call:<String>
+            ($str_from_unicode:<Fun (Char) -> String>)
+            ($sym1:<Char>))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("string + symbol: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($result2:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $sym2:<Char>)
+      (Var $s4:<String>)
+      (Var $result3:<String>)
+      ($sym2 =:<Void>
+        (Cast<Char>:<Char>
+          (65:<Int>)))
+      ($s4 =:<Void>
+        ("BC":<String>))
+      ($result3 =:<Void>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
+          (Call:<String>
+            ($str_from_unicode:<Fun (Char) -> String>)
+            ($sym2:<Char>))
+          ($s4:<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("symbol + string: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($result3:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $sym3:<Char>)
+      (Var $sym4:<Char>)
+      (Var $result4:<String>)
+      ($sym3 =:<Void>
+        (Cast<Char>:<Char>
+          (88:<Int>)))
+      ($sym4 =:<Void>
+        (Cast<Char>:<Char>
+          (89:<Int>)))
+      ($result4 =:<Void>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
+          (Call:<String>
+            ($str_from_unicode:<Fun (Char) -> String>)
+            ($sym3:<Char>))
+          (Call:<String>
+            ($str_from_unicode:<Fun (Char) -> String>)
+            ($sym4:<Char>))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("symbol + symbol: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($result4:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $chain:<String>)
+      ($chain =:<Void>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
+          (Call:<String>
+            ($str_concat:<Fun (String, String) -> String>)
+            (Call:<String>
+              ($str_concat:<Fun (String, String) -> String>)
+              (Call:<String>
+                ($str_concat:<Fun (String, String) -> String>)
+                ("Start":<String>)
+                (Call:<String>
+                  ($str_from_unicode:<Fun (Char) -> String>)
+                  (Cast<Char>:<Char>
+                    (45:<Int>))))
+              ("Middle":<String>))
+            (Call:<String>
+              ($str_from_unicode:<Fun (Char) -> String>)
+              (Cast<Char>:<Char>
+                (45:<Int>))))
+          ("End":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("chain: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($chain:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $empty:<String>)
+      (Var $result5:<String>)
+      ($empty =:<Void>
+        ("":<String>))
+      ($result5 =:<Void>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
+          ($empty:<String>)
+          (Call:<String>
+            ($str_from_unicode:<Fun (Char) -> String>)
+            (Cast<Char>:<Char>
+              (90:<Int>)))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("empty + symbol: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($result5:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $result6:<String>)
+      ($result6 =:<Void>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
+          (Call:<String>
+            ($str_from_unicode:<Fun (Char) -> String>)
+            (Cast<Char>:<Char>
+              (64:<Int>)))
+          ("":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("symbol + empty: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($result6:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>))))))

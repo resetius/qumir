@@ -1,0 +1,60 @@
+| Тест оператора + для строк и символов
+алг нач
+    | Тест 1: строка + строка
+    лит s1
+    лит s2
+    лит result1
+
+    s1 := "Hello"
+    s2 := " World"
+    result1 := s1 + s2
+    вывод "string + string: ", result1, нс
+
+    | Тест 2: строка + символ
+    лит s3
+    сим sym1
+    лит result2
+
+    s3 := "Test"
+    sym1 := '!'
+    result2 := s3 + sym1
+    вывод "string + symbol: ", result2, нс
+
+    | Тест 3: символ + строка
+    сим sym2
+    лит s4
+    лит result3
+
+    sym2 := 'A'
+    s4 := "BC"
+    result3 := sym2 + s4
+    вывод "symbol + string: ", result3, нс
+
+    | Тест 4: символ + символ
+    сим sym3
+    сим sym4
+    лит result4
+
+    sym3 := 'X'
+    sym4 := 'Y'
+    result4 := sym3 + sym4
+    вывод "symbol + symbol: ", result4, нс
+
+    | Тест 5: цепочка конкатенаций
+    лит chain
+    chain := "Start" + '-' + "Middle" + '-' + "End"
+    вывод "chain: ", chain, нс
+
+    | Тест 6: пустая строка + символ
+    лит empty
+    лит result5
+
+    empty := ""
+    result5 := empty + 'Z'
+    вывод "empty + symbol: ", result5, нс
+
+    | Тест 7: символ + пустая строка
+    лит result6
+    result6 := '@' + ""
+    вывод "symbol + empty: ", result6, нс
+кон

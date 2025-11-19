@@ -4,7 +4,8 @@
       (Var $$$return:<String>)
       (Var $s:<String>)
       ($s =:<Void>
-        (+:<String>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
           ("11 ":<String>)
           ("10":<String>)))
       ($s =:<Void>

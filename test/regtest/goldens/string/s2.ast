@@ -12,8 +12,10 @@
       ($s1 =:<Void>
         ("ыыы":<String>))
       ($s1 =:<Void>
-        (+:<String>
-          (+:<String>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
+          (Call:<String>
+            ($str_concat:<Fun (String, String) -> String>)
             ($s1:<String>)
             ($s2:<String>))
           ($s3:<String>)))

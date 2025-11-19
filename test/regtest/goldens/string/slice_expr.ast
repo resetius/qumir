@@ -8,7 +8,8 @@
       ($$$return =:<Void>
         (Call:<String>
           ($str_slice:<Fun (String, Int, Int) -> String>)
-          (+:<String>
+          (Call:<String>
+            ($str_concat:<Fun (String, String) -> String>)
             ($с:<String>)
             (" еще одна":<String>))
           (1:<Int>)

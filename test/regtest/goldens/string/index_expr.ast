@@ -10,7 +10,8 @@
           ($str_from_unicode:<Fun (Char) -> String>)
           (Call:<Char>
             ($str_symbol_at:<Fun (String, Int) -> Char>)
-            (+:<String>
+            (Call:<String>
+              ($str_concat:<Fun (String, String) -> String>)
               ($с:<String>)
               (" еще одна":<String>))
             (10:<Int>)))))))
