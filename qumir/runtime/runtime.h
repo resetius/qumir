@@ -5,3 +5,7 @@
 #include "string.h"
 #include "array.h"
 #include "turtle.h"
+
+extern "C" {
+    void __ensure(bool condition, const char* message);
+}

@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <limits>
+#include <sstream>
 
 namespace NQumir {
 namespace NTransform {
@@ -41,6 +42,22 @@ std::expected<bool, TError> PreNameResolutionTransform(NAst::TExprPtr& expr)
                             std::make_shared<NAst::TSymbolType>());
                     }
                 }
+            } else if (auto maybeAssert = NAst::TMaybeNode<NAst::TAssertStmt>(node)) {
+                // rewrite assert statement into a call: __ensure(condition, "condition_text")
+                auto assertStmt = maybeAssert.Cast();
+                std::ostringstream oss;
+                if (assertStmt->Expr) {
+                    oss << *assertStmt->Expr;
+                } else {
+                    oss << "<empty>";
+                }
+                std::vector<NAst::TExprPtr> args;
+                args.push_back(assertStmt->Expr);
+                args.push_back(std::make_shared<NAst::TStringLiteralExpr>(assertStmt->Location, oss.str()));
+                return std::make_shared<NAst::TCallExpr>(
+                    assertStmt->Location,
+                    std::make_shared<NAst::TIdentExpr>(assertStmt->Location, "__ensure"),
+                    std::move(args));
             }
             return node;
         },

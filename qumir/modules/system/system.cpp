@@ -626,6 +626,17 @@ SystemModule::SystemModule() {
             .ArgTypes = { fileType },
             .ReturnType = boolType,
         },
+        {
+            .Name = "__ensure",
+            .MangledName = "__ensure",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(bool, const char*)>(__ensure)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                __ensure(static_cast<bool>(args[0]), reinterpret_cast<const char*>(args[1]));
+                return 0;
+            },
+            .ArgTypes = { boolType, stringType },
+            .ReturnType = voidType,
+        }
     };
 
     ExternalFunctions_.swap(functions);
