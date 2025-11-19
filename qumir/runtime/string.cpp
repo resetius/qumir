@@ -235,6 +235,39 @@ char* str_from_int(int64_t x) {
     return str_from_lit_(str.c_str(), static_cast<int>(str.length()));
 }
 
+double str_to_double(const char* s, int8_t* outOk) {
+    if (!s) {
+        if (outOk) *outOk = 0;
+        return 0.0;
+    }
+    char* endPtr = nullptr;
+    double value = std::strtod(s, &endPtr);
+    if (endPtr == s) {
+        // no conversion performed
+        if (outOk) *outOk = 0;
+        return 0.0;
+    }
+    if (outOk) *outOk = 1;
+    return value;
+}
+
+int64_t str_to_int(const char* s, int8_t* outOk) {
+    if (!s) {
+        if (outOk) *outOk = 0;
+        return 0;
+    }
+    char* endPtr = nullptr;
+    int64_t value = std::strtoll(s, &endPtr, 10);
+    if (endPtr == s) {
+        // no conversion performed
+        if (outOk) *outOk = 0;
+        return 0;
+    }
+    if (outOk) *outOk = 1;
+    return value;
+}
+
+
 char* assign_from_lit(char* dest, const char* src) {
     if (!src) {
         str_release(dest);

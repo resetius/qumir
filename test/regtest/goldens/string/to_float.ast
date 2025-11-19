@@ -1,0 +1,41 @@
+(Block:<Fun () -> Void>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $a:<Float>)
+      (Var $b:<Bool>)
+      ($a =:<Void>
+        (Call:<Float>
+          ($лит_в_вещ:<Fun (String, Ref) -> Float>)
+          ("1.23":<String>)
+          ($b:<Bool>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_double:<Fun (Float) -> Void>)
+          ($a:<Float>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          (" ":<String>))
+        (Call:<Void>
+          ($output_bool:<Fun (Bool) -> Void>)
+          ($b:<Bool>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($a =:<Void>
+        (Call:<Float>
+          ($лит_в_вещ:<Fun (String, Ref) -> Float>)
+          ("qqq":<String>)
+          ($b:<Bool>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_double:<Fun (Float) -> Void>)
+          ($a:<Float>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          (" ":<String>))
+        (Call:<Void>
+          ($output_bool:<Fun (Bool) -> Void>)
+          ($b:<Bool>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>))))))

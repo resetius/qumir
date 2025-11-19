@@ -243,22 +243,25 @@ SystemModule::SystemModule() {
         },
         {
             .Name = "лит_в_вещ",
-            .MangledName = "atof",
-            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(const char*)>(atof)),
+            .MangledName = "str_to_double",
+            .Ptr = reinterpret_cast<void*>(static_cast<double(*)(const char*, int8_t*)>(NRuntime::str_to_double)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                return std::bit_cast<uint64_t>(atof(reinterpret_cast<const char*>(args[0])));
+                const void* addr = std::bit_cast<const void*>(args[1]);
+                double result = NRuntime::str_to_double(reinterpret_cast<const char*>(args[0]), reinterpret_cast<int8_t*>(const_cast<void*>(addr)));
+                return std::bit_cast<uint64_t>(result);
             },
-            .ArgTypes = { stringType },
+            .ArgTypes = { stringType, std::make_shared<NAst::TReferenceType>(boolType) },
             .ReturnType = floatType,
         },
         {
             .Name = "лит_в_цел",
-            .MangledName = "atoll",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(const char*)>(atoll)),
+            .MangledName = "str_to_int",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(const char*, int8_t*)>(NRuntime::str_to_int)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                return std::bit_cast<uint64_t>(atoll(reinterpret_cast<const char*>(args[0])));
+                const void* addr = std::bit_cast<const void*>(args[1]);
+                return std::bit_cast<uint64_t>(NRuntime::str_to_int(reinterpret_cast<const char*>(args[0]), reinterpret_cast<int8_t*>(const_cast<void*>(addr))));
             },
-            .ArgTypes = { stringType },
+            .ArgTypes = { stringType, std::make_shared<NAst::TReferenceType>(boolType) },
             .ReturnType = integerType,
         },
         {

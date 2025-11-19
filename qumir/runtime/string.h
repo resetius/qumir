@@ -29,6 +29,8 @@ int64_t str_str(const char* haystack, const char* needle);
 int64_t str_str_from(int64_t symbolStartPos, const char* haystack, const char* needle);
 char* str_from_double(double x);
 char* str_from_int(int64_t x);
+double str_to_double(const char* s, int8_t* outOk);
+int64_t str_to_int(const char* s, int8_t* outOk);
 
 char* assign_from_lit(char* dest, const char* src);
 char* assign_from_str(char* dest, char* src, int borrowed);
