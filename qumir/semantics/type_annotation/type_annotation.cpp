@@ -629,9 +629,10 @@ TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameReso
         }
         indexExpr->Index = InsertImplicitCastIfNeeded(indexExpr->Index, intType);
     }
-    if (TMaybeType<TStringType>(indexExpr->Collection->Type)) {
+    auto collectionType = UnwrapReferenceType(indexExpr->Collection->Type);
+    if (TMaybeType<TStringType>(collectionType)) {
         indexExpr->Type = std::make_shared<TSymbolType>();
-    } else if (auto maybeArrayType = TMaybeType<TArrayType>(indexExpr->Collection->Type)) {
+    } else if (auto maybeArrayType = TMaybeType<TArrayType>(collectionType)) {
         auto arrayType = maybeArrayType.Cast();
         indexExpr->Type = arrayType->ElementType;
     } else {

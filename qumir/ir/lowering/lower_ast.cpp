@@ -646,9 +646,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
         }
         {
-            // TODO: copy-paste
-            // delete previous string value if any
-            if (NAst::TMaybeType<NAst::TStringType>(node->Type)) {
+            // delete previous string value if any (only for direct slots/locals, not references)
+            if (NAst::TMaybeType<NAst::TStringType>(node->Type) && !NAst::TMaybeType<NAst::TReferenceType>(node->Type)) {
                 auto dtorId = co_await GlobalSymbolId("str_release");
                 TTmp currentVal = Builder.Emit1("load"_op, {storeOperand});
                 Builder.SetType(currentVal, slotType);
@@ -661,6 +660,24 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto ref = maybeRef.Cast();
             auto addrTmp = Builder.Emit1("load"_op, {storeOperand});
             Builder.SetType(addrTmp, FromAstType(node->Type, Module.Types));
+
+            // Reference assignment semantics for strings: retain RHS and release previous dest
+            // see cases/ref/index_ref
+            if (NAst::TMaybeType<NAst::TStringType>(ref->ReferencedType)) {
+                // Ensure destination gets its own ref. Retain regardless of RHS ownership,
+                // so any subsequent release of a temporary won't drop the value stored at dest.
+                auto retainId = co_await GlobalSymbolId("str_retain");
+                Builder.Emit0("arg"_op, {*rhs.Value});
+                Builder.Emit0("call"_op, { TImm{retainId} });
+
+                // Release previously stored value (if any)
+                auto prevVal = Builder.Emit1("lde"_op, { addrTmp });
+                Builder.SetType(prevVal, FromAstType(ref->ReferencedType, Module.Types));
+                auto dtorId = co_await GlobalSymbolId("str_release");
+                Builder.Emit0("arg"_op, { prevVal });
+                Builder.Emit0("call"_op, { TImm{ dtorId } });
+            }
+
             Builder.Emit0("ste"_op, {addrTmp, *rhs.Value});
         } else {
             Builder.Emit0("stre"_op, {storeOperand, *rhs.Value});

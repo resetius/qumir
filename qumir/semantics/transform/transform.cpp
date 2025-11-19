@@ -75,8 +75,10 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
             if (auto maybeBinary = NAst::TMaybeNode<NAst::TBinaryExpr>(node)) {
                 auto binary = maybeBinary.Cast();
                 if (binary->Operator == NAst::TOperator("+")) {
-                    bool leftStr = NAst::TMaybeType<NAst::TStringType>(binary->Left->Type);
-                    bool rightStr = NAst::TMaybeType<NAst::TStringType>(binary->Right->Type);
+                    auto leftType = UnwrapReferenceType(binary->Left->Type);
+                    auto rightType = UnwrapReferenceType(binary->Right->Type);
+                    bool leftStr = NAst::TMaybeType<NAst::TStringType>(leftType);
+                    bool rightStr = NAst::TMaybeType<NAst::TStringType>(rightType);
 
                     // string + string (string + symbol handled with implicit cast)
                     if (leftStr && rightStr) {
@@ -218,7 +220,8 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                 return std::make_shared<NAst::TBlockExpr>(input->Location, std::move(stmts));
             } else if (auto maybeIndex = NAst::TMaybeNode<NAst::TIndexExpr>(node)) {
                 auto index = maybeIndex.Cast();
-                if (NAst::TMaybeType<NAst::TStringType>(index->Collection->Type)) {
+                auto collectionType = UnwrapReferenceType(index->Collection->Type);
+                if (NAst::TMaybeType<NAst::TStringType>(collectionType)) {
                     // rewrite to str_symbol_at(collection, index)
                     auto funcNameIdent = std::make_shared<NAst::TIdentExpr>(index->Location, "str_symbol_at");
                     auto symbolAt = std::make_shared<NAst::TCallExpr>(index->Location, funcNameIdent, std::vector<NAst::TExprPtr>{

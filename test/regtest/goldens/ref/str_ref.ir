@@ -28,6 +28,11 @@ function инит (local(0)) { ; void
     arg imm(0,ptr to i8) 
     call tmp(0,ptr to ptr to i8) = str_from_lit 
     load tmp(1,ptr to ptr to i8) = local(0,ptr to ptr to i8) 
+    arg tmp(0,ptr to ptr to i8) 
+    call str_retain 
+    lde tmp(2,ptr to i8) = tmp(1,ptr to ptr to i8) 
+    arg tmp(2,ptr to i8) 
+    call str_release 
     ste tmp(1,ptr to ptr to i8) tmp(0,ptr to ptr to i8) 
     jmp label(1) 
   }
