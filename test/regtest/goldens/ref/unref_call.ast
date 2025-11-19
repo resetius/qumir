@@ -1,0 +1,31 @@
+(Block:<Fun (Int) -> Int>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $i:<Int>)
+      (Call:<Void>
+        ($f:<Fun (Ref) -> Void>)
+        ($i:<Int>))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_int64:<Fun (Int) -> Void>)
+          ($i:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))))
+  (FunDecl $f ($i):<Fun (Ref) -> Void>
+    (Block:<Void>
+      (Var $k:<Int>)
+      ($k =:<Void>
+        (+:<Int>
+          (1:<Int>)
+          (Call:<Int>
+            ($g:<Fun (Int) -> Int>)
+            ($i:<Ref &Int>))))
+      ($i =:<Void>
+        (10:<Int>))))
+  (FunDecl $g ($i):<Fun (Int) -> Int>
+    (Block:<Int>
+      (Var $$$return:<Int>)
+      ($$$return =:<Void>
+        ($i:<Int>))
+      ($$$return:<Int>))))

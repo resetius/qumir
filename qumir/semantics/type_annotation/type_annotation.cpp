@@ -510,7 +510,7 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
                 continue;
             }
             if (!EqualTypes(arg->Type, paramT)) {
-                if (!CanImplicit(arg->Type, paramT)) {
+                if (!CanImplicit(UnwrapReferenceType(arg->Type), paramT)) {
                     co_return TError(arg->Location, "cannot implicitly convert argument " + std::to_string(i+1) +
                         " from '" + std::string(arg->Type->TypeName()) + "' to '" + std::string(paramT->TypeName()) + "'");
                 }
