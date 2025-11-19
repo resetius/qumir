@@ -6,11 +6,9 @@
       ($c =:<Void>
         ("строка":<String>))
       ($$$return =:<Void>
-        (Call:<Int>
-          ($юникод:<Fun (String) -> Int>)
-          (Call:<String>
-            ($str_slice:<Fun (String, Int, Int) -> String>)
+        (Cast<Int>:<Int>
+          (Call:<Char>
+            ($str_symbol_at:<Fun (String, Int) -> Char>)
             ($c:<String>)
-            (2:<Int>)
             (2:<Int>))))
       ($$$return:<Int>))))

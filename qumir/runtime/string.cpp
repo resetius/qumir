@@ -63,6 +63,21 @@ char* str_slice(const char* s, int startSymbol, int endSymbol) {
     return str_from_lit_(s + str->Utf8Indices[startSymbol-1], str->Utf8Indices[endSymbol] - str->Utf8Indices[startSymbol-1]);
 }
 
+int32_t str_symbol_at(const char* s, int pos)
+{
+    if (!s) {
+        return -1;
+    }
+    TString* str = (TString*)(s - offsetof(TString, Data));
+    if (!str->Utf8Indices) {
+        build_utf8_indices(str);
+    }
+    if (pos < 1 || pos > str->Symbols) {
+        return -1;
+    }
+    return str_unicode(s + str->Utf8Indices[pos-1]);
+}
+
 void str_retain(char* s) {
     if (!s) return;
     TString* str = (TString*)(s - offsetof(TString, Data));

@@ -96,6 +96,9 @@ bool CanImplicit(TTypePtr S, TTypePtr D) {
     if ((TMaybeType<TFloatType>(S) || TMaybeType<TIntegerType>(S)) && TMaybeType<TBoolType>(D)) {
         return true;
     }
+    if (TMaybeType<TSymbolType>(S) && TMaybeType<TStringType>(D)) {
+        return true; // symbol to string conversion allowed
+    }
 
     auto maybePointerS = TMaybeType<TPointerType>(S);
     auto maybePointerD = TMaybeType<TPointerType>(D);
@@ -607,8 +610,7 @@ TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameReso
         indexExpr->Index = InsertImplicitCastIfNeeded(indexExpr->Index, intType);
     }
     if (TMaybeType<TStringType>(indexExpr->Collection->Type)) {
-        // indexing a string yields a string (1-character substring)
-        indexExpr->Type = indexExpr->Collection->Type;
+        indexExpr->Type = std::make_shared<TSymbolType>();
     } else if (auto maybeArrayType = TMaybeType<TArrayType>(indexExpr->Collection->Type)) {
         auto arrayType = maybeArrayType.Cast();
         indexExpr->Type = arrayType->ElementType;

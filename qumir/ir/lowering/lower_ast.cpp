@@ -272,6 +272,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             tmp = Builder.Emit1("f2b"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TSymbolType>(expr->Type) && NAst::TMaybeType<NAst::TIntegerType>(cast->Operand->Type)) {
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
+        } else if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TSymbolType>(cast->Operand->Type)) {
+            // oposite of above: int to symbol
+            tmp = Builder.Emit1("mov"_op, {*operand.Value});
         } else {
             co_return TError(cast->Location, "unsupported cast types: from " + std::string(cast->Operand->Type->TypeName()) + " to " + std::string(expr->Type->TypeName()));
         }

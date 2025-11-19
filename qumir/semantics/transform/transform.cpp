@@ -23,6 +23,24 @@ std::expected<bool, TError> PreNameResolutionTransform(NAst::TExprPtr& expr)
                     // replace with constant = std::numeric_limits<int64_t>::max()
                     return std::make_shared<NAst::TNumberExpr>(ident->Location, std::numeric_limits<int64_t>::max());
                 }
+            } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(node)) {
+                auto call = maybeCall.Cast();
+                if (auto maybeCalleeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(call->Callee)) {
+                    auto calleeIdent = maybeCalleeIdent.Cast();
+                    if (calleeIdent->Name == "юникод" && call->Args.size() == 1) {
+                        // cast symbol -> int
+                        return std::make_shared<NAst::TCastExpr>(
+                            call->Location,
+                            call->Args[0],
+                            std::make_shared<NAst::TIntegerType>());
+                    } else if (calleeIdent->Name == "юнисимвол" && call->Args.size() == 1) {
+                        // cast int -> symbol
+                        return std::make_shared<NAst::TCastExpr>(
+                            call->Location,
+                            call->Args[0],
+                            std::make_shared<NAst::TSymbolType>());
+                    }
+                }
             }
             return node;
         },
@@ -172,15 +190,14 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
             } else if (auto maybeIndex = NAst::TMaybeNode<NAst::TIndexExpr>(node)) {
                 auto index = maybeIndex.Cast();
                 if (NAst::TMaybeType<NAst::TStringType>(index->Collection->Type)) {
-                    // rewrite to str_slice(collection, index, index)
-                    auto funcNameIdent = std::make_shared<NAst::TIdentExpr>(index->Location, "str_slice");
-                    auto slice = std::make_shared<NAst::TCallExpr>(index->Location, funcNameIdent, std::vector<NAst::TExprPtr>{
+                    // rewrite to str_symbol_at(collection, index)
+                    auto funcNameIdent = std::make_shared<NAst::TIdentExpr>(index->Location, "str_symbol_at");
+                    auto symbolAt = std::make_shared<NAst::TCallExpr>(index->Location, funcNameIdent, std::vector<NAst::TExprPtr>{
                         index->Collection,
                         index->Index,
-                        index->Index
                     });
-                    slice->Type = index->Type;
-                    return slice;
+                    symbolAt->Type = index->Type;
+                    return symbolAt;
                 }
             } else if (auto maybeSlice = NAst::TMaybeNode<NAst::TSliceExpr>(node)) {
                 auto slice = maybeSlice.Cast();
@@ -194,6 +211,17 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                     });
                     sliceCall->Type = slice->Type;
                     return sliceCall;
+                }
+            } else if (auto maybeCast = NAst::TMaybeNode<NAst::TCastExpr>(node)) {
+                auto cast = maybeCast.Cast();
+                if (NAst::TMaybeType<NAst::TStringType>(cast->Type) && NAst::TMaybeType<NAst::TSymbolType>(cast->Operand->Type)) {
+                    // symbol -> string cast
+                    auto funcNameIdent = std::make_shared<NAst::TIdentExpr>(cast->Location, "str_from_unicode");
+                    auto castCall = std::make_shared<NAst::TCallExpr>(cast->Location, funcNameIdent, std::vector<NAst::TExprPtr>{
+                        cast->Operand
+                    });
+                    castCall->Type = cast->Type;
+                    return castCall;
                 }
             }
             return node;

@@ -1,13 +1,14 @@
 function ф () { ; ptr to i8
   block {
     label: label(0)
-    arg imm(1090,i64) 
-    call tmp(0,ptr to i8) = юнисимвол 
-    load tmp(1,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(1,ptr to i8) 
-    call str_release 
-    stre local(0,ptr to i8) tmp(0,ptr to i8) 
+    mov tmp(0,i32) = imm(1090,i64) 
+    arg tmp(0,i32) 
+    call tmp(1,ptr to i8) = str_from_unicode 
     load tmp(2,ptr to i8) = local(0,ptr to i8) 
-    ret tmp(2,ptr to i8) 
+    arg tmp(2,ptr to i8) 
+    call str_release 
+    stre local(0,ptr to i8) tmp(1,ptr to i8) 
+    load tmp(3,ptr to i8) = local(0,ptr to i8) 
+    ret tmp(3,ptr to i8) 
   }
 }

@@ -18,6 +18,7 @@ SystemModule::SystemModule() {
     auto stringType = std::make_shared<NAst::TStringType>();
     auto voidPtrType = std::make_shared<NAst::TPointerType>(voidType);
     auto fileType = std::make_shared<NAst::TFileType>();
+    auto symbolType = std::make_shared<NAst::TSymbolType>();
 
     std::vector<TExternalFunction> functions = {
         {
@@ -433,6 +434,17 @@ SystemModule::SystemModule() {
             .ReturnType = stringType
         },
         {
+            .Name = "str_symbol_at",
+            .MangledName = "str_symbol_at",
+            .Ptr = reinterpret_cast<void*>(static_cast<int32_t(*)(const char*, int)>(NRuntime::str_symbol_at)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto ret = NRuntime::str_symbol_at(reinterpret_cast<const char*>(args[0]), static_cast<int>(std::bit_cast<int64_t>(args[1])));
+                return static_cast<uint64_t>(ret);
+            },
+            .ArgTypes = { stringType, integerType },
+            .ReturnType = symbolType
+        },
+        {
             .Name = "str_retain",
             .MangledName = "str_retain",
             .Ptr = reinterpret_cast<void*>(static_cast<void(*)(char*)>(NRuntime::str_retain)),
@@ -489,25 +501,14 @@ SystemModule::SystemModule() {
             .RequireArgsMaterialization = true
         },
         {
-            .Name = "юникод",
-            .MangledName = "str_unicode",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(const char*)>(NRuntime::str_unicode)),
-            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                auto ret = NRuntime::str_unicode(reinterpret_cast<const char*>(args[0]));
-                return std::bit_cast<uint64_t>(ret);
-            },
-            .ArgTypes = { stringType },
-            .ReturnType = integerType,
-        },
-        {
-            .Name = "юнисимвол",
+            .Name = "str_from_unicode",
             .MangledName = "str_from_unicode",
             .Ptr = reinterpret_cast<void*>(static_cast<char*(*)(int64_t)>(NRuntime::str_from_unicode)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
                 auto* str = NRuntime::str_from_unicode(std::bit_cast<int64_t>(args[0]));
                 return std::bit_cast<uint64_t>(str);
             },
-            .ArgTypes = { integerType },
+            .ArgTypes = { symbolType },
             .ReturnType = stringType,
         },
         {

@@ -10,16 +10,17 @@ function ф () { ; ptr to i8
     load tmp(2,ptr to i8) = local(1,ptr to i8) 
     arg tmp(2,ptr to i8) 
     arg imm(3,i64) 
-    arg imm(3,i64) 
-    call tmp(3,ptr to i8) = str_slice 
-    load tmp(4,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(4,ptr to i8) 
-    call str_release 
-    stre local(0,ptr to i8) tmp(3,ptr to i8) 
+    call tmp(3,i32) = str_symbol_at 
+    arg tmp(3,i32) 
+    call tmp(4,ptr to i8) = str_from_unicode 
     load tmp(5,ptr to i8) = local(0,ptr to i8) 
-    load tmp(6,ptr to i8) = local(1,ptr to i8) 
-    arg tmp(6,ptr to i8) 
+    arg tmp(5,ptr to i8) 
     call str_release 
-    ret tmp(5,ptr to i8) 
+    stre local(0,ptr to i8) tmp(4,ptr to i8) 
+    load tmp(6,ptr to i8) = local(0,ptr to i8) 
+    load tmp(7,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(7,ptr to i8) 
+    call str_release 
+    ret tmp(6,ptr to i8) 
   }
 }

@@ -4,6 +4,7 @@
       (Var $$$return:<String>)
       ($$$return =:<Void>
         (Call:<String>
-          ($юнисимвол:<Fun (Int) -> String>)
-          (1090:<Int>)))
+          ($str_from_unicode:<Fun (Char) -> String>)
+          (Cast<Char>:<Char>
+            (1090:<Int>))))
       ($$$return:<String>))))

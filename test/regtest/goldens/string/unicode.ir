@@ -10,12 +10,8 @@ function ф () { ; i64
     load tmp(2,ptr to i8) = local(1,ptr to i8) 
     arg tmp(2,ptr to i8) 
     arg imm(2,i64) 
-    arg imm(2,i64) 
-    call tmp(3,ptr to i8) = str_slice 
-    arg tmp(3,ptr to i8) 
-    call tmp(4,i64) = юникод 
-    arg tmp(3,ptr to i8) 
-    call str_release 
+    call tmp(3,i32) = str_symbol_at 
+    mov tmp(4,i64) = tmp(3,i32) 
     stre local(0,i64) tmp(4,i64) 
     load tmp(5,i64) = local(0,i64) 
     load tmp(6,ptr to i8) = local(1,ptr to i8) 

@@ -7,10 +7,11 @@
         ("строка":<String>))
       ($$$return =:<Void>
         (Call:<String>
-          ($str_slice:<Fun (String, Int, Int) -> String>)
-          (+:<String>
-            ($с:<String>)
-            (" еще одна":<String>))
-          (10:<Int>)
-          (10:<Int>)))
+          ($str_from_unicode:<Fun (Char) -> String>)
+          (Call:<Char>
+            ($str_symbol_at:<Fun (String, Int) -> Char>)
+            (+:<String>
+              ($с:<String>)
+              (" еще одна":<String>))
+            (10:<Int>))))
       ($$$return:<String>))))

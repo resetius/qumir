@@ -16,6 +16,7 @@ struct TString {
 extern "C" {
 
 char* str_slice(const char* s, int startSymbol, int endSymbol);
+int32_t str_symbol_at(const char* s, int pos) ; // position in symbols, 1-indexed
 char* str_from_lit(const char* s);
 void str_retain(char* s);
 void str_release(char* s);
