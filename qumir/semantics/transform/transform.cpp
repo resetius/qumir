@@ -230,7 +230,8 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                 }
             } else if (auto maybeSlice = NAst::TMaybeNode<NAst::TSliceExpr>(node)) {
                 auto slice = maybeSlice.Cast();
-                if (NAst::TMaybeType<NAst::TStringType>(slice->Collection->Type)) {
+                auto collectionType = UnwrapReferenceType(slice->Collection->Type);
+                if (NAst::TMaybeType<NAst::TStringType>(collectionType)) {
                     // rewrite to str_slice(collection, start, end)
                     auto funcNameIdent = std::make_shared<NAst::TIdentExpr>(slice->Location, "str_slice");
                     auto sliceCall = std::make_shared<NAst::TCallExpr>(slice->Location, funcNameIdent, std::vector<NAst::TExprPtr>{

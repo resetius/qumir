@@ -20,13 +20,6 @@ using TTask = TExpectedTask<TExprPtr, TError, TLocation>;
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId);
 
-TTypePtr UnwrapReferenceType(TTypePtr type) {
-    if (auto maybeRef = TMaybeType<TReferenceType>(type)) {
-        return maybeRef.Cast()->ReferencedType;
-    }
-    return type;
-}
-
 bool WideningIntOK(TTypePtr typeSrc, TTypePtr typeDst) {
     auto src = TMaybeType<TIntegerType>(typeSrc).Cast();
     auto dst = TMaybeType<TIntegerType>(typeDst).Cast();
@@ -653,7 +646,8 @@ TTask AnnotateSlice(std::shared_ptr<TSliceExpr> sliceExpr, NSemantics::TNameReso
     if (!sliceExpr->Collection->Type) {
         co_return TError(sliceExpr->Location, "untyped collection in slice expression");
     }
-    if (!TMaybeType<TStringType>(sliceExpr->Collection->Type)) {
+    auto collectionType = UnwrapReferenceType(sliceExpr->Collection->Type);
+    if (!TMaybeType<TStringType>(collectionType)) {
         co_return TError(sliceExpr->Location, "only string slicing is supported for now");
     }
     sliceExpr->Start = co_await DoAnnotate(sliceExpr->Start, context, scopeId);
@@ -672,7 +666,7 @@ TTask AnnotateSlice(std::shared_ptr<TSliceExpr> sliceExpr, NSemantics::TNameReso
         sliceExpr->Start = InsertImplicitCastIfNeeded(sliceExpr->Start, intType);
     }
     // indexing a string yields a string (1-character substring)
-    sliceExpr->Type = sliceExpr->Collection->Type;
+    sliceExpr->Type = collectionType;
 
     co_return sliceExpr;
 }

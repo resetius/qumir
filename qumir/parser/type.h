@@ -192,5 +192,12 @@ struct TReferenceType : TType {
 
 std::ostream& operator<<(std::ostream& os, const TType& expr);
 
+inline TTypePtr UnwrapReferenceType(TTypePtr type) {
+    if (auto maybeRef = TMaybeType<TReferenceType>(type)) {
+        return maybeRef.Cast()->ReferencedType;
+    }
+    return type;
+}
+
 } // namespace NAst
 } // namespace NQumir
