@@ -8,6 +8,10 @@ function <main> () { ; void
     call output_symbol 
     arg imm(0,ptr to i8) 
     call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     ret 
   }
 }
@@ -16,6 +20,10 @@ function f () { ; i32
     label: label(0)
     mov tmp(0,i32) = imm(1103,i64) 
     stre local(0,i32) tmp(0,i32) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     load tmp(1,i32) = local(0,i32) 
     ret tmp(1,i32) 
   }

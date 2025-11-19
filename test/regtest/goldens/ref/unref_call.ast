@@ -24,8 +24,7 @@
       ($i =:<Void>
         (10:<Int>))))
   (FunDecl $g ($i):<Fun (Int) -> Int>
-    (Block:<Int>
+    (Block:<Void>
       (Var $$$return:<Int>)
       ($$$return =:<Void>
-        ($i:<Int>))
-      ($$$return:<Int>))))
+        ($i:<Int>)))))

@@ -1,6 +1,6 @@
 (Block:<Fun (Int) -> String>
   (FunDecl $main ():<Fun () -> String>
-    (Block:<String>
+    (Block:<Void>
       (Var $$$return:<String>)
       (Var $s:<String>)
       ($s =:<Void>
@@ -12,10 +12,9 @@
           ($ф:<Fun (Int) -> String>)
           (10:<Int>)))
       ($$$return =:<Void>
-        ($s:<String>))
-      ($$$return:<String>)))
+        ($s:<String>))))
   (FunDecl $ф ($k):<Fun (Int) -> String>
-    (Block:<String>
+    (Block:<Void>
       (Var $$$return:<String>)
       (Var $стр:<String>)
       (Var $i:<Int>)
@@ -55,5 +54,4 @@
           ($$$next =:<Void>
             (+:<Int>
               ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      ($$$return:<String>))))
+              ($$$step:<Int>))))))))

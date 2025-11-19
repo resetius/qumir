@@ -1,6 +1,6 @@
 (Block:<Fun (Int) -> Int>
   (FunDecl $цикл ():<Fun () -> Int>
-    (Block:<Int>
+    (Block:<Void>
       (Var $$$return:<Int>)
       (Var $ф:<Int>)
       (Var $i:<Int>)
@@ -35,10 +35,9 @@
               ($$$next:<Int>)
               ($$$step:<Int>)))))
       ($$$return =:<Void>
-        ($ф:<Int>))
-      ($$$return:<Int>)))
+        ($ф:<Int>))))
   (FunDecl $факториал ($число):<Fun (Int) -> Int>
-    (Block:<Int>
+    (Block:<Void>
       (Var $$$return:<Int>)
       (Var $i:<Int>)
       (If:<Void>
@@ -56,5 +55,4 @@
                 ($факториал:<Fun (Int) -> Int>)
                 (-:<Int>
                   ($число:<Int>)
-                  (1:<Int>)))))))
-      ($$$return:<Int>))))
+                  (1:<Int>))))))))))

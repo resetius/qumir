@@ -21,11 +21,15 @@ function main () { ; ptr to i8
     arg tmp(5,ptr to i8) 
     call str_release 
     stre local(0,ptr to i8) tmp(4,ptr to i8) 
-    load tmp(6,ptr to i8) = local(0,ptr to i8) 
-    load tmp(7,ptr to i8) = local(1,ptr to i8) 
-    arg tmp(7,ptr to i8) 
+    load tmp(6,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(6,ptr to i8) 
     call str_release 
-    ret tmp(6,ptr to i8) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(7,ptr to i8) = local(0,ptr to i8) 
+    ret tmp(7,ptr to i8) 
   }
 }
 function ф (local(0)) { ; ptr to i8
@@ -52,42 +56,46 @@ function ф (local(0)) { ; ptr to i8
     load tmp(5,i64) = local(6,i64) 
     + tmp(6,i64) = imm(10,i64) tmp(5,i64) 
     stre local(5,i64) tmp(6,i64) 
-    jmp label(1) 
-  }
-  block {
-    label: label(1)
-    load tmp(7,i64) = local(7,i64) 
-    load tmp(8,i64) = local(5,i64) 
-    != tmp(9,i1) = tmp(7,i64) tmp(8,i64) 
-    cmp tmp(9,i1) label(2) label(5) 
+    jmp label(2) 
   }
   block {
     label: label(2)
-    load tmp(10,i64) = local(7,i64) 
-    stre local(3,i64) tmp(10,i64) 
-    jmp label(3) 
+    load tmp(7,i64) = local(7,i64) 
+    load tmp(8,i64) = local(5,i64) 
+    != tmp(9,i1) = tmp(7,i64) tmp(8,i64) 
+    cmp tmp(9,i1) label(3) label(6) 
   }
   block {
     label: label(3)
-    load tmp(11,i64) = local(4,i64) 
-    + tmp(12,i64) = tmp(11,i64) imm(1,i64) 
-    stre local(4,i64) tmp(12,i64) 
+    load tmp(10,i64) = local(7,i64) 
+    stre local(3,i64) tmp(10,i64) 
     jmp label(4) 
   }
   block {
     label: label(4)
+    load tmp(11,i64) = local(4,i64) 
+    + tmp(12,i64) = tmp(11,i64) imm(1,i64) 
+    stre local(4,i64) tmp(12,i64) 
+    jmp label(5) 
+  }
+  block {
+    label: label(5)
     load tmp(13,i64) = local(7,i64) 
     load tmp(14,i64) = local(6,i64) 
     + tmp(15,i64) = tmp(13,i64) tmp(14,i64) 
     stre local(7,i64) tmp(15,i64) 
+    jmp label(2) 
+  }
+  block {
+    label: label(6)
+    load tmp(16,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(16,ptr to i8) 
+    call str_release 
     jmp label(1) 
   }
   block {
-    label: label(5)
-    load tmp(16,ptr to i8) = local(1,ptr to i8) 
-    load tmp(17,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(17,ptr to i8) 
-    call str_release 
-    ret tmp(16,ptr to i8) 
+    label: label(1)
+    load tmp(17,ptr to i8) = local(1,ptr to i8) 
+    ret tmp(17,ptr to i8) 
   }
 }

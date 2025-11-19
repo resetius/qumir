@@ -5,6 +5,10 @@ function <main> () { ; void
     load tmp(0,i64) = local(0,i64) 
     arg tmp(0,i64) 
     call output_int64 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     ret 
   }
 }

@@ -68,11 +68,11 @@ TEST(CfgTest, Basic) {
     auto& function = module.Functions[0];
     BuildCfg(function);
     function.Print(std::cout, module);
-    EXPECT_EQ(function.Blocks.size(), 4);
+    EXPECT_EQ(function.Blocks.size(), 5);
     EXPECT_EQ(function.Blocks[0].Succ.size(), 1);
     EXPECT_EQ(function.Blocks[1].Succ.size(), 2);
     EXPECT_EQ(function.Blocks[2].Succ.size(), 1);
-    EXPECT_EQ(function.Blocks[3].Succ.size(), 0);
+    EXPECT_EQ(function.Blocks[3].Succ.size(), 1);
 
     EXPECT_EQ(function.Blocks[0].Pred.size(), 0);
     EXPECT_EQ(function.Blocks[1].Pred.size(), 2);
@@ -108,7 +108,7 @@ std::string s = R"(
 
     BuildCfg(module.Functions[0]);
     std::vector<TLabel> rpo = ComputeRPO(module.Functions[0]);
-    EXPECT_EQ(rpo, (std::vector<TLabel>{{0}, {1}, {3}, {2}}));
+    EXPECT_EQ(rpo, (std::vector<TLabel>{{0}, {2}, {4}, {1}, {3}}));
 }
 
 TEST(CfgTest, PromoteLocalsToSSAWhile) {

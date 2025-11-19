@@ -1,11 +1,10 @@
 (Block:<Fun () -> Float>
   (FunDecl $функция ():<Fun () -> Float>
-    (Block:<Float>
+    (Block:<Void>
       (Var $$$return:<Float>)
       (Var $i:<Float>)
       ($i =:<Void>
         (-:<Float>
           (2.000000:<Float>)))
       ($$$return =:<Void>
-        ($i:<Float>))
-      ($$$return:<Float>))))
+        ($i:<Float>)))))

@@ -1,10 +1,9 @@
 (Block:<Fun () -> String>
   (FunDecl $ф ():<Fun () -> String>
-    (Block:<String>
+    (Block:<Void>
       (Var $$$return:<String>)
       ($$$return =:<Void>
         (Call:<String>
           ($str_from_unicode:<Fun (Char) -> String>)
           (Cast<Char>:<Char>
-            (1090:<Int>))))
-      ($$$return:<String>))))
+            (1090:<Int>)))))))

@@ -1,6 +1,6 @@
 (Block:<Fun () -> String>
   (FunDecl $ф ():<Fun () -> String>
-    (Block:<String>
+    (Block:<Void>
       (Var $$$return:<String>)
       (Var $с:<String>)
       ($с =:<Void>
@@ -11,5 +11,4 @@
           (Call:<Char>
             ($str_symbol_at:<Fun (String, Int) -> Char>)
             ($с:<String>)
-            (3:<Int>))))
-      ($$$return:<String>))))
+            (3:<Int>)))))))

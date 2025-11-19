@@ -76,10 +76,14 @@ function функция () { ; f64
     + tmp(58,ptr to f64) = tmp(57,ptr to f64) tmp(56,i64) 
     lde tmp(59,f64) = tmp(58,ptr to f64) 
     stre local(0,f64) tmp(59,f64) 
-    load tmp(60,f64) = local(0,f64) 
-    load tmp(61,ptr to f64) = local(2,ptr to f64) 
-    arg tmp(61,ptr to f64) 
+    load tmp(60,ptr to f64) = local(2,ptr to f64) 
+    arg tmp(60,ptr to f64) 
     call array_destroy 
-    ret tmp(60,f64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(61,f64) = local(0,f64) 
+    ret tmp(61,f64) 
   }
 }

@@ -1,0 +1,37 @@
+| Early exit regression tests
+
+алг цел f
+нач
+  a := g          | unconditional early exit in g
+  b := h          | conditional early exit inside if
+  c := i          | multiple exits, last reachable before code after
+  знач := a + b + c
+кон
+
+алг цел g
+нач
+  знач := 1
+  выход          | should return 1; code after must be ignored
+  знач := 2      | unreachable
+кон
+
+алг цел h
+нач
+  знач := 0
+  если 1 = 1 то
+     знач := 5
+     выход      | returns 5
+  все
+  знач := 99     | unreachable
+кон
+
+алг цел i
+нач
+  знач := 1
+  если 2 = 3 то
+     выход      | not taken
+  все
+  знач := 7
+  выход          | return 7
+  знач := 100    | unreachable
+кон

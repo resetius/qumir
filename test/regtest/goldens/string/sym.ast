@@ -13,9 +13,8 @@
           ($output_string:<Fun (String) -> Void>)
           ("\n":<String>)))))
   (FunDecl $f ():<Fun () -> Char>
-    (Block:<Char>
+    (Block:<Void>
       (Var $$$return:<Char>)
       ($$$return =:<Void>
         (Cast<Char>:<Char>
-          (1103:<Int>)))
-      ($$$return:<Char>))))
+          (1103:<Int>))))))

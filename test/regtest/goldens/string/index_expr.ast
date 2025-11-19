@@ -1,6 +1,6 @@
 (Block:<Fun () -> String>
   (FunDecl $ф ():<Fun () -> String>
-    (Block:<String>
+    (Block:<Void>
       (Var $$$return:<String>)
       (Var $с:<String>)
       ($с =:<Void>
@@ -13,5 +13,4 @@
             (+:<String>
               ($с:<String>)
               (" еще одна":<String>))
-            (10:<Int>))))
-      ($$$return:<String>))))
+            (10:<Int>)))))))

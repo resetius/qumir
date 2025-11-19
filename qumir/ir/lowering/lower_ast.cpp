@@ -312,6 +312,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.Emit0("call"_op, { TImm{ dtorId } });
                 last = r.Value;
             }
+
+            // Stop lowering subsequent statements if current block has a terminating instruction (e.g. break -> jmp)
+            if (Builder.IsCurrentBlockTerminated()) {
+                break;
+            }
         }
         // Emit destructors for strings declared in this block (LIFO)
         if (!block->SkipDestructors && PendingDestructors.size() > initialPendingDestructorsSize) {
@@ -821,20 +826,32 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Module.Functions[Builder.CurrentFunctionIdx()].ReturnTypeIsString = true;
         }
 
+        // Create a dedicated final return block label beforehand and pass it as BreakLabel for early exits.
+        auto endLabel = Builder.NewLabel();
         auto loweredBody = co_await Lower(body, TBlockScope {
             .FuncIdx = funcIdx,
             .Id = NSemantics::TScopeId{funScope},
-            .BreakLabel = std::nullopt,
+            .BreakLabel = endLabel,
             .ContinueLabel = std::nullopt
         });
-        if (loweredBody.Value && !NAst::TMaybeType<NAst::TVoidType>(fun->RetType)) {
-            // TODO: return value of 'hidden' __return variable
-            Builder.Emit0("ret"_op, {*loweredBody.Value});
+        // Jump to final return block unless already terminated by earlier logic.
+        if (!Builder.IsCurrentBlockTerminated()) {
+            Builder.Emit0("jmp"_op, { endLabel });
+        }
+        // Materialize final return block and emit single ret there.
+        Builder.NewBlock(endLabel);
+        if (!NAst::TMaybeType<NAst::TVoidType>(fun->RetType)) {
+            // return value = lowered IdentExpr named '$$return' in function scope
+            auto returnVar = co_await LoadVar("$$return", TBlockScope {
+                .FuncIdx = funcIdx,
+                .Id = NSemantics::TScopeId{funScope},
+                .BreakLabel = std::nullopt,
+                .ContinueLabel = std::nullopt
+            }, fun->Location);
+            Builder.Emit0("ret"_op, {returnVar});
         } else {
             Builder.Emit0("ret"_op, {});
         }
-        // Builder.SetCurrentFunction(currentFuncIdx); // needed for nested functions
-        // Function declaration does not produce a value
         co_return TValueWithBlock{ {}, Builder.CurrentBlockLabel() };
     } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(expr)) {
         auto call = maybeCall.Cast();

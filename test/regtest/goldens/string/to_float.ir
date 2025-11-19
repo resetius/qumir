@@ -31,6 +31,10 @@ function <main> () { ; void
     call output_bool 
     arg imm(2,ptr to i8) 
     call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     ret 
   }
 }

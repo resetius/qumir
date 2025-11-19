@@ -5,6 +5,10 @@ function функция () { ; f64
     stre local(1,f64) tmp(0,f64) 
     load tmp(1,f64) = local(1,f64) 
     stre local(0,f64) tmp(1,f64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     load tmp(2,f64) = local(0,f64) 
     ret tmp(2,f64) 
   }

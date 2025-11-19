@@ -501,9 +501,7 @@ TAstTask fun_decl(TTokenStream& stream) {
 
     std::vector<TExprPtr> bodyStmts;
 
-    bool hasReturn = false;
     if (!TMaybeType<TVoidType>(returnType)) {
-        hasReturn = true;
         bodyStmts.push_back(std::make_shared<TVarStmt>(next.Location, "$$return", returnType));
     }
 
@@ -516,11 +514,6 @@ TAstTask fun_decl(TTokenStream& stream) {
 
     if (auto maybeBlock = TMaybeNode<TBlockExpr>(body)) {
         auto block = maybeBlock.Cast();
-        // ok
-        if (hasReturn) {
-            // Implicit return of $$return variable at the end of function
-            block->Stmts.push_back(ident(next.Location, "$$return"));
-        }
         auto funDecl = std::make_shared<TFunDecl>(next.Location,
             name, std::move(args),
             std::move(maybeBlock.Cast()),

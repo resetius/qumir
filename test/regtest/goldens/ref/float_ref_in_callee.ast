@@ -1,6 +1,6 @@
 (Block:<Fun (Ref) -> Void>
   (FunDecl $функция ():<Fun () -> Float>
-    (Block:<Float>
+    (Block:<Void>
       (Var $$$return:<Float>)
       (Var $x:<Float>)
       ($x =:<Void>
@@ -9,8 +9,7 @@
         ($g:<Fun (Ref) -> Void>)
         ($x:<Float>))
       ($$$return =:<Void>
-        ($x:<Float>))
-      ($$$return:<Float>)))
+        ($x:<Float>))))
   (FunDecl $g ($x):<Fun (Ref) -> Void>
     (Block:<Void>
       ($x =:<Void>

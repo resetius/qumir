@@ -1,10 +1,9 @@
 (Block:<Fun () -> String>
   (FunDecl $ф ():<Fun () -> String>
-    (Block:<String>
+    (Block:<Void>
       (Var $$$return:<String>)
       (Var $стр:<String>)
       ($стр =:<Void>
         ("ыыы":<String>))
       ($$$return =:<Void>
-        ($стр:<String>))
-      ($$$return:<String>))))
+        ($стр:<String>)))))

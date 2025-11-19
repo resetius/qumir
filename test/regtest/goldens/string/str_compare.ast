@@ -1,6 +1,6 @@
 (Block:<Fun () -> Int>
   (FunDecl $ф ():<Fun () -> Int>
-    (Block:<Int>
+    (Block:<Void>
       (Var $$$return:<Int>)
       (Var $s1:<String>)
       (Var $s2:<String>)
@@ -69,5 +69,4 @@
             (+:<Int>
               ($$$return:<Int>)
               (1:<Int>))))
-        nil)
-      ($$$return:<Int>))))
+        nil))))

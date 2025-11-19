@@ -3,266 +3,270 @@ function ф () { ; i64
     label: label(0)
     stre local(1,i64) imm(0,i64) 
     < tmp(0,i1) = imm(1,i64) imm(2,i64) 
-    cmp tmp(0,i1) label(1) label(2) 
-  }
-  block {
-    label: label(1)
-    < tmp(1,i1) = imm(2,i64) imm(3,i64) 
-    jmp label(2) 
+    cmp tmp(0,i1) label(2) label(3) 
   }
   block {
     label: label(2)
-    phi tmp(2,i1) = tmp(0,i1) label(0) tmp(1,i1) label(1) 
-    cmp tmp(2,i1) label(3) label(4) 
+    < tmp(1,i1) = imm(2,i64) imm(3,i64) 
+    jmp label(3) 
   }
   block {
     label: label(3)
-    load tmp(3,i64) = local(1,i64) 
-    + tmp(4,i64) = tmp(3,i64) imm(1,i64) 
-    stre local(1,i64) tmp(4,i64) 
-    jmp label(5) 
+    phi tmp(2,i1) = tmp(0,i1) label(0) tmp(1,i1) label(2) 
+    cmp tmp(2,i1) label(4) label(5) 
   }
   block {
     label: label(4)
-    jmp label(5) 
+    load tmp(3,i64) = local(1,i64) 
+    + tmp(4,i64) = tmp(3,i64) imm(1,i64) 
+    stre local(1,i64) tmp(4,i64) 
+    jmp label(6) 
   }
   block {
     label: label(5)
-    < tmp(5,i1) = imm(1,i64) imm(2,i64) 
-    cmp tmp(5,i1) label(6) label(7) 
+    jmp label(6) 
   }
   block {
     label: label(6)
-    == tmp(6,i1) = imm(2,i64) imm(2,i64) 
-    jmp label(7) 
+    < tmp(5,i1) = imm(1,i64) imm(2,i64) 
+    cmp tmp(5,i1) label(7) label(8) 
   }
   block {
     label: label(7)
-    phi tmp(7,i1) = tmp(5,i1) label(5) tmp(6,i1) label(6) 
-    cmp tmp(7,i1) label(8) label(9) 
+    == tmp(6,i1) = imm(2,i64) imm(2,i64) 
+    jmp label(8) 
   }
   block {
     label: label(8)
-    < tmp(8,i1) = imm(2,i64) imm(3,i64) 
-    jmp label(9) 
+    phi tmp(7,i1) = tmp(5,i1) label(6) tmp(6,i1) label(7) 
+    cmp tmp(7,i1) label(9) label(10) 
   }
   block {
     label: label(9)
-    phi tmp(9,i1) = tmp(7,i1) label(7) tmp(8,i1) label(8) 
-    cmp tmp(9,i1) label(10) label(11) 
+    < tmp(8,i1) = imm(2,i64) imm(3,i64) 
+    jmp label(10) 
   }
   block {
     label: label(10)
-    load tmp(10,i64) = local(1,i64) 
-    + tmp(11,i64) = tmp(10,i64) imm(10,i64) 
-    stre local(1,i64) tmp(11,i64) 
-    jmp label(12) 
+    phi tmp(9,i1) = tmp(7,i1) label(8) tmp(8,i1) label(9) 
+    cmp tmp(9,i1) label(11) label(12) 
   }
   block {
     label: label(11)
-    jmp label(12) 
+    load tmp(10,i64) = local(1,i64) 
+    + tmp(11,i64) = tmp(10,i64) imm(10,i64) 
+    stre local(1,i64) tmp(11,i64) 
+    jmp label(13) 
   }
   block {
     label: label(12)
-    > tmp(12,i1) = imm(5,i64) imm(4,i64) 
-    cmp tmp(12,i1) label(13) label(14) 
+    jmp label(13) 
   }
   block {
     label: label(13)
-    > tmp(13,i1) = imm(4,i64) imm(3,i64) 
-    jmp label(14) 
+    > tmp(12,i1) = imm(5,i64) imm(4,i64) 
+    cmp tmp(12,i1) label(14) label(15) 
   }
   block {
     label: label(14)
-    phi tmp(14,i1) = tmp(12,i1) label(12) tmp(13,i1) label(13) 
-    cmp tmp(14,i1) label(15) label(16) 
+    > tmp(13,i1) = imm(4,i64) imm(3,i64) 
+    jmp label(15) 
   }
   block {
     label: label(15)
-    > tmp(15,i1) = imm(3,i64) imm(2,i64) 
-    jmp label(16) 
+    phi tmp(14,i1) = tmp(12,i1) label(13) tmp(13,i1) label(14) 
+    cmp tmp(14,i1) label(16) label(17) 
   }
   block {
     label: label(16)
-    phi tmp(16,i1) = tmp(14,i1) label(14) tmp(15,i1) label(15) 
-    cmp tmp(16,i1) label(17) label(18) 
+    > tmp(15,i1) = imm(3,i64) imm(2,i64) 
+    jmp label(17) 
   }
   block {
     label: label(17)
-    > tmp(17,i1) = imm(2,i64) imm(1,i64) 
-    jmp label(18) 
+    phi tmp(16,i1) = tmp(14,i1) label(15) tmp(15,i1) label(16) 
+    cmp tmp(16,i1) label(18) label(19) 
   }
   block {
     label: label(18)
-    phi tmp(18,i1) = tmp(16,i1) label(16) tmp(17,i1) label(17) 
-    cmp tmp(18,i1) label(19) label(20) 
+    > tmp(17,i1) = imm(2,i64) imm(1,i64) 
+    jmp label(19) 
   }
   block {
     label: label(19)
-    load tmp(19,i64) = local(1,i64) 
-    + tmp(20,i64) = tmp(19,i64) imm(100,i64) 
-    stre local(1,i64) tmp(20,i64) 
-    jmp label(21) 
+    phi tmp(18,i1) = tmp(16,i1) label(17) tmp(17,i1) label(18) 
+    cmp tmp(18,i1) label(20) label(21) 
   }
   block {
     label: label(20)
-    jmp label(21) 
+    load tmp(19,i64) = local(1,i64) 
+    + tmp(20,i64) = tmp(19,i64) imm(100,i64) 
+    stre local(1,i64) tmp(20,i64) 
+    jmp label(22) 
   }
   block {
     label: label(21)
-    < tmp(21,i1) = imm(1,i64) imm(2,i64) 
-    cmp tmp(21,i1) label(22) label(23) 
+    jmp label(22) 
   }
   block {
     label: label(22)
-    > tmp(22,i1) = imm(2,i64) imm(1,i64) 
-    jmp label(23) 
+    < tmp(21,i1) = imm(1,i64) imm(2,i64) 
+    cmp tmp(21,i1) label(23) label(24) 
   }
   block {
     label: label(23)
-    phi tmp(23,i1) = tmp(21,i1) label(21) tmp(22,i1) label(22) 
-    cmp tmp(23,i1) label(24) label(25) 
+    > tmp(22,i1) = imm(2,i64) imm(1,i64) 
+    jmp label(24) 
   }
   block {
     label: label(24)
-    load tmp(24,i64) = local(1,i64) 
-    + tmp(25,i64) = tmp(24,i64) imm(1000,i64) 
-    stre local(1,i64) tmp(25,i64) 
-    jmp label(26) 
+    phi tmp(23,i1) = tmp(21,i1) label(22) tmp(22,i1) label(23) 
+    cmp tmp(23,i1) label(25) label(26) 
   }
   block {
     label: label(25)
-    jmp label(26) 
+    load tmp(24,i64) = local(1,i64) 
+    + tmp(25,i64) = tmp(24,i64) imm(1000,i64) 
+    stre local(1,i64) tmp(25,i64) 
+    jmp label(27) 
   }
   block {
     label: label(26)
-    < tmp(26,i1) = imm(2,i64) imm(1,i64) 
-    cmp tmp(26,i1) label(27) label(28) 
+    jmp label(27) 
   }
   block {
     label: label(27)
-    < tmp(27,i1) = imm(1,i64) imm(3,i64) 
-    jmp label(28) 
+    < tmp(26,i1) = imm(2,i64) imm(1,i64) 
+    cmp tmp(26,i1) label(28) label(29) 
   }
   block {
     label: label(28)
-    phi tmp(28,i1) = tmp(26,i1) label(26) tmp(27,i1) label(27) 
-    cmp tmp(28,i1) label(29) label(30) 
+    < tmp(27,i1) = imm(1,i64) imm(3,i64) 
+    jmp label(29) 
   }
   block {
     label: label(29)
-    load tmp(29,i64) = local(1,i64) 
-    + tmp(30,i64) = tmp(29,i64) imm(2000,i64) 
-    stre local(1,i64) tmp(30,i64) 
-    jmp label(31) 
+    phi tmp(28,i1) = tmp(26,i1) label(27) tmp(27,i1) label(28) 
+    cmp tmp(28,i1) label(30) label(31) 
   }
   block {
     label: label(30)
-    jmp label(31) 
+    load tmp(29,i64) = local(1,i64) 
+    + tmp(30,i64) = tmp(29,i64) imm(2000,i64) 
+    stre local(1,i64) tmp(30,i64) 
+    jmp label(32) 
   }
   block {
     label: label(31)
-    < tmp(31,i1) = imm(1,i64) imm(2,i64) 
-    cmp tmp(31,i1) label(32) label(33) 
+    jmp label(32) 
   }
   block {
     label: label(32)
-    < tmp(32,i1) = imm(2,i64) imm(3,i64) 
-    jmp label(33) 
+    < tmp(31,i1) = imm(1,i64) imm(2,i64) 
+    cmp tmp(31,i1) label(33) label(34) 
   }
   block {
     label: label(33)
-    phi tmp(33,i1) = tmp(31,i1) label(31) tmp(32,i1) label(32) 
-    ! tmp(34,i1) = tmp(33,i1) 
-    cmp tmp(34,i1) label(34) label(35) 
+    < tmp(32,i1) = imm(2,i64) imm(3,i64) 
+    jmp label(34) 
   }
   block {
     label: label(34)
-    load tmp(35,i64) = local(1,i64) 
-    + tmp(36,i64) = tmp(35,i64) imm(3000,i64) 
-    stre local(1,i64) tmp(36,i64) 
-    jmp label(36) 
+    phi tmp(33,i1) = tmp(31,i1) label(32) tmp(32,i1) label(33) 
+    ! tmp(34,i1) = tmp(33,i1) 
+    cmp tmp(34,i1) label(35) label(36) 
   }
   block {
     label: label(35)
-    jmp label(36) 
+    load tmp(35,i64) = local(1,i64) 
+    + tmp(36,i64) = tmp(35,i64) imm(3000,i64) 
+    stre local(1,i64) tmp(36,i64) 
+    jmp label(37) 
   }
   block {
     label: label(36)
-    < tmp(37,i1) = imm(1,i64) imm(2,i64) 
-    cmp tmp(37,i1) label(37) label(38) 
+    jmp label(37) 
   }
   block {
     label: label(37)
-    <= tmp(38,i1) = imm(2,i64) imm(2,i64) 
-    jmp label(38) 
+    < tmp(37,i1) = imm(1,i64) imm(2,i64) 
+    cmp tmp(37,i1) label(38) label(39) 
   }
   block {
     label: label(38)
-    phi tmp(39,i1) = tmp(37,i1) label(36) tmp(38,i1) label(37) 
-    cmp tmp(39,i1) label(39) label(40) 
+    <= tmp(38,i1) = imm(2,i64) imm(2,i64) 
+    jmp label(39) 
   }
   block {
     label: label(39)
-    < tmp(40,i1) = imm(2,i64) imm(3,i64) 
-    jmp label(40) 
+    phi tmp(39,i1) = tmp(37,i1) label(37) tmp(38,i1) label(38) 
+    cmp tmp(39,i1) label(40) label(41) 
   }
   block {
     label: label(40)
-    phi tmp(41,i1) = tmp(39,i1) label(38) tmp(40,i1) label(39) 
-    cmp tmp(41,i1) label(41) label(42) 
+    < tmp(40,i1) = imm(2,i64) imm(3,i64) 
+    jmp label(41) 
   }
   block {
     label: label(41)
-    >= tmp(42,i1) = imm(3,i64) imm(3,i64) 
-    jmp label(42) 
+    phi tmp(41,i1) = tmp(39,i1) label(39) tmp(40,i1) label(40) 
+    cmp tmp(41,i1) label(42) label(43) 
   }
   block {
     label: label(42)
-    phi tmp(43,i1) = tmp(41,i1) label(40) tmp(42,i1) label(41) 
-    cmp tmp(43,i1) label(43) label(44) 
+    >= tmp(42,i1) = imm(3,i64) imm(3,i64) 
+    jmp label(43) 
   }
   block {
     label: label(43)
-    load tmp(44,i64) = local(1,i64) 
-    + tmp(45,i64) = tmp(44,i64) imm(10000,i64) 
-    stre local(1,i64) tmp(45,i64) 
-    jmp label(45) 
+    phi tmp(43,i1) = tmp(41,i1) label(41) tmp(42,i1) label(42) 
+    cmp tmp(43,i1) label(44) label(45) 
   }
   block {
     label: label(44)
-    jmp label(45) 
+    load tmp(44,i64) = local(1,i64) 
+    + tmp(45,i64) = tmp(44,i64) imm(10000,i64) 
+    stre local(1,i64) tmp(45,i64) 
+    jmp label(46) 
   }
   block {
     label: label(45)
-    < tmp(46,i1) = imm(3,i64) imm(2,i64) 
-    cmp tmp(46,i1) label(46) label(47) 
+    jmp label(46) 
   }
   block {
     label: label(46)
-    < tmp(47,i1) = imm(2,i64) imm(1,i64) 
-    jmp label(47) 
+    < tmp(46,i1) = imm(3,i64) imm(2,i64) 
+    cmp tmp(46,i1) label(47) label(48) 
   }
   block {
     label: label(47)
-    phi tmp(48,i1) = tmp(46,i1) label(45) tmp(47,i1) label(46) 
-    cmp tmp(48,i1) label(48) label(49) 
+    < tmp(47,i1) = imm(2,i64) imm(1,i64) 
+    jmp label(48) 
   }
   block {
     label: label(48)
-    load tmp(49,i64) = local(1,i64) 
-    + tmp(50,i64) = tmp(49,i64) imm(40000,i64) 
-    stre local(1,i64) tmp(50,i64) 
-    jmp label(50) 
+    phi tmp(48,i1) = tmp(46,i1) label(46) tmp(47,i1) label(47) 
+    cmp tmp(48,i1) label(49) label(50) 
   }
   block {
     label: label(49)
-    jmp label(50) 
+    load tmp(49,i64) = local(1,i64) 
+    + tmp(50,i64) = tmp(49,i64) imm(40000,i64) 
+    stre local(1,i64) tmp(50,i64) 
+    jmp label(51) 
   }
   block {
     label: label(50)
+    jmp label(51) 
+  }
+  block {
+    label: label(51)
     load tmp(51,i64) = local(1,i64) 
     stre local(0,i64) tmp(51,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     load tmp(52,i64) = local(0,i64) 
     ret tmp(52,i64) 
   }

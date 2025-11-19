@@ -3,6 +3,10 @@ function ф () { ; i64
     label: label(0)
     - tmp(0,i64) = imm(9223372036854775807,i64) imm(10,i64) 
     stre local(0,i64) tmp(0,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     load tmp(1,i64) = local(0,i64) 
     ret tmp(1,i64) 
   }

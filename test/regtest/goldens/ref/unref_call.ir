@@ -9,6 +9,10 @@ function <main> () { ; void
     call output_int64 
     arg imm(0,ptr to i8) 
     call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     ret 
   }
 }
@@ -23,6 +27,10 @@ function f (local(0)) { ; void
     stre local(1,i64) tmp(3,i64) 
     load tmp(4,ptr to i64) = local(0,ptr to i64) 
     ste tmp(4,ptr to i64) imm(10,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     ret 
   }
 }
@@ -31,6 +39,10 @@ function g (local(0)) { ; i64
     label: label(0)
     load tmp(0,i64) = local(0,i64) 
     stre local(1,i64) tmp(0,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     load tmp(1,i64) = local(1,i64) 
     ret tmp(1,i64) 
   }

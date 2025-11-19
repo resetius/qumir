@@ -7,6 +7,10 @@ function функция () { ; i64
     call ф 
     load tmp(1,i64) = local(1,i64) 
     stre local(0,i64) tmp(1,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     load tmp(2,i64) = local(0,i64) 
     ret tmp(2,i64) 
   }
@@ -19,6 +23,10 @@ function ф (local(0)) { ; void
     + tmp(2,i64) = tmp(1,i64) imm(5,i64) 
     load tmp(3,ptr to i64) = local(0,ptr to i64) 
     ste tmp(3,ptr to i64) tmp(2,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     ret 
   }
 }

@@ -1,14 +1,13 @@
 (Block:<Fun (Ref) -> Void>
   (FunDecl $f ():<Fun () -> String>
-    (Block:<String>
+    (Block:<Void>
       (Var $$$return:<String>)
       (Var $s:<String>)
       (Call:<Void>
         ($инит:<Fun (Ref) -> Void>)
         ($s:<String>))
       ($$$return =:<Void>
-        ($s:<String>))
-      ($$$return:<String>)))
+        ($s:<String>))))
   (FunDecl $инит ($s):<Fun (Ref) -> Void>
     (Block:<Void>
       (Call:<Void>

@@ -1,6 +1,6 @@
 (Block:<Fun () -> Float>
   (FunDecl $функция ():<Fun () -> Float>
-    (Block:<Float>
+    (Block:<Void>
       (Var $$$return:<Float>)
       (Block:<Array [Float; 1]>
         (Var $$$A_lbound0:<Int>)
@@ -25,5 +25,4 @@
       ($$$return =:<Void>
         (Index:<Float>
           ($A:<Array [Float; 1]>)
-          (0:<Int>)))
-      ($$$return:<Float>))))
+          (0:<Int>))))))

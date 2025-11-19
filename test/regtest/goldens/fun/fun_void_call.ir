@@ -4,6 +4,10 @@ function функция () { ; i64
     arg imm(10,i64) 
     call ф 
     stre local(0,i64) imm(1,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     load tmp(0,i64) = local(0,i64) 
     ret tmp(0,i64) 
   }
@@ -14,6 +18,10 @@ function ф (local(0)) { ; void
     load tmp(0,i64) = local(0,i64) 
     arg tmp(0,i64) 
     call output_int64 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     ret 
   }
 }

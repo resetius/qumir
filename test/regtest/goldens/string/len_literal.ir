@@ -8,6 +8,10 @@ function ф () { ; i64
     arg tmp(0,ptr to i8) 
     call str_release 
     stre local(0,i64) tmp(1,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
     load tmp(2,i64) = local(0,i64) 
     ret tmp(2,i64) 
   }
