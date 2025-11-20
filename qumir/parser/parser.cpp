@@ -639,18 +639,29 @@ TAstTask repeat_until_loop(TTokenStream& stream) {
         co_return TError(untilTok.Location, "ожидалось 'кц' или 'кц_при' в конце оператора 'нц'");
     }
     // one more token if 'кц'
+    TExprPtr condExpr;
+    bool invert = true;
     if (static_cast<EKeyword>(untilTok.Value.i64) == EKeyword::LoopEnd) {
-        untilTok = co_await stream.Next();
-        if (!(untilTok.Type == TToken::Keyword && static_cast<EKeyword>(untilTok.Value.i64) == EKeyword::Case)) {
-            co_return TError(untilTok.Location, "ожидалось 'кц_при' в конце оператора 'нц'");
+        // look ahead: if 'при' then parse condition, else infinite loop
+        auto look = co_await stream.Next();
+        if (look.Type == TToken::Keyword && static_cast<EKeyword>(look.Value.i64) == EKeyword::Case) {
+            // parse condition normally
+            condExpr = co_await expr(stream);
+        } else {
+            // plain 'кц' => infinite loop, push back look token for next parser stage
+            stream.Unget(look);
+            condExpr = num(location, false);
+            invert = false;
         }
+    } else { // 'кц_при'
+        condExpr = co_await expr(stream);
     }
 
-    auto cond = co_await expr(stream);
-    //cond = ! cond
-    cond = unary(location, TOperator("!"), cond);
+    if (invert) {
+        condExpr = unary(location, TOperator("!"), condExpr);
+    }
 
-    co_return std::make_shared<TLoopStmtExpr>(location, nullptr, nullptr, body, nullptr, cond);
+    co_return std::make_shared<TLoopStmtExpr>(location, nullptr, nullptr, body, nullptr, condExpr);
 }
 
 /*

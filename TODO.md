@@ -9,10 +9,3 @@
 22. slice/index out of bounds -> runtime error
 23. add support: дано, надо, утв
 24. support array cells as ref arguments (not supported by kumir)
-25. add types support: лог, сим
-26. add declr + init (i.e. цел i = 10)
-27. allow names with double underscore
-28. support https://github.com/Tapeline/goylang/blob/main/goylang.kum
-29. нц .. кц (infinite loop)
-30. выход outside of loop (like function return)
-31. asserts (утв, дано, надо)
