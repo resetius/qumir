@@ -6,6 +6,8 @@ namespace NRuntime {
 
 void SetOutputStream(std::ostream* os);
 void SetInputStream(std::istream* is);
+std::istream* GetInputStream();
+std::ostream* GetOutputStream();
 
 extern "C" {
 
@@ -21,6 +23,9 @@ void output_symbol(int32_t s);
 int32_t file_open_for_read(const char* filename);
 void file_close(int32_t fileHandle);
 bool file_has_more_data(int32_t fileHandle);
+
+void input_set_file(int32_t fileHandle);
+void input_reset_file();
 
 } // extern "C"
 

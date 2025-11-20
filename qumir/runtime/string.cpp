@@ -7,6 +7,8 @@
 #include <iostream>
 #include <sstream>
 
+#include "io.h"
+
 namespace NQumir {
 namespace NRuntime {
 
@@ -220,6 +222,12 @@ int64_t str_str_from(int64_t symbolStartPos, const char* haystack, const char* n
         ++p;
     }
     return haystackIndex + needleIndex + 1; // strings are 1-indexed
+}
+
+char* str_input() {
+    std::string line;
+    std::getline(*GetInputStream(), line);
+    return str_from_lit_(line.c_str(), static_cast<int>(line.length()));
 }
 
 char* str_from_double(double x) {

@@ -31,6 +31,7 @@ char* str_from_double(double x);
 char* str_from_int(int64_t x);
 double str_to_double(const char* s, int8_t* outOk);
 int64_t str_to_int(const char* s, int8_t* outOk);
+char* str_input();
 
 char* assign_from_lit(char* dest, const char* src);
 char* assign_from_str(char* dest, char* src, int borrowed);

@@ -22,6 +22,14 @@ void SetInputStream(std::istream* is) {
     In = is ? is : &std::cin;
 }
 
+std::istream* GetInputStream() {
+    return In;
+}
+
+std::ostream* GetOutputStream() {
+    return Out;
+}
+
 extern "C" {
 
 double input_double() {
@@ -112,6 +120,17 @@ bool file_has_more_data(int32_t fileHandle) {
         return false;
     }
     return !it->second.eof();
+}
+
+void input_set_file(int32_t fileHandle) {
+    auto it = OpenFiles.find(fileHandle);
+    if (it != OpenFiles.end()) {
+        SetInputStream(&it->second);
+    }
+}
+
+void input_reset_file() {
+    SetInputStream(&std::cin);
 }
 
 } // extern "C"

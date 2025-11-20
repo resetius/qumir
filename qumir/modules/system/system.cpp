@@ -285,6 +285,16 @@ SystemModule::SystemModule() {
             .ReturnType = stringType,
         },
         {
+            .Name = "str_input",
+            .MangledName = "str_input",
+            .Ptr = reinterpret_cast<void*>(static_cast<char*(*)()>(NRuntime::str_input)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(NRuntime::str_input());
+            },
+            .ArgTypes = {  },
+            .ReturnType = stringType,
+        },
+        {
             .Name = "int",
             .MangledName = "trunc_double",
             .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(double)>(trunc_double)),
@@ -636,7 +646,29 @@ SystemModule::SystemModule() {
             },
             .ArgTypes = { boolType, stringType },
             .ReturnType = voidType,
-        }
+        },
+        {
+            .Name = "input_set_file",
+            .MangledName = "input_set_file",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int32_t)>(NRuntime::input_set_file)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::input_set_file(static_cast<int32_t>(args[0]));
+                return 0;
+            },
+            .ArgTypes = { fileType },
+            .ReturnType = voidType,
+        },
+        {
+            .Name = "input_reset_file",
+            .MangledName = "input_reset_file",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(NRuntime::input_reset_file)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::input_reset_file();
+                return 0;
+            },
+            .ArgTypes = {  },
+            .ReturnType = voidType,
+        },
     };
 
     ExternalFunctions_.swap(functions);

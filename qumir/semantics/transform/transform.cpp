@@ -166,9 +166,27 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                 return std::make_shared<NAst::TBlockExpr>(output->Location, stmts);
             } else if (auto maybeInput = NAst::TMaybeNode<NAst::TInputExpr>(node)) {
                 auto input = maybeInput.Cast();
+                if (input->Args.size() == 0) {
+                    errors.push_back(TError(input->Location, "input requires at least one argument"));
+                    return node;
+                }
                 // transform input(type) into a call to input_xxx function
                 std::vector<NAst::TExprPtr> stmts;
-                for (const auto& arg : input->Args) {
+                int i = 0;
+                const auto& arg0 = input->Args[0];
+                bool hasFileArg = false;
+                if (NAst::TMaybeType<NAst::TFileType>(arg0->Type)) {
+                    auto call = std::make_shared<NAst::TCallExpr>(
+                        input->Location,
+                        std::make_shared<NAst::TIdentExpr>(input->Location, "input_set_file"),
+                        std::vector<NAst::TExprPtr>{arg0});
+                    stmts.push_back(call);
+                    hasFileArg = true;
+                    i++;
+                }
+
+                for (; i < (int)input->Args.size(); ++i) {
+                    const auto& arg = input->Args[i];
                     NAst::TExprPtr call;
                     auto type = arg->Type;
                     if (NAst::TMaybeType<NAst::TFloatType>(type)) {
@@ -180,6 +198,11 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                         call = std::make_shared<NAst::TCallExpr>(
                             input->Location,
                             std::make_shared<NAst::TIdentExpr>(input->Location, "input_int64"),
+                            std::vector<NAst::TExprPtr>{});
+                    } else if (NAst::TMaybeType<NAst::TStringType>(type)) {
+                        call = std::make_shared<NAst::TCallExpr>(
+                            input->Location,
+                            std::make_shared<NAst::TIdentExpr>(input->Location, "str_input"),
                             std::vector<NAst::TExprPtr>{});
                     } else {
                         errors.push_back(TError(arg->Location, "input argument must be float or int64, got: " + type->ToString()));
@@ -226,6 +249,15 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
 
                     stmts.push_back(call);
                 }
+                if (hasFileArg) {
+                    // reset file after input
+                    auto resetFileCall = std::make_shared<NAst::TCallExpr>(
+                        input->Location,
+                        std::make_shared<NAst::TIdentExpr>(input->Location, "input_reset_file"),
+                        std::vector<NAst::TExprPtr>{});
+                    stmts.push_back(resetFileCall);
+                }
+
                 return std::make_shared<NAst::TBlockExpr>(input->Location, std::move(stmts));
             } else if (auto maybeIndex = NAst::TMaybeNode<NAst::TIndexExpr>(node)) {
                 auto index = maybeIndex.Cast();
