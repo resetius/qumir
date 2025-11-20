@@ -80,7 +80,7 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                 bool leftStr = NAst::TMaybeType<NAst::TStringType>(leftType);
                 bool rightStr = NAst::TMaybeType<NAst::TStringType>(rightType);
 
-                if (leftStr && rightStr) {
+                if (leftStr || rightStr) {
                     // string + string (string + symbol handled with implicit cast)
                     if (binary->Operator == NAst::TOperator("+")) {
                         auto call = std::make_shared<NAst::TCallExpr>(binary->Location,
@@ -159,7 +159,8 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_symbol"),
                             std::move(args));
                     } else {
-                        errors.push_back(TError(arg->Location, "output argument must be int, float, or string, got: " + (type ? type->ToString() : "unknown")));
+                        // need annotation pass to know types
+                        return node;
                     }
                     stmts.push_back(call);
                 }
