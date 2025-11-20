@@ -1,7 +1,7 @@
 function ф () { ; i64
   block {
     label: label(0)
-    arg imm(0,ptr to i8) 
+    arg imm(1,ptr to i8) 
     call tmp(0,ptr to i8) = str_from_lit 
     arg tmp(0,ptr to i8) 
     call tmp(1,i64) = длин 

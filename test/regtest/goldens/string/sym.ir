@@ -6,7 +6,7 @@ function <main> () { ; void
     load tmp(1,i32) = local(0,i32) 
     arg tmp(1,i32) 
     call output_symbol 
-    arg imm(0,ptr to i8) 
+    arg imm(1,ptr to i8) 
     call output_string 
     jmp label(1) 
   }

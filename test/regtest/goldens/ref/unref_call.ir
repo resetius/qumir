@@ -7,7 +7,7 @@ function <main> () { ; void
     load tmp(1,i64) = local(0,i64) 
     arg tmp(1,i64) 
     call output_int64 
-    arg imm(0,ptr to i8) 
+    arg imm(1,ptr to i8) 
     call output_string 
     jmp label(1) 
   }

@@ -38,7 +38,7 @@ function инит (local(0)) { ; void
 function deep (local(0)) { ; void
   block {
     label: label(0)
-    arg imm(0,ptr to i8) 
+    arg imm(1,ptr to i8) 
     call tmp(0,ptr to ptr to i8) = str_from_lit 
     load tmp(1,ptr to ptr to i8) = local(0,ptr to ptr to i8) 
     arg tmp(0,ptr to ptr to i8) 

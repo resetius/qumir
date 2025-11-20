@@ -1,8 +1,8 @@
 function main () { ; ptr to i8
   block {
     label: label(0)
-    arg imm(0,ptr to i8) 
     arg imm(1,ptr to i8) 
+    arg imm(2,ptr to i8) 
     call tmp(0,ptr to i8) = str_concat 
     load tmp(1,ptr to i8) = local(1,ptr to i8) 
     arg tmp(1,ptr to i8) 
@@ -35,7 +35,7 @@ function main () { ; ptr to i8
 function ф (local(0)) { ; ptr to i8
   block {
     label: label(0)
-    arg imm(2,ptr to i8) 
+    arg imm(3,ptr to i8) 
     call tmp(0,ptr to i8) = str_from_lit 
     load tmp(1,ptr to i8) = local(2,ptr to i8) 
     arg tmp(1,ptr to i8) 
