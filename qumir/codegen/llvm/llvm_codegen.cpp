@@ -328,6 +328,11 @@ llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, NIR::TModule& module)
                 if (str) {
                     return str;
                 }
+                if (id == 0) {
+                    // nullptr string
+                    str = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(GetTypeById(lowStringTypeId, module.Types, ctx)));
+                    return str;
+                }
 
                 str = irb->CreateGlobalString(module.StringLiterals[id], "strlit" + std::to_string(id));
                 return StringLiterals[id] = str;

@@ -248,8 +248,10 @@ struct TModule {
     std::vector<TImm> GlobalValues; // SlotId -> value
     std::vector<int> GlobalTypes; // global variables types
 
-    std::map<std::string, int> StringLiteralsSet;
-    std::vector<std::string> StringLiterals;
+    // String literals started from 1, 0 is reserved for nullptr
+    // This is termporary hacky solution until we have proper constant pool
+    std::map<std::string, int> StringLiteralsSet = {{"", 0}};
+    std::vector<std::string> StringLiterals = { "" };
 
     TTypeTable Types;
 
