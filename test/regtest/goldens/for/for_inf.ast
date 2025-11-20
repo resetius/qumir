@@ -1,6 +1,64 @@
-Error: : Line: 1, Byte: 1, Column: 1
-  : Line: 2, Byte: 1, Column: 1
-    : Line: 9, Byte: 1, Column: 1
-      : Line: 10, Byte: 14, Column: 9
-        ожидается ')': Line: 10, Byte: 19, Column: 14
-
+(Block:<Fun () -> Void>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $i:<Int>)
+      (Var $after:<Int>)
+      ($i =:<Void>
+        (0:<Int>))
+      ($after =:<Void>
+        (0:<Int>))
+      (Loop:<Void>
+        nil
+        (Cast<Bool>:<Bool>
+          (0:<Int>))
+        nil
+        (Block:<Void>
+          ($i =:<Void>
+            (+:<Int>
+              ($i:<Int>)
+              (1:<Int>)))
+          (Block:<Void>
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("i=":<String>))
+            (Call:<Void>
+              ($output_int64:<Fun (Int) -> Void>)
+              ($i:<Int>))
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("\n":<String>)))
+          (If:<Void>
+            (==:<Bool>
+              ($i:<Int>)
+              (3:<Int>))
+            (Block:<Void>
+              (Block:<Void>
+                (Call:<Void>
+                  ($output_string:<Fun (String) -> Void>)
+                  ("break":<String>))
+                (Call:<Void>
+                  ($output_string:<Fun (String) -> Void>)
+                  ("\n":<String>)))
+              (Break:<Void>))
+            nil)
+          ($after =:<Void>
+            (+:<Int>
+              ($after:<Int>)
+              (10:<Int>))))
+        nil)
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("loop ended i=":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int) -> Void>)
+          ($i:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          (" after=":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int) -> Void>)
+          ($after:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>))))))

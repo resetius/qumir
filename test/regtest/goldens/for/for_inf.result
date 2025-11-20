@@ -1,6 +1,0 @@
-Error: : Line: 1, Byte: 1, Column: 1
-  : Line: 2, Byte: 1, Column: 1
-    : Line: 9, Byte: 1, Column: 1
-      : Line: 10, Byte: 14, Column: 9
-        ожидается ')': Line: 10, Byte: 19, Column: 14
-

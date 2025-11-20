@@ -1,6 +1,68 @@
-Error: : Line: 1, Byte: 1, Column: 1
-  : Line: 2, Byte: 1, Column: 1
-    : Line: 9, Byte: 1, Column: 1
-      : Line: 10, Byte: 14, Column: 9
-        ожидается ')': Line: 10, Byte: 19, Column: 14
-
+function <main> () { ; void
+  block {
+    label: label(0)
+    stre local(0,i64) imm(0,i64) 
+    stre local(1,i64) imm(0,i64) 
+    jmp label(2) 
+  }
+  block {
+    label: label(2)
+    load tmp(0,i64) = local(0,i64) 
+    + tmp(1,i64) = tmp(0,i64) imm(1,i64) 
+    stre local(0,i64) tmp(1,i64) 
+    arg imm(0,ptr to i8) 
+    call output_string 
+    load tmp(2,i64) = local(0,i64) 
+    arg tmp(2,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    load tmp(3,i64) = local(0,i64) 
+    == tmp(4,i1) = tmp(3,i64) imm(3,i64) 
+    cmp tmp(4,i1) label(5) label(6) 
+  }
+  block {
+    label: label(3)
+    i2b tmp(7,i1) = imm(0,i64) 
+    cmp tmp(7,i1) label(2) label(4) 
+  }
+  block {
+    label: label(5)
+    arg imm(2,ptr to i8) 
+    call output_string 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    jmp label(4) 
+  }
+  block {
+    label: label(6)
+    jmp label(7) 
+  }
+  block {
+    label: label(7)
+    load tmp(5,i64) = local(1,i64) 
+    + tmp(6,i64) = tmp(5,i64) imm(10,i64) 
+    stre local(1,i64) tmp(6,i64) 
+    jmp label(3) 
+  }
+  block {
+    label: label(4)
+    arg imm(3,ptr to i8) 
+    call output_string 
+    load tmp(8,i64) = local(0,i64) 
+    arg tmp(8,i64) 
+    call output_int64 
+    arg imm(4,ptr to i8) 
+    call output_string 
+    load tmp(9,i64) = local(1,i64) 
+    arg tmp(9,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

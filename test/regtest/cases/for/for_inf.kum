@@ -2,18 +2,18 @@
 	цел i
 	цел after
 
-	i = 0
-	after = 0
+	i := 0
+	after := 0
 
 	нц
-		i = i + 1
-		вывод("i=", i, нс)
+		i := i + 1
+		вывод "i=", i, нс
 		если i = 3 то
-			вывод("break", нс)
+			вывод "break", нс
 			выход
 		все
-		after = after + 10
+		after := after + 10
 	кц
 
-	вывод("loop ended i=", i, " after=", after, нс)
+	вывод "loop ended i=", i, " after=", after, нс
 кон
