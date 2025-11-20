@@ -444,7 +444,8 @@ SystemModule::SystemModule() {
                 return std::bit_cast<uint64_t>(str);
             },
             .ArgTypes = { stringType, integerType, integerType },
-            .ReturnType = stringType
+            .ReturnType = stringType,
+            .RequireArgsMaterialization = true
         },
         {
             .Name = "str_symbol_at",
@@ -455,7 +456,8 @@ SystemModule::SystemModule() {
                 return static_cast<uint64_t>(ret);
             },
             .ArgTypes = { stringType, integerType },
-            .ReturnType = symbolType
+            .ReturnType = symbolType,
+            .RequireArgsMaterialization = true
         },
         {
             .Name = "str_retain",
@@ -499,7 +501,8 @@ SystemModule::SystemModule() {
                 return std::bit_cast<uint64_t>(ret);
             },
             .ArgTypes = { stringType, stringType },
-            .ReturnType = integerType
+            .ReturnType = integerType,
+            .RequireArgsMaterialization = true
         },
         {
             .Name = "длин",

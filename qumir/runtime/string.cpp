@@ -6,11 +6,31 @@
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 
 #include "io.h"
 
 namespace NQumir {
 namespace NRuntime {
+
+namespace {
+std::string dbg_str(const char* s) {
+    if (!s) return std::string("(null)");
+    std::ostringstream out;
+    const unsigned char* p = reinterpret_cast<const unsigned char*>(s);
+    while (*p) {
+        unsigned char c = *p++;
+        if (std::isprint(c)) {
+            out << static_cast<char>(c);
+        } else {
+            out << "\\x" << std::uppercase << std::hex
+                << std::setw(2) << std::setfill('0') << (int)c
+                << std::nouppercase << std::dec;
+        }
+    }
+    return out.str();
+}
+} // namespace {
 
 char* str_from_lit_(const char* s, int len) {
     TString* str = (TString*)calloc(1, sizeof(TString) + len + 1);
@@ -38,6 +58,7 @@ void build_utf8_indices(TString* str) {
             str->Utf8Indices[index++] = i;
         }
     }
+    str->Utf8Indices[index] = str->Length;
     str->Symbols = index;
 }
 
@@ -97,7 +118,7 @@ void str_release(char* s) {
 }
 
 char* str_concat(const char* a, const char* b) {
-    //std::cerr << "concat '" << a << "' + '" << b << "'\n";
+    // std::cerr << "concat '" << dbg_str(a) << "' + '" << dbg_str(b) << "'\n";
     if (!a) { a = ""; }
     if (!b) { b = ""; }
     int lenA = strlen(a);
