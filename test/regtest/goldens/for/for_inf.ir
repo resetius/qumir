@@ -23,7 +23,7 @@ function <main> () { ; void
   }
   block {
     label: label(3)
-    i2b tmp(7,i1) = imm(0,i64) 
+    i2b tmp(7,i1) = imm(1,i64) 
     cmp tmp(7,i1) label(2) label(4) 
   }
   block {

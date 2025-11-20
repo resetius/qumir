@@ -650,7 +650,7 @@ TAstTask repeat_until_loop(TTokenStream& stream) {
         } else {
             // plain 'кц' => infinite loop, push back look token for next parser stage
             stream.Unget(look);
-            condExpr = num(location, false);
+            condExpr = num(location, true);
             invert = false;
         }
     } else { // 'кц_при'

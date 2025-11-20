@@ -1,2 +1,5 @@
 i=1
-loop ended i=1 after=10
+i=2
+i=3
+break
+loop ended i=3 after=20

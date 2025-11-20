@@ -10,7 +10,7 @@
       (Loop:<Void>
         nil
         (Cast<Bool>:<Bool>
-          (0:<Int>))
+          (1:<Int>))
         nil
         (Block:<Void>
           ($i =:<Void>
