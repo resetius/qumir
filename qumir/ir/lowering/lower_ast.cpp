@@ -433,20 +433,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
             default:
                 {
-                    if (NAst::TMaybeType<NAst::TStringType>(binary->Left->Type) && (binary->Operator == "==" || binary->Operator == "!=" || binary->Operator == "<=" || binary->Operator == ">=" || binary->Operator == "<" || binary->Operator == ">")) {
-                        auto cmpId = co_await GlobalSymbolId("str_compare");
-                        Builder.Emit0("arg"_op, {*leftNum});
-                        Builder.Emit0("arg"_op, {*rightNum});
-                        auto cmpResult = Builder.Emit1("call"_op, { TImm{cmpId} });
-                        Builder.SetType(cmpResult, Module.Types.I(EKind::I64));
-
-                        TOp cmpOp = (uint32_t)binary->Operator;
-                        auto tmp = Builder.Emit1(cmpOp, { cmpResult, TImm{0, Module.Types.I(EKind::I64)} });
-                        Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
-
-                        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
-                    }
-
                     auto tmp = Builder.Emit1((uint32_t)binary->Operator.Value /* ast op to ir op mapping */, {*leftNum, *rightNum});
                     Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
                     co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };

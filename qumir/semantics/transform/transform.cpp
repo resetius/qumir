@@ -74,27 +74,36 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
         [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
             if (auto maybeBinary = NAst::TMaybeNode<NAst::TBinaryExpr>(node)) {
                 auto binary = maybeBinary.Cast();
-                if (binary->Operator == NAst::TOperator("+")) {
-                    auto leftType = UnwrapReferenceType(binary->Left->Type);
-                    auto rightType = UnwrapReferenceType(binary->Right->Type);
-                    bool leftStr = NAst::TMaybeType<NAst::TStringType>(leftType);
-                    bool rightStr = NAst::TMaybeType<NAst::TStringType>(rightType);
 
+                auto leftType = UnwrapReferenceType(binary->Left->Type);
+                auto rightType = UnwrapReferenceType(binary->Right->Type);
+                bool leftStr = NAst::TMaybeType<NAst::TStringType>(leftType);
+                bool rightStr = NAst::TMaybeType<NAst::TStringType>(rightType);
+
+                if (leftStr && rightStr) {
                     // string + string (string + symbol handled with implicit cast)
-                    if (leftStr && rightStr) {
+                    if (binary->Operator == NAst::TOperator("+")) {
                         auto call = std::make_shared<NAst::TCallExpr>(binary->Location,
                             std::make_shared<NAst::TIdentExpr>(binary->Location, "str_concat"),
                             std::vector<NAst::TExprPtr>{binary->Left, binary->Right});
                         return call;
                     }
+                    if ((binary->Operator == "==" || binary->Operator == "!=" || binary->Operator == "<=" || binary->Operator == ">=" || binary->Operator == "<" || binary->Operator == ">")) {
+                        auto call = std::make_shared<NAst::TCallExpr>(binary->Location,
+                            std::make_shared<NAst::TIdentExpr>(binary->Location, "str_compare"),
+                            std::vector<NAst::TExprPtr>{binary->Left, binary->Right});
+                        std::vector<NAst::TExprPtr> args;
+                        args.push_back(call);
+                        args.push_back(std::make_shared<NAst::TNumberExpr>(binary->Location, (int64_t)0));
+                        return std::make_shared<NAst::TBinaryExpr>(binary->Location, binary->Operator, args[0], args[1]);
+                    }
                 }
+
                 if (binary->Operator == NAst::TOperator("^")) {
                     // transform a**b into pow(a, b)
                     std::vector<NAst::TExprPtr> args;
                     args.push_back(binary->Left);
                     args.push_back(binary->Right);
-                    auto leftType = binary->Left->Type;
-                    auto rightType = binary->Right->Type;
                     std::string funcName = "pow";
                     if (NAst::TMaybeType<NAst::TIntegerType>(rightType)) {
                         funcName = "fpow";

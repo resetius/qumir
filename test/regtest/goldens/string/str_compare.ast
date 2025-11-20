@@ -12,8 +12,11 @@
         (0:<Int>))
       (If:<Void>
         (==:<Bool>
-          ($s1:<String>)
-          ($s2:<String>))
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($s1:<String>)
+            ($s2:<String>))
+          (0:<Int>))
         (Block:<Void>
           ($$$return =:<Void>
             (+:<Int>
@@ -22,8 +25,11 @@
         nil)
       (If:<Void>
         (!=:<Bool>
-          ($s1:<String>)
-          ($s2:<String>))
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($s1:<String>)
+            ($s2:<String>))
+          (0:<Int>))
         (Block:<Void>
           ($$$return =:<Void>
             (+:<Int>
@@ -32,8 +38,11 @@
         nil)
       (If:<Void>
         (<=:<Bool>
-          ($s1:<String>)
-          ($s2:<String>))
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($s1:<String>)
+            ($s2:<String>))
+          (0:<Int>))
         (Block:<Void>
           ($$$return =:<Void>
             (+:<Int>
@@ -42,8 +51,11 @@
         nil)
       (If:<Void>
         (>=:<Bool>
-          ($s1:<String>)
-          ($s2:<String>))
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($s1:<String>)
+            ($s2:<String>))
+          (0:<Int>))
         (Block:<Void>
           ($$$return =:<Void>
             (+:<Int>
@@ -52,8 +64,11 @@
         nil)
       (If:<Void>
         (<:<Bool>
-          ($s1:<String>)
-          ($s2:<String>))
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($s1:<String>)
+            ($s2:<String>))
+          (0:<Int>))
         (Block:<Void>
           ($$$return =:<Void>
             (+:<Int>
@@ -62,8 +77,11 @@
         nil)
       (If:<Void>
         (>:<Bool>
-          ($s1:<String>)
-          ($s2:<String>))
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($s1:<String>)
+            ($s2:<String>))
+          (0:<Int>))
         (Block:<Void>
           ($$$return =:<Void>
             (+:<Int>
