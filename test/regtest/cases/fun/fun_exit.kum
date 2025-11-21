@@ -2,6 +2,7 @@
 
 алг цел f
 нач
+  цел a,b,c
   a := g          | unconditional early exit in g
   b := h          | conditional early exit inside if
   c := i          | multiple exits, last reachable before code after

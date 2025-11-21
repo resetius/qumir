@@ -1,3 +1,63 @@
-Error: : Line: 0, Byte: 0, Column: 0
-  assignment to undefined identifier: a in scope 5: Line: 5, Byte: 1, Column: 1
-
+(Block:<Fun () -> Int>
+  (FunDecl $f ():<Fun () -> Int>
+    (Block:<Void>
+      (Var $$$return:<Int>)
+      (Var $a:<Int>)
+      (Var $b:<Int>)
+      (Var $c:<Int>)
+      ($a =:<Void>
+        (Call:<Int>
+          ($g:<Fun () -> Int>)))
+      ($b =:<Void>
+        (Call:<Int>
+          ($h:<Fun () -> Int>)))
+      ($c =:<Void>
+        (Call:<Int>
+          ($i:<Fun () -> Int>)))
+      ($$$return =:<Void>
+        (+:<Int>
+          (+:<Int>
+            ($a:<Int>)
+            ($b:<Int>))
+          ($c:<Int>)))))
+  (FunDecl $g ():<Fun () -> Int>
+    (Block:<Void>
+      (Var $$$return:<Int>)
+      ($$$return =:<Void>
+        (1:<Int>))
+      (Break:<Void>)
+      ($$$return =:<Void>
+        (2:<Int>))))
+  (FunDecl $h ():<Fun () -> Int>
+    (Block:<Void>
+      (Var $$$return:<Int>)
+      ($$$return =:<Void>
+        (0:<Int>))
+      (If:<Void>
+        (==:<Bool>
+          (1:<Int>)
+          (1:<Int>))
+        (Block:<Void>
+          ($$$return =:<Void>
+            (5:<Int>))
+          (Break:<Void>))
+        nil)
+      ($$$return =:<Void>
+        (99:<Int>))))
+  (FunDecl $i ():<Fun () -> Int>
+    (Block:<Void>
+      (Var $$$return:<Int>)
+      ($$$return =:<Void>
+        (1:<Int>))
+      (If:<Void>
+        (==:<Bool>
+          (2:<Int>)
+          (3:<Int>))
+        (Block:<Void>
+          (Break:<Void>))
+        nil)
+      ($$$return =:<Void>
+        (7:<Int>))
+      (Break:<Void>)
+      ($$$return =:<Void>
+        (100:<Int>)))))
