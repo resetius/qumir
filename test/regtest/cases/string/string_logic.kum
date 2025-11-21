@@ -5,8 +5,8 @@
 
 	s1 := "alpha"
 	s2 := "alpha"     | equal
-	ch1 := a           | symbol implicitly cast to string when compared
-	ch2 := z
+	ch1 := 'a'           | symbol implicitly cast to string when compared
+	ch2 := 'z'
 
 	цел счет
 	счет := 0

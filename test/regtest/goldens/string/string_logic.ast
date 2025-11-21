@@ -1,3 +1,190 @@
-Error: : Line: 0, Byte: 0, Column: 0
-  undefined identifier: a in scope 2: Line: 8, Byte: 8, Column: 8
-
+(Block:<Fun () -> Int>
+  (FunDecl $тест_логика_строки_символы ():<Fun () -> Int>
+    (Block:<Void>
+      (Var $$$return:<Int>)
+      (Var $s1:<String>)
+      (Var $s2:<String>)
+      (Var $ch1:<Char>)
+      (Var $ch2:<Char>)
+      ($s1 =:<Void>
+        ("alpha":<String>))
+      ($s2 =:<Void>
+        ("alpha":<String>))
+      ($ch1 =:<Void>
+        (Cast<Char>:<Char>
+          (97:<Int>)))
+      ($ch2 =:<Void>
+        (Cast<Char>:<Char>
+          (122:<Int>)))
+      (Var $счет:<Int>)
+      ($счет =:<Void>
+        (0:<Int>))
+      (If:<Void>
+        (==:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($s1:<String>)
+            ($s2:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (==:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($s1:<String>)
+            (Call:<String>
+              ($str_from_unicode:<Fun (Char) -> String>)
+              ($ch1:<Char>)))
+          (0:<Int>))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1000:<Int>))))
+        nil)
+      (If:<Void>
+        (==:<Bool>
+          ($ch1:<Char>)
+          (Cast<Char>:<Char>
+            (97:<Int>)))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (!=:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($s1:<String>)
+            ($s2:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1000:<Int>))))
+        nil)
+      (If:<Void>
+        (!=:<Bool>
+          ($ch1:<Char>)
+          ($ch2:<Char>))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (!=:<Bool>
+          ($ch2:<Char>)
+          (Cast<Char>:<Char>
+            (122:<Int>)))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1000:<Int>))))
+        nil)
+      (If:<Void>
+        (<:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($s1:<String>)
+            ("beta":<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (<=:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($s2:<String>)
+            ("alpha":<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (>:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ("beta":<String>)
+            ($s1:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (>=:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ("alpha":<String>)
+            ($s2:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (<:<Bool>
+          ($ch1:<Char>)
+          ($ch2:<Char>))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (>:<Bool>
+          ($ch2:<Char>)
+          ($ch1:<Char>))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (<=:<Bool>
+          ($ch1:<Char>)
+          (Cast<Char>:<Char>
+            (97:<Int>)))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (>=:<Bool>
+          ($ch2:<Char>)
+          (Cast<Char>:<Char>
+            (122:<Int>)))
+        (Block:<Void>
+          ($счет =:<Void>
+            (+:<Int>
+              ($счет:<Int>)
+              (1:<Int>))))
+        nil)
+      ($$$return =:<Void>
+        ($счет:<Int>)))))

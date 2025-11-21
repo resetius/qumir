@@ -1,3 +1,76 @@
-Error: : Line: 0, Byte: 0, Column: 0
-  undefined identifier: b in scope 2: Line: 5, Byte: 6, Column: 6
-
+(Block:<Fun () -> Int>
+  (FunDecl $тест_неравенство_символ_строка ():<Fun () -> Int>
+    (Block:<Void>
+      (Var $$$return:<Int>)
+      (Var $x:<Char>)
+      (Var $t:<String>)
+      ($x =:<Void>
+        (Cast<Char>:<Char>
+          (98:<Int>)))
+      ($t =:<Void>
+        ("c":<String>))
+      (Var $r:<Int>)
+      ($r =:<Void>
+        (0:<Int>))
+      (If:<Void>
+        (!=:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            (Call:<String>
+              ($str_from_unicode:<Fun (Char) -> String>)
+              ($x:<Char>))
+            ($t:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($r =:<Void>
+            (+:<Int>
+              ($r:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (==:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            (Call:<String>
+              ($str_from_unicode:<Fun (Char) -> String>)
+              ($x:<Char>))
+            ($t:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($r =:<Void>
+            (+:<Int>
+              ($r:<Int>)
+              (1000:<Int>))))
+        nil)
+      (If:<Void>
+        (<:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            (Call:<String>
+              ($str_from_unicode:<Fun (Char) -> String>)
+              ($x:<Char>))
+            ($t:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($r =:<Void>
+            (+:<Int>
+              ($r:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (>:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($t:<String>)
+            (Call:<String>
+              ($str_from_unicode:<Fun (Char) -> String>)
+              ($x:<Char>)))
+          (0:<Int>))
+        (Block:<Void>
+          ($r =:<Void>
+            (+:<Int>
+              ($r:<Int>)
+              (1:<Int>))))
+        nil)
+      ($$$return =:<Void>
+        ($r:<Int>)))))
