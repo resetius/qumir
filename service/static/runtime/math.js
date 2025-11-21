@@ -28,18 +28,11 @@ export function log(x) { return Math.log(x); }
 export function log10(x) { return Math.log10 ? Math.log10(x) : Math.log(x) / Math.LN10; }
 export function exp(x) { return Math.exp(x); }
 
-export function div(a, b) {
+export function div_qum(a, b) {
   const ai = BigInt(a), bi = BigInt(b);
   if (bi === 0n) return 0n;
   let q = ai / bi; // trunc towards zero for BigInt
   return q;
-}
-
-export function mod(a, b) {
-  const ai = BigInt(a), bi = BigInt(b);
-  if (bi === 0n) return 0n;
-  let r = ai % bi;
-  return r;
 }
 
 export function fpow(a, n) {
