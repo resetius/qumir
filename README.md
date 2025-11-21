@@ -263,7 +263,7 @@ Legend: ✔ = supported, ✖ = not supported / not yet implemented. Notes highli
 | `цел` (int) | ✔ | ✔ | |
 | `вещ` (float) | ✔ | ✔ | |
 | `лит` (string) | ✔ | ✔ | |
-| `сим` (char) | ✔ | ✖ | Indexing a string returns a one‑character `лит` |
+| `сим` (char) | ✔ | ✔ | |
 | `лог` (bool) | ✔ | ✔ | |
 | `таб` (arrays) | ✔ | ✔ | Dimension count not limited to 3 in Qumir |
 | Index ranges `a[L:R]` | ✔ | ✔ | |
@@ -298,7 +298,7 @@ Legend: ✔ = supported, ✖ = not supported / not yet implemented. Notes highli
 | `нц пока` (while) | ✔ | ✔ | |
 | `нц` ... `кц при` (repeat‑until) | ✔ | ✔ | Post‑condition loop |
 | `нц N раз` (repeat N times) | ✔ | ✖ | Emulate with `нц для` |
-| Infinite `нц .. кц` | ✔ | ✖ | Emulate with `нц пока истина` |
+| Infinite `нц .. кц` | ✔ | ✔ |  |
 | `выбор / при / иначе` (switch) | ✔ | ✔ | Multi‑branch selection |
 | `если/то/иначе/все` (if/else) | ✔ | ✔ | |
 
