@@ -1,0 +1,167 @@
+function тест_лексикографический_порядок () { ; i64
+  block {
+    label: label(0)
+    arg imm(1,ptr to i8) 
+    call tmp(0,ptr to i8) = str_from_lit 
+    load tmp(1,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(1,ptr to i8) 
+    call str_release 
+    stre local(1,ptr to i8) tmp(0,ptr to i8) 
+    arg imm(2,ptr to i8) 
+    call tmp(2,ptr to i8) = str_from_lit 
+    load tmp(3,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(3,ptr to i8) 
+    call str_release 
+    stre local(2,ptr to i8) tmp(2,ptr to i8) 
+    arg imm(3,ptr to i8) 
+    call tmp(4,ptr to i8) = str_from_lit 
+    load tmp(5,ptr to i8) = local(3,ptr to i8) 
+    arg tmp(5,ptr to i8) 
+    call str_release 
+    stre local(3,ptr to i8) tmp(4,ptr to i8) 
+    stre local(4,i64) imm(0,i64) 
+    load tmp(6,ptr to i8) = local(1,ptr to i8) 
+    load tmp(7,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(6,ptr to i8) 
+    arg tmp(7,ptr to i8) 
+    call tmp(8,i64) = str_compare 
+    < tmp(9,i1) = tmp(8,i64) imm(0,i64) 
+    cmp tmp(9,i1) label(2) label(3) 
+  }
+  block {
+    label: label(2)
+    load tmp(10,i64) = local(4,i64) 
+    + tmp(11,i64) = tmp(10,i64) imm(1,i64) 
+    stre local(4,i64) tmp(11,i64) 
+    jmp label(4) 
+  }
+  block {
+    label: label(3)
+    jmp label(4) 
+  }
+  block {
+    label: label(4)
+    load tmp(12,ptr to i8) = local(2,ptr to i8) 
+    load tmp(13,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(12,ptr to i8) 
+    arg tmp(13,ptr to i8) 
+    call tmp(14,i64) = str_compare 
+    > tmp(15,i1) = tmp(14,i64) imm(0,i64) 
+    cmp tmp(15,i1) label(5) label(6) 
+  }
+  block {
+    label: label(5)
+    load tmp(16,i64) = local(4,i64) 
+    + tmp(17,i64) = tmp(16,i64) imm(1,i64) 
+    stre local(4,i64) tmp(17,i64) 
+    jmp label(7) 
+  }
+  block {
+    label: label(6)
+    jmp label(7) 
+  }
+  block {
+    label: label(7)
+    load tmp(18,ptr to i8) = local(2,ptr to i8) 
+    load tmp(19,ptr to i8) = local(3,ptr to i8) 
+    arg tmp(18,ptr to i8) 
+    arg tmp(19,ptr to i8) 
+    call tmp(20,i64) = str_compare 
+    < tmp(21,i1) = tmp(20,i64) imm(0,i64) 
+    cmp tmp(21,i1) label(8) label(9) 
+  }
+  block {
+    label: label(8)
+    load tmp(22,i64) = local(4,i64) 
+    + tmp(23,i64) = tmp(22,i64) imm(1,i64) 
+    stre local(4,i64) tmp(23,i64) 
+    jmp label(10) 
+  }
+  block {
+    label: label(9)
+    jmp label(10) 
+  }
+  block {
+    label: label(10)
+    load tmp(24,ptr to i8) = local(3,ptr to i8) 
+    load tmp(25,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(24,ptr to i8) 
+    arg tmp(25,ptr to i8) 
+    call tmp(26,i64) = str_compare 
+    > tmp(27,i1) = tmp(26,i64) imm(0,i64) 
+    cmp tmp(27,i1) label(11) label(12) 
+  }
+  block {
+    label: label(11)
+    load tmp(28,i64) = local(4,i64) 
+    + tmp(29,i64) = tmp(28,i64) imm(1,i64) 
+    stre local(4,i64) tmp(29,i64) 
+    jmp label(13) 
+  }
+  block {
+    label: label(12)
+    jmp label(13) 
+  }
+  block {
+    label: label(13)
+    load tmp(30,ptr to i8) = local(2,ptr to i8) 
+    load tmp(31,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(30,ptr to i8) 
+    arg tmp(31,ptr to i8) 
+    call tmp(32,i64) = str_compare 
+    >= tmp(33,i1) = tmp(32,i64) imm(0,i64) 
+    cmp tmp(33,i1) label(14) label(15) 
+  }
+  block {
+    label: label(14)
+    load tmp(34,i64) = local(4,i64) 
+    + tmp(35,i64) = tmp(34,i64) imm(1,i64) 
+    stre local(4,i64) tmp(35,i64) 
+    jmp label(16) 
+  }
+  block {
+    label: label(15)
+    jmp label(16) 
+  }
+  block {
+    label: label(16)
+    load tmp(36,ptr to i8) = local(2,ptr to i8) 
+    load tmp(37,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(36,ptr to i8) 
+    arg tmp(37,ptr to i8) 
+    call tmp(38,i64) = str_compare 
+    <= tmp(39,i1) = tmp(38,i64) imm(0,i64) 
+    cmp tmp(39,i1) label(17) label(18) 
+  }
+  block {
+    label: label(17)
+    load tmp(40,i64) = local(4,i64) 
+    + tmp(41,i64) = tmp(40,i64) imm(1,i64) 
+    stre local(4,i64) tmp(41,i64) 
+    jmp label(19) 
+  }
+  block {
+    label: label(18)
+    jmp label(19) 
+  }
+  block {
+    label: label(19)
+    load tmp(42,i64) = local(4,i64) 
+    stre local(0,i64) tmp(42,i64) 
+    load tmp(43,ptr to i8) = local(3,ptr to i8) 
+    arg tmp(43,ptr to i8) 
+    call str_release 
+    load tmp(44,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(44,ptr to i8) 
+    call str_release 
+    load tmp(45,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(45,ptr to i8) 
+    call str_release 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(46,i64) = local(0,i64) 
+    ret tmp(46,i64) 
+  }
+}

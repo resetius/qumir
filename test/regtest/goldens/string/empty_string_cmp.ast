@@ -1,0 +1,93 @@
+(Block:<Fun () -> Int>
+  (FunDecl $тест_граничные_пустая_строка ():<Fun () -> Int>
+    (Block:<Void>
+      (Var $$$return:<Int>)
+      (Var $пустая:<String>)
+      (Var $непустая:<String>)
+      ($пустая =:<Void>
+        ("":<String>))
+      ($непустая =:<Void>
+        ("a":<String>))
+      (Var $r:<Int>)
+      ($r =:<Void>
+        (0:<Int>))
+      (If:<Void>
+        (<:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($пустая:<String>)
+            ($непустая:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($r =:<Void>
+            (+:<Int>
+              ($r:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (<=:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($пустая:<String>)
+            ($непустая:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($r =:<Void>
+            (+:<Int>
+              ($r:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (>:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($непустая:<String>)
+            ($пустая:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($r =:<Void>
+            (+:<Int>
+              ($r:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (>=:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($непустая:<String>)
+            ($пустая:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($r =:<Void>
+            (+:<Int>
+              ($r:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (==:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($пустая:<String>)
+            ("":<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($r =:<Void>
+            (+:<Int>
+              ($r:<Int>)
+              (1:<Int>))))
+        nil)
+      (If:<Void>
+        (!=:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($пустая:<String>)
+            ($непустая:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          ($r =:<Void>
+            (+:<Int>
+              ($r:<Int>)
+              (1:<Int>))))
+        nil)
+      ($$$return =:<Void>
+        ($r:<Int>)))))
