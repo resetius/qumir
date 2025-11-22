@@ -1,0 +1,13 @@
+function <main> () { ; void
+  block {
+    label: label(0)
+    mov tmp(0,i32) = imm(97,i64) 
+    arg tmp(0,i32) 
+    call output_symbol 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

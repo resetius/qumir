@@ -292,7 +292,7 @@ void TTokenStream::Read() {
     };
 
     auto isIdentifierStop = [&](char ch) {
-        return isSingleCharOperator(ch) || isOperatorPrefix(ch) || ch == '(' || ch == '-' || ch == '"' || ch == '\n' || ch == ';' || ch == '|';
+        return isSingleCharOperator(ch) || isOperatorPrefix(ch) || ch == '(' || ch == '-' || ch == '"' || ch == '\n' || ch == ';' || ch == '|' || ch == '\'';
     };
 
     while ((Tokens.empty() || state != Start) && In.get(ch)) {
