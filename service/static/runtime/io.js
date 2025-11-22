@@ -1,40 +1,93 @@
 // IO runtime shims: provide input/output functions expected by the program
-// and bridge them to the web UI (#stdin and #stdout). Also exposes helpers
-// to bind WebAssembly memory and reset IO state between runs.
+// and allow embedders to inject their own input/output streams. Also exposes
+// helpers to bind WebAssembly memory and reset IO state between runs.
 
 let MEMORY = null; // WebAssembly.Memory (bound after instantiation)
 const decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8') : null;
 
 export function __bindMemory(mem) { MEMORY = mem; }
 
-function q$(sel) { return (typeof document !== 'undefined') ? document.querySelector(sel) : null; }
+const NullInputStream = {
+  readToken() { return '0'; },
+  reset() {}
+};
+const NullOutputStream = {
+  write() {},
+  clear() {}
+};
 
-function appendStdout(text) {
-  const el = q$('#stdout');
-  if (!el) return;
-  el.textContent += String(text);
+let INPUT_STREAM = NullInputStream;
+let OUTPUT_STREAM = NullOutputStream;
+
+function normalizeInputStream(stream) {
+  if (!stream) return NullInputStream;
+  if (typeof stream === 'function') {
+    return { readToken: stream, reset: () => {} };
+  }
+  const read = (typeof stream.readToken === 'function')
+    ? stream.readToken.bind(stream)
+    : (typeof stream.nextToken === 'function')
+      ? stream.nextToken.bind(stream)
+      : null;
+  if (!read) throw new Error('Input stream must provide readToken() or nextToken().');
+  const reset = (typeof stream.reset === 'function') ? stream.reset.bind(stream)
+    : (typeof stream.rewind === 'function') ? stream.rewind.bind(stream)
+    : (() => {});
+  return { readToken: read, reset };
 }
 
-let inputTokens = null;
-let inputIndex = 0;
+function normalizeOutputStream(stream) {
+  if (!stream) return NullOutputStream;
+  const writeMethod = (typeof stream.write === 'function') ? stream.write
+    : (typeof stream.append === 'function') ? stream.append
+    : (typeof stream.print === 'function') ? stream.print
+    : null;
+  if (!writeMethod) throw new Error('Output stream must provide write()/append()/print().');
+  const clearMethod = (typeof stream.clear === 'function') ? stream.clear
+    : (typeof stream.reset === 'function') ? stream.reset
+    : null;
+  return {
+    write: (...args) => writeMethod.apply(stream, args),
+    clear: clearMethod ? (...args) => clearMethod.apply(stream, args) : NullOutputStream.clear
+  };
+}
+
+function log(...a){ process.stderr.write(a.join(' ') + '\n'); }
+
+export function setInputStream(stream) {
+  INPUT_STREAM = normalizeInputStream(stream);
+}
+
+export function setOutputStream(stream) {
+  OUTPUT_STREAM = normalizeOutputStream(stream);
+}
+
 export function __resetIO(clearStdout = false) {
-  inputTokens = null;
-  inputIndex = 0;
-  if (clearStdout) {
-    const el = q$('#stdout');
-    if (el) el.textContent = '';
+  if (INPUT_STREAM && typeof INPUT_STREAM.reset === 'function') {
+    try { INPUT_STREAM.reset(); } catch {}
+  }
+  if (clearStdout && OUTPUT_STREAM && typeof OUTPUT_STREAM.clear === 'function') {
+    try { OUTPUT_STREAM.clear(); } catch {}
   }
 }
 
 function nextToken() {
-  if (!inputTokens) {
-    const el = q$('#stdin');
-    const content = el ? String(el.value || '') : '';
-    inputTokens = content.match(/\S+/g) || [];
-    inputIndex = 0;
+  try {
+    const value = INPUT_STREAM && typeof INPUT_STREAM.readToken === 'function'
+      ? INPUT_STREAM.readToken()
+      : '0';
+    return (value === undefined || value === null || value === '') ? '0' : String(value);
+  } catch {
+    return '0';
   }
-  if (inputIndex < inputTokens.length) return inputTokens[inputIndex++];
-  return '0';
+}
+
+function appendStdout(text) {
+  try {
+    if (OUTPUT_STREAM && typeof OUTPUT_STREAM.write === 'function') {
+      OUTPUT_STREAM.write(String(text));
+    }
+  } catch {}
 }
 
 // Runtime IO used by programs
@@ -49,8 +102,12 @@ export function input_int64() {
   try { return BigInt(t); } catch { return 0n; }
 }
 
-export function output_double(x) { appendStdout(String(x)); }
-export function output_int64(x) { appendStdout(BigInt(x).toString()); }
+export function output_double(x) {
+  appendStdout(String(x));
+}
+export function output_int64(x) {
+  appendStdout(BigInt(x).toString());
+}
 export function output_bool(x) { appendStdout(x ? "да" : "нет"); }
 export function output_symbol(x) {
   // convert 32-bit unicode to string
@@ -72,7 +129,9 @@ export function output_string(v) {
   // Support both: C-string pointer OR handle returned by string runtime
   const n = Number(v);
   // Try consulting string runtime if available (ESM import binding)
-  if (!MEMORY || !decoder) { appendStdout(''); return; }
+  if (!MEMORY || !decoder) {
+    appendStdout(''); return;
+  }
   const u8 = new Uint8Array(MEMORY.buffer);
   let p = n >>> 0;
   const start = p;

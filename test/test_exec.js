@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const cp = require('child_process');
+const { pathToFileURL } = require('url');
 
 function log(...a){ process.stderr.write(a.join(' ') + '\n'); }
 
@@ -40,24 +41,88 @@ const goldensDir = path.join(rootDir, 'goldens');
 // `.stdin` extension, e.g. `cases/io/input.kum` + `cases/io/input.stdin`.
 const stdinDir = casesDir;
 
-// Provide a minimal DOM shim so runtime/io.js can append to #stdout when running under Node.
-if (typeof global.document === 'undefined') {
-  global.__stdoutEl = { textContent: '' };
-  global.__stdinEl = { value: '' };
-  global.document = {
-    querySelector: (sel) => {
-      if (sel === '#stdout') return global.__stdoutEl;
-      if (sel === '#stdin') return global.__stdinEl;
-      return null;
+const defaultIoRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'io.js');
+const defaultIoRuntimeUrl = pathToFileURL(defaultIoRuntimePath).href;
+let cachedIoRuntime = null;
+
+class TestInputStream {
+  constructor(stdinContent) {
+    this.source = stdinContent;
+    this.tokens = [];
+    this.index = 0;
+    this.requested = 0;
+    this.missingInput = false;
+    this.exhausted = false;
+    this.reset();
+  }
+  reset() {
+    this.tokens = this.source != null ? String(this.source).match(/\S+/g) || [] : [];
+    this.index = 0;
+    this.requested = 0;
+    this.missingInput = false;
+    this.exhausted = false;
+  }
+  readToken() {
+    this.requested++;
+    if (this.source == null) {
+      this.missingInput = true;
+      return '0';
     }
-  };
+    if (this.index >= this.tokens.length) {
+      this.exhausted = true;
+      return '0';
+    }
+    return this.tokens[this.index++];
+  }
+  assertSufficientInput() {
+    if (this.source == null && this.requested > 0) {
+      throw new Error('Program requested stdin but no .stdin file found for this test');
+    }
+    if (this.source != null && this.exhausted) {
+      throw new Error('Program requested more tokens than provided in .stdin');
+    }
+  }
 }
 
-function resetDomStdout() {
-  if (global.__stdoutEl) global.__stdoutEl.textContent = '';
+class CaptureOutputStream {
+  constructor(target) {
+    this.target = target;
+  }
+  write(str) {
+    this.target.stdout += String(str);
+  }
+  clear() {
+    this.target.stdout = '';
+  }
 }
-function getDomStdout() {
-  return global.__stdoutEl ? global.__stdoutEl.textContent : '';
+
+async function loadIoRuntimeModule() {
+  if (cachedIoRuntime) return cachedIoRuntime;
+  cachedIoRuntime = await import(defaultIoRuntimeUrl);
+  return cachedIoRuntime;
+}
+
+function bindIoStreams(ioRuntime, inputStream, outputStream) {
+  if (!ioRuntime || typeof ioRuntime.setInputStream !== 'function' || typeof ioRuntime.setOutputStream !== 'function') {
+    throw new Error('IO runtime must expose setInputStream/setOutputStream');
+  }
+  ioRuntime.setInputStream(inputStream);
+  ioRuntime.setOutputStream(outputStream);
+  if (typeof ioRuntime.__resetIO === 'function') {
+    ioRuntime.__resetIO(true);
+  }
+}
+
+function extractIoEnv(ioRuntime) {
+  const env = {};
+  if (!ioRuntime) return env;
+  for (const [name, fn] of Object.entries(ioRuntime)) {
+    if (typeof fn !== 'function') continue;
+    if (name.startsWith('input_') || name.startsWith('output_') || name.startsWith('__')) {
+      env[name] = fn;
+    }
+  }
+  return env;
 }
 
 function readAll(p) {
@@ -329,7 +394,7 @@ function loadRuntimeFunctions(dir, memory) {
   return fns;
 }
 
-function instantiateWasm(wasmPath, ioCapture, stdinContent) {
+function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
   const bytes = fs.readFileSync(wasmPath);
   // Create a provisional memory only if the module imports one; otherwise we'll switch to the module's own defined memory after instantiation.
   let memory = new WebAssembly.Memory({ initial: 32, maximum: 256 });
@@ -343,6 +408,13 @@ function instantiateWasm(wasmPath, ioCapture, stdinContent) {
   }
   // Common import names guesses; adjust if actual wasm expects different.
   const runtimeFns = loadRuntimeFunctions(runtimeDir, memory);
+  const ioEnvFns = extractIoEnv(ioRuntime);
+  const bindIoMemory = (mem) => {
+    if (ioRuntime && typeof ioRuntime.__bindMemory === 'function') {
+      try { ioRuntime.__bindMemory(mem); } catch (e) { if (printOutput) log('[WARN] ioRuntime.__bindMemory failed', e.message); }
+    }
+  };
+  bindIoMemory(memory);
   const env = Object.assign({
     memory,
     // Generic output helpers
@@ -352,35 +424,9 @@ function instantiateWasm(wasmPath, ioCapture, stdinContent) {
     },
     print: (ptr) => { ioCapture.stdout += readStr(ptr); },
     putchar: (c) => { ioCapture.stdout += String.fromCharCode(Number(c) & 0xFF); },
-    // Default input helpers; if the runtime doesn't provide them, we will
-    // supply implementations that read from the per-case stdinContent.
     str_input: () => 0,
     input_int64: () => 0n,
-  }, runtimeFns);
-  // Always override input_int64 to consume tokens from a per-case .stdin file
-  // (space/newline-separated). If no .stdin exists and the program attempts
-  // to read, we throw to signal missing test input instead of silently
-  // reading from DOM or returning 0.
-  {
-    let stdinTokens = null;
-    let stdinIndex = 0;
-    function ensureTokens() {
-      if (stdinTokens !== null) return;
-      if (stdinContent == null) {
-        throw new Error('input_int64 requested but no .stdin file found for this test');
-      }
-      stdinTokens = String(stdinContent).match(/\S+/g) || [];
-      stdinIndex = 0;
-    }
-    env.input_int64 = () => {
-      ensureTokens();
-      if (stdinIndex >= stdinTokens.length) {
-        throw new Error('input_int64 requested more tokens than provided in .stdin');
-      }
-      const t = stdinTokens[stdinIndex++];
-      try { return BigInt(t); } catch { return 0n; }
-    };
-  }
+  }, ioEnvFns, runtimeFns);
   // Bind memory for runtime modules that expose __bindMemory (e.g. io.js, string.js)
   if (env.__bindMemory && typeof env.__bindMemory === 'function') {
     try { env.__bindMemory(memory); if (printOutput) log('[INIT] __bindMemory called'); } catch (e) { if (printOutput) log('[WARN] __bindMemory failed', e.message); }
@@ -388,111 +434,12 @@ function instantiateWasm(wasmPath, ioCapture, stdinContent) {
   // Ensure required functions exist; supply safe stubs if missing
   const requiredStubs = [
     'array_create','array_destroy','array_str_destroy',
-    'str_from_lit','str_retain','str_release','str_concat','str_compare','str_len',
-    // IO/output helpers used by language 'вывод'
-    'output_double','output_int64','output_bool','output_symbol','output_string'
+    'str_from_lit','str_retain','str_release','str_concat','str_compare','str_len'
   ];
   for (const name of requiredStubs) {
     if (!env[name]) {
-      if (name === 'output_string') {
-        // Do NOT auto-append newline; newlines appear as separate string literals ("\\n") in the program.
-        const stub = (ptr) => { const s = readStr(Number(ptr) >>> 0); ioCapture.stdout += s; return 0; };
-        stub.__isStub = true;
-        env[name] = stub;
-      } else if (name === 'output_double') {
-        const stub = (x) => { ioCapture.stdout += String(x); return 0; };
-        stub.__isStub = true;
-        env[name] = stub;
-      } else if (name === 'output_int64') {
-        const stub = (x) => { ioCapture.stdout += (typeof x === 'bigint' ? x.toString() : String(x)); return 0; };
-        stub.__isStub = true;
-        env[name] = stub;
-      } else if (name === 'output_bool') {
-        env[name] = (x) => { ioCapture.stdout += (x ? 'да' : 'нет'); return 0; };
-      } else if (name === 'output_symbol') {
-        env[name] = (cp) => { const codePoint = Number(cp) >>> 0; ioCapture.stdout += String.fromCodePoint(codePoint); return 0; };
-      } else {
-        env[name] = (...args) => { /* stub: no-op */ if (printOutput) log('[STUB]', name, 'called args=', args); return 0; };
-      }
       if (printOutput) log('[STUB-INSTALL]', name);
-    }
-  }
-  // Wrap output_string for forced decode & tracing without double-adding text.
-  if (env.output_string && !env.output_string.__forcedDecode) {
-    const orig = env.output_string;
-    env.output_string = function(ptr) {
-      const p = Number(ptr) >>> 0;
-      const decoded = readStr(p);
-      if (printOutput) {
-        const u8 = new Uint8Array(memory.buffer);
-        let dump = [];
-        for (let i=0;i<32;i++) { const b = u8[p+i]; dump.push(b === undefined ? '??' : b.toString(16).padStart(2,'0')); if (b === 0) break; }
-        log('[DECODE] output_string ptr='+p+' text="'+decoded+'" bytes='+dump.join(' '));
-      }
-      // We already append inside the stub/original; avoid duplicate. If original is our stub, it will append.
-      // If original implementation prints elsewhere (e.g., DOM), ensure we ALSO append locally to ioCapture.
-      if (orig.__isStub !== true) {
-        ioCapture.stdout += decoded;
-      }
-      return orig(ptr);
-    };
-    env.output_string.__forcedDecode = true;
-  }
-  // Wrap output_int64 to always capture numeric output even if runtime writes only to DOM.
-  if (env.output_int64 && !env.output_int64.__forcedCapture) {
-    const origInt = env.output_int64;
-    env.output_int64 = function(x) {
-      if (origInt.__isStub !== true) {
-        const asStr = (typeof x === 'bigint' ? x.toString() : String(x));
-        ioCapture.stdout += asStr;
-      }
-      return origInt(x);
-    };
-    env.output_int64.__forcedCapture = true;
-  }
-  // Wrap output_double to always capture floating output even if runtime writes only to DOM.
-  if (env.output_double && !env.output_double.__forcedCapture) {
-    const origDouble = env.output_double;
-    env.output_double = function(x) {
-      if (origDouble.__isStub !== true) {
-        ioCapture.stdout += String(x);
-      }
-      return origDouble(x);
-    };
-    env.output_double.__forcedCapture = true;
-  }
-  // Wrap output_bool to always capture boolean output even if runtime writes only to DOM.
-  if (env.output_bool && !env.output_bool.__forcedCapture) {
-    const origBool = env.output_bool;
-    env.output_bool = function(x) {
-      if (origBool.__isStub !== true) {
-        ioCapture.stdout += (x ? 'да' : 'нет');
-      }
-      return origBool(x);
-    };
-    env.output_bool.__forcedCapture = true;
-  }
-  // Wrap output_symbol to always capture character output even if runtime writes only to DOM.
-  if (env.output_symbol && !env.output_symbol.__forcedCapture) {
-    const origSym = env.output_symbol;
-    env.output_symbol = function(x) {
-      const codePoint = Number(x) >>> 0;
-      const ch = String.fromCodePoint(codePoint);
-      ioCapture.stdout += ch;
-      return origSym(x);
-    };
-    env.output_symbol.__forcedCapture = true;
-  }
-  // Instrument print-related functions for tracing
-  const traceNames = ['output_string','output_double','output_int64','output_bool','output_symbol','print','io_write','putchar'];
-  for (const tName of traceNames) {
-    if (env[tName] && !env[tName].__traced) {
-      const orig = env[tName];
-      env[tName] = function(...args) {
-        if (printOutput) log('[TRACE]', tName, 'args=', args.map(a => typeof a === 'bigint' ? a.toString() : a));
-        return orig.apply(this, args);
-      };
-      env[tName].__traced = true;
+      env[name] = (...args) => { /* stub: no-op */ if (printOutput) log('[STUB]', name, 'called args=', args); return 0; };
     }
   }
   const imports = { env };
@@ -503,6 +450,7 @@ function instantiateWasm(wasmPath, ioCapture, stdinContent) {
       memory = instance.exports.memory; // switch to real module memory
       if (printOutput) log('[INIT] switched to module memory size pages=', memory.buffer.byteLength / 65536);
       // Re-bind memory for runtime modules that rely on the current memory reference (second chance after switch)
+      bindIoMemory(memory);
       if (env.__bindMemory && typeof env.__bindMemory === 'function') {
         try { env.__bindMemory(memory); if (printOutput) log('[INIT] __bindMemory re-called after memory switch'); } catch (e) { if (printOutput) log('[WARN] re-__bindMemory failed', e.message); }
       }
@@ -516,10 +464,13 @@ function instantiateWasm(wasmPath, ioCapture, stdinContent) {
 async function executeCase(wasmPath, algName, caseBase) {
   const ioCapture = { stdout: '' };
   const bytes = fs.readFileSync(wasmPath);
-  // Reset DOM stdout before instantiation so only this case's output is captured.
-  resetDomStdout();
   const stdinContent = loadStdinForCase(caseBase);
-  const { instance } = await instantiateWasm(wasmPath, ioCapture, stdinContent);
+  const stdinStream = new TestInputStream(stdinContent);
+  const stdoutStream = new CaptureOutputStream(ioCapture);
+  const ioRuntime = await loadIoRuntimeModule();
+  bindIoStreams(ioRuntime, stdinStream, stdoutStream);
+  const { instance } = await instantiateWasm(wasmPath, ioCapture, ioRuntime);
+  stdinStream.assertSufficientInput();
   // Collect export function names for debugging if algorithm not found.
   const exportFnNames = Object.entries(instance.exports).filter(([n,v]) => typeof v === 'function').map(([n]) => n);
   const meta = wasmMetadata(bytes);
@@ -639,12 +590,11 @@ async function runAll() {
       if (printOutput) log('[SKIP]', caseBase, '(disable_exec)');
       continue;
     }
-  const wasmPath = compileCase(compiler, caseBase);
-  const stdinContent = loadStdinForCase(caseBase);
-  const code = readAll(srcPath);
-  const { type: algType, name: algName } = parseAlgHeader(code);
-  const goldenResultPath = path.join(goldensDir, caseBase + '.result');
-  const goldenStdOutPath = path.join(goldensDir, caseBase + '.result.stdout');
+    const wasmPath = compileCase(compiler, caseBase);
+    const code = readAll(srcPath);
+    const { type: algType, name: algName } = parseAlgHeader(code);
+    const goldenResultPath = path.join(goldensDir, caseBase + '.result');
+    const goldenStdOutPath = path.join(goldensDir, caseBase + '.result.stdout');
 
     let exec;
     try {
@@ -655,14 +605,8 @@ async function runAll() {
       failed++;
       continue;
     }
-  let gotRet = normalizeReturn(exec.returnValue, exec.returnType);
-    // Primary stdout source is ioCapture (exec.stdout). DOM (#stdout) is only a fallback
-    // for runtimes that write directly to the page and don't use our stubs.
+    let gotRet = normalizeReturn(exec.returnValue, exec.returnType);
     let gotStdOut = exec.stdout || '';
-    const domStdOut = getDomStdout();
-    if (!gotStdOut && domStdOut) {
-      gotStdOut = domStdOut;
-    }
 
     // Read expected return early so we can use it for type-specific normalization
     let expRet = fs.existsSync(goldenResultPath) ? readAll(goldenResultPath) : null;
@@ -709,7 +653,7 @@ async function runAll() {
     }
     let expStdOut = fs.existsSync(goldenStdOutPath) ? readAll(goldenStdOutPath) : null;
 
-  let ok = true;
+    let ok = true;
     if (expRet === null) { log('[MISSING GOLDEN]', goldenResultPath); ok = false; }
     else if (expRet !== gotRet) { ok = false; }
     if (expStdOut !== null && expStdOut !== gotStdOut) ok = false;

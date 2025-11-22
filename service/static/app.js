@@ -1,3 +1,5 @@
+import { bindBrowserIO } from './io_wrapper.js';
+
 'use strict';
 
 const $ = sel => document.querySelector(sel);
@@ -7,6 +9,7 @@ let __compilerOutputMode = 'text';
 let __turtleCanvas = null;
 let __turtleToggle = null;
 let __turtleModule = null;
+let __ioBound = false;
 const api = async (path, body, asBinary, signal) => {
   // New protocol: send raw code as text/plain and pass optimization level via X-Qumir-O
   const code = body.code || '';
@@ -211,6 +214,10 @@ async function runWasm() {
     const bytes = await api('/api/compile-wasm', { code, O }, true);
     const mathEnv = await import('./runtime/math.js');
     const ioEnv = await import('./runtime/io.js');
+    if (!__ioBound) {
+      bindBrowserIO(ioEnv);
+      __ioBound = true;
+    }
     const stringEnv = await import('./runtime/string.js');
     const arrayEnv = await import('./runtime/array.js');
     if (!__turtleModule) { try { __turtleModule = await import('./runtime/turtle.js'); } catch {} }
