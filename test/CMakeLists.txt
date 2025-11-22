@@ -14,3 +14,17 @@ ut(test_lexer test_lexer.cpp)
 ut(test_name_resolver test_name_resolver.cpp)
 ut(test_cfg test_cfg.cpp)
 ut(test_reg test_reg.cpp ${CMAKE_SOURCE_DIR}/test/regtest)
+
+# JavaScript execution tests (Node.js required)
+find_program(NODE_EXECUTABLE node)
+if(NODE_EXECUTABLE)
+    add_test(
+        NAME test_exec_js
+        COMMAND ${NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_exec.js
+            --root ${CMAKE_SOURCE_DIR}/test/regtest/
+            --runtime ${CMAKE_SOURCE_DIR}/service/static/runtime/
+            --wasm-dir ${CMAKE_BINARY_DIR}/wasm-output
+            --xml ${CMAKE_BINARY_DIR}/test/test_js.xml
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    )
+endif()
