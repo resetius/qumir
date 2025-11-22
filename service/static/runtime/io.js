@@ -52,7 +52,14 @@ function normalizeOutputStream(stream) {
   };
 }
 
-function log(...a){ process.stderr.write(a.join(' ') + '\n'); }
+function log(...a){
+  const msg = a.join(' ') + '\n';
+  if (typeof process !== 'undefined' && process.stderr) {
+    process.stderr.write(msg);
+  } else if (typeof console !== 'undefined') {
+    console.error(msg);
+  }
+}
 
 export function setInputStream(stream) {
   INPUT_STREAM = normalizeInputStream(stream);

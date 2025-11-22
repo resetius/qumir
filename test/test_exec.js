@@ -9,10 +9,14 @@
 //   Each .kum file should define exactly one top-level algorithm (after splitting: one file = one function).
 //   Goldens: .result for return value, optional .result.stdout for printed output.
 
-const fs = require('fs');
-const path = require('path');
-const cp = require('child_process');
-const { pathToFileURL } = require('url');
+import fs from 'fs';
+import path from 'path';
+import cp from 'child_process';
+import { pathToFileURL } from 'url';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function log(...a){ process.stderr.write(a.join(' ') + '\n'); }
 
@@ -364,13 +368,14 @@ function loadRuntimeFunctions(dir, memory) {
   const fns = {};
   if (!dir) return fns;
   if (!fs.existsSync(dir)) { log('[WARN] runtime directory not found:', dir); return fns; }
-  function walk(d){
+  async function walk(d){
     for (const e of fs.readdirSync(d)) {
       const full = path.join(d,e);
       const st = fs.statSync(full);
-      if (st.isDirectory()) walk(full); else if (st.isFile() && /\.m?js$/.test(e)) {
+      if (st.isDirectory()) await walk(full); else if (st.isFile() && /\.m?js$/.test(e)) {
         try {
-          const mod = require(full);
+          const fileUrl = pathToFileURL(full).href;
+          const mod = await import(fileUrl);
           // Allow a module export function map or a factory returning map when called with memory
           let exported = mod;
           if (typeof mod === 'function') {
@@ -390,11 +395,10 @@ function loadRuntimeFunctions(dir, memory) {
       }
     }
   }
-  walk(dir);
-  return fns;
+  return walk(dir).then(() => fns);
 }
 
-function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
+async function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
   const bytes = fs.readFileSync(wasmPath);
   // Create a provisional memory only if the module imports one; otherwise we'll switch to the module's own defined memory after instantiation.
   let memory = new WebAssembly.Memory({ initial: 32, maximum: 256 });
@@ -407,7 +411,7 @@ function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
     return s;
   }
   // Common import names guesses; adjust if actual wasm expects different.
-  const runtimeFns = loadRuntimeFunctions(runtimeDir, memory);
+  const runtimeFns = await loadRuntimeFunctions(runtimeDir, memory);
   const ioEnvFns = extractIoEnv(ioRuntime);
   const bindIoMemory = (mem) => {
     if (ioRuntime && typeof ioRuntime.__bindMemory === 'function') {
