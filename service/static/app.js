@@ -34,6 +34,22 @@ const apiGet = async (path) => {
 
 const sample = `алг цел цикл\nнач\n    | пример комментария: горячий цикл для теста производительности\n    цел ф, i\n    нц для i от 1 до 10000000\n        ф := факториал(13)\n    кц\n    знач := ф\nкон\n\nалг цел факториал(цел число)\nнач\n    | пример комментария внутри функции\n    цел i\n    знач := 1\n    нц для i от 1 до число\n        знач := знач * i\n    кц\nкон\n`;
 
+function parseAlgHeader(code) {
+  const lines = code.split(/\r?\n/);
+  for (const line of lines) {
+    if (!/^\s*алг\s+/u.test(line)) continue;
+    const trimmed = line.trim();
+    const tokens = trimmed.split(/\s+/);
+    if (tokens.length === 2) {
+      return { type: null, name: tokens[1].replace(/\(.*/, '') };
+    }
+    if (tokens.length >= 3) {
+      return { type: tokens[1], name: tokens[2].replace(/\(.*/, '') };
+    }
+  }
+  return { type: null, name: null };
+}
+
 // CodeMirror editor (initialized below if library present)
 let editor = null;
 function getCode() {
@@ -209,11 +225,13 @@ function getCurrentCompilerOutputNode() {
 
 async function runWasm() {
   const code = getCode();
+  const { type: algType } = parseAlgHeader(code);
   const O = $('#opt').value;
   try {
     const bytes = await api('/api/compile-wasm', { code, O }, true);
     const mathEnv = await import('./runtime/math.js');
     const ioEnv = await import('./runtime/io.js');
+    const resultEnv = await import('./runtime/result.js');
     if (!__ioBound) {
       bindBrowserIO(ioEnv);
       __ioBound = true;
@@ -287,7 +305,13 @@ async function runWasm() {
           const res = fn(...parsed);
           const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
           const micros = Math.round((t1 - t0) * 1000);
-          out += `${name} => ${String(res)}\n`;
+          const retType = resultEnv.wasmReturnType(bytes, name);
+          const normalized = resultEnv.normalizeReturnValue(res, {
+            returnType: retType,
+            algType,
+            memory: mem
+          });
+          out += `${name} => ${normalized}\n`;
           out += `time: ${micros} µs\n`;
         }
       } else {

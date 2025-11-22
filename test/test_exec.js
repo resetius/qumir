@@ -48,6 +48,9 @@ const stdinDir = casesDir;
 const defaultIoRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'io.js');
 const defaultIoRuntimeUrl = pathToFileURL(defaultIoRuntimePath).href;
 let cachedIoRuntime = null;
+const defaultResultRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'result.js');
+const defaultResultRuntimeUrl = pathToFileURL(defaultResultRuntimePath).href;
+let cachedResultRuntime = null;
 
 class TestInputStream {
   constructor(stdinContent) {
@@ -104,6 +107,12 @@ async function loadIoRuntimeModule() {
   if (cachedIoRuntime) return cachedIoRuntime;
   cachedIoRuntime = await import(defaultIoRuntimeUrl);
   return cachedIoRuntime;
+}
+
+async function loadResultRuntimeModule() {
+  if (cachedResultRuntime) return cachedResultRuntime;
+  cachedResultRuntime = await import(defaultResultRuntimeUrl);
+  return cachedResultRuntime;
 }
 
 function bindIoStreams(ioRuntime, inputStream, outputStream) {
@@ -210,106 +219,6 @@ function utf8FromMemory(mem, ptr) {
   return Buffer.from(out).toString('utf8');
 }
 
-// Minimal WASM parser to extract return type of an exported function by name.
-// Supports: single-value returns (i32,i64,f32,f64). Ignores multi-value.
-function wasmReturnType(bytes, exportName) {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  let pos = 0;
-  function readU32() {
-    let result = 0, shift = 0;
-    while (true) {
-      const b = bytes[pos++];
-      result |= (b & 0x7F) << shift;
-      if ((b & 0x80) === 0) break;
-      shift += 7;
-    }
-    return result >>> 0;
-  }
-  function skip(n){ pos += n; }
-  // Magic + version
-  if (bytes.length < 8) return null;
-  pos = 8;
-  let types = []; // array of {returns:[valtype]}
-  let funcTypeIndices = []; // per defined function
-  let importFuncCount = 0;
-  let exportFuncMap = new Map(); // name -> funcIdx
-  while (pos < bytes.length) {
-    const id = bytes[pos++];
-    const size = readU32();
-    const sectionStart = pos;
-    if (id === 1) { // type
-      const count = readU32();
-      for (let i=0;i<count;i++) {
-        const form = bytes[pos++]; // 0x60 func
-        if (form !== 0x60) { return null; }
-        const paramCount = readU32();
-        for (let p=0;p<paramCount;p++) pos++; // skip params
-        const retCount = readU32();
-        const returns = [];
-        for (let r=0;r<retCount;r++) returns.push(bytes[pos++]);
-        types.push({ returns });
-      }
-    } else if (id === 2) { // import
-      const count = readU32();
-      for (let i=0;i<count;i++) {
-        // module name
-        const modLen = readU32(); pos += modLen;
-        const fieldLen = readU32(); pos += fieldLen;
-        const kind = bytes[pos++];
-        if (kind === 0x00) { // func
-          importFuncCount++;
-          readU32(); // type index
-        } else if (kind === 0x01) { // table
-          pos++; // elem type
-          const flags = readU32(); readU32(); if (flags & 0x01) readU32();
-        } else if (kind === 0x02) { // memory
-          const flags = readU32(); readU32(); if (flags & 0x01) readU32();
-        } else if (kind === 0x03) { // global
-          pos += 2; // type + mutability
-        }
-      }
-    } else if (id === 3) { // function section
-      const count = readU32();
-      for (let i=0;i<count;i++) funcTypeIndices.push(readU32());
-    } else if (id === 7) { // export
-      const count = readU32();
-      for (let i=0;i<count;i++) {
-        const nameLen = readU32();
-        const nameBytes = bytes.slice(pos, pos+nameLen);
-        pos += nameLen;
-        const name = Buffer.from(nameBytes).toString('utf8');
-        const kind = bytes[pos++];
-        const index = readU32();
-        if (kind === 0x00) { // func
-          exportFuncMap.set(name, index);
-        }
-      }
-    }
-    pos = sectionStart + size;
-  }
-  const funcIdx = exportFuncMap.get(exportName);
-  if (funcIdx == null) return null;
-  // Distinguish imported vs defined
-  let typeIdx;
-  if (funcIdx < importFuncCount) {
-    // We skipped import type indices; need more parsing for exact type. Simplify: unknown.
-    return null;
-  } else {
-    const definedIdx = funcIdx - importFuncCount;
-    typeIdx = funcTypeIndices[definedIdx];
-  }
-  if (typeIdx == null || typeIdx >= types.length) return null;
-  const returns = types[typeIdx].returns;
-  if (!returns || returns.length === 0) return 'void';
-  const t = returns[0];
-  switch (t) {
-    case 0x7F: return 'i32';
-    case 0x7E: return 'i64';
-    case 0x7D: return 'f32';
-    case 0x7C: return 'f64';
-    default: return null;
-  }
-}
 
 // Parse wasm exports/imports and start section for diagnostics.
 function wasmMetadata(bytes) {
@@ -468,6 +377,7 @@ async function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
 async function executeCase(wasmPath, algName, caseBase) {
   const ioCapture = { stdout: '' };
   const bytes = fs.readFileSync(wasmPath);
+  const resultRuntime = await loadResultRuntimeModule();
   const stdinContent = loadStdinForCase(caseBase);
   const stdinStream = new TestInputStream(stdinContent);
   const stdoutStream = new CaptureOutputStream(ioCapture);
@@ -528,37 +438,14 @@ async function executeCase(wasmPath, algName, caseBase) {
   }
   if (!fn && exportFnNames.length) throw new Error('No executable export found for ' + wasmPath);
   const ret = fn();
-  const retType = wasmReturnType(bytes, algName);
+  const retType = resultRuntime.wasmReturnType(bytes, algName);
   return { returnValue: ret, stdout: ioCapture.stdout, exportName: algName, returnType: retType };
-}
-
-function normalizeReturn(ret, retType) {
-  if (ret === undefined || ret === null) return '';
-  // Float formatting: prefer WASM-detected types; fallback heuristic for large scientific numbers
-  if (retType === 'f32' || retType === 'f64') {
-    // Special-case full expansion for Number.MAX_VALUE to match C++ style golden with full integer digits.
-    if (ret === Number.MAX_VALUE) {
-      // Precomputed full decimal expansion of DBL_MAX (IEEE754 binary64) with fixed 15 fractional zeros.
-      return '179769313486231570814527423731704356798070567525844996598917476803157260780028538760589558632766878171540458953514382464234321326889464182768467546703537516986049910576551282076245490090389328944075868508455133942304583236903222948165808559332123348274797826204144723168738177180919299881250404026184124858368.000000000000000';
-    }
-    return Number(ret).toFixed(15);
-  }
-  if (typeof ret === 'number' && isFinite(ret)) {
-    const str = String(ret);
-    // Heuristic: if scientific notation or extremely large magnitude, emulate C++ fixed with 15 decimals
-    if (/e[+-]\d+/i.test(str) || Math.abs(ret) >= 1e21) {
-      if (ret === Number.MAX_VALUE) {
-        return '179769313486231570814527423731704356798070567525844996598917476803157260780028538760589558632766878171540458953514382464234321326889464182768467546703537516986049910576551282076245490090389328944075868508455133942304583236903222948165808559332123348274797826204144723168738177180919299881250404026184124858368.000000000000000';
-      }
-      try { return Number(ret).toFixed(15); } catch (_) { /* ignore */ }
-    }
-  }
-  return String(ret);
 }
 
 async function runAll() {
   const compiler = findCompiler();
   const cases = collectCases(casesDir);
+  const resultRuntime = await loadResultRuntimeModule();
   let failed = 0;
   const results = []; // accumulate per-test results for optional JUnit XML
   for (const caseBase of cases) {
@@ -609,41 +496,16 @@ async function runAll() {
       failed++;
       continue;
     }
-    let gotRet = normalizeReturn(exec.returnValue, exec.returnType);
+    let gotRet = resultRuntime.normalizeReturnValue(exec.returnValue, {
+      returnType: exec.returnType,
+      algType,
+      memory: global.__lastWasmMemory
+    });
     let gotStdOut = exec.stdout || '';
 
     // Read expected return early so we can use it for type-specific normalization
     let expRet = fs.existsSync(goldenResultPath) ? readAll(goldenResultPath) : null;
 
-    // Heuristic for Кумир 'лит' (character) algorithms:
-    // In C++ runtime many such algorithms (including those using str_from_unicode)
-    // actually return char* pointing to a UTF-8 string, not a raw codepoint.
-    // So for 'алг лит <name>' with i32 return we primarily interpret the value
-    // as a pointer to a C-string in linear memory and only fall back to treating
-    // it as a Unicode codepoint if decoding as a string yields nothing.
-    if (algType === 'лит' && exec.returnType === 'i32') {
-      const raw = Number(exec.returnValue);
-      if (Number.isInteger(raw) && raw >= 0) {
-        const ptr = raw >>> 0;
-        let candidate = '';
-        // Prefer char* semantics: decode null-terminated UTF-8 string from wasm memory.
-        if (ptr !== 0 && global.__lastWasmMemory) {
-          // eslint-disable-next-line no-undef
-          candidate = utf8FromMemory(global.__lastWasmMemory, ptr) || '';
-        }
-        // Fallback: if string decoding failed or produced empty, treat as codepoint.
-        if (!candidate && raw <= 0x10FFFF) {
-          try {
-            candidate = String.fromCodePoint(raw);
-          } catch (_) {
-            candidate = '';
-          }
-        }
-        if (candidate) {
-          gotRet = candidate;
-        }
-      }
-    }
 
     if (update) {
       writeAll(goldenResultPath, gotRet);
