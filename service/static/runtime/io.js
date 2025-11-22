@@ -1,3 +1,5 @@
+import { __allocCString, __bindMemory as bindStringMemory } from './string.js';
+
 // IO runtime shims: provide input/output functions expected by the program
 // and allow embedders to inject their own input/output streams. Also exposes
 // helpers to bind WebAssembly memory and reset IO state between runs.
@@ -5,10 +7,17 @@
 let MEMORY = null; // WebAssembly.Memory (bound after instantiation)
 const decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8') : null;
 
-export function __bindMemory(mem) { MEMORY = mem; }
+export function __bindMemory(mem) {
+  MEMORY = mem;
+  if (typeof bindStringMemory === 'function') {
+    try { bindStringMemory(mem); } catch {}
+  }
+}
 
 const NullInputStream = {
   readToken() { return '0'; },
+  readLine() { return ''; },
+  hasMore() { return false; },
   reset() {}
 };
 const NullOutputStream = {
@@ -32,7 +41,7 @@ let FILE_MANAGER = NullFileManager;
 function normalizeInputStream(stream) {
   if (!stream) return NullInputStream;
   if (typeof stream === 'function') {
-    return { readToken: stream, reset: () => {} };
+    return { readToken: stream, readLine: () => '', hasMore: () => true, reset: () => {} };
   }
   const read = (typeof stream.readToken === 'function')
     ? stream.readToken.bind(stream)
@@ -43,7 +52,21 @@ function normalizeInputStream(stream) {
   const reset = (typeof stream.reset === 'function') ? stream.reset.bind(stream)
     : (typeof stream.rewind === 'function') ? stream.rewind.bind(stream)
     : (() => {});
-  return { readToken: read, reset };
+  const readLine = (typeof stream.readLine === 'function')
+    ? stream.readLine.bind(stream)
+    : (typeof stream.nextLine === 'function')
+      ? stream.nextLine.bind(stream)
+      : null;
+  const line = readLine
+    ? () => {
+        const value = readLine();
+        return value === undefined || value === null ? '' : String(value);
+      }
+    : () => '';
+  const hasMore = (typeof stream.hasMore === 'function')
+    ? () => !!stream.hasMore()
+    : () => true;
+  return { readToken: read, readLine: line, hasMore, reset };
 }
 
 function normalizeOutputStream(stream) {
@@ -192,6 +215,33 @@ export function output_symbol(x) {
 }
 export function output_string(v) {
   appendStdout(readCString(v));
+}
+
+function readLineFromInput() {
+  try {
+    if (INPUT_STREAM && typeof INPUT_STREAM.readLine === 'function') {
+      const val = INPUT_STREAM.readLine();
+      return val === undefined || val === null ? '' : String(val);
+    }
+  } catch {}
+  return '';
+}
+
+export function str_input() {
+  const line = readLineFromInput();
+  if (typeof __allocCString === 'function') {
+    return __allocCString(line);
+  }
+  return 0;
+}
+
+export function __ensure(condition, msgPtr) {
+  const ok = typeof condition === 'bigint' ? condition !== 0n : !!condition;
+  if (ok) return;
+  const msg = readCString(msgPtr) || 'assertion failed';
+  const line = `Runtime assertion failed: ${msg}`;
+  appendStdout(line + '\n');
+  throw new Error(line);
 }
 
 function asHandle(value) {

@@ -148,17 +148,50 @@ function canonicalIoFileName(name) {
 }
 
 function createTextTokenStream(text) {
-  const tokens = String(text || '').match(/\S+/g) || [];
-  let index = 0;
+  const raw = String(text || '');
+  const WHITESPACE = new Set([9, 10, 11, 12, 13, 32, 160]);
+  let cursor = 0;
+
+  const isWhitespace = (code) => WHITESPACE.has(code);
+
+  const skipWhitespace = () => {
+    while (cursor < raw.length && isWhitespace(raw.charCodeAt(cursor))) {
+      cursor++;
+    }
+  };
+
   return {
     readToken() {
-      return index < tokens.length ? tokens[index++] : '0';
+      skipWhitespace();
+      if (cursor >= raw.length) return '0';
+      const start = cursor;
+      while (cursor < raw.length && !isWhitespace(raw.charCodeAt(cursor))) {
+        cursor++;
+      }
+      const token = raw.slice(start, cursor);
+      return token.length ? token : '0';
     },
-    reset() {
-      index = 0;
+    readLine() {
+      if (cursor >= raw.length) return '';
+      const newlineIndex = raw.indexOf('\n', cursor);
+      let line;
+      if (newlineIndex === -1) {
+        line = raw.slice(cursor);
+        cursor = raw.length;
+      } else {
+        line = raw.slice(cursor, newlineIndex);
+        cursor = newlineIndex + 1;
+      }
+      if (line.endsWith('\r')) {
+        line = line.slice(0, -1);
+      }
+      return line;
     },
     hasMore() {
-      return index < tokens.length;
+      return cursor < raw.length;
+    },
+    reset() {
+      cursor = 0;
     }
   };
 }

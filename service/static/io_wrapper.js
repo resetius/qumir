@@ -14,19 +14,59 @@ function resolveElement(target, fallbackSelector) {
 }
 
 function createTokenizingInputStream(resolveFn) {
-  let tokens = [];
-  let index = 0;
+  const WHITESPACE = new Set([9, 10, 11, 12, 13, 32, 160]); // \t \n \v \f \r space nbsp
+  let raw = '';
+  let cursor = 0;
+
   const reload = () => {
     const el = resolveFn();
-    const raw = el ? String(el.value || '') : '';
-    tokens = raw.match(/\S+/g) || [];
-    index = 0;
+    raw = el ? String(el.value || '') : '';
+    cursor = 0;
   };
+
+  const isWhitespace = (code) => WHITESPACE.has(code);
+
+  const skipWhitespace = () => {
+    while (cursor < raw.length && isWhitespace(raw.charCodeAt(cursor))) {
+      cursor++;
+    }
+  };
+
+  const readToken = () => {
+    skipWhitespace();
+    if (cursor >= raw.length) return '0';
+    const start = cursor;
+    while (cursor < raw.length && !isWhitespace(raw.charCodeAt(cursor))) {
+      cursor++;
+    }
+    const token = raw.slice(start, cursor);
+    return token.length ? token : '0';
+  };
+
+  const readLine = () => {
+    if (cursor >= raw.length) return '';
+    const newlineIndex = raw.indexOf('\n', cursor);
+    let line;
+    if (newlineIndex === -1) {
+      line = raw.slice(cursor);
+      cursor = raw.length;
+    } else {
+      line = raw.slice(cursor, newlineIndex);
+      cursor = newlineIndex + 1;
+    }
+    if (line.endsWith('\r')) {
+      line = line.slice(0, -1);
+    }
+    return line;
+  };
+
   reload();
+
   return {
-    readToken() {
-      if (index < tokens.length) return tokens[index++];
-      return '0';
+    readToken,
+    readLine,
+    hasMore() {
+      return cursor < raw.length;
     },
     reset() {
       reload();

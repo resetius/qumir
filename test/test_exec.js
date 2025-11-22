@@ -54,38 +54,78 @@ let cachedResultRuntime = null;
 
 class TestInputStream {
   constructor(stdinContent) {
-    this.source = stdinContent;
-    this.tokens = [];
-    this.index = 0;
+    this.hasSource = stdinContent != null;
+    this.source = this.hasSource ? String(stdinContent) : '';
+    this.cursor = 0;
     this.requested = 0;
     this.missingInput = false;
     this.exhausted = false;
-    this.reset();
   }
   reset() {
-    this.tokens = this.source != null ? String(this.source).match(/\S+/g) || [] : [];
-    this.index = 0;
+    this.cursor = 0;
     this.requested = 0;
     this.missingInput = false;
     this.exhausted = false;
+  }
+  _isWhitespace(code) {
+    return code === 9 || code === 10 || code === 11 || code === 12 || code === 13 || code === 32 || code === 160;
+  }
+  _skipWhitespace() {
+    while (this.cursor < this.source.length && this._isWhitespace(this.source.charCodeAt(this.cursor))) {
+      this.cursor++;
+    }
+  }
+  _ensureSource() {
+    if (!this.hasSource) {
+      this.missingInput = true;
+      return false;
+    }
+    return true;
   }
   readToken() {
     this.requested++;
-    if (this.source == null) {
-      this.missingInput = true;
-      return '0';
-    }
-    if (this.index >= this.tokens.length) {
+    if (!this._ensureSource()) return '0';
+    this._skipWhitespace();
+    if (this.cursor >= this.source.length) {
       this.exhausted = true;
       return '0';
     }
-    return this.tokens[this.index++];
+    const start = this.cursor;
+    while (this.cursor < this.source.length && !this._isWhitespace(this.source.charCodeAt(this.cursor))) {
+      this.cursor++;
+    }
+    return this.source.slice(start, this.cursor);
+  }
+  readLine() {
+    this.requested++;
+    if (!this._ensureSource()) return '';
+    if (this.cursor >= this.source.length) {
+      this.exhausted = true;
+      return '';
+    }
+    const newlineIndex = this.source.indexOf('\n', this.cursor);
+    let line;
+    if (newlineIndex === -1) {
+      line = this.source.slice(this.cursor);
+      this.cursor = this.source.length;
+    } else {
+      line = this.source.slice(this.cursor, newlineIndex);
+      this.cursor = newlineIndex + 1;
+    }
+    if (line.endsWith('\r')) {
+      line = line.slice(0, -1);
+    }
+    return line;
+  }
+  hasMore() {
+    if (!this.hasSource) return false;
+    return this.cursor < this.source.length;
   }
   assertSufficientInput() {
-    if (this.source == null && this.requested > 0) {
+    if (!this.hasSource && this.requested > 0) {
       throw new Error('Program requested stdin but no .stdin file found for this test');
     }
-    if (this.source != null && this.exhausted) {
+    if (this.hasSource && this.exhausted) {
       throw new Error('Program requested more tokens than provided in .stdin');
     }
   }

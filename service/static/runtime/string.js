@@ -60,6 +60,10 @@ function writeStrToScratch(s) {
     return p;
 }
 
+export function __allocCString(value) {
+    return writeStrToScratch(value || '');
+}
+
 function writeI8(ptr, value) {
     if (!MEMORY) return;
     const p = _normalizePtr(ptr);
