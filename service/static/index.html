@@ -57,13 +57,23 @@
     </section>
   </main>
   <section class="io">
-    <div>
-      <div class="pane-title" id="title-stdout">Program output (stdout)</div>
-      <pre id="stdout" class="scroll"></pre>
+    <div class="pane-title" id="title-io">IO &amp; files</div>
+    <div class="io-toolbar">
+      <label for="io-select">Просмотр:</label>
+      <select id="io-select">
+        <option value="stdout">stdout</option>
+        <option value="stdin">stdin</option>
+      </select>
+      <button id="io-add-file" class="io-icon" title="Добавить файл">＋</button>
     </div>
-    <div>
-      <div class="pane-title" id="title-stdin">Program input (stdin)</div>
-      <textarea id="stdin" placeholder="input for your program" spellcheck="false"></textarea>
+    <div class="io-pane-container">
+      <div class="io-pane io-pane-stdout active" data-io-pane="stdout">
+        <pre id="stdout" class="scroll"></pre>
+      </div>
+      <div class="io-pane io-pane-stdin" data-io-pane="stdin">
+        <textarea id="stdin" placeholder="input for your program" spellcheck="false"></textarea>
+      </div>
+      <div id="io-files" class="io-files"></div>
     </div>
   </section>
   <footer>

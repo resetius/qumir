@@ -23,12 +23,31 @@ textarea#code { flex: 1; background: #1e1e1e; color: #e6e6e6; border: none; resi
 .CodeMirror-linenumber { color: #9e9e9e; }
 #status.status { padding: 4px 8px; font-size: 11px; background: #2d2d2d; border-top: 1px solid #333; color: #bbb; }
 pre.scroll { flex: 1; margin: 0; padding: 8px; background: #1b1b1b; overflow: auto; font-size: 12px; min-width: 0; }
-section.io { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 8px 8px; height: 160px; flex: 0 0 auto; }
-section.io textarea { height: 120px; width: 100%; background: #1e1e1e; color: #e6e6e6; border: 1px solid #333; border-radius: 4px; resize: none; padding: 8px; font-family: ui-monospace, monospace; font-size: 12px; box-sizing: border-box; }
-#stdout { height: 120px; }
+section.io { display: flex; flex-direction: column; gap: 6px; padding: 0 8px 8px; flex: 0 0 auto; }
+section.io .pane-title { border-radius: 4px 4px 0 0; }
+.io-toolbar { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #bbb; }
+.io-toolbar label { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; color: #888; }
+.io-toolbar select { min-width: 140px; }
+.io-pane-container { border: 1px solid #333; border-radius: 4px; background: #1b1b1b; min-height: 160px; flex: 1 1 auto; overflow: hidden; display: flex; flex-direction: column; }
+.io-pane { display: none; height: 100%; flex: 1 1 auto; }
+.io-pane.active { display: flex; flex-direction: column; }
+.io-pane textarea { flex: 1 1 auto; width: 100%; height: 100%; background: #1e1e1e; color: #e6e6e6; border: none; border-top: 1px solid #2a2a2a; padding: 8px; resize: none; font-family: ui-monospace, monospace; font-size: 12px; box-sizing: border-box; }
+.io-file-pane { padding: 8px; gap: 8px; }
+.io-file-pane textarea { border: 1px solid #444; border-radius: 4px; }
+.io-files { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.io-files .io-pane { flex: 1 1 auto; }
+.io-file-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.io-file-name { flex: 1 1 auto; background: #1e1e1e; color: #e6e6e6; border: 1px solid #444; border-radius: 4px; padding: 4px 6px; font-size: 12px; }
+.io-file-text { flex: 1 1 auto; min-height: 0; }
 button, select { background: #0e639c; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
 select { background: #333; border: 1px solid #555; }
 button:hover { filter: brightness(1.1); }
+button.io-icon,
+.io-icon { background: #333; color: #ddd; border: 1px solid #555; padding: 0; width: 28px; height: 28px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 26px; }
+button.io-icon:hover,
+.io-icon:hover { filter: none; background: #3a3a3a; }
+button.io-icon.danger,
+.io-icon.danger { border-color: #7c3a3a; color: #ff8a80; }
 pre.error { color: #ff8a80; white-space: pre-wrap; }
 footer { padding: 6px 12px; border-top: 1px solid #333; color: #bbb; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 footer .cookies-note { margin-left: auto; opacity: 0.9; }
@@ -101,11 +120,10 @@ footer .version { opacity: 0.9; }
 		/* (grid no longer applies due to display: contents) */
 
 		/* Input/Output section stacked vertically and flexible */
-		section.io { display: flex; flex-direction: column; gap: 8px; padding: 8px; height: auto; }
-		section.io > div { display: flex; flex-direction: column; width: 100%; }
-		section.io .pane-title { margin-bottom: 4px; }
-		section.io textarea { height: 20vh; }
-		#stdout { height: 20vh; max-height: 28vh; }
+		section.io { padding: 8px; }
+		.io-toolbar { flex-wrap: wrap; }
+		.io-pane-container { min-height: 220px; }
+		.io-pane textarea { height: auto; min-height: 180px; }
 
 	/* Editor height relative to viewport */
 			.CodeMirror { height: 50vh; }

@@ -10,6 +10,13 @@ let __turtleCanvas = null;
 let __turtleToggle = null;
 let __turtleModule = null;
 let __ioBound = false;
+const IO_FILES_STORAGE_KEY = 'q_io_files';
+const IO_PANE_COOKIE = 'q_io_pane';
+let __ioFiles = [];
+let __ioSelectEl = null;
+let __ioFilesRoot = null;
+let __currentIoPane = 'stdout';
+let __ioFileCounter = 0;
 const api = async (path, body, asBinary, signal) => {
   // New protocol: send raw code as text/plain and pass optimization level via X-Qumir-O
   const code = body.code || '';
@@ -76,6 +83,228 @@ function getCookie(name) {
     if (p.startsWith(n)) return decodeURIComponent(p.substring(n.length));
   }
   return null;
+}
+
+function readIoFilesFromStorage() {
+  const localValue = (() => {
+    try {
+      return (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(IO_FILES_STORAGE_KEY) : null;
+    } catch (err) {
+      console.warn('localStorage read failed:', err);
+      return null;
+    }
+  })();
+  const raw = localValue || getCookie(IO_FILES_STORAGE_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((entry, idx) => normalizeIoFile(entry, idx)).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function writeIoFilesToStorage(payload) {
+  const serialized = JSON.stringify(payload);
+  let stored = false;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(IO_FILES_STORAGE_KEY, serialized);
+      stored = true;
+    }
+  } catch (err) {
+    console.warn('localStorage write failed:', err);
+  }
+  if (!stored) setCookie(IO_FILES_STORAGE_KEY, serialized);
+}
+
+function generateIoFileId() {
+  __ioFileCounter += 1;
+  return `file-${Date.now().toString(36)}-${__ioFileCounter}`;
+}
+
+function normalizeIoFile(entry, idx) {
+  if (!entry || typeof entry !== 'object') return null;
+  const id = typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : generateIoFileId();
+  const defaultName = `file${idx + 1}`;
+  const name = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : defaultName;
+  const content = typeof entry.content === 'string' ? entry.content : '';
+  return { id, name, content };
+}
+
+function persistIoFiles() {
+  const data = __ioFiles.map(file => ({
+    id: file.id,
+    name: file.name || '',
+    content: file.content || ''
+  }));
+  writeIoFilesToStorage(data);
+}
+
+function refreshIoSelectOptions() {
+  if (!__ioSelectEl) return;
+  const fragment = document.createDocumentFragment();
+  const addOption = (value, label) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    fragment.appendChild(opt);
+  };
+  addOption('stdout', 'stdout');
+  addOption('stdin', 'stdin');
+  __ioFiles.forEach(file => {
+    const label = file.name && file.name.trim() ? file.name.trim() : 'untitled';
+    addOption(file.id, label);
+  });
+  __ioSelectEl.replaceChildren(fragment);
+  const knownIds = new Set(['stdout', 'stdin', ...__ioFiles.map(f => f.id)]);
+  const target = knownIds.has(__currentIoPane) ? __currentIoPane : 'stdout';
+  __ioSelectEl.value = target;
+}
+
+function setActiveIoPane(candidate, { persistCookie = true } = {}) {
+  const knownIds = new Set(['stdout', 'stdin', ...__ioFiles.map(f => f.id)]);
+  const target = knownIds.has(candidate) ? candidate : 'stdout';
+  __currentIoPane = target;
+  if (__ioSelectEl && __ioSelectEl.value !== target) {
+    __ioSelectEl.value = target;
+  }
+  document.querySelectorAll('.io-pane').forEach(node => {
+    node.classList.toggle('active', node.dataset.ioPane === target);
+  });
+  if (persistCookie) {
+    setCookie(IO_PANE_COOKIE, target);
+  }
+}
+
+function renderIoFilePane(file) {
+  if (!__ioFilesRoot) return;
+  const pane = document.createElement('div');
+  pane.className = 'io-pane io-file-pane';
+  pane.dataset.ioPane = file.id;
+
+  const meta = document.createElement('div');
+  meta.className = 'io-file-meta';
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'io-file-name';
+  nameInput.placeholder = 'Имя файла';
+  nameInput.value = file.name;
+  nameInput.setAttribute('aria-label', 'Имя файла');
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'io-icon danger';
+  removeBtn.title = 'Удалить файл';
+  removeBtn.textContent = '×';
+  removeBtn.setAttribute('aria-label', 'Удалить файл');
+
+  meta.appendChild(nameInput);
+  meta.appendChild(removeBtn);
+
+  const editor = document.createElement('textarea');
+  editor.className = 'io-file-text';
+  editor.placeholder = 'Содержимое файла';
+  editor.spellcheck = false;
+  editor.value = file.content;
+
+  pane.appendChild(meta);
+  pane.appendChild(editor);
+  __ioFilesRoot.appendChild(pane);
+
+  file.elements = { pane, nameInput, editor };
+
+  const commitName = (value) => {
+    file.name = value;
+    refreshIoSelectOptions();
+    persistIoFiles();
+  };
+
+  nameInput.addEventListener('input', () => {
+    commitName(nameInput.value);
+  });
+
+  nameInput.addEventListener('blur', () => {
+    const trimmed = nameInput.value.trim();
+    const finalValue = trimmed || 'untitled';
+    if (finalValue !== file.name || finalValue !== nameInput.value) {
+      nameInput.value = finalValue;
+      commitName(finalValue);
+    }
+  });
+
+  removeBtn.addEventListener('click', () => removeIoFile(file.id));
+
+  editor.addEventListener('input', () => {
+    file.content = editor.value;
+    persistIoFiles();
+  });
+}
+
+function removeIoFile(fileId) {
+  const idx = __ioFiles.findIndex(f => f.id === fileId);
+  if (idx === -1) return;
+  const [file] = __ioFiles.splice(idx, 1);
+  if (file && file.elements && file.elements.pane && file.elements.pane.parentNode) {
+    file.elements.pane.parentNode.removeChild(file.elements.pane);
+  }
+  if (__currentIoPane === fileId) {
+    setActiveIoPane('stdout');
+  }
+  refreshIoSelectOptions();
+  persistIoFiles();
+}
+
+function initIoWorkspace() {
+  __ioSelectEl = document.getElementById('io-select');
+  __ioFilesRoot = document.getElementById('io-files');
+  const addBtn = document.getElementById('io-add-file');
+  if (!__ioSelectEl || !__ioFilesRoot || !addBtn) return;
+
+  const restored = readIoFilesFromStorage();
+  restored.forEach(file => {
+    __ioFiles.push(file);
+    renderIoFilePane(file);
+  });
+  refreshIoSelectOptions();
+
+  __ioSelectEl.addEventListener('change', () => setActiveIoPane(__ioSelectEl.value));
+
+  addBtn.addEventListener('click', () => {
+    const newFile = {
+      id: generateIoFileId(),
+      name: `file${__ioFiles.length + 1}`,
+      content: ''
+    };
+    __ioFiles.push(newFile);
+    renderIoFilePane(newFile);
+    refreshIoSelectOptions();
+    setActiveIoPane(newFile.id);
+    persistIoFiles();
+    if (newFile.elements && newFile.elements.nameInput) {
+      newFile.elements.nameInput.focus();
+      newFile.elements.nameInput.select();
+    }
+  });
+
+  setActiveIoPane(__currentIoPane, { persistCookie: false });
+}
+
+function getCurrentIoPaneNode() {
+  if (__currentIoPane === 'stdout') return document.getElementById('stdout');
+  if (__currentIoPane === 'stdin') return document.getElementById('stdin');
+  const file = __ioFiles.find(f => f.id === __currentIoPane);
+  return file && file.elements ? file.elements.editor : null;
+}
+
+function getCurrentIoPaneLabel() {
+  if (__currentIoPane === 'stdout') return 'stdout';
+  if (__currentIoPane === 'stdin') return 'stdin';
+  const file = __ioFiles.find(f => f.id === __currentIoPane);
+  if (!file) return 'file';
+  return file.name && file.name.trim() ? file.name.trim() : 'file';
 }
 
 function hexdump(bytes) {
@@ -342,6 +571,8 @@ function loadState() {
   if (v !== null && v !== undefined) $('#view').value = v;
   const o = getCookie('q_opt');
   if (o !== null && o !== undefined) $('#opt').value = o;
+  const pane = getCookie(IO_PANE_COOKIE);
+  if (pane) __currentIoPane = pane;
 }
 
 function saveState() {
@@ -417,6 +648,7 @@ function initEditor() {
 }
 
 loadState();
+initIoWorkspace();
 // Load examples list
 (async function initExamples(){
   try {
@@ -424,7 +656,7 @@ loadState();
     const sel = $('#examples');
     if (sel && data && Array.isArray(data.examples)) {
       // Fill options grouped by folder prefix
-      // Build a simple flat list: "folder/file.kum"
+      // Build a simple flat list: "folder/file1"
       data.examples.forEach(it => {
         const opt = document.createElement('option');
         opt.value = it.path;
@@ -723,12 +955,6 @@ $('#btn-run').addEventListener('click', async () => {
   closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  const stdoutEl = document.getElementById('stdout');
-  const titleStdout = document.getElementById('title-stdout');
-  if (stdoutEl && titleStdout) {
-    titleStdout.addEventListener('mousedown', e => e.preventDefault());
-    titleStdout.addEventListener('click', () => open('Program output (stdout)', stdoutEl));
-  }
   const compOutEl = document.getElementById('output');
   const titleOutput = document.getElementById('title-output');
   if (compOutEl && titleOutput) {
@@ -738,11 +964,13 @@ $('#btn-run').addEventListener('click', async () => {
       open('Compiler output', node);
     });
   }
-  const stdinEl = document.getElementById('stdin');
-  const titleStdin = document.getElementById('title-stdin');
-  if (stdinEl && titleStdin) {
-    titleStdin.addEventListener('mousedown', e => e.preventDefault());
-    titleStdin.addEventListener('click', () => open('Program input (stdin)', stdinEl));
+  const titleIo = document.getElementById('title-io');
+  if (titleIo) {
+    titleIo.addEventListener('mousedown', e => e.preventDefault());
+    titleIo.addEventListener('click', () => {
+      const node = getCurrentIoPaneNode();
+      if (node) open(`IO • ${getCurrentIoPaneLabel()}`, node);
+    });
   }
   const titleCode = document.getElementById('title-code');
   if (titleCode) {
