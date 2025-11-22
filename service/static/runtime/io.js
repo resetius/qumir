@@ -15,9 +15,19 @@ const NullOutputStream = {
   write() {},
   clear() {}
 };
+const NullFileManager = {
+  open() { return -1; },
+  close() {},
+  hasMore() { return false; },
+  getStream() { return null; },
+  reset() {}
+};
 
 let INPUT_STREAM = NullInputStream;
+let DEFAULT_INPUT_STREAM = NullInputStream;
+let DEFAULT_INPUT_INITIALIZED = false;
 let OUTPUT_STREAM = NullOutputStream;
+let FILE_MANAGER = NullFileManager;
 
 function normalizeInputStream(stream) {
   if (!stream) return NullInputStream;
@@ -52,6 +62,40 @@ function normalizeOutputStream(stream) {
   };
 }
 
+function applyInputStream(stream, { updateDefault = false } = {}) {
+  const normalized = normalizeInputStream(stream);
+  INPUT_STREAM = normalized;
+  if (updateDefault || !DEFAULT_INPUT_INITIALIZED) {
+    DEFAULT_INPUT_STREAM = normalized;
+    DEFAULT_INPUT_INITIALIZED = true;
+  }
+  return normalized;
+}
+
+function normalizeFileManager(manager) {
+  if (!manager || typeof manager !== 'object') {
+    return NullFileManager;
+  }
+  const open = typeof manager.open === 'function' ? manager.open.bind(manager) : NullFileManager.open;
+  const close = typeof manager.close === 'function' ? manager.close.bind(manager) : NullFileManager.close;
+  const hasMore = typeof manager.hasMore === 'function' ? manager.hasMore.bind(manager) : NullFileManager.hasMore;
+  const getStream = typeof manager.getStream === 'function' ? manager.getStream.bind(manager) : NullFileManager.getStream;
+  const reset = typeof manager.reset === 'function' ? manager.reset.bind(manager) : NullFileManager.reset;
+  return { open, close, hasMore, getStream, reset };
+}
+
+function readCString(ptr) {
+  if (!MEMORY || !decoder) return '';
+  const buffer = new Uint8Array(MEMORY.buffer);
+  let offset = Number(ptr) >>> 0;
+  if (offset >= buffer.length) return '';
+  let end = offset;
+  while (end < buffer.length && buffer[end] !== 0) {
+    end++;
+  }
+  return decoder.decode(buffer.subarray(offset, end));
+}
+
 function log(...a){
   const msg = a.join(' ') + '\n';
   if (typeof process !== 'undefined' && process.stderr) {
@@ -61,20 +105,34 @@ function log(...a){
   }
 }
 
-export function setInputStream(stream) {
-  INPUT_STREAM = normalizeInputStream(stream);
+export function setInputStream(stream, options = {}) {
+  const updateDefault = Object.prototype.hasOwnProperty.call(options, 'makeDefault')
+    ? !!options.makeDefault
+    : true;
+  applyInputStream(stream, { updateDefault });
 }
 
 export function setOutputStream(stream) {
   OUTPUT_STREAM = normalizeOutputStream(stream);
 }
 
+export function setFileManager(manager) {
+  if (FILE_MANAGER && typeof FILE_MANAGER.reset === 'function') {
+    try { FILE_MANAGER.reset(); } catch {}
+  }
+  FILE_MANAGER = normalizeFileManager(manager);
+}
+
 export function __resetIO(clearStdout = false) {
   if (INPUT_STREAM && typeof INPUT_STREAM.reset === 'function') {
     try { INPUT_STREAM.reset(); } catch {}
   }
+  INPUT_STREAM = DEFAULT_INPUT_STREAM || NullInputStream;
   if (clearStdout && OUTPUT_STREAM && typeof OUTPUT_STREAM.clear === 'function') {
     try { OUTPUT_STREAM.clear(); } catch {}
+  }
+  if (FILE_MANAGER && typeof FILE_MANAGER.reset === 'function') {
+    try { FILE_MANAGER.reset(); } catch {}
   }
 }
 
@@ -133,16 +191,47 @@ export function output_symbol(x) {
   appendStdout(str);
 }
 export function output_string(v) {
-  // Support both: C-string pointer OR handle returned by string runtime
-  const n = Number(v);
-  // Try consulting string runtime if available (ESM import binding)
-  if (!MEMORY || !decoder) {
-    appendStdout(''); return;
+  appendStdout(readCString(v));
+}
+
+function asHandle(value) {
+  return Number(value) | 0;
+}
+
+export function file_open_for_read(ptr) {
+  try {
+    const name = readCString(ptr);
+    if (!name) return -1;
+    const handle = FILE_MANAGER.open(name);
+    return Number.isInteger(handle) ? (handle | 0) : -1;
+  } catch {
+    return -1;
   }
-  const u8 = new Uint8Array(MEMORY.buffer);
-  let p = n >>> 0;
-  const start = p;
-  while (p < u8.length && u8[p] !== 0) p++;
-  appendStdout(decoder.decode(u8.subarray(start, p)));
-  return;
+}
+
+export function file_close(handle) {
+  try {
+    FILE_MANAGER.close(asHandle(handle));
+  } catch {}
+}
+
+export function file_has_more_data(handle) {
+  try {
+    return FILE_MANAGER.hasMore(asHandle(handle)) ? 1 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function input_set_file(handle) {
+  try {
+    const stream = FILE_MANAGER.getStream(asHandle(handle));
+    if (stream) {
+      applyInputStream(stream, { updateDefault: false });
+    }
+  } catch {}
+}
+
+export function input_reset_file() {
+  INPUT_STREAM = DEFAULT_INPUT_STREAM || NullInputStream;
 }

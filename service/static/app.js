@@ -17,6 +17,7 @@ let __ioSelectEl = null;
 let __ioFilesRoot = null;
 let __currentIoPane = 'stdout';
 let __ioFileCounter = 0;
+let __browserFileManager = null;
 const api = async (path, body, asBinary, signal) => {
   // New protocol: send raw code as text/plain and pass optimization level via X-Qumir-O
   const code = body.code || '';
@@ -140,6 +141,80 @@ function persistIoFiles() {
     content: file.content || ''
   }));
   writeIoFilesToStorage(data);
+}
+
+function canonicalIoFileName(name) {
+  return (name || '').trim();
+}
+
+function createTextTokenStream(text) {
+  const tokens = String(text || '').match(/\S+/g) || [];
+  let index = 0;
+  return {
+    readToken() {
+      return index < tokens.length ? tokens[index++] : '0';
+    },
+    reset() {
+      index = 0;
+    },
+    hasMore() {
+      return index < tokens.length;
+    }
+  };
+}
+
+function createBrowserFileManager(filesAccessor) {
+  const handles = new Map();
+  const freeHandles = [];
+  let nextHandle = 1;
+
+  const getFiles = () => (typeof filesAccessor === 'function' ? filesAccessor() : []);
+
+  return {
+    open(name) {
+      const targetName = canonicalIoFileName(name);
+      if (!targetName) return -1;
+      const files = getFiles();
+      const file = files.find(f => canonicalIoFileName(f.name) === targetName);
+      if (!file) return -1;
+      const handle = freeHandles.length ? freeHandles.pop() : nextHandle++;
+      handles.set(handle, {
+        name: targetName,
+        stream: createTextTokenStream(file.content || '')
+      });
+      return handle;
+    },
+    close(handle) {
+      const h = Number(handle) | 0;
+      if (handles.delete(h)) {
+        freeHandles.push(h);
+      }
+    },
+    hasMore(handle) {
+      const slot = handles.get(Number(handle) | 0);
+      if (!slot || !slot.stream || typeof slot.stream.hasMore !== 'function') return false;
+      return slot.stream.hasMore();
+    },
+    getStream(handle) {
+      const slot = handles.get(Number(handle) | 0);
+      return slot ? slot.stream : null;
+    },
+    reset() {
+      handles.clear();
+      freeHandles.length = 0;
+      nextHandle = 1;
+    }
+  };
+}
+
+function ensureRuntimeFileManager(ioRuntime) {
+  if (!ioRuntime || typeof ioRuntime.setFileManager !== 'function') {
+    return;
+  }
+  if (!__browserFileManager) {
+    __browserFileManager = createBrowserFileManager(() => __ioFiles);
+  }
+  ioRuntime.setFileManager(__browserFileManager);
 }
 
 function refreshIoSelectOptions() {
@@ -465,6 +540,7 @@ async function runWasm() {
       bindBrowserIO(ioEnv);
       __ioBound = true;
     }
+    ensureRuntimeFileManager(ioEnv);
     const stringEnv = await import('./runtime/string.js');
     const arrayEnv = await import('./runtime/array.js');
     if (!__turtleModule) { try { __turtleModule = await import('./runtime/turtle.js'); } catch {} }
