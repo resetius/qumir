@@ -352,19 +352,13 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
 }
 
 TTask AnnotateBlock(std::shared_ptr<TBlockExpr> block, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
-    TExprPtr lastExpr;
     for (auto& s : block->Stmts) {
         s = co_await DoAnnotate(s, context, NSemantics::TScopeId{block->Scope});
         if (!s->Type) {
             co_return TError(s->Location, "statement in block has no type");
         }
-        lastExpr = s;
     }
-    if (lastExpr) {
-        block->Type = lastExpr->Type;
-    } else {
-        block->Type = std::make_shared<TVoidType>();
-    }
+    block->Type = std::make_shared<TVoidType>();
     co_return block;
 }
 

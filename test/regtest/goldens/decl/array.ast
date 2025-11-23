@@ -1,5 +1,5 @@
 (Block:<Void>
-  (Block:<Array [Int; 1]>
+  (Block:<Void>
     (Var $$$й_lbound0:<Int>)
     (Var $$$й_dimsize0:<Int>)
     (Var $$$й_mulacc0:<Int>)
@@ -16,7 +16,7 @@
         (1:<Int>)
         ($$$й_dimsize0:<Int>)))
     (Var $й:<Array [Int; 1]>))
-  (Block:<Array [Int; 1]>
+  (Block:<Void>
     (Var $$$ц_lbound0:<Int>)
     (Var $$$ц_dimsize0:<Int>)
     (Var $$$ц_mulacc0:<Int>)
@@ -33,7 +33,7 @@
         (1:<Int>)
         ($$$ц_dimsize0:<Int>)))
     (Var $ц:<Array [Int; 1]>))
-  (Block:<Array [Float; 1]>
+  (Block:<Void>
     (Var $$$l_lbound0:<Int>)
     (Var $$$l_dimsize0:<Int>)
     (Var $$$l_mulacc0:<Int>)
@@ -52,7 +52,7 @@
         (1:<Int>)
         ($$$l_dimsize0:<Int>)))
     (Var $l:<Array [Float; 1]>))
-  (Block:<Array [Bool; 1]>
+  (Block:<Void>
     (Var $$$тт_lbound0:<Int>)
     (Var $$$тт_dimsize0:<Int>)
     (Var $$$тт_mulacc0:<Int>)
@@ -71,7 +71,7 @@
         (1:<Int>)
         ($$$тт_dimsize0:<Int>)))
     (Var $тт:<Array [Bool; 1]>))
-  (Block:<Array [Int; 2]>
+  (Block:<Void>
     (Var $$$multi_lbound1:<Int>)
     (Var $$$multi_dimsize1:<Int>)
     (Var $$$multi_mulacc1:<Int>)
@@ -106,7 +106,7 @@
         ($$$multi_dimsize0:<Int>)))
     (Var $multi:<Array [Int; 2]>))
   (Var $i:<Int>)
-  (Block:<Array [Int; 2]>
+  (Block:<Void>
     (Var $$$multi2_lbound1:<Int>)
     (Var $$$multi2_dimsize1:<Int>)
     (Var $$$multi2_mulacc1:<Int>)

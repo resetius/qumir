@@ -1,11 +1,11 @@
-(Block:<Fun () -> Float>
+(Block:<Void>
   (FunDecl $функция ():<Fun () -> Float>
     (Block:<Void>
       (Var $$$return:<Float>)
       (Var $i:<Int>)
       ($i =:<Void>
         (10:<Int>))
-      (Block:<Array [Float; 3]>
+      (Block:<Void>
         (Var $$$A_lbound2:<Int>)
         (Var $$$A_dimsize2:<Int>)
         (Var $$$A_mulacc2:<Int>)

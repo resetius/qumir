@@ -298,6 +298,22 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                     castCall->Type = cast->Type;
                     return castCall;
                 }
+            } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(node)) {
+                auto block = maybeBlock.Cast();
+                for (auto stmt : block->Stmts) {
+                    if (auto maybeFunDecl = NAst::TMaybeNode<NAst::TFunDecl>(stmt)) {
+                        continue;
+                    }
+                    if (auto maybeVarDecl = NAst::TMaybeNode<NAst::TVarStmt>(stmt)) {
+                        continue;
+                    }
+                    if (stmt->Type) {
+                        auto maybeVoidType = NAst::TMaybeType<NAst::TVoidType>(stmt->Type);
+                        if (!maybeVoidType) {
+                            errors.push_back(TError(stmt->Location, "Expression returning result must be assigned or used"));
+                        }
+                    }
+                }
             }
             return node;
         },

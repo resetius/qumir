@@ -1,4 +1,4 @@
-(Block:<Fun (Int) -> Int>
+(Block:<Void>
   (FunDecl $цикл ():<Fun () -> Int>
     (Block:<Void>
       (Var $$$return:<Int>)

@@ -1,6 +1,6 @@
-(Block:<Fun () -> Void>
+(Block:<Void>
   (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Float>
+    (Block:<Void>
       (Var $i:<Int>)
       (Var $j:<Int>)
       (Var $k:<Int>)

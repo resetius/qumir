@@ -1,0 +1,4 @@
+Error: : Line: 1, Byte: 1, Column: 1
+  : Line: 3, Byte: 1, Column: 1
+    end of stream: Line: 5, Byte: 5, Column: 3
+

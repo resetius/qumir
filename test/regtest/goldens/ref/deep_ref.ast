@@ -1,4 +1,4 @@
-(Block:<Fun (Ref) -> Void>
+(Block:<Void>
   (FunDecl $main ():<Fun () -> Int>
     (Block:<Void>
       (Var $$$return:<Int>)

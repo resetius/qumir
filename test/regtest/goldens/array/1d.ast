@@ -1,8 +1,8 @@
-(Block:<Fun () -> Float>
+(Block:<Void>
   (FunDecl $функция ():<Fun () -> Float>
     (Block:<Void>
       (Var $$$return:<Float>)
-      (Block:<Array [Float; 1]>
+      (Block:<Void>
         (Var $$$A_lbound0:<Int>)
         (Var $$$A_dimsize0:<Int>)
         (Var $$$A_mulacc0:<Int>)

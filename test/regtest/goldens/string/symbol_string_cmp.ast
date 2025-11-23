@@ -1,4 +1,4 @@
-(Block:<Fun () -> Int>
+(Block:<Void>
   (FunDecl $тест_сравнение_символ_строка ():<Fun () -> Int>
     (Block:<Void>
       (Var $$$return:<Int>)

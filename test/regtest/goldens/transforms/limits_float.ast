@@ -1,4 +1,4 @@
-(Block:<Fun () -> Float>
+(Block:<Void>
   (FunDecl $ф ():<Fun () -> Float>
     (Block:<Void>
       (Var $$$return:<Float>)

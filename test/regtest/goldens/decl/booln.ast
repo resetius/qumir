@@ -1,4 +1,4 @@
-(Block:<Bool>
+(Block:<Void>
   (Var $_1:<Bool>)
   (Var $_2:<Bool>)
   (Var $_3:<Bool>)

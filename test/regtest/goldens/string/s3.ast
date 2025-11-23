@@ -1,4 +1,4 @@
-(Block:<Fun (String) -> Void>
+(Block:<Void>
   (FunDecl $ф ():<Fun () -> String>
     (Block:<Void>
       (Var $$$return:<String>)
