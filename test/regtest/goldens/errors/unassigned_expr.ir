@@ -1,4 +1,3 @@
-Error: : Line: 1, Byte: 1, Column: 1
-  : Line: 3, Byte: 1, Column: 1
-    end of stream: Line: 5, Byte: 5, Column: 3
+Error: : Line: 5, Byte: 7, Column: 4
+  Expression returning result must be assigned or used: Line: 4, Byte: 1, Column: 1
 
