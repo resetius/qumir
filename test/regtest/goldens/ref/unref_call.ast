@@ -2,6 +2,8 @@
   (FunDecl $<main> ():<Fun () -> Void>
     (Block:<Void>
       (Var $i:<Int>)
+      ($i =:<Void>
+        (0:<Int>))
       (Call:<Void>
         ($f:<Fun (Ref) -> Void>)
         ($i:<Int>))

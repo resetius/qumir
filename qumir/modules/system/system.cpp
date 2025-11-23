@@ -10,6 +10,17 @@
 namespace NQumir {
 namespace NRegistry {
 
+namespace {
+    template<typename T>
+    std::shared_ptr<NAst::TType> outType() {
+        auto underlyingType = std::make_shared<T>();
+        underlyingType->Mutable = true;
+        underlyingType->Readable = false;
+        auto refType = std::make_shared<NAst::TReferenceType>(underlyingType);
+        return refType;
+    }
+}
+
 SystemModule::SystemModule() {
     auto integerType = std::make_shared<NAst::TIntegerType>();
     auto floatType = std::make_shared<NAst::TFloatType>();
@@ -250,7 +261,7 @@ SystemModule::SystemModule() {
                 double result = NRuntime::str_to_double(reinterpret_cast<const char*>(args[0]), reinterpret_cast<int8_t*>(const_cast<void*>(addr)));
                 return std::bit_cast<uint64_t>(result);
             },
-            .ArgTypes = { stringType, std::make_shared<NAst::TReferenceType>(boolType) },
+            .ArgTypes = { stringType, outType<NAst::TBoolType>() },
             .ReturnType = floatType,
         },
         {
@@ -261,7 +272,7 @@ SystemModule::SystemModule() {
                 const void* addr = std::bit_cast<const void*>(args[1]);
                 return std::bit_cast<uint64_t>(NRuntime::str_to_int(reinterpret_cast<const char*>(args[0]), reinterpret_cast<int8_t*>(const_cast<void*>(addr))));
             },
-            .ArgTypes = { stringType, std::make_shared<NAst::TReferenceType>(boolType) },
+            .ArgTypes = { stringType, outType<NAst::TBoolType>() },
             .ReturnType = integerType,
         },
         {

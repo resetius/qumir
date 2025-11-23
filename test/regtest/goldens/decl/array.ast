@@ -106,6 +106,8 @@
         ($$$multi_dimsize0:<Int>)))
     (Var $multi:<Array [Int; 2]>))
   (Var $i:<Int>)
+  ($i =:<Void>
+    (1:<Int>))
   (Block:<Void>
     (Var $$$multi2_lbound1:<Int>)
     (Var $$$multi2_dimsize1:<Int>)

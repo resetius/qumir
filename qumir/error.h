@@ -46,6 +46,10 @@ public:
 
     std::string ToString() const;
 
+    std::list<TError>& GetChildren() {
+        return Children;
+    }
+
 private:
     std::string ToString(int indent) const;
 

@@ -3,6 +3,7 @@
 #include "qumir/parser/ast.h"
 
 #include <qumir/semantics/type_annotation/type_annotation.h>
+#include <qumir/semantics/definite_assignment/definite_assignment.h>
 
 #include <iostream>
 #include <limits>
@@ -541,6 +542,8 @@ std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics:
         return std::unexpected(error.error());
     }
 
+    NSemantics::TDefiniteAssignmentChecker definiteAssignmentChecker(r);
+
     NTypeAnnotation::TTypeAnnotator annotator(r);
     std::expected<bool, TError> postResult;
     int iterations = 0;
@@ -553,6 +556,10 @@ std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics:
         postResult = PostTypeAnnotationTransform(expr);
         if (!postResult) {
             return std::unexpected(postResult.error());
+        }
+
+        if (auto res = definiteAssignmentChecker.Check(expr); !res) {
+            return std::unexpected(res.error());
         }
     } while (postResult.value() && ++iterations < MaxIterations);
     if (iterations == MaxIterations) {

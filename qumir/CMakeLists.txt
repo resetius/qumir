@@ -43,6 +43,8 @@ add_library(qumir
     ir/vmcompiler.cpp
     ir/vminstr.h
     ir/vminstr.cpp
+    semantics/definite_assignment/definite_assignment.h
+    semantics/definite_assignment/definite_assignment.cpp
     semantics/name_resolution/name_resolver.h
     semantics/name_resolution/name_resolver.cpp
     semantics/transform/transform.h

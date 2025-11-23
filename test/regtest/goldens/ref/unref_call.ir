@@ -1,6 +1,7 @@
 function <main> () { ; void
   block {
     label: label(0)
+    stre local(0,i64) imm(0,i64) 
     lea tmp(0,ptr to i64) = local(0,i64) 
     arg tmp(0,ptr to i64) 
     call f 

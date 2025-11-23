@@ -86,6 +86,30 @@ function getCookie(name) {
   return null;
 }
 
+function readPersistedValue(name) {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = window.localStorage.getItem(name);
+      if (stored !== null && stored !== undefined) return stored;
+    }
+  } catch (err) {
+    console.warn('localStorage read failed:', err);
+  }
+  return getCookie(name);
+}
+
+function writePersistedValue(name, value) {
+  const payload = value ?? '';
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(name, payload);
+    }
+  } catch (err) {
+    console.warn('localStorage write failed:', err);
+  }
+  setCookie(name, payload);
+}
+
 function readIoFilesFromStorage() {
   const localValue = (() => {
     try {
@@ -670,32 +694,36 @@ async function runWasm() {
   }
 }
 function loadState() {
-  const c = getCookie('q_code');
+  const c = readPersistedValue('q_code');
   setCode((c !== null && c !== undefined) ? c : sample);
-  const a = getCookie('q_args');
+  const a = readPersistedValue('q_args');
   if (a !== null && a !== undefined) $('#args').value = a;
-  const i = getCookie('q_stdin');
+  const i = readPersistedValue('q_stdin');
   if (i !== null && i !== undefined) $('#stdin').value = i;
-  const v = getCookie('q_view');
+  const v = readPersistedValue('q_view');
   if (v !== null && v !== undefined) $('#view').value = v;
-  const o = getCookie('q_opt');
+  const o = readPersistedValue('q_opt');
   if (o !== null && o !== undefined) $('#opt').value = o;
   const pane = getCookie(IO_PANE_COOKIE);
   if (pane) __currentIoPane = pane;
 }
 
 function saveState() {
-  setCookie('q_code', getCode());
-  setCookie('q_args', $('#args').value || '');
-  setCookie('q_stdin', $('#stdin').value || '');
-  setCookie('q_view', $('#view').value || 'ir');
-  setCookie('q_opt', $('#opt').value || '0');
+  writePersistedValue('q_code', getCode());
+  writePersistedValue('q_args', $('#args').value || '');
+  writePersistedValue('q_stdin', $('#stdin').value || '');
+  writePersistedValue('q_view', $('#view').value || 'ir');
+  writePersistedValue('q_opt', $('#opt').value || '0');
 }
 
 // Initialize CodeMirror if available
 function initEditor() {
   const ta = document.getElementById('code');
-  if (!ta || typeof window.CodeMirror === 'undefined') return;
+  if (!ta) return;
+  if (typeof window.CodeMirror === 'undefined') {
+    ta.addEventListener('input', () => { saveState(); debounceShow(); });
+    return;
+  }
   // Define a simple mode for Qumir language (Cyrillic keywords)
   if (window.CodeMirror.simpleMode && !window.CodeMirror.modes['qumir']) {
     window.CodeMirror.defineSimpleMode('qumir', {

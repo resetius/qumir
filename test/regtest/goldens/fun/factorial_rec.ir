@@ -1,6 +1,7 @@
 function цикл () { ; i64
   block {
     label: label(0)
+    stre local(1,i64) imm(0,i64) 
     stre local(2,i64) imm(1,i64) 
     stre local(4,i64) imm(1,i64) 
     load tmp(0,i64) = local(2,i64) 

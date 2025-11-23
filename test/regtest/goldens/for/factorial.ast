@@ -4,6 +4,8 @@
       (Var $$$return:<Int>)
       (Var $ф:<Int>)
       (Var $i:<Int>)
+      ($ф =:<Void>
+        (0:<Int>))
       (Block:<Void>
         (Var $$$to:<Int>)
         (Var $$$step:<Int>)
