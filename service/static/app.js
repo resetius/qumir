@@ -1250,7 +1250,7 @@ initEditor();
   // Derive project name and either reuse existing project with that name
   // or create a new one. We don't include a numeric suffix here so that
   // repeated opens of the same link don't create extra projects.
-  const displayName = `Проект (открыт из ссылки ${sid})`;
+    const displayName = `Проект (открыт из ссылки ${sid})`;
     let project = __projects.find(p => p.name === displayName);
     if (!project) {
       project = createProject({ name: displayName, code, args, stdin }, { activate: true });
@@ -1263,6 +1263,11 @@ initEditor();
       scheduleProjectsRender();
       setActiveProject(project.id, { silent: true });
       applyProjectToInputs(project, { silent: true });
+    }
+
+    const stdinEl = $('#stdin');
+    if (stdinEl) {
+      stdinEl.value = stdin;
     }
 
     // Restore IO files from shared payload (object name -> content).
