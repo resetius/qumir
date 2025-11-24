@@ -10,7 +10,15 @@ let MEMORY = null; // WebAssembly.Memory
 const encoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
 const decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8') : null;
 
-// JS string pool: handle (negative int32) -> { value: string, refs: number }
+// JS string pool: handle (negative int32) -> { value: string, refs: number, len: number|null }
+// JS string pool: handle (negative int32) -> {
+//   value: string,
+//   refs: number,
+//   // Cached symbol positions for Unicode-safe operations:
+//   // positions[i] is the UTF-16 index of the i-th symbol (0-based),
+//   // and positions.length is the symbol-length of the string.
+//   positions: Array<number> | null
+// }
 let NEXT_HANDLE = -1;
 const STRING_POOL = new Map();
 
@@ -44,7 +52,7 @@ function isJsHandle(v) {
 function allocHandle(str) {
     const h = NEXT_HANDLE | 0; // negative int32 handle
     NEXT_HANDLE = (NEXT_HANDLE - 1) | 0;
-    STRING_POOL.set(h, { value: String(str), refs: 1 });
+    STRING_POOL.set(h, { value: String(str), refs: 1, positions: null });
     return h;
 }
 
@@ -76,6 +84,29 @@ function loadString(ptr) {
         return entry ? entry.value : '';
     }
     return readCString(ptr);
+}
+
+// Ensure we have cached symbol positions for the given entry.
+// positions[i] is the UTF-16 index of the i-th symbol (0-based).
+function ensureSymbolPositions(entry) {
+    if (!entry) return [];
+    if (entry.positions) return entry.positions;
+    const src = entry.value;
+    const positions = [];
+    let i = 0;
+    while (i < src.length) {
+        positions.push(i);
+        const cp = src.codePointAt(i);
+        i += cp > 0xFFFF ? 2 : 1;
+    }
+    entry.positions = positions;
+    return positions;
+}
+function getSymbolLength(entry) {
+    if (entry.len != null) return entry.len;
+    const symbols = Array.from(entry.value);
+    entry.len = symbols.length;
+    return entry.len;
 }
 
 // Helper for other runtimes (e.g., IO) that need to interpret a pointer
@@ -120,6 +151,27 @@ export function str_concat(a, b) {
 export function str_slice(strPtr, startSymbol, endSymbol) {
     // 1-indexed, endSymbol is inclusive
     const s = loadString(strPtr);
+
+    if (isJsHandle(strPtr)) {
+        const entry = STRING_POOL.get(strPtr);
+        const src = entry ? entry.value : s;
+        const positions = ensureSymbolPositions(entry || { value: src, positions: null });
+        const len = positions.length;
+
+        // Convert from 1-indexed to 0-indexed symbol indices
+        const startSym = Math.max(0, Math.min(len, Number(startSymbol) - 1));
+        let endSym = Number(endSymbol) - 1;
+        if (!Number.isFinite(endSym)) endSym = len - 1;
+        endSym = Math.max(-1, Math.min(len - 1, endSym));
+        if (startSym > endSym) return allocHandle('');
+
+        const startIndex = positions[startSym] ?? src.length;
+        const endIndex = (endSym + 1 < len) ? positions[endSym + 1] : src.length;
+        if (startIndex >= src.length || startIndex >= endIndex) return allocHandle('');
+        return allocHandle(src.slice(startIndex, endIndex));
+    }
+
+    // Fallback for C-strings in linear memory: keep the simpler, generic path
     const symbols = Array.from(s);
     const len = symbols.length;
     // Convert from 1-indexed to 0-indexed
@@ -138,7 +190,13 @@ export function str_compare(a, b) {
     return sa < sb ? BigInt(-1) : BigInt(1);
 }
 export function str_len(ptr) {
-    const s = loadString(ptr);
+    if (isJsHandle(ptr)) {
+        const entry = STRING_POOL.get(ptr);
+        if (!entry) return BigInt(0);
+        const positions = ensureSymbolPositions(entry);
+        return BigInt(positions.length);
+    }
+    const s = readCString(ptr);
     return BigInt(Array.from(s).length);
 }
 export function str_unicode(ptr) {
