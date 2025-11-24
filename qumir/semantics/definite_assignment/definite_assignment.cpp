@@ -161,7 +161,9 @@ std::expected<TDefiniteAssignmentChecker::TAssignedSet, TError> TDefiniteAssignm
     if (auto fun = TMaybeNode<TFunDecl>(maybeNode.value())) {
         int i = 0;
         for (auto& param : fun.Cast()->Params) {
-            if (auto maybeReferenceType = TMaybeType<TReferenceType>(param->Type)) {
+            if (auto maybeArrayType = TMaybeType<TArrayType>(param->Type)) {
+                // skip array params
+            } else if (auto maybeReferenceType = TMaybeType<TReferenceType>(param->Type)) {
                 auto refType = maybeReferenceType.Cast();
                 auto unwrappedType = refType->ReferencedType;
                 if (unwrappedType->Readable) {
