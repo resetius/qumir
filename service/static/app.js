@@ -12,7 +12,6 @@ let __turtleCanvas = null;
 let __turtleToggle = null;
 let __turtleModule = null;
 let __ioBound = false;
-const IO_FILES_STORAGE_KEY = 'q_io_files';
 const IO_PANE_COOKIE = 'q_io_pane';
 let __ioFiles = [];
 let __ioSelectEl = null;
@@ -53,7 +52,7 @@ const apiGet = async (path) => {
   return await r.text();
 };
 
-const sample = `алг цел цикл\nнач\n    | пример комментария: горячий цикл для теста производительности\n    цел ф, i\n    нц для i от 1 до 10000000\n        ф := факториал(13)\n    кц\n    знач := ф\nкон\n\nалг цел факториал(цел число)\nнач\n    | пример комментария внутри функции\n    цел i\n    знач := 1\n    нц для i от 1 до число\n        знач := знач * i\n    кц\nкон\n`;
+const sample = `алг цел цикл\nнач\n    | пример комментария: горячий цикл для теста производительности\n    цел ф, i\n    ф := 1\n    нц для i от 1 до 10000000\n        ф := факториал(13)\n    кц\n    знач := ф\nкон\n\nалг цел факториал(цел число)\nнач\n    | пример комментария внутри функции\n    цел i\n    знач := 1\n    нц для i от 1 до число\n        знач := знач * i\n    кц\nкон\n`;
 
 function parseAlgHeader(code) {
   const lines = code.split(/\r?\n/);
@@ -137,6 +136,7 @@ function normalizeProject(entry, idx) {
     code: typeof entry.code === 'string' ? entry.code : '',
     args: typeof entry.args === 'string' ? entry.args : '',
     stdin: typeof entry.stdin === 'string' ? entry.stdin : '',
+    files: Array.isArray(entry.files) ? entry.files.map((f, i) => normalizeIoFile(f, i)).filter(Boolean) : [],
     updatedAt: Number(entry.updatedAt) || Date.now()
   };
 }
@@ -158,13 +158,13 @@ function bootstrapProjects() {
   if (!parsed.length) {
     const fallbackCode = readPersistedValue('q_code');
     const fallbackArgs = readPersistedValue('q_args');
-    const fallbackStdin = readPersistedValue('q_stdin');
     parsed = [normalizeProject({
       id: generateProjectId(),
       name: 'Проект 1',
       code: typeof fallbackCode === 'string' ? fallbackCode : sample,
       args: typeof fallbackArgs === 'string' ? fallbackArgs : '',
-      stdin: typeof fallbackStdin === 'string' ? fallbackStdin : '',
+      stdin: '',
+      files: [],
       updatedAt: Date.now()
     }, 0)];
   }
@@ -205,24 +205,55 @@ function updateActiveProjectFromInputs() {
   const project = getActiveProject();
   if (!project) return;
   const snapshot = captureCurrentEditorState();
+  // console.log('[projects] updateActiveProjectFromInputs before', {
+  //   id: project.id,
+  //   name: project.name,
+  //   prev: { code: project.code, args: project.args, stdin: project.stdin },
+  //   next: snapshot
+  // });
   if (project.code === snapshot.code && project.args === snapshot.args && project.stdin === snapshot.stdin) {
+    // console.log('[projects] updateActiveProjectFromInputs: no changes, skip');
     return;
   }
   project.code = snapshot.code;
   project.args = snapshot.args;
   project.stdin = snapshot.stdin;
   project.updatedAt = Date.now();
+  // console.log('[projects] updateActiveProjectFromInputs after', {
+  //   id: project.id,
+  //   name: project.name,
+  //   stdin: project.stdin
+  // });
   persistProjects();
   scheduleProjectsRender();
 }
 
 function applyProjectToInputs(project, { silent = false } = {}) {
   if (!project) return;
+  // console.log('[projects] applyProjectToInputs', {
+  //   id: project.id,
+  //   name: project.name,
+  //   stdin: project.stdin
+  // });
   setCode(typeof project.code === 'string' ? project.code : '');
   const argsEl = $('#args');
   if (argsEl) argsEl.value = project.args || '';
   const stdinEl = $('#stdin');
   if (stdinEl) stdinEl.value = project.stdin || '';
+  // Restore per-project IO files into the workspace
+  if (Array.isArray(project.files)) {
+    if (__ioFilesRoot) {
+      __ioFilesRoot.innerHTML = '';
+    }
+    __ioFiles.length = 0;
+    project.files.forEach(file => {
+      const f = normalizeIoFile(file, __ioFiles.length);
+      if (!f) return;
+      __ioFiles.push(f);
+      renderIoFilePane(f);
+    });
+    refreshIoSelectOptions();
+  }
   if (!silent) {
     saveState();
   }
@@ -230,13 +261,36 @@ function applyProjectToInputs(project, { silent = false } = {}) {
 
 function setActiveProject(projectId, { silent = false } = {}) {
   if (!projectId || projectId === __activeProjectId) return;
+  // console.log('[projects] setActiveProject start', {
+  //   from: __activeProjectId,
+  //   to: projectId
+  // });
+  // Before switching, persist current editor state and IO files into the
+  // active project so that each project keeps its own files and stdin.
   updateActiveProjectFromInputs();
+  const current = getActiveProject();
+  if (current) {
+    // console.log('[projects] setActiveProject saving current files', {
+    //   id: current.id,
+    //   name: current.name,
+    //   filesCount: __ioFiles.length,
+    //   stdin: current.stdin
+    // });
+    current.files = __ioFiles.map((file, idx) => normalizeIoFile(file, idx)).filter(Boolean);
+    current.updatedAt = Date.now();
+    persistProjects();
+  }
   if (!__projects.some(p => p.id === projectId)) return;
   __activeProjectId = projectId;
   persistProjects();
   scheduleProjectsRender();
   const target = getActiveProject();
   if (target) {
+    // console.log('[projects] setActiveProject applying target', {
+    //   id: target.id,
+    //   name: target.name,
+    //   stdin: target.stdin
+    // });
     applyProjectToInputs(target, { silent });
   }
 }
@@ -249,6 +303,7 @@ function createProject(initial = {}, { activate = true } = {}) {
     code: typeof initial.code === 'string' ? initial.code : '',
     args: typeof initial.args === 'string' ? initial.args : '',
     stdin: typeof initial.stdin === 'string' ? initial.stdin : '',
+    files: Array.isArray(initial.files) ? initial.files.map((f, i) => normalizeIoFile(f, i)).filter(Boolean) : [],
     updatedAt: Date.now()
   };
   __projects.push(project);
@@ -403,40 +458,6 @@ function toggleProjectsDrawer() {
   }
 }
 
-function readIoFilesFromStorage() {
-  const localValue = (() => {
-    try {
-      return (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(IO_FILES_STORAGE_KEY) : null;
-    } catch (err) {
-      console.warn('localStorage read failed:', err);
-      return null;
-    }
-  })();
-  const raw = localValue || getCookie(IO_FILES_STORAGE_KEY);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((entry, idx) => normalizeIoFile(entry, idx)).filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
-function writeIoFilesToStorage(payload) {
-  const serialized = JSON.stringify(payload);
-  let stored = false;
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(IO_FILES_STORAGE_KEY, serialized);
-      stored = true;
-    }
-  } catch (err) {
-    console.warn('localStorage write failed:', err);
-  }
-  if (!stored) setCookie(IO_FILES_STORAGE_KEY, serialized);
-}
-
 function generateIoFileId() {
   __ioFileCounter += 1;
   return `file-${Date.now().toString(36)}-${__ioFileCounter}`;
@@ -449,15 +470,6 @@ function normalizeIoFile(entry, idx) {
   const name = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : defaultName;
   const content = typeof entry.content === 'string' ? entry.content : '';
   return { id, name, content };
-}
-
-function persistIoFiles() {
-  const data = __ioFiles.map(file => ({
-    id: file.id,
-    name: file.name || '',
-    content: file.content || ''
-  }));
-  writeIoFilesToStorage(data);
 }
 
 function canonicalIoFileName(name) {
@@ -664,7 +676,6 @@ function renderIoFilePane(file) {
 
   editor.addEventListener('input', () => {
     file.content = editor.value;
-    persistIoFiles();
   });
 }
 
@@ -679,7 +690,6 @@ function removeIoFile(fileId) {
     setActiveIoPane('stdout');
   }
   refreshIoSelectOptions();
-  persistIoFiles();
 }
 
 function initIoWorkspace() {
@@ -688,11 +698,7 @@ function initIoWorkspace() {
   const addBtn = document.getElementById('io-add-file');
   if (!__ioSelectEl || !__ioFilesRoot || !addBtn) return;
 
-  const restored = readIoFilesFromStorage();
-  restored.forEach(file => {
-    __ioFiles.push(file);
-    renderIoFilePane(file);
-  });
+  // IO files are restored from the active project in applyProjectToInputs().
   refreshIoSelectOptions();
 
   __ioSelectEl.addEventListener('change', () => setActiveIoPane(__ioSelectEl.value));
@@ -707,7 +713,6 @@ function initIoWorkspace() {
     renderIoFilePane(newFile);
     refreshIoSelectOptions();
     setActiveIoPane(newFile.id);
-    persistIoFiles();
     if (newFile.elements && newFile.elements.nameInput) {
       newFile.elements.nameInput.focus();
       newFile.elements.nameInput.select();
@@ -748,7 +753,6 @@ function initProjectsUI() {
       const projectId = row.dataset.projectId;
       if (!projectId) return;
       const actionBtn = event.target.closest('button[data-action]');
-      updateActiveProjectFromInputs();
       const project = __projects.find(p => p.id === projectId);
       if (actionBtn) {
         const action = actionBtn.dataset.action;
@@ -1065,8 +1069,6 @@ function loadState() {
     setCode((c !== null && c !== undefined) ? c : sample);
     const a = readPersistedValue('q_args');
     if (a !== null && a !== undefined) $('#args').value = a;
-    const i = readPersistedValue('q_stdin');
-    if (i !== null && i !== undefined) $('#stdin').value = i;
   }
   const v = readPersistedValue('q_view');
   if (v !== null && v !== undefined) $('#view').value = v;
@@ -1080,7 +1082,6 @@ function saveState() {
   updateActiveProjectFromInputs();
   writePersistedValue('q_code', getCode());
   writePersistedValue('q_args', $('#args').value || '');
-  writePersistedValue('q_stdin', $('#stdin').value || '');
   writePersistedValue('q_view', $('#view').value || 'ir');
   writePersistedValue('q_opt', $('#opt').value || '0');
 }
@@ -1090,7 +1091,7 @@ function initEditor() {
   const ta = document.getElementById('code');
   if (!ta) return;
   if (typeof window.CodeMirror === 'undefined') {
-    ta.addEventListener('input', () => { saveState(); debounceShow(); });
+    ta.addEventListener('input', () => { debounceShow(); });
     return;
   }
   // Define a simple mode for Qumir language (Cyrillic keywords)
@@ -1148,7 +1149,7 @@ function initEditor() {
     });
   }
   // Mirror initial text and change events
-  editor.on('change', () => { saveState(); debounceShow(); });
+  editor.on('change', () => { debounceShow(); });
   // Ensure layout after attach
   setTimeout(() => editor.refresh(), 0);
 }
@@ -1289,7 +1290,6 @@ initEditor();
       renderIoFilePane(file);
     });
     refreshIoSelectOptions();
-    persistIoFiles();
 
     debounceShow();
     const statusEl = document.getElementById('status');
