@@ -18,6 +18,17 @@ let __ioFilesRoot = null;
 let __currentIoPane = 'stdout';
 let __ioFileCounter = 0;
 let __browserFileManager = null;
+const PROJECTS_STORAGE_KEY = 'q_projects';
+const ACTIVE_PROJECT_KEY = 'q_active_project';
+let __projects = [];
+let __activeProjectId = null;
+let __projectsDrawer = null;
+let __projectsListEl = null;
+let __projectsBackdrop = null;
+let __projectToggleBtn = null;
+let __projectActiveNameEl = null;
+let __projectNewBtn = null;
+let __projectsRenderPending = false;
 const api = async (path, body, asBinary, signal) => {
   // New protocol: send raw code as text/plain and pass optimization level via X-Qumir-O
   const code = body.code || '';
@@ -108,6 +119,286 @@ function writePersistedValue(name, value) {
     console.warn('localStorage write failed:', err);
   }
   setCookie(name, payload);
+}
+
+function generateProjectId() {
+  return `project-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function normalizeProject(entry, idx) {
+  if (!entry || typeof entry !== 'object') return null;
+  const id = typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : generateProjectId();
+  const name = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : `Проект ${idx + 1}`;
+  return {
+    id,
+    name,
+    code: typeof entry.code === 'string' ? entry.code : '',
+    args: typeof entry.args === 'string' ? entry.args : '',
+    stdin: typeof entry.stdin === 'string' ? entry.stdin : '',
+    updatedAt: Number(entry.updatedAt) || Date.now()
+  };
+}
+
+function bootstrapProjects() {
+  if (__projects.length) return;
+  let parsed = [];
+  const raw = readPersistedValue(PROJECTS_STORAGE_KEY);
+  if (raw) {
+    try {
+      const data = JSON.parse(raw);
+      if (Array.isArray(data)) {
+        parsed = data.map((entry, idx) => normalizeProject(entry, idx)).filter(Boolean);
+      }
+    } catch (err) {
+      console.warn('projects parse failed:', err);
+    }
+  }
+  if (!parsed.length) {
+    const fallbackCode = readPersistedValue('q_code');
+    const fallbackArgs = readPersistedValue('q_args');
+    const fallbackStdin = readPersistedValue('q_stdin');
+    parsed = [normalizeProject({
+      id: generateProjectId(),
+      name: 'Проект 1',
+      code: typeof fallbackCode === 'string' ? fallbackCode : sample,
+      args: typeof fallbackArgs === 'string' ? fallbackArgs : '',
+      stdin: typeof fallbackStdin === 'string' ? fallbackStdin : '',
+      updatedAt: Date.now()
+    }, 0)];
+  }
+  __projects = parsed;
+  const storedActive = readPersistedValue(ACTIVE_PROJECT_KEY);
+  if (storedActive && __projects.some(p => p.id === storedActive)) {
+    __activeProjectId = storedActive;
+  } else {
+    __activeProjectId = __projects.length ? __projects[0].id : null;
+  }
+  persistProjects();
+}
+
+function getActiveProject() {
+  return __projects.find(p => p.id === __activeProjectId) || null;
+}
+
+function persistProjects() {
+  if (!Array.isArray(__projects)) __projects = [];
+  __projects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  writePersistedValue(PROJECTS_STORAGE_KEY, JSON.stringify(__projects));
+  if (__activeProjectId) {
+    writePersistedValue(ACTIVE_PROJECT_KEY, __activeProjectId);
+  }
+}
+
+function captureCurrentEditorState() {
+  const argsEl = $('#args');
+  const stdinEl = $('#stdin');
+  return {
+    code: getCode(),
+    args: argsEl ? argsEl.value : '',
+    stdin: stdinEl ? stdinEl.value : ''
+  };
+}
+
+function updateActiveProjectFromInputs() {
+  const project = getActiveProject();
+  if (!project) return;
+  const snapshot = captureCurrentEditorState();
+  if (project.code === snapshot.code && project.args === snapshot.args && project.stdin === snapshot.stdin) {
+    return;
+  }
+  project.code = snapshot.code;
+  project.args = snapshot.args;
+  project.stdin = snapshot.stdin;
+  project.updatedAt = Date.now();
+  persistProjects();
+  scheduleProjectsRender();
+}
+
+function applyProjectToInputs(project, { silent = false } = {}) {
+  if (!project) return;
+  setCode(typeof project.code === 'string' ? project.code : '');
+  const argsEl = $('#args');
+  if (argsEl) argsEl.value = project.args || '';
+  const stdinEl = $('#stdin');
+  if (stdinEl) stdinEl.value = project.stdin || '';
+  if (!silent) {
+    saveState();
+  }
+}
+
+function setActiveProject(projectId, { silent = false } = {}) {
+  if (!projectId || projectId === __activeProjectId) return;
+  updateActiveProjectFromInputs();
+  if (!__projects.some(p => p.id === projectId)) return;
+  __activeProjectId = projectId;
+  persistProjects();
+  scheduleProjectsRender();
+  const target = getActiveProject();
+  if (target) {
+    applyProjectToInputs(target, { silent });
+  }
+}
+
+function createProject(initial = {}, { activate = true } = {}) {
+  const name = typeof initial.name === 'string' && initial.name.trim() ? initial.name.trim() : `Проект ${__projects.length + 1}`;
+  const project = {
+    id: generateProjectId(),
+    name,
+    code: typeof initial.code === 'string' ? initial.code : '',
+    args: typeof initial.args === 'string' ? initial.args : '',
+    stdin: typeof initial.stdin === 'string' ? initial.stdin : '',
+    updatedAt: Date.now()
+  };
+  __projects.push(project);
+  if (activate || !__activeProjectId) {
+    __activeProjectId = project.id;
+  }
+  persistProjects();
+  scheduleProjectsRender();
+  if (activate) {
+    applyProjectToInputs(project);
+    closeProjectsDrawer();
+  }
+  return project;
+}
+
+function renameProject(projectId, nextName) {
+  const project = __projects.find(p => p.id === projectId);
+  if (!project) return;
+  const trimmed = typeof nextName === 'string' ? nextName.trim() : '';
+  if (!trimmed || trimmed === project.name) return;
+  project.name = trimmed;
+  project.updatedAt = Date.now();
+  persistProjects();
+  scheduleProjectsRender();
+}
+
+function deleteProject(projectId) {
+  const idx = __projects.findIndex(p => p.id === projectId);
+  if (idx === -1) return;
+  __projects.splice(idx, 1);
+  if (!__projects.length) {
+    createProject({ name: 'Проект 1' }, { activate: true });
+    return;
+  }
+  if (__activeProjectId === projectId) {
+    const fallback = __projects[idx] || __projects[idx - 1] || __projects[0];
+    __activeProjectId = fallback.id;
+    persistProjects();
+    scheduleProjectsRender();
+    applyProjectToInputs(fallback);
+  } else {
+    persistProjects();
+    scheduleProjectsRender();
+  }
+}
+
+function formatProjectTimestamp(ts) {
+  if (!ts) return '';
+  try {
+    const date = new Date(Number(ts));
+    if (Number.isNaN(date.getTime())) return '';
+    const now = new Date();
+    const sameDay = date.toDateString() === now.toDateString();
+    if (sameDay) {
+      return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
+  } catch {
+    return '';
+  }
+}
+
+function renderProjectsList() {
+  if (!__projectsListEl) {
+    if (__projectActiveNameEl) {
+      const active = getActiveProject();
+      __projectActiveNameEl.textContent = active ? active.name : 'Проект';
+    }
+    return;
+  }
+  const activeId = __activeProjectId;
+  const fragment = document.createDocumentFragment();
+  __projects.forEach(project => {
+    const row = document.createElement('div');
+    row.className = 'project-row';
+    if (project.id === activeId) row.classList.add('active');
+    row.dataset.projectId = project.id;
+
+    const main = document.createElement('div');
+    main.className = 'project-row-main';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'project-name';
+    nameEl.textContent = project.name || 'Без имени';
+    const metaEl = document.createElement('div');
+    metaEl.className = 'project-meta';
+    const stamp = formatProjectTimestamp(project.updatedAt);
+    metaEl.textContent = stamp ? `обновл. ${stamp}` : ' ';
+    main.appendChild(nameEl);
+    main.appendChild(metaEl);
+
+    const actions = document.createElement('div');
+    actions.className = 'project-actions';
+    const renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.className = 'project-action';
+    renameBtn.dataset.action = 'rename';
+    renameBtn.title = 'Переименовать';
+    renameBtn.textContent = '✎';
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'project-action danger';
+    deleteBtn.dataset.action = 'delete';
+    deleteBtn.title = 'Удалить';
+    deleteBtn.textContent = '✕';
+    actions.appendChild(renameBtn);
+    actions.appendChild(deleteBtn);
+
+    row.appendChild(main);
+    row.appendChild(actions);
+    fragment.appendChild(row);
+  });
+  __projectsListEl.replaceChildren(fragment);
+  if (__projectActiveNameEl) {
+    const active = getActiveProject();
+    __projectActiveNameEl.textContent = active ? active.name : 'Проект';
+  }
+}
+
+function scheduleProjectsRender() {
+  if (__projectsRenderPending) return;
+  __projectsRenderPending = true;
+  const runner = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb) => setTimeout(cb, 0);
+  runner(() => {
+    __projectsRenderPending = false;
+    renderProjectsList();
+  });
+}
+
+function deriveExampleProjectName(path) {
+  if (!path) return 'Пример';
+  const parts = path.split('/');
+  const last = parts[parts.length - 1] || path;
+  const trimmed = last.replace(/\.[^.]+$/, '');
+  return trimmed || last || 'Пример';
+}
+
+function openProjectsDrawer() {
+  document.body.classList.add('projects-open');
+  if (__projectToggleBtn) __projectToggleBtn.setAttribute('aria-expanded', 'true');
+}
+
+function closeProjectsDrawer() {
+  document.body.classList.remove('projects-open');
+  if (__projectToggleBtn) __projectToggleBtn.setAttribute('aria-expanded', 'false');
+}
+
+function toggleProjectsDrawer() {
+  if (document.body.classList.contains('projects-open')) {
+    closeProjectsDrawer();
+  } else {
+    openProjectsDrawer();
+  }
 }
 
 function readIoFilesFromStorage() {
@@ -424,6 +715,71 @@ function initIoWorkspace() {
   setActiveIoPane(__currentIoPane, { persistCookie: false });
 }
 
+function initProjectsUI() {
+  __projectToggleBtn = document.getElementById('project-toggle');
+  __projectActiveNameEl = document.getElementById('project-active-name');
+  __projectsDrawer = document.getElementById('projects-drawer');
+  __projectsBackdrop = document.getElementById('projects-backdrop');
+  __projectsListEl = document.getElementById('projects-list');
+  __projectNewBtn = document.getElementById('project-new');
+  const projectCloseBtn = document.getElementById('project-close');
+
+  if (__projectToggleBtn) {
+    __projectToggleBtn.addEventListener('click', toggleProjectsDrawer);
+  }
+  if (__projectsBackdrop) {
+    __projectsBackdrop.addEventListener('click', closeProjectsDrawer);
+  }
+  if (projectCloseBtn) {
+    projectCloseBtn.addEventListener('click', closeProjectsDrawer);
+  }
+  if (__projectNewBtn) {
+    __projectNewBtn.addEventListener('click', () => {
+      updateActiveProjectFromInputs();
+      createProject({ name: `Проект ${__projects.length + 1}` }, { activate: true });
+    });
+  }
+  if (__projectsListEl) {
+    __projectsListEl.addEventListener('click', (event) => {
+      const row = event.target.closest('.project-row');
+      if (!row) return;
+      const projectId = row.dataset.projectId;
+      if (!projectId) return;
+      const actionBtn = event.target.closest('button[data-action]');
+      updateActiveProjectFromInputs();
+      const project = __projects.find(p => p.id === projectId);
+      if (actionBtn) {
+        const action = actionBtn.dataset.action;
+        if (action === 'rename') {
+          const suggested = project && project.name ? project.name : '';
+          const nextName = typeof window !== 'undefined' ? window.prompt('Имя проекта', suggested) : null;
+          if (nextName !== null) renameProject(projectId, nextName);
+        } else if (action === 'delete') {
+          const label = project && project.name ? `"${project.name}"` : '';
+          const question = label ? `Удалить проект ${label}?` : 'Удалить проект?';
+          const approved = typeof window === 'undefined' ? true : window.confirm(question);
+          if (approved) deleteProject(projectId);
+        }
+        return;
+      }
+      const switching = projectId !== __activeProjectId;
+      if (switching) {
+        setActiveProject(projectId);
+        if (!editor) debounceShow();
+      }
+      closeProjectsDrawer();
+    });
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && document.body.classList.contains('projects-open')) {
+        closeProjectsDrawer();
+      }
+    });
+  }
+  renderProjectsList();
+}
+
 function getCurrentIoPaneNode() {
   if (__currentIoPane === 'stdout') return document.getElementById('stdout');
   if (__currentIoPane === 'stdin') return document.getElementById('stdin');
@@ -694,12 +1050,18 @@ async function runWasm() {
   }
 }
 function loadState() {
-  const c = readPersistedValue('q_code');
-  setCode((c !== null && c !== undefined) ? c : sample);
-  const a = readPersistedValue('q_args');
-  if (a !== null && a !== undefined) $('#args').value = a;
-  const i = readPersistedValue('q_stdin');
-  if (i !== null && i !== undefined) $('#stdin').value = i;
+  bootstrapProjects();
+  const active = getActiveProject();
+  if (active) {
+    applyProjectToInputs(active, { silent: true });
+  } else {
+    const c = readPersistedValue('q_code');
+    setCode((c !== null && c !== undefined) ? c : sample);
+    const a = readPersistedValue('q_args');
+    if (a !== null && a !== undefined) $('#args').value = a;
+    const i = readPersistedValue('q_stdin');
+    if (i !== null && i !== undefined) $('#stdin').value = i;
+  }
   const v = readPersistedValue('q_view');
   if (v !== null && v !== undefined) $('#view').value = v;
   const o = readPersistedValue('q_opt');
@@ -709,6 +1071,7 @@ function loadState() {
 }
 
 function saveState() {
+  updateActiveProjectFromInputs();
   writePersistedValue('q_code', getCode());
   writePersistedValue('q_args', $('#args').value || '');
   writePersistedValue('q_stdin', $('#stdin').value || '');
@@ -785,6 +1148,7 @@ function initEditor() {
 }
 
 loadState();
+initProjectsUI();
 initIoWorkspace();
 // Load examples list
 (async function initExamples(){
@@ -910,11 +1274,14 @@ if (examplesSel) examplesSel.addEventListener('change', async () => {
   if (!path) return;
   try {
     const txt = await apiGet('/api/example?path=' + encodeURIComponent(path));
-    setCode(txt);
-    saveState();
+    const displayName = deriveExampleProjectName(path);
+    updateActiveProjectFromInputs();
+    createProject({ name: displayName, code: txt, args: '', stdin: '' }, { activate: true });
     debounceShow();
   } catch (e) {
     alert('Не удалось загрузить пример: ' + (e.message || String(e)));
+  } finally {
+    examplesSel.value = '';
   }
 });
 

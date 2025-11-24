@@ -10,7 +10,13 @@
 </head>
 <body>
   <header>
-    <h1>Qumir Playground</h1>
+    <div class="header-left">
+      <button id="project-toggle" class="project-toggle" type="button" aria-haspopup="true" aria-expanded="false" title="Проекты" aria-label="Проекты">
+        <span class="project-toggle-icon">≡</span>
+        <span id="project-active-name" class="project-toggle-label">Проект</span>
+      </button>
+      <h1>Qumir Playground</h1>
+    </div>
     <div class="toolbar">
       <button id="btn-snippet-while">⟲</button>
       <button id="btn-snippet-for">⇄</button>
@@ -84,6 +90,17 @@
   <small>Service powered by <a href="https://github.com/resetius/coroio" target="_blank" rel="noopener">coroio</a>.</small>
   <small class="cookies-note">We use cookies only to save your code and settings.</small>
   </footer>
+  <div id="projects-backdrop" class="projects-backdrop" aria-hidden="true"></div>
+  <aside id="projects-drawer" class="projects-drawer" aria-label="Список проектов">
+    <div class="projects-drawer-header">
+      <span class="projects-title">Проекты</span>
+      <div class="projects-header-actions">
+        <button id="project-new" class="project-drawer-btn" type="button" title="Новый проект">＋</button>
+        <button id="project-close" class="project-drawer-btn" type="button" title="Закрыть">✕</button>
+      </div>
+    </div>
+    <div id="projects-list" class="projects-list"></div>
+  </aside>
   <!-- Fullscreen Output Overlay -->
   <div id="fs-overlay" class="fs-overlay" aria-hidden="true">
     <div class="fs-panel" role="dialog" aria-modal="true">
