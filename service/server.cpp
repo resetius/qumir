@@ -354,15 +354,8 @@ private:
 
             llvm::json::Object rootObj;
             rootObj["code"] = content;
-            if (auto argsVal = metaObj.get("args")) {
-                rootObj["args"] = *argsVal;
-            } else {
-                rootObj["args"] = "";
-            }
-            if (auto stdinVal = metaObj.get("stdin")) {
-                rootObj["stdin"] = *stdinVal;
-            } else {
-                rootObj["stdin"] = "";
+            for (auto &entry : metaObj) {
+                rootObj[entry.first] = entry.second;
             }
 
             std::string json;
@@ -415,7 +408,8 @@ private:
 
         const llvm::json::Value* argsVal = obj->get("args");
         const llvm::json::Value* stdinVal = obj->get("stdin");
-        std::string shareId = ComputeSharedId(code, argsVal, stdinVal);
+        const llvm::json::Value* filesVal = obj->get("files");
+        std::string shareId = ComputeSharedId(code, argsVal, stdinVal, filesVal);
 
         // write code to file
         std::filesystem::path shareFilePath = SharedLinksBaseCanonical / (shareId + ".kum");
@@ -432,6 +426,9 @@ private:
             }
             if (auto stdinVal = obj->get("stdin")) {
                 metaObj["stdin"] = *stdinVal;
+            }
+            if (auto filesVal = obj->get("files")) {
+                metaObj["files"] = *filesVal;
             }
             std::string metaJson;
             {
@@ -455,8 +452,8 @@ private:
             "\",\"raw_url\":\"" + base + "/api/share?id=" + UrlEncode(shareId) + "\"}");
     }
 
-    std::string ComputeSharedId(const std::string& code, const llvm::json::Value* argsVal, const llvm::json::Value* stdinVal) {
-        // simple hash: sha256(code + args + stdin)
+    std::string ComputeSharedId(const std::string& code, const llvm::json::Value* argsVal, const llvm::json::Value* stdinVal, const llvm::json::Value* filesVal) {
+        // simple hash: sha1(code + args + stdin + files)
         std::string toHash = code;
         if (argsVal) {
             std::string argsStr;
@@ -473,6 +470,14 @@ private:
                 os << *stdinVal;
             }
             toHash += stdinStr;
+        }
+        if (filesVal) {
+            std::string filesStr;
+            {
+                llvm::raw_string_ostream os(filesStr);
+                os << *filesVal;
+            }
+            toHash += filesStr;
         }
 
         // compute sha1

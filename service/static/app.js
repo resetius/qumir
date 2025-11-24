@@ -1225,21 +1225,67 @@ initEditor();
   place();
   window.addEventListener('resize', place);
 })();
-// If URL has ?share=<id>, load the shared snippet (code, args, stdin) and override state
+// If URL has ?share=<id>, load the shared snippet (code, args, stdin, files, ...) as a dedicated project.
+// The project name is "Проект (открыт из ссылки <id>)". If a project with that
+// name already exists, its contents are overwritten instead of creating a new one.
 (async function loadSharedFromQuery(){
   try {
     const params = new URLSearchParams(window.location.search);
     const sid = params.get('share');
     if (!sid) return;
     const data = await apiGet('/api/share?id=' + encodeURIComponent(sid));
+
+    // Normalize payload into a project-like shape
+    let code = '';
+    let args = '';
+    let stdin = '';
     if (typeof data === 'string') {
-      setCode(data);
+      code = data;
     } else if (data && typeof data === 'object') {
-      if (typeof data.code === 'string') setCode(data.code);
-      if (typeof data.args === 'string' && $('#args')) $('#args').value = data.args;
-      if (typeof data.stdin === 'string' && $('#stdin')) $('#stdin').value = data.stdin;
+      if (typeof data.code === 'string') code = data.code;
+      if (typeof data.args === 'string') args = data.args;
+      if (typeof data.stdin === 'string') stdin = data.stdin;
     }
-    saveState();
+
+  // Derive project name and either reuse existing project with that name
+  // or create a new one. We don't include a numeric suffix here so that
+  // repeated opens of the same link don't create extra projects.
+  const displayName = `Проект (открыт из ссылки ${sid})`;
+    let project = __projects.find(p => p.name === displayName);
+    if (!project) {
+      project = createProject({ name: displayName, code, args, stdin }, { activate: true });
+    } else {
+      project.code = code;
+      project.args = args;
+      project.stdin = stdin;
+      project.updatedAt = Date.now();
+      persistProjects();
+      scheduleProjectsRender();
+      setActiveProject(project.id, { silent: true });
+      applyProjectToInputs(project, { silent: true });
+    }
+
+    // Restore IO files from shared payload (object name -> content).
+    const nextFiles = [];
+    if (data && typeof data === 'object' && data.files && typeof data.files === 'object') {
+      let idx = 0;
+      for (const [name, content] of Object.entries(data.files)) {
+        if (typeof content !== 'string') continue;
+        nextFiles.push(normalizeIoFile({ name, content }, idx++));
+      }
+    }
+
+    if (__ioFilesRoot) {
+      __ioFilesRoot.innerHTML = '';
+    }
+    __ioFiles.length = 0;
+    nextFiles.forEach(file => {
+      __ioFiles.push(file);
+      renderIoFilePane(file);
+    });
+    refreshIoSelectOptions();
+    persistIoFiles();
+
     debounceShow();
     const statusEl = document.getElementById('status');
     if (statusEl) statusEl.textContent = `Загружено из ссылки: ${sid}`;
@@ -1517,11 +1563,19 @@ if (btnShare) {
     const code = getCode();
   const args = $('#args') ? $('#args').value : '';
   const stdin = $('#stdin') ? $('#stdin').value : '';
+  // Collect IO files into a simple name->content map
+  const files = {};
+  for (const file of __ioFiles) {
+    const name = canonicalIoFileName(file.name || '');
+    const key = name || file.id;
+    if (!key) continue;
+    files[key] = file.content || '';
+  }
     try {
       const r = await fetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, args, stdin })
+  body: JSON.stringify({ code, args, stdin, files })
       });
       if (!r.ok) throw new Error(await r.text());
       const res = await r.json();
