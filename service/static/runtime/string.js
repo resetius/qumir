@@ -199,19 +199,28 @@ export function str_len(ptr) {
     const s = readCString(ptr);
     return BigInt(Array.from(s).length);
 }
-export function str_unicode(ptr) {
-    const s = loadString(ptr);
-    const symbols = Array.from(s);
-    if (symbols.length === 0) return BigInt(0);
-    return BigInt(symbols[0].codePointAt(0));
-}
 // Return codepoint of symbol at 1-based position `pos` or -1 if out of range (matches C++ str_symbol_at semantics returning int32)
 export function str_symbol_at(strPtr, pos) {
     const s = loadString(strPtr);
     if (!s) return -1;
-    const symbols = Array.from(s);
     const p = Number(pos);
-    if (!Number.isFinite(p) || p < 1 || p > symbols.length) return -1;
+    if (!Number.isFinite(p) || p < 1) return -1;
+
+    // Fast path for JS-pool strings: use cached symbol positions
+    if (isJsHandle(strPtr)) {
+        const entry = STRING_POOL.get(strPtr);
+        const src = entry ? entry.value : s;
+        const positions = ensureSymbolPositions(entry || { value: src, positions: null });
+        const len = positions.length;
+        if (p > len) return -1;
+        const idx = positions[p - 1];
+        if (idx == null || idx >= src.length) return -1;
+        return src.codePointAt(idx) ?? -1;
+    }
+
+    // Fallback for C-strings: simple generic implementation
+    const symbols = Array.from(s);
+    if (p > symbols.length) return -1;
     return symbols[p - 1].codePointAt(0);
 }
 export function str_from_unicode(codepoint) {
