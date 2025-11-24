@@ -1,4 +1,6 @@
 import { bindBrowserIO } from './io_wrapper.js';
+import * as resultEnv from './runtime/result.js';
+import * as stringEnv from './runtime/string.js';
 
 'use strict';
 
@@ -999,7 +1001,7 @@ async function runWasm() {
       arrayEnv.__resetArrays();
     }
     let out = '';
-    if (instance && instance.exports) {
+  if (instance && instance.exports) {
       const entries = Object.entries(instance.exports)
         .filter(([k, v]) => typeof v === 'function' && !k.startsWith('__'));
       const entry = entries.length > 0 ? entries[0] : null;
@@ -1023,11 +1025,15 @@ async function runWasm() {
           const res = fn(...parsed);
           const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
           const micros = Math.round((t1 - t0) * 1000);
+          // Bind string runtime to result runtime so that 'алг лит' values
+          // (negative handles or C-string pointers) are interpreted via string.js.
+          if (typeof resultEnv.setStringRuntime === 'function') {
+            resultEnv.setStringRuntime(stringEnv);
+          }
           const retType = resultEnv.wasmReturnType(bytes, name);
           const normalized = resultEnv.normalizeReturnValue(res, {
             returnType: retType,
-            algType,
-            memory: mem
+            algType
           });
           out += `${name} => ${normalized}\n`;
           out += `time: ${micros} µs\n`;

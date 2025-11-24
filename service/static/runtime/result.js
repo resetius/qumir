@@ -1,10 +1,17 @@
 const DBL_MAX_DECIMAL = '179769313486231570814527423731704356798070567525844996598917476803157260780028538760589558632766878171540458953514382464234321326889464182768467546703537516986049910576551282076245490090389328944075868508455133942304583236903222948165808559332123348274797826204144723168738177180919299881250404026184124858368.000000000000000';
-const TEXT_DECODER = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8') : null;
 
+// String runtime to interpret 'лит' return values using the same
+// pointer/handle rules as the main string.js runtime. Host code should
+// inject the already-loaded string.js module via setStringRuntime.
+let stringRuntime = null;
+
+// Simple UTF-8 decoder for small byte sequences (e.g., export names in wasm)
 function decodeUtf8(bytes) {
   if (!bytes) return '';
-  if (TEXT_DECODER) {
-    return TEXT_DECODER.decode(bytes);
+  if (typeof TextDecoder !== 'undefined') {
+    try {
+      return new TextDecoder('utf-8').decode(bytes);
+    } catch {}
   }
   if (typeof Buffer !== 'undefined') {
     return Buffer.from(bytes).toString('utf8');
@@ -16,33 +23,30 @@ function decodeUtf8(bytes) {
   return out;
 }
 
-function getMemoryBuffer(memory) {
-  if (!memory) return null;
-  if (memory.buffer instanceof ArrayBuffer) return memory.buffer;
-  if (memory instanceof ArrayBuffer) return memory;
-  return null;
-}
-
-function readCString(memory, ptr) {
-  const buffer = getMemoryBuffer(memory);
-  if (!buffer || ptr == null) return '';
-  const view = new Uint8Array(buffer);
-  let p = Number(ptr) >>> 0;
-  if (p < 0 || p >= view.length) return '';
-  const start = p;
-  while (p < view.length && view[p] !== 0) p++;
-  return decodeUtf8(view.subarray(start, p));
-}
-
-function interpretLit(value, memory) {
-  const raw = Number(value);
-  if (!Number.isInteger(raw) || raw < 0) return '';
-  const ptr = raw >>> 0;
-  if (ptr !== 0) {
-    const str = readCString(memory, ptr);
-    if (str) return str;
+// Allow host environments (Node test harness, browser app) to provide the
+// string.js runtime instance explicitly so we do not rely on require/ESM
+// interop inside this module.
+export function setStringRuntime(rt) {
+  if (rt && typeof rt.__loadString === 'function') {
+    stringRuntime = rt;
   }
-  if (raw <= 0x10FFFF) {
+}
+
+function interpretLit(value) {
+  const raw = Number(value);
+  if (!Number.isInteger(raw)) return '';
+
+  // If value is a non-negative pointer/handle and string.js is available,
+  // delegate to its __loadString so we get the same semantics for both
+  // JS-string handles (negative) and C-string pointers (non-negative).
+	const runtime = stringRuntime;
+  if (runtime && typeof runtime.__loadString === 'function') {
+    const s = runtime.__loadString(raw);
+    if (s) return s;
+  }
+
+  // Fallback: treat as a Unicode code point if within range.
+  if (raw >= 0 && raw <= 0x10FFFF) {
     try {
       return String.fromCodePoint(raw);
     } catch {
@@ -53,7 +57,7 @@ function interpretLit(value, memory) {
 }
 
 export function normalizeReturnValue(value, options = {}) {
-  const { returnType, algType, memory } = options;
+  const { returnType, algType } = options;
   if (value === undefined || value === null) return '';
   let normalized = String(value);
   if (returnType === 'f32' || returnType === 'f64') {
@@ -65,7 +69,7 @@ export function normalizeReturnValue(value, options = {}) {
     }
   }
   if (algType === 'лит' && returnType === 'i32') {
-    const lit = interpretLit(value, memory);
+    const lit = interpretLit(value);
     if (lit) normalized = lit;
   }
   return normalized;

@@ -1,4 +1,4 @@
-import { __allocCString, __bindMemory as bindStringMemory } from './string.js';
+import { __allocCString, __bindMemory as bindStringMemory, __loadString } from './string.js';
 
 // IO runtime shims: provide input/output functions expected by the program
 // and allow embedders to inject their own input/output streams. Also exposes
@@ -107,7 +107,13 @@ function normalizeFileManager(manager) {
   return { open, close, hasMore, getStream, reset };
 }
 
-function readCString(ptr) {
+// Read a string argument according to string.js rules:
+// negative values are JS string handles, non-negative are C-string pointers.
+function readString(ptr) {
+  if (typeof __loadString === 'function') {
+    return __loadString(ptr) || '';
+  }
+  // Fallback: treat as C-string in WASM memory
   if (!MEMORY || !decoder) return '';
   const buffer = new Uint8Array(MEMORY.buffer);
   let offset = Number(ptr) >>> 0;
@@ -214,7 +220,7 @@ export function output_symbol(x) {
   appendStdout(str);
 }
 export function output_string(v) {
-  appendStdout(readCString(v));
+  appendStdout(readString(v));
 }
 
 function readLineFromInput() {
@@ -238,7 +244,7 @@ export function str_input() {
 export function __ensure(condition, msgPtr) {
   const ok = typeof condition === 'bigint' ? condition !== 0n : !!condition;
   if (ok) return;
-  const msg = readCString(msgPtr) || 'assertion failed';
+  const msg = readString(msgPtr) || 'assertion failed';
   const line = `Runtime assertion failed: ${msg}`;
   appendStdout(line + '\n');
   throw new Error(line);
@@ -250,7 +256,7 @@ function asHandle(value) {
 
 export function file_open_for_read(ptr) {
   try {
-    const name = readCString(ptr);
+    const name = readString(ptr);
     if (!name) return -1;
     const handle = FILE_MANAGER.open(name);
     return Number.isInteger(handle) ? (handle | 0) : -1;

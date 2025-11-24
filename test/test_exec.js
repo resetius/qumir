@@ -46,11 +46,12 @@ const goldensDir = path.join(rootDir, 'goldens');
 const stdinDir = casesDir;
 
 const defaultIoRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'io.js');
-const defaultIoRuntimeUrl = pathToFileURL(defaultIoRuntimePath).href;
-let cachedIoRuntime = null;
 const defaultResultRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'result.js');
-const defaultResultRuntimeUrl = pathToFileURL(defaultResultRuntimePath).href;
+const defaultStringRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'string.js');
+
+let cachedIoRuntime = null;
 let cachedResultRuntime = null;
+let cachedStringRuntime = null;
 
 class TestInputStream {
   constructor(stdinContent) {
@@ -145,14 +146,41 @@ class CaptureOutputStream {
 
 async function loadIoRuntimeModule() {
   if (cachedIoRuntime) return cachedIoRuntime;
-  cachedIoRuntime = await import(defaultIoRuntimeUrl);
+  // Prefer io.js from runtimeDir if provided, otherwise fall back to built-in runtime.
+  let ioPath = defaultIoRuntimePath;
+  if (runtimeDir) {
+    const candidate = path.join(runtimeDir, 'io.js');
+    if (fs.existsSync(candidate)) ioPath = candidate;
+  }
+  const url = pathToFileURL(ioPath).href;
+  cachedIoRuntime = await import(url);
   return cachedIoRuntime;
 }
 
 async function loadResultRuntimeModule() {
   if (cachedResultRuntime) return cachedResultRuntime;
-  cachedResultRuntime = await import(defaultResultRuntimeUrl);
+  // Prefer result.js from runtimeDir if provided, otherwise fall back to built-in runtime.
+  let resultPath = defaultResultRuntimePath;
+  if (runtimeDir) {
+    const candidate = path.join(runtimeDir, 'result.js');
+    if (fs.existsSync(candidate)) resultPath = candidate;
+  }
+  const url = pathToFileURL(resultPath).href;
+  cachedResultRuntime = await import(url);
   return cachedResultRuntime;
+}
+
+async function loadStringRuntimeModule() {
+	if (cachedStringRuntime) return cachedStringRuntime;
+	// Prefer string.js from runtimeDir if provided, otherwise fall back to built-in runtime.
+	let stringPath = defaultStringRuntimePath;
+	if (runtimeDir) {
+		const candidate = path.join(runtimeDir, 'string.js');
+		if (fs.existsSync(candidate)) stringPath = candidate;
+	}
+	const url = pathToFileURL(stringPath).href;
+	cachedStringRuntime = await import(url);
+	return cachedStringRuntime;
 }
 
 function bindIoStreams(ioRuntime, inputStream, outputStream) {
@@ -486,6 +514,10 @@ async function runAll() {
   const compiler = findCompiler();
   const cases = collectCases(casesDir);
   const resultRuntime = await loadResultRuntimeModule();
+  const stringRuntime = await loadStringRuntimeModule();
+  if (typeof resultRuntime.setStringRuntime === 'function') {
+    resultRuntime.setStringRuntime(stringRuntime);
+  }
   let failed = 0;
   const results = []; // accumulate per-test results for optional JUnit XML
   for (const caseBase of cases) {
@@ -538,8 +570,7 @@ async function runAll() {
     }
     let gotRet = resultRuntime.normalizeReturnValue(exec.returnValue, {
       returnType: exec.returnType,
-      algType,
-      memory: global.__lastWasmMemory
+      algType
     });
     let gotStdOut = exec.stdout || '';
 
