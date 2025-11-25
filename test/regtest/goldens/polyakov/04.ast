@@ -1,0 +1,32 @@
+(Block:<Void>
+  (FunDecl $Сумма ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $a:<Int>)
+      (Var $b:<Int>)
+      (Block:<Void>
+        ($a =:<Void>
+          (Call:<Int>
+            ($input_int64:<Fun () -> Int>)))
+        ($b =:<Void>
+          (Call:<Int>
+            ($input_int64:<Fun () -> Int>))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_int64:<Fun (Int) -> Void>)
+          ($a:<Int>))
+        (Call:<Void>
+          ($output_symbol:<Fun (Char) -> Void>)
+          (Cast<Char>:<Char>
+            (43:<Int>)))
+        (Call:<Void>
+          ($output_int64:<Fun (Int) -> Void>)
+          ($b:<Int>))
+        (Call:<Void>
+          ($output_symbol:<Fun (Char) -> Void>)
+          (Cast<Char>:<Char>
+            (61:<Int>)))
+        (Call:<Void>
+          ($output_int64:<Fun (Int) -> Void>)
+          (+:<Int>
+            ($a:<Int>)
+            ($b:<Int>)))))))
