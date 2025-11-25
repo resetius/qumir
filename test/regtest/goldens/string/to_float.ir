@@ -9,27 +9,29 @@ function <main> () { ; void
     load tmp(2,f64) = local(0,f64) 
     arg tmp(2,f64) 
     call output_double 
+    mov tmp(3,i32) = imm(32,i64) 
+    arg tmp(3,i32) 
+    call output_symbol 
+    load tmp(4,i1) = local(1,i1) 
+    arg tmp(4,i1) 
+    call output_bool 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(3,i1) = local(1,i1) 
-    arg tmp(3,i1) 
-    call output_bool 
+    lea tmp(5,ptr to i1) = local(1,i1) 
     arg imm(3,ptr to i8) 
-    call output_string 
-    lea tmp(4,ptr to i1) = local(1,i1) 
-    arg imm(4,ptr to i8) 
-    arg tmp(4,ptr to i1) 
-    call tmp(5,f64) = лит_в_вещ 
-    stre local(0,f64) tmp(5,f64) 
-    load tmp(6,f64) = local(0,f64) 
-    arg tmp(6,f64) 
+    arg tmp(5,ptr to i1) 
+    call tmp(6,f64) = лит_в_вещ 
+    stre local(0,f64) tmp(6,f64) 
+    load tmp(7,f64) = local(0,f64) 
+    arg tmp(7,f64) 
     call output_double 
-    arg imm(2,ptr to i8) 
-    call output_string 
-    load tmp(7,i1) = local(1,i1) 
-    arg tmp(7,i1) 
+    mov tmp(8,i32) = imm(32,i64) 
+    arg tmp(8,i32) 
+    call output_symbol 
+    load tmp(9,i1) = local(1,i1) 
+    arg tmp(9,i1) 
     call output_bool 
-    arg imm(3,ptr to i8) 
+    arg imm(2,ptr to i8) 
     call output_string 
     jmp label(1) 
   }

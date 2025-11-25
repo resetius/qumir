@@ -12,8 +12,9 @@
           ($output_int64:<Fun (Int) -> Void>)
           ($i:<Int>))
         (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          (" ":<String>))
+          ($output_symbol:<Fun (Char) -> Void>)
+          (Cast<Char>:<Char>
+            (32:<Int>)))
         (Call:<Void>
           ($output_int64:<Fun (Int) -> Void>)
           ($j:<Int>))

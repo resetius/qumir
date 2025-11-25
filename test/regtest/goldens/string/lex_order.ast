@@ -6,11 +6,17 @@
       (Var $a2:<String>)
       (Var $a3:<String>)
       ($a1 =:<Void>
-        ("a":<String>))
+        (Call:<String>
+          ($str_from_unicode:<Fun (Char) -> String>)
+          (Cast<Char>:<Char>
+            (97:<Int>))))
       ($a2 =:<Void>
         ("aa":<String>))
       ($a3 =:<Void>
-        ("b":<String>))
+        (Call:<String>
+          ($str_from_unicode:<Fun (Char) -> String>)
+          (Cast<Char>:<Char>
+            (98:<Int>))))
       (Var $r:<Int>)
       ($r =:<Void>
         (0:<Int>))

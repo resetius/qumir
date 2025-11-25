@@ -1,0 +1,10 @@
+function Куку () { ; void
+  block {
+    label: label(0)
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

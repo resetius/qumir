@@ -8,7 +8,10 @@
         (Cast<Char>:<Char>
           (98:<Int>)))
       ($t =:<Void>
-        ("c":<String>))
+        (Call:<String>
+          ($str_from_unicode:<Fun (Char) -> String>)
+          (Cast<Char>:<Char>
+            (99:<Int>))))
       (Var $r:<Int>)
       ($r =:<Void>
         (0:<Int>))

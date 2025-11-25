@@ -7,7 +7,10 @@
       ($пустая =:<Void>
         ("":<String>))
       ($непустая =:<Void>
-        ("a":<String>))
+        (Call:<String>
+          ($str_from_unicode:<Fun (Char) -> String>)
+          (Cast<Char>:<Char>
+            (97:<Int>))))
       (Var $r:<Int>)
       ($r =:<Void>
         (0:<Int>))

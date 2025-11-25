@@ -1,0 +1,18 @@
+(Block:<Void>
+  (FunDecl $qq ():<Fun () -> Void>
+    (Block:<Void>
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("2+":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("2=?":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Ответ: 4":<String>))))))

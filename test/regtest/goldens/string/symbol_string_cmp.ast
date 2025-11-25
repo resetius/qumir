@@ -8,7 +8,10 @@
         (Cast<Char>:<Char>
           (97:<Int>)))
       ($s =:<Void>
-        ("a":<String>))
+        (Call:<String>
+          ($str_from_unicode:<Fun (Char) -> String>)
+          (Cast<Char>:<Char>
+            (97:<Int>))))
       (Var $r:<Int>)
       ($r =:<Void>
         (0:<Int>))
@@ -74,13 +77,9 @@
         nil)
       (If:<Void>
         (<:<Bool>
-          (Call:<Int>
-            ($str_compare:<Fun (String, String) -> Int>)
-            (Call:<String>
-              ($str_from_unicode:<Fun (Char) -> String>)
-              ($c:<Char>))
-            ("b":<String>))
-          (0:<Int>))
+          ($c:<Char>)
+          (Cast<Char>:<Char>
+            (98:<Int>)))
         (Block:<Void>
           ($r =:<Void>
             (+:<Int>
@@ -89,13 +88,9 @@
         nil)
       (If:<Void>
         (>:<Bool>
-          (Call:<Int>
-            ($str_compare:<Fun (String, String) -> Int>)
-            (Call:<String>
-              ($str_from_unicode:<Fun (Char) -> String>)
-              ($c:<Char>))
-            ("`":<String>))
-          (0:<Int>))
+          ($c:<Char>)
+          (Cast<Char>:<Char>
+            (96:<Int>)))
         (Block:<Void>
           ($r =:<Void>
             (+:<Int>

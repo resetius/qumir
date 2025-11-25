@@ -1,0 +1,18 @@
+function qq () { ; void
+  block {
+    label: label(0)
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    arg imm(3,ptr to i8) 
+    call output_string 
+    arg imm(4,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

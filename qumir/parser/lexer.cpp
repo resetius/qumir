@@ -86,7 +86,6 @@ enum EState {
     Start,
     InNumber,
     InString,
-    InCharacter,
     InIdentifier,
     InMaybeComment,
     InMaybeOperator,
@@ -113,6 +112,61 @@ struct TStringLiteral {
         }
     }
 };
+
+// Interpret a string literal value as a single character code if possible.
+// Returns std::nullopt if the string does not represent exactly one character.
+std::optional<int64_t> AsSingleCharCode(const std::string& s) {
+    if (s.empty()) {
+        return std::nullopt;
+    }
+    // Handle plain ASCII-single-byte case quickly
+    if (static_cast<unsigned char>(s[0]) < 0x80) {
+        if (s.size() != 1) {
+            return std::nullopt;
+        }
+        return static_cast<int64_t>(static_cast<unsigned char>(s[0]));
+    }
+
+    // Validate exact one UTF-8 codepoint
+    const unsigned char *p = reinterpret_cast<const unsigned char*>(s.data());
+    size_t len = s.size();
+    int64_t code = 0;
+    int utf8bytesLeft = -1;
+
+    for (size_t i = 0; i < len; ++i) {
+        unsigned char c = p[i];
+        if (utf8bytesLeft == -1) {
+            if ((c & 0b10000000) == 0) {
+                utf8bytesLeft = 0;
+                code = c;
+            } else if ((c & 0b11100000) == 0b11000000) {
+                utf8bytesLeft = 1;
+                code = c & 0b00011111;
+            } else if ((c & 0b11110000) == 0b11100000) {
+                utf8bytesLeft = 2;
+                code = c & 0b00001111;
+            } else if ((c & 0b11111000) == 0b11110000) {
+                utf8bytesLeft = 3;
+                code = c & 0b00000111;
+            } else {
+                return std::nullopt;
+            }
+            code <<= utf8bytesLeft * 6;
+        } else {
+            if ((c & 0b11000000) != 0b10000000) {
+                return std::nullopt;
+            }
+            utf8bytesLeft--;
+            code |= static_cast<int64_t>(c & 0b00111111) << (utf8bytesLeft * 6);
+        }
+    }
+
+    if (utf8bytesLeft != 0) {
+        // Not finished or overshot: not a single well-formed codepoint
+        return std::nullopt;
+    }
+    return code;
+}
 
 struct TIdentifierList {
     std::vector<std::string> Words;
@@ -156,7 +210,7 @@ std::optional<TToken> TTokenStream::Next() {
 
 void TTokenStream::Read() {
     char ch = 0;
-    char prev = 0; // for 2-char operators
+    char prev = 0; // for 2-char operators or current string quote
     std::variant<int64_t,double,TIdentifierList,TStringLiteral,std::monostate> token = std::monostate();
     int frac = 10;
     int sign = 1;
@@ -250,11 +304,20 @@ void TTokenStream::Read() {
                 emitIdentifier(logIdentifier);
             }
         } else if (std::holds_alternative<TStringLiteral>(token)) {
-            Tokens.emplace_back(TToken {
-                .Name = std::get<TStringLiteral>(token).Value,
-                .Type = TToken::String,
-                .Location = tokenLocation
-            });
+            const auto& strVal = std::get<TStringLiteral>(token).Value;
+            if (auto chCode = AsSingleCharCode(strVal)) {
+                Tokens.emplace_back(TToken {
+                    .Value = {.i64 = *chCode},
+                    .Type = TToken::Char,
+                    .Location = tokenLocation
+                });
+            } else {
+                Tokens.emplace_back(TToken {
+                    .Name = strVal,
+                    .Type = TToken::String,
+                    .Location = tokenLocation
+                });
+            }
         }
 
         state = Start;
@@ -325,12 +388,11 @@ void TTokenStream::Read() {
                     } else if (ch == '.') {
                         state = InNumber;
                         token = (double)0.0;
-                    } else if (ch == '\'') {
-                        state = InCharacter;
-                        token = 0;
-                    } else if (ch == '"') {
+                    } else if (ch == '\'' || ch == '"') {
                         token = TStringLiteral{};
                         state = InString;
+                        // Remember the quote type to allow using the same char
+                        prev = ch;
                     } else if (isOperatorPrefix(ch)) {
                         prev = ch;
                         state = InMaybeOperator; // reuse this state for 2-char operators
@@ -358,7 +420,7 @@ void TTokenStream::Read() {
                     break;
                 }
                 case InString: {
-                    if (ch == '"') {
+                    if (ch == prev) {
                         flush();
                         repeat = false; // need to skip '"'
                     } else if (ch == '\\') {
@@ -369,62 +431,6 @@ void TTokenStream::Read() {
                             unescape = false;
                         } else {
                             std::get<TStringLiteral>(token).Append(ch);
-                        }
-                    }
-                    break;
-                }
-                case InCharacter: {
-                    if (ch == '\'') {
-                        flush();
-                        repeat = false; // need to skip closing '\''
-                    } else if (unescape) {
-                        char c = 0;
-                        switch (ch) {
-                            case 'n': c = '\n'; break;
-                            case 't': c = '\t'; break;
-                            case '\'': c = '\''; break;
-                            case '\\': c = '\\'; break;
-                            default:
-                                throw std::runtime_error("unknown escape sequence in character literal: \\" + std::string(1, ch));
-                        }
-                        token = static_cast<int64_t>(c);
-                        unescape = false;
-                        utf8bytesLeft = 0;
-                    } else {
-                        if (utf8bytesLeft == 0) {
-                            throw std::runtime_error("character literal can only contain a single character");
-                        }
-                        if (ch == '\\') {
-                            unescape = true;
-                        } else {
-                            // part of utf-8 character
-                            int64_t sequence = static_cast<int64_t>(ch);
-                            int64_t& tokenRef = std::get<int64_t>(token);
-                            if (utf8bytesLeft == -1) {
-                                // determine number of bytes in UTF-8 character
-                                if ((sequence & 0b10000000) == 0) {
-                                    utf8bytesLeft = 0; // 1-byte character
-                                    tokenRef = sequence;
-                                } else if ((sequence & 0b11100000) == 0b11000000) {
-                                    utf8bytesLeft = 1; // 2-byte character
-                                    tokenRef = sequence & 0b00011111;
-                                } else if ((sequence & 0b11110000) == 0b11100000) {
-                                    utf8bytesLeft = 2; // 3-byte character
-                                    tokenRef = sequence & 0b00001111;
-                                } else if ((sequence & 0b11111000) == 0b11110000) {
-                                    utf8bytesLeft = 3; // 4-byte character
-                                    tokenRef = sequence & 0b00000111;
-                                } else {
-                                    throw std::runtime_error("invalid UTF-8 byte in character literal");
-                                }
-                                tokenRef <<= utf8bytesLeft * 6;
-                            } else {
-                                if ((sequence & 0b11000000) != 0b10000000) {
-                                    throw std::runtime_error("invalid UTF-8 continuation byte in character literal");
-                                }
-                                utf8bytesLeft--;
-                                tokenRef |= (sequence & 0b00111111) << (utf8bytesLeft * 6);
-                            }
                         }
                     }
                     break;

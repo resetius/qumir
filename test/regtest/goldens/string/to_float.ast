@@ -13,8 +13,9 @@
           ($output_double:<Fun (Float) -> Void>)
           ($a:<Float>))
         (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          (" ":<String>))
+          ($output_symbol:<Fun (Char) -> Void>)
+          (Cast<Char>:<Char>
+            (32:<Int>)))
         (Call:<Void>
           ($output_bool:<Fun (Bool) -> Void>)
           ($b:<Bool>))
@@ -31,8 +32,9 @@
           ($output_double:<Fun (Float) -> Void>)
           ($a:<Float>))
         (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          (" ":<String>))
+          ($output_symbol:<Fun (Char) -> Void>)
+          (Cast<Char>:<Char>
+            (32:<Int>)))
         (Call:<Void>
           ($output_bool:<Fun (Bool) -> Void>)
           ($b:<Bool>))

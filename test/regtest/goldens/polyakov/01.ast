@@ -1,0 +1,3 @@
+(Block:<Void>
+  (FunDecl $Куку ():<Fun () -> Void>
+    (Block:<Void>)))
