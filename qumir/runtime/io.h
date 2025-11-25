@@ -15,7 +15,7 @@ double input_double();
 int64_t input_int64();
 
 void output_double(double x);
-void output_int64(int64_t x);
+void output_int64(int64_t x, int64_t width);
 void output_string(const char* s);
 void output_bool(int64_t b);
 void output_symbol(int32_t s);

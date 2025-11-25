@@ -12,21 +12,24 @@
             ($input_int64:<Fun () -> Int>))))
       (Block:<Void>
         (Call:<Void>
-          ($output_int64:<Fun (Int) -> Void>)
-          ($a:<Int>))
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($a:<Int>)
+          (0:<Int>))
         (Call:<Void>
           ($output_symbol:<Fun (Char) -> Void>)
           (Cast<Char>:<Char>
             (43:<Int>)))
         (Call:<Void>
-          ($output_int64:<Fun (Int) -> Void>)
-          ($b:<Int>))
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($b:<Int>)
+          (0:<Int>))
         (Call:<Void>
           ($output_symbol:<Fun (Char) -> Void>)
           (Cast<Char>:<Char>
             (61:<Int>)))
         (Call:<Void>
-          ($output_int64:<Fun (Int) -> Void>)
+          ($output_int64:<Fun (Int, Int) -> Void>)
           (+:<Int>
             ($a:<Int>)
-            ($b:<Int>)))))))
+            ($b:<Int>))
+          (0:<Int>))))))

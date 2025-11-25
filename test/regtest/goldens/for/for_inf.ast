@@ -22,8 +22,9 @@
               ($output_string:<Fun (String) -> Void>)
               ("i=":<String>))
             (Call:<Void>
-              ($output_int64:<Fun (Int) -> Void>)
-              ($i:<Int>))
+              ($output_int64:<Fun (Int, Int) -> Void>)
+              ($i:<Int>)
+              (0:<Int>))
             (Call:<Void>
               ($output_string:<Fun (String) -> Void>)
               ("\n":<String>)))
@@ -51,14 +52,16 @@
           ($output_string:<Fun (String) -> Void>)
           ("loop ended i=":<String>))
         (Call:<Void>
-          ($output_int64:<Fun (Int) -> Void>)
-          ($i:<Int>))
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($i:<Int>)
+          (0:<Int>))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           (" after=":<String>))
         (Call:<Void>
-          ($output_int64:<Fun (Int) -> Void>)
-          ($after:<Int>))
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($after:<Int>)
+          (0:<Int>))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           ("\n":<String>))))))

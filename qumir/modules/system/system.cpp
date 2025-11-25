@@ -391,12 +391,12 @@ SystemModule::SystemModule() {
         {
             .Name = "output_int64",
             .MangledName = "output_int64",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int64_t)>(NRuntime::output_int64)),
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int64_t, int64_t)>(NRuntime::output_int64)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                NRuntime::output_int64(std::bit_cast<int64_t>(args[0]));
+                NRuntime::output_int64(std::bit_cast<int64_t>(args[0]), static_cast<int>(std::bit_cast<int64_t>(args[1])));
                 return 0;
             },
-            .ArgTypes = { integerType },
+            .ArgTypes = { integerType, integerType },
             .ReturnType = voidType,
         },
         {

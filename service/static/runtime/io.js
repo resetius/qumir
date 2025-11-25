@@ -199,7 +199,13 @@ export function input_int64() {
 export function output_double(x) {
   appendStdout(String(x));
 }
-export function output_int64(x) {
+export function output_int64(x, width) {
+  if (width > 0) {
+    const str = BigInt(x).toString();
+    const padded = str.padStart(Number(width), ' ');
+    appendStdout(padded);
+    return;
+  }
   appendStdout(BigInt(x).toString());
 }
 export function output_bool(x) { appendStdout(x ? "да" : "нет"); }

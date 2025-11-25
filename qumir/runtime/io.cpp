@@ -48,8 +48,14 @@ void output_double(double x) {
     (*Out) << x;
 }
 
-void output_int64(int64_t x) {
+void output_int64(int64_t x, int64_t width) {
+    if (width > 0) {
+        (*Out).width(static_cast<std::streamsize>(width));
+    }
     (*Out) << x;
+    if (width > 0) {
+        (*Out).width(0);
+    }
 }
 
 void output_string(const char* s) {

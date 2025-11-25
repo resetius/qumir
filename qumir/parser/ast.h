@@ -592,11 +592,17 @@ struct TInputExpr : TExpr {
 };
 
 // Sugared AST node for output(...) expression, which is transformed into calls to output_xxx functions
+struct TOutputArg {
+    TExprPtr Expr;
+    TExprPtr Width; // optional width expression
+    TExprPtr Precision; // optional precision expression
+};
+
 struct TOutputExpr : TExpr {
     static constexpr const char* NodeId = "Output";
 
-    std::vector<TExprPtr> Args;
-    TOutputExpr(TLocation loc, std::vector<TExprPtr> a)
+    std::vector<TOutputArg> Args;
+    TOutputExpr(TLocation loc, std::vector<TOutputArg> a)
         : TExpr(std::move(loc))
         , Args(std::move(a))
     {
@@ -607,7 +613,13 @@ struct TOutputExpr : TExpr {
         std::vector<TExprPtr> result;
         result.reserve(Args.size());
         for (const auto& arg : Args) {
-            result.push_back(arg);
+            result.push_back(arg.Expr);
+            if (arg.Width) {
+                result.push_back(arg.Width);
+            }
+            if (arg.Precision) {
+                result.push_back(arg.Precision);
+            }
         }
         return result;
     }
@@ -616,7 +628,13 @@ struct TOutputExpr : TExpr {
         std::vector<TExprPtr*> result;
         result.reserve(Args.size());
         for (auto& arg : Args) {
-            result.push_back(&arg);
+            result.push_back(&arg.Expr);
+            if (arg.Width) {
+                result.push_back(&arg.Width);
+            }
+            if (arg.Precision) {
+                result.push_back(&arg.Precision);
+            }
         }
         return result;
     }

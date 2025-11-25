@@ -11,6 +11,7 @@ function Сумма () { ; void
     stre local(2,i64) tmp(4,i64) 
     load tmp(5,i64) = local(2,i64) 
     arg tmp(5,i64) 
+    arg imm(0,i64) 
     call output_int64 
     jmp label(1) 
   }

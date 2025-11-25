@@ -1,10 +1,10 @@
-function <main> () { ; void
+function q () { ; void
   block {
     label: label(0)
-    stre local(0,i64) imm(1,i64) 
+    stre local(0,i64) imm(123,i64) 
     load tmp(0,i64) = local(0,i64) 
     arg tmp(0,i64) 
-    arg imm(0,i64) 
+    arg imm(5,i64) 
     call output_int64 
     jmp label(1) 
   }

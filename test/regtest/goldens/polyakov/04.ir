@@ -7,12 +7,14 @@ function Сумма () { ; void
     stre local(1,i64) tmp(1,i64) 
     load tmp(2,i64) = local(0,i64) 
     arg tmp(2,i64) 
+    arg imm(0,i64) 
     call output_int64 
     mov tmp(3,i32) = imm(43,i64) 
     arg tmp(3,i32) 
     call output_symbol 
     load tmp(4,i64) = local(1,i64) 
     arg tmp(4,i64) 
+    arg imm(0,i64) 
     call output_int64 
     mov tmp(5,i32) = imm(61,i64) 
     arg tmp(5,i32) 
@@ -21,6 +23,7 @@ function Сумма () { ; void
     load tmp(7,i64) = local(1,i64) 
     + tmp(8,i64) = tmp(6,i64) tmp(7,i64) 
     arg tmp(8,i64) 
+    arg imm(0,i64) 
     call output_int64 
     jmp label(1) 
   }

@@ -815,25 +815,46 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_arg_list_opt(TToke
 }
 
 // Parse input/output operator list - i.e. arguments for 'ввод'/'вывод' separated by commas, without surrounding parentheses
-TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_io_arg_list_opt(TTokenStream& stream) {
-    std::vector<TExprPtr> args;
+// ввод a:width:prec, b, c
+template<typename TIoArg>
+TExpectedTask<std::vector<TIoArg>, TError, TLocation> parse_io_arg_list_opt(TTokenStream& stream) {
+    std::vector<TIoArg> args;
     auto tok = co_await stream.Next();
     if (tok.Type == TToken::Operator && (EOperator)tok.Value.i64 == EOperator::Eol) {
         co_return args; // empty
     }
     stream.Unget(tok);
-    // first expr
-    auto e = co_await expr(stream);
-    args.push_back(std::move(e));
     while (true) {
+        TExprPtr width = nullptr;
+        TExprPtr prec = nullptr;
+        auto e = co_await expr(stream);
         auto t = co_await stream.Next();
-        if (t.Type == TToken::Operator && (EOperator)t.Value.i64 == EOperator::Eol) {
-            break;
+        if constexpr(std::is_same_v<TIoArg, TOutputArg>) {
+            if (t.Type == TToken::Operator) {
+                if ((EOperator)t.Value.i64 == EOperator::Colon) {
+                    width = co_await expr(stream);
+                    t = co_await stream.Next();
+                }
+            }
+            if (t.Type == TToken::Operator) {
+                if ((EOperator)t.Value.i64 == EOperator::Colon) {
+                    prec = co_await expr(stream);
+                    t = co_await stream.Next();
+                }
+            }
         }
-        if (t.Type == TToken::Operator && (EOperator)t.Value.i64 == EOperator::Comma) {
-            auto e2 = co_await expr(stream);
-            args.push_back(std::move(e2));
-            continue;
+        if (t.Type == TToken::Operator) {
+            if ((EOperator)t.Value.i64 == EOperator::Comma || (EOperator)t.Value.i64 == EOperator::Eol) {
+                if constexpr(std::is_same_v<TIoArg, TOutputArg>) {
+                    args.push_back(TIoArg{ std::move(e), std::move(width), std::move(prec) });
+                } else {
+                    args.push_back(std::move(e));
+                }
+                if ((EOperator)t.Value.i64 == EOperator::Eol) {
+                    break;
+                }
+                continue;
+            }
         }
         stream.Unget(t);
         co_return TError(stream.GetLocation(), "ожидается ',' или конец строки в списке аргументов ввода/вывода");
@@ -1145,10 +1166,10 @@ TAstTask stmt(TTokenStream& stream) {
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Switch) {
         co_return co_await switch_expr(stream);
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Input) {
-        auto args = co_await parse_io_arg_list_opt(stream);
+        auto args = co_await parse_io_arg_list_opt<TExprPtr>(stream);
         co_return std::make_shared<TInputExpr>(first->Location, std::move(args));
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Output) {
-        auto args = co_await parse_io_arg_list_opt(stream);
+        auto args = co_await parse_io_arg_list_opt<TOutputArg>(stream);
         co_return std::make_shared<TOutputExpr>(first->Location, std::move(args));
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Break) {
         co_return std::make_shared<TBreakStmt>(first->Location);

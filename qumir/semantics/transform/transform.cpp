@@ -120,41 +120,65 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                 std::vector<NAst::TExprPtr> stmts;
                 for (const auto& arg : output->Args) {
                     NAst::TExprPtr call;
-                    auto type = arg->Type;
+                    auto type = arg.Expr->Type;
                     if (auto refType = NAst::TMaybeType<NAst::TReferenceType>(type)) {
                         type = refType.Cast()->ReferencedType;
                     }
+                    auto width = arg.Width;
+                    auto prec = arg.Precision;
+                    if (width) {
+                        if (!NAst::TMaybeType<NAst::TIntegerType>(width->Type)) {
+                            errors.push_back(TError(width->Location, "width argument must be of integer type"));
+                            return node;
+                        }
+                    }
+                    if (prec) {
+                        if (!NAst::TMaybeType<NAst::TIntegerType>(prec->Type)) {
+                            errors.push_back(TError(prec->Location, "precision argument must be of integer type"));
+                            return node;
+                        }
+                    }
+                    // TODO: use width and precision
                     if (NAst::TMaybeType<NAst::TFloatType>(type)) {
                         std::vector<NAst::TExprPtr> args;
-                        args.push_back(arg);
+                        args.push_back(arg.Expr);
                         call = std::make_shared<NAst::TCallExpr>(
                             output->Location,
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_double"),
                             std::move(args));
                     } else if (NAst::TMaybeType<NAst::TIntegerType>(type)) {
                         std::vector<NAst::TExprPtr> args;
-                        args.push_back(arg);
+                        args.push_back(arg.Expr);
+                        if (width) {
+                            args.push_back(width);
+                        } else {
+                            args.push_back(std::make_shared<NAst::TNumberExpr>(output->Location, (int64_t)0));
+                        }
+                        if (prec) {
+                            errors.push_back(TError(prec->Location, "precision argument is not applicable for integer output"));
+                            return node;
+                        }
                         call = std::make_shared<NAst::TCallExpr>(
                             output->Location,
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_int64"),
                             std::move(args));
                     } else if (NAst::TMaybeType<NAst::TBoolType>(type)) {
                         std::vector<NAst::TExprPtr> args;
-                        args.push_back(arg);
+                        args.push_back(arg.Expr);
                         call = std::make_shared<NAst::TCallExpr>(
                             output->Location,
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_bool"),
                             std::move(args));
                     } else if (NAst::TMaybeType<NAst::TStringType>(type)) {
                         std::vector<NAst::TExprPtr> args;
-                        args.push_back(arg);
+                        args.push_back(arg.Expr);
                         call = std::make_shared<NAst::TCallExpr>(
                             output->Location,
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_string"),
                             std::move(args));
                     } else if (NAst::TMaybeType<NAst::TSymbolType>(type)) {
                         std::vector<NAst::TExprPtr> args;
-                        args.push_back(arg);
+                        args.push_back(arg.Expr);
                         call = std::make_shared<NAst::TCallExpr>(
                             output->Location,
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_symbol"),

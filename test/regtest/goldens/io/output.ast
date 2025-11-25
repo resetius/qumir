@@ -6,5 +6,6 @@
         (1:<Int>))
       (Block:<Void>
         (Call:<Void>
-          ($output_int64:<Fun (Int) -> Void>)
-          ($i:<Int>))))))
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($i:<Int>)
+          (0:<Int>))))))
