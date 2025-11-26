@@ -1488,12 +1488,99 @@ ${indent}знач := a
   }
 })();
 
-// Bug report button opens GitHub issues in a new tab
+// Bug report button copies diagnostics to clipboard and opens GitHub issues
 (() => {
   const btn = document.getElementById('bug-report-btn');
   if (!btn) return;
-  const url = 'https://github.com/resetius/qumir/issues/new';
-  btn.addEventListener('click', () => {
+  const baseUrl = 'https://github.com/resetius/qumir/issues/new';
+
+  function collectDiagnostics() {
+    const code = getCode();
+    const args = ($('#args') && $('#args').value) || '';
+    const stdin = ($('#stdin') && $('#stdin').value) || '';
+    const stdout = ($('#stdout') && $('#stdout').textContent) || '';
+    const view = ($('#view') && $('#view').value) || '';
+    const opt = ($('#opt') && $('#opt').value) || '';
+    const revisionEl = document.getElementById('version');
+    const revision = revisionEl ? revisionEl.textContent.trim() : '';
+    let files = [];
+    try {
+      const active = getActiveProject();
+      if (active && Array.isArray(active.files)) {
+        files = active.files.map(f => ({ name: f.name, content: f.content }));
+      }
+    } catch (_) {}
+
+    const lines = [];
+    lines.push('### Программа');
+    lines.push('```kumir');
+    lines.push(code);
+    lines.push('```');
+    lines.push('');
+    lines.push('### Входные данные (stdin)');
+    lines.push('```');
+    lines.push(stdin);
+    lines.push('```');
+    lines.push('');
+    lines.push('### Аргументы запуска');
+    lines.push(args || '—');
+    lines.push('');
+    lines.push('### Файлы');
+    if (files.length === 0) {
+      lines.push('нет файлов');
+    } else {
+      files.forEach(f => {
+        lines.push('#### ' + f.name);
+        lines.push('```');
+        lines.push(f.content || '');
+        lines.push('```');
+      });
+    }
+    lines.push('');
+    lines.push('### Вывод компилятора / программы');
+    lines.push('```');
+    lines.push(stdout);
+    lines.push('```');
+    lines.push('');
+    lines.push('### Среда');
+    lines.push(`view: ${view || '—'}, opt: ${opt || '—'}`);
+    if (revision) lines.push(`version: ${revision}`);
+
+    return lines.join('\n');
+  }
+
+  async function copyDiagnostics() {
+    const text = collectDiagnostics();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      showToast('Диагностика скопирована в буфер обмена');
+    } catch (_) {
+      showToast('Не удалось скопировать диагностику');
+    }
+  }
+
+  btn.addEventListener('click', async () => {
+    await copyDiagnostics();
+    const title = 'Баг в Qumir Playground';
+    const shortBody = [
+      'Опишите, пожалуйста, что вы ожидали и что произошло. ',
+      'Полная диагностика (код, stdin, файлы, вывод) уже скопирована в буфер обмена — ',
+      'просто вставьте её сюда (Cmd+V / Ctrl+V).',
+      '',
+      '---'
+    ].join('\n');
+    const url = `${baseUrl}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(shortBody)}`;
     try { window.open(url, '_blank', 'noopener,noreferrer'); } catch (_) {
       window.location.href = url;
     }
