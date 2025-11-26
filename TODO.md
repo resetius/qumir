@@ -8,3 +8,4 @@
 24. support array cells as ref arguments (not supported by kumir)
 25. debug symbols
 26. polyakov examples
+27. int / int -> float (i.e. 7/2 -> 3.5)
