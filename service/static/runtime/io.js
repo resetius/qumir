@@ -196,13 +196,25 @@ export function input_int64() {
   try { return BigInt(t); } catch { return 0n; }
 }
 
-export function output_double(x) {
+export function output_double(x, width, precision) {
+  const w = typeof width === 'bigint' ? Number(width) : Number(width);
+  const p = typeof precision === 'bigint' ? Number(precision) : Number(precision);
+  if (p >= 0) {
+    x = Number(x).toFixed(p);
+  }
+  if (w > 0) {
+    const str = String(x);
+    const padded = str.padStart(w, ' ');
+    appendStdout(padded);
+    return;
+  }
   appendStdout(String(x));
 }
 export function output_int64(x, width) {
-  if (width > 0) {
+  const w = typeof width === 'bigint' ? Number(width) : Number(width);
+  if (w > 0) {
     const str = BigInt(x).toString();
-    const padded = str.padStart(Number(width), ' ');
+    const padded = str.padStart(w, ' ');
     appendStdout(padded);
     return;
   }
