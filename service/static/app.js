@@ -1382,8 +1382,8 @@ ${indent}${indent}| иначе
 ${indent}знач := a
 кон`,
     decl:
-`цел x, y
-| табличный тип: цел таб[0..9]`
+  `цел x, y
+  | табличный тип: цел таб A[0:9]`
   };
   const text = snippets[kind] || '';
   if (!text) return;
@@ -1428,7 +1428,7 @@ ${indent}знач := a
     func:
 `Вставить: функция\n\nалг цел имя(цел a)\nнач\n${indent}знач := a\nкон`,
     decl:
-`Вставить: тип/объявление\n\nцел x, y\n| табличный тип: цел таб[0..9]`
+  `Вставить: тип/объявление\n\nцел x, y\n| табличный тип: цел таб A[0:n]`
   };
   ['while','for','if','switch','func','decl'].forEach(k => {
     const btn = document.getElementById(`btn-snippet-${k}`);
