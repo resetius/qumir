@@ -33,6 +33,7 @@ section.io .pane-title { border-radius: 4px 4px 0 0; }
 .io-toolbar { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #bbb; }
 .io-toolbar label { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; color: #888; }
 .io-toolbar select { min-width: 140px; }
+.io-toolbar-separator { width: 1px; height: 18px; background: #333; margin: 0 4px; }
 .io-pane-container { border: 1px solid #333; border-radius: 4px; background: #1b1b1b; min-height: 160px; height: clamp(180px, 24vh, 280px); max-height: 280px; flex: 0 0 auto; overflow: hidden; display: flex; flex-direction: column; }
 .io-pane { display: none; height: 100%; flex: 1 1 auto; min-height: 0; }
 .io-pane.active { display: flex; flex-direction: column; min-height: 0; }

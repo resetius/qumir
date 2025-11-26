@@ -37,9 +37,6 @@
       <select id="examples">
         <option value="">—</option>
       </select>
-      <label>Args:</label>
-      <input id="args" type="text" placeholder="e.g. 1, 2.5, да, нет" />
-      <button id="btn-run">Run</button>
       <select id="view">
         <option value="ir">IR</option>
         <option value="llvm">LLVM</option>
@@ -70,7 +67,11 @@
         <option value="stdout">stdout</option>
         <option value="stdin">stdin</option>
       </select>
-      <button id="io-add-file" class="io-icon" title="Добавить файл">＋</button>
+        <button id="io-add-file" class="io-icon" title="Добавить файл">＋</button>
+        <span class="io-toolbar-separator"></span>
+        <label for="args">Args:</label>
+        <input id="args" type="text" placeholder="e.g. 1, 2.5, да, нет" />
+        <button id="btn-run">Run</button>
     </div>
     <div class="io-pane-container">
       <div class="io-pane io-pane-stdout active" data-io-pane="stdout">

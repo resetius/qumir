@@ -1091,7 +1091,7 @@ function initEditor() {
   const ta = document.getElementById('code');
   if (!ta) return;
   if (typeof window.CodeMirror === 'undefined') {
-    ta.addEventListener('input', () => { debounceShow(); });
+    ta.addEventListener('input', () => { saveState(); debounceShow(); });
     return;
   }
   // Define a simple mode for Qumir language (Cyrillic keywords)
@@ -1149,7 +1149,7 @@ function initEditor() {
     });
   }
   // Mirror initial text and change events
-  editor.on('change', () => { debounceShow(); });
+  editor.on('change', () => { saveState(); debounceShow(); });
   // Ensure layout after attach
   setTimeout(() => editor.refresh(), 0);
 }
@@ -1323,6 +1323,13 @@ const viewSel = $('#view');
 if (viewSel) viewSel.addEventListener('change', () => { saveState(); show(viewSel.value); });
 const optSel = $('#opt');
 if (optSel) optSel.addEventListener('change', () => { saveState(); show($('#view').value); });
+
+// Best-effort save on page unload to avoid losing recent edits
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    try { saveState(); } catch (_) {}
+  });
+}
 
 // Auto-load example when selection changes
 const examplesSel = $('#examples');
