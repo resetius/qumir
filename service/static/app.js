@@ -1439,7 +1439,7 @@ ${indent}знач := a
 // JS-driven tooltip (more reliable across browsers)
 (() => {
   let tipEl = null;
-  function showTip(target) {
+  function showTip(target, { placeAbove = false } = {}) {
     const msg = target.getAttribute('data-tooltip');
     if (!msg) return;
     if (!tipEl) {
@@ -1451,7 +1451,15 @@ ${indent}знач := a
     tipEl.style.display = 'block';
     const r = target.getBoundingClientRect();
     const pad = 8;
-    const top = r.bottom + pad;
+    let top;
+    if (placeAbove) {
+      // For compact footer icons: tooltip above the element
+      top = r.top - tipEl.offsetHeight - pad;
+      top = Math.max(4, top);
+    } else {
+      // Default behavior: tooltip below the element
+      top = r.bottom + pad;
+    }
     const left = Math.max(8, Math.min(window.innerWidth - tipEl.offsetWidth - 8, r.left + r.width / 2 - (tipEl.offsetWidth / 2)));
     tipEl.style.top = `${top}px`;
     tipEl.style.left = `${left}px`;
@@ -1459,6 +1467,7 @@ ${indent}знач := a
   function hideTip() {
     if (tipEl) tipEl.style.display = 'none';
   }
+  // Attach default (below) tooltips to snippet buttons
   ['while','for','if','switch','func','decl'].forEach(k => {
     const btn = document.getElementById(`btn-snippet-${k}`);
     if (!btn) return;
@@ -1466,6 +1475,28 @@ ${indent}знач := a
     btn.addEventListener('mouseleave', hideTip);
     btn.addEventListener('focus', () => showTip(btn));
     btn.addEventListener('blur', hideTip);
+  });
+  // Attach "above" tooltip only to the bug icon link in the footer
+  const bugLink = document.querySelector('footer a[data-tooltip]');
+  const bugBtn = document.getElementById('bug-report-btn');
+  const bugTarget = bugBtn || bugLink;
+  if (bugTarget) {
+    bugTarget.addEventListener('mouseenter', () => showTip(bugTarget, { placeAbove: true }));
+    bugTarget.addEventListener('mouseleave', hideTip);
+    bugTarget.addEventListener('focus', () => showTip(bugTarget, { placeAbove: true }));
+    bugTarget.addEventListener('blur', hideTip);
+  }
+})();
+
+// Bug report button opens GitHub issues in a new tab
+(() => {
+  const btn = document.getElementById('bug-report-btn');
+  if (!btn) return;
+  const url = 'https://github.com/resetius/qumir/issues/new';
+  btn.addEventListener('click', () => {
+    try { window.open(url, '_blank', 'noopener,noreferrer'); } catch (_) {
+      window.location.href = url;
+    }
   });
 })();
 
