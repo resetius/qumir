@@ -31,8 +31,25 @@ export function exp(x) { return Math.exp(x); }
 export function div_qum(a, b) {
   const ai = BigInt(a), bi = BigInt(b);
   if (bi === 0n) return 0n;
+  // Mathematical division: floor-style so that
+  // a = div_qum(a,b) * b + mod_qum(a,b) with 0 <= mod < |b|.
   let q = ai / bi; // trunc towards zero for BigInt
+  let r = ai % bi;
+  if (r !== 0n && ((r > 0n) !== (bi > 0n))) {
+    q -= 1n;
+  }
   return q;
+}
+export function mod_qum(a, b) {
+  const ai = BigInt(a), bi = BigInt(b);
+  if (bi === 0n) return 0n;
+  // Remainder consistent with mathematical division above:
+  // 0 <= mod_qum(a,b) < |b| and a = div_qum(a,b) * b + mod_qum(a,b).
+  let r = ai % bi;
+  if (r !== 0n && ((r > 0n) !== (bi > 0n))) {
+    r += bi;
+  }
+  return r;
 }
 
 export function fpow(a, n) {
@@ -53,13 +70,6 @@ export function rand_int64_range(a, b) {
   const span = B - A;
   const r = BigInt(Math.floor(Math.random() * Number(span)));
   return A + r;
-}
-export function mod_qum(a, b) {
-  const ai = BigInt(a), bi = BigInt(b);
-  if (bi === 0n) return 0n;
-  let r = ai % bi;
-  if (r < 0n) r += bi;
-  return r;
 }
 
 // Common compiler-rt builtins that may be referenced when --allow-undefined is used.

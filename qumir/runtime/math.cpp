@@ -62,7 +62,14 @@ int64_t div_qum(int64_t a, int64_t b) {
         // division by zero
         return 0;
     }
-    return a / b;
+    // Mathematical division: round toward -infinity so that
+    // a = div_qum(a,b) * b + mod_qum(a,b) with 0 <= mod < |b|.
+    int64_t q = a / b;
+    int64_t r = a % b;
+    if (r != 0 && ((r > 0) != (b > 0))) {
+        q -= 1;
+    }
+    return q;
 }
 
 int64_t mod_qum(int64_t a, int64_t b) {
@@ -70,7 +77,13 @@ int64_t mod_qum(int64_t a, int64_t b) {
         // division by zero
         return 0;
     }
-    return a % b;
+    // Remainder consistent with mathematical division above:
+    // 0 <= mod_qum(a,b) < |b| and a = div_qum(a,b) * b + mod_qum(a,b).
+    int64_t r = a % b;
+    if (r != 0 && ((r > 0) != (b > 0))) {
+        r += b;
+    }
+    return r;
 }
 
 double fpow(double a, int n) {
