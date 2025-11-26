@@ -138,10 +138,19 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                             return node;
                         }
                     }
-                    // TODO: use width and precision
                     if (NAst::TMaybeType<NAst::TFloatType>(type)) {
                         std::vector<NAst::TExprPtr> args;
                         args.push_back(arg.Expr);
+                        if (width) {
+                            args.push_back(width);
+                        } else {
+                            args.push_back(std::make_shared<NAst::TNumberExpr>(output->Location, (int64_t)0));
+                        }
+                        if (prec) {
+                            args.push_back(prec);
+                        } else {
+                            args.push_back(std::make_shared<NAst::TNumberExpr>(output->Location, (int64_t)-1));
+                        }
                         call = std::make_shared<NAst::TCallExpr>(
                             output->Location,
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_double"),
@@ -163,6 +172,10 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_int64"),
                             std::move(args));
                     } else if (NAst::TMaybeType<NAst::TBoolType>(type)) {
+                        if (width || prec) {
+                            errors.push_back(TError(output->Location, "width and precision arguments are not applicable for boolean output"));
+                            return node;
+                        }
                         std::vector<NAst::TExprPtr> args;
                         args.push_back(arg.Expr);
                         call = std::make_shared<NAst::TCallExpr>(
@@ -170,6 +183,10 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_bool"),
                             std::move(args));
                     } else if (NAst::TMaybeType<NAst::TStringType>(type)) {
+                        if (width || prec) {
+                            errors.push_back(TError(output->Location, "width and precision arguments are not applicable for string output"));
+                            return node;
+                        }
                         std::vector<NAst::TExprPtr> args;
                         args.push_back(arg.Expr);
                         call = std::make_shared<NAst::TCallExpr>(
@@ -177,6 +194,10 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_string"),
                             std::move(args));
                     } else if (NAst::TMaybeType<NAst::TSymbolType>(type)) {
+                        if (width || prec) {
+                            errors.push_back(TError(output->Location, "width and precision arguments are not applicable for symbol output"));
+                            return node;
+                        }
                         std::vector<NAst::TExprPtr> args;
                         args.push_back(arg.Expr);
                         call = std::make_shared<NAst::TCallExpr>(

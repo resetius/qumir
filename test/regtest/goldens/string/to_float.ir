@@ -8,6 +8,8 @@ function <main> () { ; void
     stre local(0,f64) tmp(1,f64) 
     load tmp(2,f64) = local(0,f64) 
     arg tmp(2,f64) 
+    arg imm(0,i64) 
+    arg imm(-1,i64) 
     call output_double 
     mov tmp(3,i32) = imm(32,i64) 
     arg tmp(3,i32) 
@@ -24,6 +26,8 @@ function <main> () { ; void
     stre local(0,f64) tmp(6,f64) 
     load tmp(7,f64) = local(0,f64) 
     arg tmp(7,f64) 
+    arg imm(0,i64) 
+    arg imm(-1,i64) 
     call output_double 
     mov tmp(8,i32) = imm(32,i64) 
     arg tmp(8,i32) 

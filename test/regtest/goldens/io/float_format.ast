@@ -1,0 +1,12 @@
+(Block:<Void>
+  (FunDecl $q ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $a:<Float>)
+      ($a =:<Void>
+        (123.123456:<Float>))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          ($a:<Float>)
+          (10:<Int>)
+          (2:<Int>))))))

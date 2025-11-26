@@ -10,8 +10,10 @@
           ($b:<Bool>)))
       (Block:<Void>
         (Call:<Void>
-          ($output_double:<Fun (Float) -> Void>)
-          ($a:<Float>))
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          ($a:<Float>)
+          (0:<Int>)
+          (-1:<Int>))
         (Call:<Void>
           ($output_symbol:<Fun (Char) -> Void>)
           (Cast<Char>:<Char>
@@ -29,8 +31,10 @@
           ($b:<Bool>)))
       (Block:<Void>
         (Call:<Void>
-          ($output_double:<Fun (Float) -> Void>)
-          ($a:<Float>))
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          ($a:<Float>)
+          (0:<Int>)
+          (-1:<Int>))
         (Call:<Void>
           ($output_symbol:<Fun (Char) -> Void>)
           (Cast<Char>:<Char>

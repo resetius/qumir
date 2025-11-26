@@ -1,0 +1,16 @@
+function q () { ; void
+  block {
+    label: label(0)
+    stre local(0,f64) imm(4638364459914403758,f64) 
+    load tmp(0,f64) = local(0,f64) 
+    arg tmp(0,f64) 
+    arg imm(10,i64) 
+    arg imm(2,i64) 
+    call output_double 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

@@ -44,8 +44,22 @@ int64_t input_int64() {
     return x;
 }
 
-void output_double(double x) {
+void output_double(double x, int64_t width, int64_t precision) {
+    if (width > 0) {
+        (*Out).width(static_cast<std::streamsize>(width));
+    }
+    if (precision >= 0) {
+        (*Out).precision(static_cast<std::streamsize>(precision));
+        (*Out).setf(std::ios::fixed);
+    }
     (*Out) << x;
+    if (width > 0) {
+        (*Out).width(0);
+    }
+    if (precision >= 0) {
+        (*Out).unsetf(std::ios::fixed);
+        (*Out).precision(6); // reset to default
+    }
 }
 
 void output_int64(int64_t x, int64_t width) {

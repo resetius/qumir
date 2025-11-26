@@ -380,12 +380,12 @@ SystemModule::SystemModule() {
         {
             .Name = "output_double",
             .MangledName = "output_double",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(double)>(NRuntime::output_double)),
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(double, int64_t, int64_t)>(NRuntime::output_double)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                NRuntime::output_double(std::bit_cast<double>(args[0]));
+                NRuntime::output_double(std::bit_cast<double>(args[0]), static_cast<int>(std::bit_cast<int64_t>(args[1])), static_cast<int>(std::bit_cast<int64_t>(args[2])));
                 return 0;
             },
-            .ArgTypes = { floatType },
+            .ArgTypes = { floatType, integerType, integerType },
             .ReturnType = voidType,
         },
         {
