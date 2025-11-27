@@ -1,0 +1,33 @@
+(Block:<Void>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $a:<Int>)
+      ($a =:<Void>
+        (10:<Int>))
+      (Var $b:<Int>)
+      ($b =:<Void>
+        (11:<Int>))
+      (If:<Void>
+        (>:<Bool>
+          ($a:<Int>)
+          ($b:<Int>))
+        (Block:<Void>
+          (Block:<Void>
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("Андрей старше":<String>))))
+        (Block:<Void>
+          (If:<Void>
+            (==:<Bool>
+              ($a:<Int>)
+              ($b:<Int>))
+            (Block:<Void>
+              (Block:<Void>
+                (Call:<Void>
+                  ($output_string:<Fun (String) -> Void>)
+                  ("Одного возраста":<String>))))
+            (Block:<Void>
+              (Block:<Void>
+                (Call:<Void>
+                  ($output_string:<Fun (String) -> Void>)
+                  ("Борис старше":<String>))))))))))
