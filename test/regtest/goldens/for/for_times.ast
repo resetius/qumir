@@ -1,0 +1,39 @@
+(Block:<Void>
+  (FunDecl $ф ():<Fun () -> Int>
+    (Block:<Void>
+      (Var $$$return:<Int>)
+      ($$$return =:<Void>
+        (0:<Int>))
+      (Block:<Void>
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
+        (Var $$$i:<Int>)
+        ($$$i =:<Void>
+          (1:<Int>))
+        ($$$step =:<Void>
+          (1:<Int>))
+        ($$$next =:<Void>
+          ($$$i:<Int>))
+        ($$$to =:<Void>
+          (+:<Int>
+            (+:<Int>
+              (8:<Int>)
+              (2:<Int>))
+            ($$$step:<Int>)))
+        (Loop:<Void>
+          (!=:<Bool>
+            ($$$next:<Int>)
+            ($$$to:<Int>))
+          nil
+          ($$$i =:<Void>
+            ($$$next:<Int>))
+          (Block:<Void>
+            ($$$return =:<Void>
+              (+:<Int>
+                ($$$return:<Int>)
+                (1:<Int>))))
+          ($$$next =:<Void>
+            (+:<Int>
+              ($$$next:<Int>)
+              ($$$step:<Int>))))))))

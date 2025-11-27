@@ -56,6 +56,8 @@ TAstTask stmt(TTokenStream& stream);
 TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts = {});
 TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes = false);
 TAstTask expr(TTokenStream& stream);
+TAstTask for_loop(TTokenStream& stream);
+TAstTask for_times(TTokenStream& stream, TExprPtr countExpr, TLocation loopLoc);
 
 void SkipEols(TTokenStream& stream) {
     while (true) {
@@ -532,7 +534,7 @@ TAstTask fun_decl(TTokenStream& stream) {
 }
 
 /*
-  ForLoop ::= identifier 'от' expr 'до' expr ('шаг' expr)?
+    ForLoop ::= identifier 'от' expr 'до' expr ('шаг' expr)?
 */
 TAstTask for_loop(TTokenStream& stream) {
     auto location = stream.GetLocation();
@@ -592,6 +594,55 @@ TAstTask for_loop(TTokenStream& stream) {
     // post-body: $$next = $$next + $$step
     auto postBody = std::make_shared<TAssignExpr>(location, "$$next",
         binary(location, TOperator("+"), ident(location, "$$next"), ident(location, "$$step"))
+    );
+
+    block->Stmts.push_back(std::make_shared<TLoopStmtExpr>(location, preCond, preBody, body, postBody, nullptr));
+
+    co_return block;
+}
+
+/*
+    нц expr раз
+        body
+    кц
+
+    sugar for: for i from 1 to expr
+*/
+TAstTask for_times(TTokenStream& stream, TExprPtr countExpr, TLocation loopLoc) {
+    auto location = loopLoc;
+
+    auto body = co_await stmt_list(stream, { EKeyword::LoopEnd });
+
+    auto endTok = co_await stream.Next();
+    if (!(endTok.Type == TToken::Keyword && static_cast<EKeyword>(endTok.Value.i64) == EKeyword::LoopEnd)) {
+            co_return TError(endTok.Location, "ожидалось 'кц' в конце оператора 'нц'");
+    }
+
+    auto block = std::make_shared<TBlockExpr>(location, std::vector<TExprPtr>{});
+
+    std::string counterName = "$$i";
+
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "$$to", std::make_shared<TIntegerType>()));
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "$$step", std::make_shared<TIntegerType>()));
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, "$$next", std::make_shared<TIntegerType>()));
+    block->Stmts.push_back(std::make_shared<TVarStmt>(location, counterName, std::make_shared<TIntegerType>()));
+
+    auto fromExpr = num(location, (int64_t)1);
+
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, counterName, fromExpr));
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "$$step", num(location, (int64_t)1)));
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "$$next", ident(location, counterName)));
+
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "$$to",
+        binary(location, TOperator("+"), std::move(countExpr), ident(location, "$$step"))
+    ));
+
+    auto preCond = binary(location, TOperator("!="), ident(location, "$$next"), ident(location, "$$to"));
+
+    auto preBody = std::make_shared<TAssignExpr>(location, counterName, ident(location, "$$next"));
+
+    auto postBody = std::make_shared<TAssignExpr>(location, "$$next",
+            binary(location, TOperator("+"), ident(location, "$$next"), ident(location, "$$step"))
     );
 
     block->Stmts.push_back(std::make_shared<TLoopStmtExpr>(location, preCond, preBody, body, postBody, nullptr));
@@ -1161,7 +1212,14 @@ TAstTask stmt(TTokenStream& stream) {
         } else if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::Eol) {
             co_return co_await repeat_until_loop(stream);
         } else {
-            co_return TError(next.Location, "ожидалось 'для' после 'цикл'");
+            stream.Unget(next);
+            auto countExpr = co_await expr(stream);
+            auto timesTok = co_await stream.Next();
+            if (!(timesTok.Type == TToken::Keyword && static_cast<EKeyword>(timesTok.Value.i64) == EKeyword::Times)) {
+                co_return TError(timesTok.Location, "ожидалось 'раз' после выражения в операторе 'нц'");
+            }
+
+            co_return co_await for_times(stream, std::move(countExpr), first->Location);
         }
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Switch) {
         co_return co_await switch_expr(stream);
