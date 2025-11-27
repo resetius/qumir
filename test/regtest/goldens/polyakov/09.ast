@@ -1,0 +1,184 @@
+(Block:<Void>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $m:<Int>)
+      ($m =:<Void>
+        (10:<Int>))
+      (Block:<Void>
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
+        ($m =:<Void>
+          (1:<Int>))
+        ($$$step =:<Void>
+          (1:<Int>))
+        ($$$next =:<Void>
+          ($m:<Int>))
+        ($$$to =:<Void>
+          (+:<Int>
+            (12:<Int>)
+            ($$$step:<Int>)))
+        (Loop:<Void>
+          (!=:<Bool>
+            ($$$next:<Int>)
+            ($$$to:<Int>))
+          nil
+          ($m =:<Void>
+            ($$$next:<Int>))
+          (Block:<Void>
+            (If:<Void>
+              (==:<Bool>
+                ($m:<Int>)
+                (1:<Int>))
+              (Block:<Void>
+                (Block:<Void>
+                  (Call:<Void>
+                    ($output_string:<Fun (String) -> Void>)
+                    ("январь":<String>))
+                  (Call:<Void>
+                    ($output_string:<Fun (String) -> Void>)
+                    ("\n":<String>))))
+              (If:<Void>
+                (==:<Bool>
+                  ($m:<Int>)
+                  (2:<Int>))
+                (Block:<Void>
+                  (Block:<Void>
+                    (Call:<Void>
+                      ($output_string:<Fun (String) -> Void>)
+                      ("февраль":<String>))
+                    (Call:<Void>
+                      ($output_string:<Fun (String) -> Void>)
+                      ("\n":<String>))))
+                (If:<Void>
+                  (==:<Bool>
+                    ($m:<Int>)
+                    (3:<Int>))
+                  (Block:<Void>
+                    (Block:<Void>
+                      (Call:<Void>
+                        ($output_string:<Fun (String) -> Void>)
+                        ("март":<String>))
+                      (Call:<Void>
+                        ($output_string:<Fun (String) -> Void>)
+                        ("\n":<String>))))
+                  (If:<Void>
+                    (==:<Bool>
+                      ($m:<Int>)
+                      (4:<Int>))
+                    (Block:<Void>
+                      (Block:<Void>
+                        (Call:<Void>
+                          ($output_string:<Fun (String) -> Void>)
+                          ("апрель":<String>))
+                        (Call:<Void>
+                          ($output_string:<Fun (String) -> Void>)
+                          ("\n":<String>))))
+                    (If:<Void>
+                      (==:<Bool>
+                        ($m:<Int>)
+                        (5:<Int>))
+                      (Block:<Void>
+                        (Block:<Void>
+                          (Call:<Void>
+                            ($output_string:<Fun (String) -> Void>)
+                            ("май":<String>))
+                          (Call:<Void>
+                            ($output_string:<Fun (String) -> Void>)
+                            ("\n":<String>))))
+                      (If:<Void>
+                        (==:<Bool>
+                          ($m:<Int>)
+                          (6:<Int>))
+                        (Block:<Void>
+                          (Block:<Void>
+                            (Call:<Void>
+                              ($output_string:<Fun (String) -> Void>)
+                              ("июнь":<String>))
+                            (Call:<Void>
+                              ($output_string:<Fun (String) -> Void>)
+                              ("\n":<String>))))
+                        (If:<Void>
+                          (==:<Bool>
+                            ($m:<Int>)
+                            (7:<Int>))
+                          (Block:<Void>
+                            (Block:<Void>
+                              (Call:<Void>
+                                ($output_string:<Fun (String) -> Void>)
+                                ("июль":<String>))
+                              (Call:<Void>
+                                ($output_string:<Fun (String) -> Void>)
+                                ("\n":<String>))))
+                          (If:<Void>
+                            (==:<Bool>
+                              ($m:<Int>)
+                              (8:<Int>))
+                            (Block:<Void>
+                              (Block:<Void>
+                                (Call:<Void>
+                                  ($output_string:<Fun (String) -> Void>)
+                                  ("август":<String>))
+                                (Call:<Void>
+                                  ($output_string:<Fun (String) -> Void>)
+                                  ("\n":<String>))))
+                            (If:<Void>
+                              (==:<Bool>
+                                ($m:<Int>)
+                                (9:<Int>))
+                              (Block:<Void>
+                                (Block:<Void>
+                                  (Call:<Void>
+                                    ($output_string:<Fun (String) -> Void>)
+                                    ("сентябрь":<String>))
+                                  (Call:<Void>
+                                    ($output_string:<Fun (String) -> Void>)
+                                    ("\n":<String>))))
+                              (If:<Void>
+                                (==:<Bool>
+                                  ($m:<Int>)
+                                  (10:<Int>))
+                                (Block:<Void>
+                                  (Block:<Void>
+                                    (Call:<Void>
+                                      ($output_string:<Fun (String) -> Void>)
+                                      ("октябрь":<String>))
+                                    (Call:<Void>
+                                      ($output_string:<Fun (String) -> Void>)
+                                      ("\n":<String>))))
+                                (If:<Void>
+                                  (==:<Bool>
+                                    ($m:<Int>)
+                                    (11:<Int>))
+                                  (Block:<Void>
+                                    (Block:<Void>
+                                      (Call:<Void>
+                                        ($output_string:<Fun (String) -> Void>)
+                                        ("ноябрь":<String>))
+                                      (Call:<Void>
+                                        ($output_string:<Fun (String) -> Void>)
+                                        ("\n":<String>))))
+                                  (If:<Void>
+                                    (==:<Bool>
+                                      ($m:<Int>)
+                                      (12:<Int>))
+                                    (Block:<Void>
+                                      (Block:<Void>
+                                        (Call:<Void>
+                                          ($output_string:<Fun (String) -> Void>)
+                                          ("декабрь":<String>))
+                                        (Call:<Void>
+                                          ($output_string:<Fun (String) -> Void>)
+                                          ("\n":<String>))))
+                                    (Block:<Void>
+                                      (Block:<Void>
+                                        (Call:<Void>
+                                          ($output_string:<Fun (String) -> Void>)
+                                          ("ошибка":<String>))
+                                        (Call:<Void>
+                                          ($output_string:<Fun (String) -> Void>)
+                                          ("\n":<String>)))))))))))))))))
+          ($$$next =:<Void>
+            (+:<Int>
+              ($$$next:<Int>)
+              ($$$step:<Int>))))))))

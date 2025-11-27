@@ -1,0 +1,24 @@
+(Block:<Void>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $v:<Int>)
+      ($v =:<Void>
+        (30:<Int>))
+      (If:<Void>
+        (&&:<Bool>
+          (>=:<Bool>
+            ($v:<Int>)
+            (25:<Int>))
+          (<=:<Bool>
+            ($v:<Int>)
+            (40:<Int>)))
+        (Block:<Void>
+          (Block:<Void>
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("подходит":<String>))))
+        (Block:<Void>
+          (Block:<Void>
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("не подходит":<String>))))))))
