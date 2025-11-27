@@ -1,0 +1,33 @@
+(Block:<Void>
+  (FunDecl $ф ():<Fun () -> Int>
+    (Block:<Void>
+      (Var $$$return:<Int>)
+      (Var $a:<Int>)
+      ($a =:<Void>
+        (10:<Int>))
+      (Var $b:<Int>)
+      ($b =:<Void>
+        (20:<Int>))
+      (Var $M:<Int>)
+      (If:<Void>
+        (>:<Bool>
+          ($a:<Int>)
+          ($b:<Int>))
+        (Block:<Void>
+          ($M =:<Void>
+            ($a:<Int>)))
+        (Block:<Void>
+          ($M =:<Void>
+            ($b:<Int>))))
+      ($M =:<Void>
+        ($a:<Int>))
+      (If:<Void>
+        (>=:<Bool>
+          ($b:<Int>)
+          ($a:<Int>))
+        (Block:<Void>
+          ($M =:<Void>
+            ($b:<Int>)))
+        nil)
+      ($$$return =:<Void>
+        ($M:<Int>)))))
