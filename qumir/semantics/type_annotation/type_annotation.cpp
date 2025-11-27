@@ -295,6 +295,10 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
             if (!common) {
                 co_return TError(binary->Location, "arithmetic operands must be numbers");
             }
+            if (binary->Operator == TOperator("/")) {
+                // 3/2 -> 1.5 : convert to float division
+                common = std::make_shared<TFloatType>();
+            }
 
             binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common);
             binary->Right = InsertImplicitCastIfNeeded(binary->Right, common);

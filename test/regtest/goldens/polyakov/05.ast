@@ -1,0 +1,65 @@
+(Block:<Void>
+  (FunDecl $div_mod ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $a:<Int>)
+      (Var $b:<Int>)
+      (Var $d:<Int>)
+      (Var $y:<Int>)
+      ($d =:<Void>
+        (85:<Int>))
+      ($a =:<Void>
+        (Call:<Int>
+          ($div:<Fun (Int, Int) -> Int>)
+          ($d:<Int>)
+          (10:<Int>)))
+      ($b =:<Void>
+        (Call:<Int>
+          ($mod:<Fun (Int, Int) -> Int>)
+          ($d:<Int>)
+          (10:<Int>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          (Call:<Int>
+            ($div:<Fun (Int, Int) -> Int>)
+            (-:<Int>
+              (7:<Int>))
+            (2:<Int>))
+          (0:<Int>))
+        (Call:<Void>
+          ($output_symbol:<Fun (Char) -> Void>)
+          (Cast<Char>:<Char>
+            (32:<Int>))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          (Call:<Int>
+            ($mod:<Fun (Int, Int) -> Int>)
+            (-:<Int>
+              (7:<Int>))
+            (2:<Int>))
+          (0:<Int>))
+        (Call:<Void>
+          ($output_symbol:<Fun (Char) -> Void>)
+          (Cast<Char>:<Char>
+            (32:<Int>))))
+      ($y =:<Void>
+        (Cast<Int>:<Int>
+          (+:<Float>
+            (*:<Float>
+              (2.000000:<Float>)
+              (Call:<Float>
+                ($fpow:<Fun (Float, Int) -> Float>)
+                (Cast<Float>:<Float>
+                  ($a:<Int>))
+                (2:<Int>)))
+            (Call:<Float>
+              ($fpow:<Fun (Float, Int) -> Float>)
+              (Cast<Float>:<Float>
+                ($b:<Int>))
+              (3:<Int>)))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($y:<Int>)
+          (0:<Int>))))))

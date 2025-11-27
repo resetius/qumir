@@ -1,0 +1,59 @@
+function div_mod () { ; void
+  block {
+    label: label(0)
+    stre local(2,i64) imm(85,i64) 
+    load tmp(0,i64) = local(2,i64) 
+    arg tmp(0,i64) 
+    arg imm(10,i64) 
+    call tmp(1,i64) = div 
+    stre local(0,i64) tmp(1,i64) 
+    load tmp(2,i64) = local(2,i64) 
+    arg tmp(2,i64) 
+    arg imm(10,i64) 
+    call tmp(3,i64) = mod 
+    stre local(1,i64) tmp(3,i64) 
+    neg tmp(4,i64) = imm(7,i64) 
+    arg tmp(4,i64) 
+    arg imm(2,i64) 
+    call tmp(5,i64) = div 
+    arg tmp(5,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    mov tmp(6,i32) = imm(32,i64) 
+    arg tmp(6,i32) 
+    call output_symbol 
+    neg tmp(7,i64) = imm(7,i64) 
+    arg tmp(7,i64) 
+    arg imm(2,i64) 
+    call tmp(8,i64) = mod 
+    arg tmp(8,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    mov tmp(9,i32) = imm(32,i64) 
+    arg tmp(9,i32) 
+    call output_symbol 
+    load tmp(10,i64) = local(0,i64) 
+    i2f tmp(11,f64) = tmp(10,i64) 
+    arg tmp(11,f64) 
+    arg imm(2,i64) 
+    call tmp(12,f64) = fpow 
+    * tmp(13,f64) = imm(4611686018427387904,f64) tmp(12,f64) 
+    load tmp(14,i64) = local(1,i64) 
+    i2f tmp(15,f64) = tmp(14,i64) 
+    arg tmp(15,f64) 
+    arg imm(3,i64) 
+    call tmp(16,f64) = fpow 
+    + tmp(17,f64) = tmp(13,f64) tmp(16,f64) 
+    f2i tmp(18,i64) = tmp(17,f64) 
+    stre local(3,i64) tmp(18,i64) 
+    load tmp(19,i64) = local(3,i64) 
+    arg tmp(19,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}
