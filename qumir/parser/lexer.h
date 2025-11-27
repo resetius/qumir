@@ -34,11 +34,19 @@ enum class EKeyword : uint8_t {
     LoopEndWhen,
     Input,
     Output,
+
     Int,
     Float,
     Bool,
     String,
     Char,
+
+    IntTab,
+    FloatTab,
+    BoolTab,
+    StringTab,
+    CharTab,
+
     Array,
     File,
     For,

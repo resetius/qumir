@@ -136,6 +136,13 @@ inline bool IsTypeKeyword(EKeyword kw) {
         || kw == EKeyword::Bool
         || kw == EKeyword::String
         || kw == EKeyword::Char
+
+        || kw == EKeyword::IntTab
+        || kw == EKeyword::FloatTab
+        || kw == EKeyword::BoolTab
+        || kw == EKeyword::StringTab
+        || kw == EKeyword::CharTab
+
         || kw == EKeyword::Array
         || kw == EKeyword::File
         || kw == EKeyword::InArg // for function parameter declarations
@@ -272,7 +279,8 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStrea
     co_return var;
 }
 
-TTypePtr getScalarType(EKeyword kw) {
+TTypePtr getScalarType(EKeyword kw, bool& isArray) {
+    isArray = false;
     switch (kw) {
         case EKeyword::Int:
             return std::make_shared<TIntegerType>();
@@ -284,6 +292,23 @@ TTypePtr getScalarType(EKeyword kw) {
             return std::make_shared<TStringType>();
         case EKeyword::Char:
             return std::make_shared<TSymbolType>();
+
+        case EKeyword::IntTab:
+            isArray = true;
+            return std::make_shared<TIntegerType>();
+        case EKeyword::FloatTab:
+            isArray = true;
+            return std::make_shared<TFloatType>();
+        case EKeyword::BoolTab:
+            isArray = true;
+            return std::make_shared<TBoolType>();
+        case EKeyword::StringTab:
+            isArray = true;
+            return std::make_shared<TStringType>();
+        case EKeyword::CharTab:
+            isArray = true;
+            return std::make_shared<TSymbolType>();
+
         case EKeyword::File:
             return std::make_shared<TFileType>();
         default:
@@ -328,19 +353,22 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TTokenStre
 
     // Parse one or more names
     std::vector<TExprPtr> decls;
-    TTypePtr scalarType = getScalarType(static_cast<EKeyword>(first.Value.i64));
+    bool isArray = false;
+
+    TTypePtr scalarType = getScalarType(static_cast<EKeyword>(first.Value.i64), isArray);
     if (!scalarType) {
         co_return TError(first.Location, "неизвестный тип переменной");
     }
     scalarType->Mutable = isMutable;
     scalarType->Readable = isReadable;
     // опциональный признак массива после базового типа: 'таб'
-    bool isArray = false;
-    if (auto t = stream.Next()) {
-        if (t->Type == TToken::Keyword && static_cast<EKeyword>(t->Value.i64) == EKeyword::Array) {
-            isArray = true;
-        } else {
-            stream.Unget(*t);
+    if (isArray == false) {
+        if (auto t = stream.Next()) {
+            if (t->Type == TToken::Keyword && static_cast<EKeyword>(t->Value.i64) == EKeyword::Array) {
+                isArray = true;
+            } else {
+                stream.Unget(*t);
+            }
         }
     }
     // TODO: fix attributes
@@ -430,7 +458,11 @@ TAstTask fun_decl(TTokenStream& stream) {
 
     if (next.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(next.Value.i64))) {
         // function return type
-        returnType = getScalarType(static_cast<EKeyword>(next.Value.i64));
+        bool isArray = false;
+        returnType = getScalarType(static_cast<EKeyword>(next.Value.i64), isArray);
+        if (isArray) {
+            co_return TError(next.Location, "функция не может возвращать табличный тип");
+        }
         next = co_await stream.Next();
     }
 

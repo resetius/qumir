@@ -554,9 +554,16 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (arrayPtr.Type != TOperand::EType::Tmp) {
             co_return TError(index->Collection->Location, "collection is not an array");
         }
+
+        // Adjust index by lower bound: index0 = index - lbound0
+        auto lbound0 = co_await LoadVar("$$" + NAst::TMaybeNode<NAst::TIdentExpr>(index->Collection).Cast()->Name + "_lbound0", scope, index->Index->Location);
+        auto i64 = Module.Types.I(EKind::I64);
+        auto zeroBasedIndex = Builder.Emit1("-"_op, {*indexValue.Value, lbound0});
+        Builder.SetType(zeroBasedIndex, i64);
+
         auto arrayType = Builder.GetType(arrayPtr.Tmp);
-        auto offset = Builder.Emit1("*"_op, {*indexValue.Value, TImm{8, Module.Types.I(EKind::I64)}}); // TODO: element size
-        Builder.SetType(offset, Module.Types.I(EKind::I64));
+        auto offset = Builder.Emit1("*"_op, {zeroBasedIndex, TImm{8, i64}}); // TODO: element size
+        Builder.SetType(offset, i64);
         auto destPtr = Builder.Emit1("+"_op, {arrayPtr, offset});
         Builder.SetType(destPtr, arrayType);
         auto loaded = Builder.Emit1("lde"_op, { destPtr });

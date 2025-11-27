@@ -31,11 +31,19 @@ std::map<std::string, EKeyword> KeywordMapRu = {
     {"кц_при", EKeyword::LoopEndWhen},
     {"ввод", EKeyword::Input},
     {"вывод", EKeyword::Output},
+
     {"цел", EKeyword::Int},
     {"вещ", EKeyword::Float},
     {"лог", EKeyword::Bool},
     {"лит", EKeyword::String},
     {"сим", EKeyword::Char},
+
+    {"целтаб", EKeyword::IntTab},
+    {"вещтаб", EKeyword::FloatTab},
+    {"логтаб", EKeyword::BoolTab},
+    {"литтаб", EKeyword::StringTab},
+    {"симтаб", EKeyword::CharTab},
+
     {"таб", EKeyword::Array},
     {"файл", EKeyword::File},
     {"для", EKeyword::For},
