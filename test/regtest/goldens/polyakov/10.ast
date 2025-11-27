@@ -1,0 +1,77 @@
+(Block:<Void>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $n:<Int>)
+      (Var $count:<Int>)
+      (Var $k:<Int>)
+      (Block:<Void>
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
+        ($n =:<Void>
+          (2:<Int>))
+        ($$$step =:<Void>
+          (1:<Int>))
+        ($$$next =:<Void>
+          ($n:<Int>))
+        ($$$to =:<Void>
+          (+:<Int>
+            (1000:<Int>)
+            ($$$step:<Int>)))
+        (Loop:<Void>
+          (!=:<Bool>
+            ($$$next:<Int>)
+            ($$$to:<Int>))
+          nil
+          ($n =:<Void>
+            ($$$next:<Int>))
+          (Block:<Void>
+            ($count =:<Void>
+              (0:<Int>))
+            ($k =:<Void>
+              (2:<Int>))
+            (Loop:<Void>
+              (<=:<Bool>
+                (*:<Int>
+                  ($k:<Int>)
+                  ($k:<Int>))
+                ($n:<Int>))
+              nil
+              nil
+              (Block:<Void>
+                (If:<Void>
+                  (==:<Bool>
+                    (Call:<Int>
+                      ($mod:<Fun (Int, Int) -> Int>)
+                      ($n:<Int>)
+                      ($k:<Int>))
+                    (0:<Int>))
+                  (Block:<Void>
+                    ($count =:<Void>
+                      (+:<Int>
+                        ($count:<Int>)
+                        (1:<Int>))))
+                  nil)
+                ($k =:<Void>
+                  (+:<Int>
+                    ($k:<Int>)
+                    (1:<Int>))))
+              nil)
+            (If:<Void>
+              (==:<Bool>
+                ($count:<Int>)
+                (0:<Int>))
+              (Block:<Void>
+                (Block:<Void>
+                  (Call:<Void>
+                    ($output_int64:<Fun (Int, Int) -> Void>)
+                    ($n:<Int>)
+                    (0:<Int>))
+                  (Call:<Void>
+                    ($output_string:<Fun (String) -> Void>)
+                    ("\n":<String>))))
+              nil))
+          ($$$next =:<Void>
+            (+:<Int>
+              ($$$next:<Int>)
+              ($$$step:<Int>))))))))
