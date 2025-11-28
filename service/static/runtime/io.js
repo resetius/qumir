@@ -309,3 +309,10 @@ export function input_set_file(handle) {
 export function input_reset_file() {
   INPUT_STREAM = DEFAULT_INPUT_STREAM || NullInputStream;
 }
+
+// Dummy implementation for C++-style destructor registration used by some runtimes.
+// Our runtime does not currently need to track these, so this is a no-op
+// that simply satisfies the symbol import.
+export function __cxa_atexit() {
+  // no-op
+}

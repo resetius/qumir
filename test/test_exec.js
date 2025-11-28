@@ -485,7 +485,8 @@ async function executeCase(wasmPath, algName, caseBase) {
   if (!fn) {
     // Prefer non-internal exported function (skip ctor/data relocation helpers)
     const internalPrefix = '__wasm_';
-    const allExportFns = Object.entries(instance.exports).filter(([n,v]) => typeof v === 'function');
+    const skippedNames = new Set(['$$module_constructor', '$$module_destructor']);
+    const allExportFns = Object.entries(instance.exports).filter(([n,v]) => typeof v === 'function' && !skippedNames.has(n));
     const nonInternal = allExportFns.filter(([n]) => !n.startsWith(internalPrefix));
     const pick = (nonInternal.length ? nonInternal : allExportFns)[0];
     if (pick) { fn = pick[1]; algName = pick[0]; }
@@ -500,7 +501,7 @@ async function executeCase(wasmPath, algName, caseBase) {
     }
     // After multi-call, attempt again to select a non-internal function if we initially only had internal.
     const internalPrefix = '__wasm_';
-    const nonInternal = exportFnNames.filter(n => !n.startsWith(internalPrefix));
+    const nonInternal = exportFnNames.filter(n => !n.startsWith(internalPrefix) && n !== '$$module_constructor' && n !== '$$module_destructor');
     algName = (nonInternal[0] || exportFnNames[0]);
     fn = instance.exports[algName];
   }

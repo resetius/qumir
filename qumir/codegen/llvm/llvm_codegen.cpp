@@ -47,7 +47,7 @@ llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx
         case EKind::I64: return llvm::Type::getInt64Ty(ctx);
         case EKind::F64: return llvm::Type::getDoubleTy(ctx);
         case EKind::Void: return llvm::Type::getVoidTy(ctx);
-        case EKind::Ptr: return llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(ctx)); // use pointer type (i8*) across targets
+        case EKind::Ptr: return llvm::PointerType::get(ctx, 0); // use pointer type (i8*) across targets
         case EKind::Func: return llvm::Type::getInt64Ty(ctx); // Function Id so far, TODO
         default:
             throw std::runtime_error("unsupported primitive type");
@@ -175,10 +175,77 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
     }
 
     // Pass 2: lower function bodies
+    int funcIdx = 0;
+    std::vector<llvm::Function*> ctorFunctions;
+    std::vector<llvm::Function*> dtorFunctions;
     for (const auto& f : module.Functions) {
-        if (newSymIds.find(f.SymId) == newSymIds.end()) continue;
-        LowerFunction(f, module);
+        if (newSymIds.find(f.SymId) == newSymIds.end()) {
+            funcIdx++;
+            continue;
+        }
+        auto* function = LowerFunction(f, module);
+        if (funcIdx == module.ModuleConstructorFunctionId) {
+            function->setLinkage(llvm::Function::InternalLinkage);
+            ctorFunctions.push_back(function);
+        } else if (funcIdx == module.ModuleDestructorFunctionId) {
+            function->setLinkage(llvm::Function::InternalLinkage);
+            dtorFunctions.push_back(function);
+        }
+        funcIdx++;
     }
+
+    auto& ctx = *Ctx;
+    auto* int32Ty = llvm::Type::getInt32Ty(ctx);
+    auto* voidTy = llvm::Type::getVoidTy(ctx);
+    auto* voidFnTy = llvm::FunctionType::get(voidTy, false);
+    // LLVM 21+: PointerType::get(ctx, AS) returns i8* for the given address space
+    auto* voidFnPtrTy = llvm::PointerType::get(ctx, 0);
+    auto* i8PtrTy = llvm::PointerType::get(ctx, 0);
+    auto* ctorEntryTy = llvm::StructType::get(int32Ty, voidFnPtrTy, i8PtrTy);
+
+    auto appendGlobalFuncList = [&](const char* globalName, const std::vector<llvm::Function*>& functions) {
+        if (functions.empty()) {
+            return;
+        }
+
+        std::vector<llvm::Constant*> newElems;
+        newElems.reserve(functions.size());
+
+        for (auto* fn : functions) {
+            auto* prio = llvm::ConstantInt::get(int32Ty, 65535);
+            auto* fnPtr = llvm::ConstantExpr::getBitCast(fn, voidFnPtrTy);
+            auto* nullPtr = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+            newElems.push_back(llvm::ConstantStruct::get(ctorEntryTy, { prio, fnPtr, nullPtr }));
+        }
+
+        auto* existingGV = LModule->getNamedGlobal(globalName);
+        if (!existingGV) {
+            auto* arrTy = llvm::ArrayType::get(ctorEntryTy, newElems.size());
+            auto* init = llvm::ConstantArray::get(arrTy, newElems);
+            new llvm::GlobalVariable(*LModule, arrTy, /*isConstant*/false,
+                                     llvm::GlobalValue::AppendingLinkage,
+                                     init, globalName);
+        } else {
+            auto* existingArrTy = llvm::cast<llvm::ArrayType>(existingGV->getValueType());
+            auto* existingInit = llvm::cast<llvm::ConstantArray>(existingGV->getInitializer());
+
+            std::vector<llvm::Constant*> combined;
+            combined.reserve(existingArrTy->getNumElements() + newElems.size());
+            for (unsigned i = 0; i < existingArrTy->getNumElements(); ++i) {
+                combined.push_back(existingInit->getOperand(i));
+            }
+            combined.insert(combined.end(), newElems.begin(), newElems.end());
+
+            auto* newArrTy = llvm::ArrayType::get(ctorEntryTy, combined.size());
+            auto* newInit = llvm::ConstantArray::get(newArrTy, combined);
+            auto* newPtrTy = llvm::PointerType::get(ctx, 0);
+            existingGV->mutateType(newPtrTy);
+            existingGV->setInitializer(newInit);
+        }
+    };
+
+    appendGlobalFuncList("llvm.global_ctors", ctorFunctions);
+    appendGlobalFuncList("llvm.global_dtors", dtorFunctions);
 
     if (llvm::verifyModule(*LModule, &llvm::errs())) {
         llvm::errs() << "\n[LLVMCodeGen] Module verify failed. Dumping IR:\n";
