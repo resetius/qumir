@@ -58,7 +58,19 @@ TInterpreter::TInterpreter(TModule& module, std::ostream& out, std::istream& in)
     , In(in)
 { }
 
-std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<int64_t> args, TInterpreter::TOptions options) {
+std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<int64_t> args, TInterpreter::TOptions options)
+{
+    if (Module.ModuleConstructorFunctionId != -1) {
+        DoEval(Module.Functions[Module.ModuleConstructorFunctionId], {}, options);
+    }
+    auto ans = DoEval(function, args, options);
+    if (Module.ModuleDestructorFunctionId != -1) {
+        DoEval(Module.Functions[Module.ModuleDestructorFunctionId], {}, options);
+    }
+    return ans;
+}
+
+std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector<int64_t> args, TInterpreter::TOptions options) {
     if (!function.Exec) {
         function.Exec = &Compiler.Compile(function, options.PrintByteCode);
     }

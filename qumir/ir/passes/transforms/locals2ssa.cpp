@@ -309,6 +309,9 @@ struct TSSABuilder {
                         if (instr.OperandCount != 2) {
                             throw std::runtime_error("Store instruction must have exactly two operands");
                         }
+                        if (instr.Operands[0].Type  == TOperand::EType::Slot) {
+                            break;
+                        }
                         int localIdx = instr.Operands[0].Local.Idx;
                         if (localIdx >= Function.ArgLocals.size() &&
                             (localIdx < (int)LocalPromotable.size() && LocalPromotable[localIdx])) {
@@ -321,6 +324,9 @@ struct TSSABuilder {
                     case "load"_op: {
                         if (instr.OperandCount != 1) {
                             throw std::runtime_error("Load instruction must have exactly one operand");
+                        }
+                        if (instr.Operands[0].Type  == TOperand::EType::Slot) {
+                            break;
                         }
                         if (instr.Operands[0].Type != TOperand::EType::Local) {
                             throw std::runtime_error("Load instruction operand must be a local");

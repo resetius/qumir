@@ -45,7 +45,7 @@ public:
     std::optional<std::string> Eval(TFunction& function, std::vector<int64_t> args, TOptions options);
 
 private:
-    //TExecFunc Compile(TFunction& function);
+    std::optional<std::string> DoEval(TFunction& function, std::vector<int64_t> args, TOptions options);
 
     std::ostream& Out;
     std::istream& In;

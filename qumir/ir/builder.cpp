@@ -246,7 +246,7 @@ TFunction* TModule::GetEntryPoint() {
         return f;
     }
     for (auto& f : Functions) {
-        if (f.Name.substr(0, 2) == "__") {
+        if (f.Name.substr(0, 2) == "__" || f.Name.substr(0, 2) == "$$") {
             // skip generated functions
             continue;
         }

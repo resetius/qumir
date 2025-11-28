@@ -56,11 +56,15 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
     llvm::Module* mod = rawModulePtr;
     llvm::Function* target = nullptr;
     llvm::Function* last = nullptr;
+    llvm::Function* constructorFunc = nullptr;
+    llvm::Function* destructorFunc = nullptr;
     if (mod) {
         for (auto& f : *mod) {
             last = &f;
             std::string name = f.getName().str();
             if (name == entryPoint) target = &f; // keep last matching
+            if (name == "$$module_constructor") constructorFunc = &f;
+            if (name == "$$module_destructor") destructorFunc = &f;
         }
     }
     if (!target) target = last;
@@ -81,7 +85,13 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
     }
 
     std::vector<llvm::GenericValue> noargs;
+    if (constructorFunc) {
+        ee->runFunction(constructorFunc, noargs);
+    }
     auto gv = ee->runFunction(target, noargs);
+    if (destructorFunc) {
+        ee->runFunction(destructorFunc, noargs);
+    }
     auto* retTy = ty->getReturnType();
     if (retTy->isVoidTy()) {
         return std::nullopt; // no value

@@ -1,0 +1,176 @@
+(Block:<Void>
+  (Var $N:<Int>)
+  ($N =:<Void>
+    (5:<Int>))
+  (Block:<Void>
+    (Var $$$A_lbound0:<Int>)
+    (Var $$$A_dimsize0:<Int>)
+    (Var $$$A_mulacc0:<Int>)
+    ($$$A_lbound0 =:<Void>
+      (1:<Int>))
+    ($$$A_dimsize0 =:<Void>
+      (+:<Int>
+        (-:<Int>
+          ($N:<Int>)
+          (1:<Int>))
+        (1:<Int>)))
+    ($$$A_mulacc0 =:<Void>
+      (*:<Int>
+        (1:<Int>)
+        ($$$A_dimsize0:<Int>)))
+    (Var $A:<Array [Int; 1]>))
+  (FunDecl $Быстрая сортировка ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $i:<Int>)
+      ($A[...] =:<Void>
+        (1:<Int>)
+        (3:<Int>))
+      ($A[...] =:<Void>
+        (2:<Int>)
+        (1:<Int>))
+      ($A[...] =:<Void>
+        (3:<Int>)
+        (10:<Int>))
+      ($A[...] =:<Void>
+        (4:<Int>)
+        (7:<Int>))
+      ($A[...] =:<Void>
+        (5:<Int>)
+        (2:<Int>))
+      (Call:<Void>
+        ($qSort:<Fun (Int, Int) -> Void>)
+        (1:<Int>)
+        (5:<Int>))
+      (Block:<Void>
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
+        ($i =:<Void>
+          (0:<Int>))
+        ($$$step =:<Void>
+          (1:<Int>))
+        ($$$next =:<Void>
+          ($i:<Int>))
+        ($$$to =:<Void>
+          (+:<Int>
+            ($N:<Int>)
+            ($$$step:<Int>)))
+        (Loop:<Void>
+          (!=:<Bool>
+            ($$$next:<Int>)
+            ($$$to:<Int>))
+          nil
+          ($i =:<Void>
+            ($$$next:<Int>))
+          (Block:<Void>
+            (Block:<Void>
+              (Call:<Void>
+                ($output_int64:<Fun (Int, Int) -> Void>)
+                (Index:<Int>
+                  ($A:<Array [Int; 1]>)
+                  ($i:<Int>))
+                (0:<Int>))
+              (Call:<Void>
+                ($output_symbol:<Fun (Char) -> Void>)
+                (Cast<Char>:<Char>
+                  (32:<Int>)))))
+          ($$$next =:<Void>
+            (+:<Int>
+              ($$$next:<Int>)
+              ($$$step:<Int>)))))))
+  (FunDecl $qSort ($nStart, $nEnd):<Fun (Int, Int) -> Void>
+    (Block:<Void>
+      (Var $L:<Int>)
+      (Var $R:<Int>)
+      (Var $c:<Int>)
+      (Var $X:<Int>)
+      (If:<Void>
+        (>=:<Bool>
+          ($nStart:<Int>)
+          ($nEnd:<Int>))
+        (Block:<Void>
+          (Break:<Void>))
+        nil)
+      ($L =:<Void>
+        ($nStart:<Int>))
+      ($R =:<Void>
+        ($nEnd:<Int>))
+      ($X =:<Void>
+        (Index:<Int>
+          ($A:<Array [Int; 1]>)
+          (Call:<Int>
+            ($div:<Fun (Int, Int) -> Int>)
+            (+:<Int>
+              ($L:<Int>)
+              ($R:<Int>))
+            (2:<Int>))))
+      (Loop:<Void>
+        (<=:<Bool>
+          ($L:<Int>)
+          ($R:<Int>))
+        nil
+        nil
+        (Block:<Void>
+          (Loop:<Void>
+            (<:<Bool>
+              (Index:<Int>
+                ($A:<Array [Int; 1]>)
+                ($L:<Int>))
+              ($X:<Int>))
+            nil
+            nil
+            (Block:<Void>
+              ($L =:<Void>
+                (+:<Int>
+                  ($L:<Int>)
+                  (1:<Int>))))
+            nil)
+          (Loop:<Void>
+            (>:<Bool>
+              (Index:<Int>
+                ($A:<Array [Int; 1]>)
+                ($R:<Int>))
+              ($X:<Int>))
+            nil
+            nil
+            (Block:<Void>
+              ($R =:<Void>
+                (-:<Int>
+                  ($R:<Int>)
+                  (1:<Int>))))
+            nil)
+          (If:<Void>
+            (<=:<Bool>
+              ($L:<Int>)
+              ($R:<Int>))
+            (Block:<Void>
+              ($c =:<Void>
+                (Index:<Int>
+                  ($A:<Array [Int; 1]>)
+                  ($L:<Int>)))
+              ($A[...] =:<Void>
+                ($L:<Int>)
+                (Index:<Int>
+                  ($A:<Array [Int; 1]>)
+                  ($R:<Int>)))
+              ($A[...] =:<Void>
+                ($R:<Int>)
+                ($c:<Int>))
+              ($L =:<Void>
+                (+:<Int>
+                  ($L:<Int>)
+                  (1:<Int>)))
+              ($R =:<Void>
+                (-:<Int>
+                  ($R:<Int>)
+                  (1:<Int>))))
+            nil))
+        nil)
+      (Call:<Void>
+        ($qSort:<Fun (Int, Int) -> Void>)
+        ($nStart:<Int>)
+        ($R:<Int>))
+      (Call:<Void>
+        ($qSort:<Fun (Int, Int) -> Void>)
+        ($L:<Int>)
+        ($nEnd:<Int>)))))

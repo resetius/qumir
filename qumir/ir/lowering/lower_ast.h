@@ -34,9 +34,6 @@ private:
         TImm FunctionId;
     };
 
-    //struct TPendingDestructors {
-    //    std::vector<NSemantics::TSymbolInfo> Strings;
-    //};
     using TPendingDestructors = std::vector<TDestructor>;
 
     enum class EOwnership {

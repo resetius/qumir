@@ -6,6 +6,7 @@
 #include <iostream>
 #include <sstream>
 #include <cassert>
+#include <functional>
 
 namespace NQumir {
 namespace NIR {
@@ -703,7 +704,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!sidOpt) {
             co_return TError(var->Location, "variable has no binding");
         }
-        Builder.SetType(TLocal{sidOpt->FunctionLevelIdx}, FromAstType(var->Type, Module.Types));
+        if (sidOpt->FunctionLevelIdx >= 0) {
+            Builder.SetType(TLocal{sidOpt->FunctionLevelIdx}, FromAstType(var->Type, Module.Types));
+        }
         if (NAst::TMaybeType<NAst::TStringType>(var->Type)
             && sidOpt->FunctionLevelIdx >= 0 && name != "$$return" /*owned by caller*/)
         {
@@ -991,60 +994,131 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
     block->Scope = scope.Id.Id;
 
     bool functionSeen = false;
-    for (auto& s : block->Stmts) {
-        if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(s)) {
-            auto res = Lower(s, scope).result();
-            if (!res) {
-                return std::unexpected(res.error());
-            }
-            functionSeen = true;
-        } else if (auto maybeVar = NAst::TMaybeNode<NAst::TVarStmt>(s)) {
-            if (functionSeen) {
-                return std::unexpected(TError(s->Location, "variable declarations must appear before function declarations"));
-            }
-            auto var = maybeVar.Cast();
-            auto sidOpt = Context.Lookup(var->Name, scope.Id);
-            if (!sidOpt) {
-                return std::unexpected(TError(var->Location, "var declaration has no binding"));
-            }
-            auto slotType = FromAstType(var->Type, Module.Types);
-            if (Module.GlobalTypes.size() <= (size_t)sidOpt->Id) {
-                Module.GlobalTypes.resize(sidOpt->Id + 1);
-            }
-            Module.GlobalTypes[sidOpt->Id] = slotType;
-        } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(s)) {
-            if (functionSeen) {
-                return std::unexpected(TError(s->Location, "variable assignments must appear before function declarations"));
-            }
-            auto asg = maybeAsg.Cast();
-            auto maybeNumber = NAst::TMaybeNode<NAst::TNumberExpr>(asg->Value);
-            auto sid = Context.Lookup(asg->Name, scope.Id);
-            if (!sid) {
-                return std::unexpected(TError(s->Location, "undefined variable: " + asg->Name));
-            }
-            if (maybeNumber) {
-                auto num = maybeNumber.Cast();
-                if (num->IsFloat) {
-                    Module.GlobalValues[sid->Id] = TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .TypeId = Module.Types.I(EKind::F64)};
-                } else {
-                    Module.GlobalValues[sid->Id] = TImm{.Value = num->IntValue, .TypeId = Module.Types.I(EKind::I64)};
-                }
-                continue;
-            }
-            auto maybeString = NAst::TMaybeNode<NAst::TStringLiteralExpr>(asg->Value);
-            if (maybeString) {
-                auto str = maybeString.Cast();
-                auto id = Builder.StringLiteral(str->Value);
-                Module.GlobalValues[sid->Id] = TImm{.Value = id, .TypeId = Module.Types.Ptr(Module.Types.I(EKind::I8))};
-                // string globals are pointers
-                Module.GlobalTypes[sid->Id] = Module.Types.Ptr(Module.Types.I(EKind::I8));
-                continue;
-            }
+    int constructorFunctionId = -1;
+    int destructorFunctionId = -1;
+    std::string constructorFunctionName = "$$module_constructor";
+    std::string destructorFunctionName = "$$module_destructor";
 
-            return std::unexpected(TError(asg->Value->Location, "global variable assignment must be a constant number or string"));
+    auto switchToConstructorFunction = [&]() {
+        if (constructorFunctionId == -1) {
+            constructorFunctionId = Builder.NewFunction(constructorFunctionName, {}, -1 /*symbolId*/);
+            Builder.SetReturnType(Module.Types.I(EKind::Void));
         } else {
-            return std::unexpected(TError(s->Location, "Unexpected top-level statement: " + s->ToString()));
+            Builder.SetCurrentFunction(constructorFunctionId);
         }
+    };
+
+    std::function<std::expected<std::monostate, TError>(const std::shared_ptr<NAst::TBlockExpr>&, const TBlockScope&)> lowerTopBlock = [&](const std::shared_ptr<NAst::TBlockExpr>& block, const TBlockScope& scope) -> std::expected<std::monostate, TError>
+    {
+        for (auto& s : block->Stmts) {
+            if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(s)) {
+                auto res = Lower(s, scope).result();
+                if (!res) {
+                    return std::unexpected(res.error());
+                }
+                functionSeen = true;
+            } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(s)) {
+                auto res = lowerTopBlock(maybeBlock.Cast(), scope);
+                if (!res) {
+                    return std::unexpected(res.error());
+                }
+            } else if (auto maybeVar = NAst::TMaybeNode<NAst::TVarStmt>(s)) {
+                if (functionSeen) {
+                    return std::unexpected(TError(s->Location, "variable declarations must appear before function declarations"));
+                }
+                auto var = maybeVar.Cast();
+                auto sidOpt = Context.Lookup(var->Name, scope.Id);
+                if (!sidOpt) {
+                    return std::unexpected(TError(var->Location, "var declaration has no binding"));
+                }
+                auto slotType = FromAstType(var->Type, Module.Types);
+                if (Module.GlobalTypes.size() <= (size_t)sidOpt->Id) {
+                    Module.GlobalTypes.resize(sidOpt->Id + 1);
+                    Module.GlobalValues.resize(sidOpt->Id + 1); // TODO: unused
+                }
+                Module.GlobalTypes[sidOpt->Id] = slotType;
+
+                if (NAst::TMaybeType<NAst::TArrayType>(var->Type)) {
+                    // Arrays need to be constructed in the module constructor
+                    switchToConstructorFunction();
+                    auto lowered = Lower(s, scope).result();
+                    if (!lowered) {
+                        return std::unexpected(lowered.error());
+                    }
+                } else if (NAst::TMaybeType<NAst::TStringType>(var->Type)) {
+                    // Strings need to be constructed in the module constructor
+                    switchToConstructorFunction();
+                    auto lowered = Lower(s, scope).result();
+                    if (!lowered) {
+                        return std::unexpected(lowered.error());
+                    }
+                }
+
+            } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(s)) {
+                if (functionSeen) {
+                    return std::unexpected(TError(s->Location, "variable assignments must appear before function declarations"));
+                }
+                auto asg = maybeAsg.Cast();
+                auto maybeNumber = NAst::TMaybeNode<NAst::TNumberExpr>(asg->Value);
+                auto sid = Context.Lookup(asg->Name, scope.Id);
+                if (!sid) {
+                    return std::unexpected(TError(s->Location, "undefined variable: " + asg->Name));
+                }
+                if (maybeNumber) {
+                    auto num = maybeNumber.Cast();
+                    if (num->IsFloat) {
+                        Module.GlobalValues[sid->Id] = TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .TypeId = Module.Types.I(EKind::F64)};
+                    } else {
+                        Module.GlobalValues[sid->Id] = TImm{.Value = num->IntValue, .TypeId = Module.Types.I(EKind::I64)};
+                    }
+                }
+                auto maybeString = NAst::TMaybeNode<NAst::TStringLiteralExpr>(asg->Value);
+                if (maybeString) {
+                    auto str = maybeString.Cast();
+                    auto id = Builder.StringLiteral(str->Value);
+                    Module.GlobalValues[sid->Id] = TImm{.Value = id, .TypeId = Module.Types.Ptr(Module.Types.I(EKind::I8))};
+                    // string globals are pointers
+                    Module.GlobalTypes[sid->Id] = Module.Types.Ptr(Module.Types.I(EKind::I8));
+                }
+
+                switchToConstructorFunction();
+                auto lowered = Lower(s, scope).result();
+                if (!lowered) {
+                    return std::unexpected(lowered.error());
+                }
+            } else {
+                return std::unexpected(TError(s->Location, "Unexpected top-level statement: " + s->ToString()));
+            }
+        }
+
+        return {};
+    };
+
+    lowerTopBlock(block, scope);
+    if (constructorFunctionId != -1) {
+        Builder.SetCurrentFunction(constructorFunctionId);
+        Builder.Emit0("ret"_op, {});
+        Module.ModuleConstructorFunctionId = constructorFunctionId;
+    }
+
+    if (!PendingDestructors.empty()) {
+        destructorFunctionId = Builder.NewFunction(destructorFunctionName, {}, -2 /*symbolId*/);
+        Builder.SetReturnType(Module.Types.I(EKind::Void));
+        for (auto& dtor : PendingDestructors) {
+            for (auto& arg : dtor.Args) {
+                if (arg.Type == TOperand::EType::Slot) {
+                    // load slot value
+                    auto tmp = Builder.Emit1("load"_op, {arg});
+                    Builder.SetType(tmp, Module.GlobalTypes[arg.Slot.Idx]);
+                    arg = tmp;
+                }
+                Builder.Emit0("arg"_op, {arg});
+            }
+            Builder.Emit0("call"_op, { TImm{ dtor.FunctionId } });
+        }
+        Builder.Emit0("ret"_op, {});
+        Module.ModuleDestructorFunctionId = destructorFunctionId;
+        PendingDestructors.clear();
     }
 
     return {};
