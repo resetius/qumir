@@ -76,6 +76,7 @@ private:
         const NAst::TExprPtr& where);
 
     TNameResolver& Context;
+    TAssignedSet GlobalAssigned;
 };
 
 } // namespace NSemantics

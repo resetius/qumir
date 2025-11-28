@@ -7,10 +7,14 @@ using namespace NAst;
 
 TDefiniteAssignmentChecker::TDefiniteAssignmentChecker(TNameResolver& context)
     : Context(context)
-{ }
+{
+    for (const auto& global : Context.GetGlobals()) {
+        GlobalAssigned.insert(global.Id);
+    }
+}
 
 std::expected<void, TError> TDefiniteAssignmentChecker::Check(NAst::TExprPtr root) {
-    TAssignedSet empty;
+    TAssignedSet empty = GlobalAssigned;
     auto res = CheckExpr(root, TScopeId{0}, empty);
     if (!res) {
         return std::unexpected(res.error());
@@ -342,7 +346,7 @@ TDefiniteAssignmentChecker::CheckFunDecl(
     TScopeId /*scopeId*/,
     const TAssignedSet& inAssigned)
 {
-    TAssignedSet initialAssigned;
+    TAssignedSet initialAssigned = GlobalAssigned;
 
     TScopeId bodyScope{funDecl->Body->Scope};
 

@@ -85,6 +85,26 @@ public:
         return Symbols;
     }
 
+    std::vector<TSymbolInfo> GetGlobals() const {
+        if (Scopes.empty()) {
+            return {};
+        }
+        auto& rootScope = Scopes[0];
+        std::vector<TSymbolInfo> result;
+        for (auto& symbolId : rootScope->Symbols) {
+            auto& symbol = Symbols[symbolId];
+            //std::cerr << "Global symbol: " << symbol.Name << " " << symbol.Id.Id << "\n";
+            result.push_back(TSymbolInfo {
+                .Id = symbol.Id.Id,
+                .DeclScopeId = symbol.ScopeId.Id,
+                .ScopeLevelIdx = symbol.ScopeLevelIdx,
+                .FunctionLevelIdx = symbol.FunctionLevelIdx,
+                .FuncScopeId = symbol.FuncScopeId.Id,
+            });
+        }
+        return result;
+    }
+
     void PrintSymbols(std::ostream& os) const;
 
 private:
