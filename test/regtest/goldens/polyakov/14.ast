@@ -46,7 +46,7 @@
         (Var $$$step:<Int>)
         (Var $$$next:<Int>)
         ($i =:<Void>
-          (0:<Int>))
+          (1:<Int>))
         ($$$step =:<Void>
           (1:<Int>))
         ($$$next =:<Void>

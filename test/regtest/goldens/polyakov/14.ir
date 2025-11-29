@@ -54,7 +54,7 @@ function Быстрая сортировка () { ; void
     arg imm(1,i64) 
     arg imm(5,i64) 
     call qSort 
-    stre local(0,i64) imm(0,i64) 
+    stre local(0,i64) imm(1,i64) 
     stre local(2,i64) imm(1,i64) 
     load tmp(25,i64) = local(0,i64) 
     stre local(3,i64) tmp(25,i64) 
