@@ -18,11 +18,13 @@ namespace NQumir::NCodeGen {
 
 using namespace NIR;
 
+#ifdef __APPLE__
+// On macOS, MCJIT needs __dso_handle for global constructors/destructors
+// registered via __cxa_atexit. Provide a dummy symbol for the JIT to resolve.
 extern "C" {
-
-void* __dso_handle = (void*)&__dso_handle;
-
+    void* __dso_handle = (void*)&__dso_handle;
 } // extern "C"
+#endif
 
 TLlvmRunner::TLlvmRunner()
 {}
