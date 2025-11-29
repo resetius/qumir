@@ -1,0 +1,56 @@
+(Block:<Void>
+  (FunDecl $Замена а на б ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $s:<String>)
+      ($s =:<Void>
+        ("ABCDабсвайЙЙ":<String>))
+      (Var $i:<Int>)
+      (Block:<Void>
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
+        ($i =:<Void>
+          (1:<Int>))
+        ($$$step =:<Void>
+          (1:<Int>))
+        ($$$next =:<Void>
+          ($i:<Int>))
+        ($$$to =:<Void>
+          (+:<Int>
+            (Call:<Int>
+              ($длин:<Fun (String) -> Int>)
+              ($s:<String>))
+            ($$$step:<Int>)))
+        (Loop:<Void>
+          (!=:<Bool>
+            ($$$next:<Int>)
+            ($$$to:<Int>))
+          nil
+          ($i =:<Void>
+            ($$$next:<Int>))
+          (Block:<Void>
+            (If:<Void>
+              (==:<Bool>
+                (Call:<Char>
+                  ($str_symbol_at:<Fun (String, Int) -> Char>)
+                  ($s:<String>)
+                  ($i:<Int>))
+                (Cast<Char>:<Char>
+                  (1072:<Int>)))
+              (Block:<Void>
+                ($s =:<Void>
+                  (Call:<String>
+                    ($str_replace_sym:<Fun (String, Char, Int) -> String>)
+                    ($s:<String>)
+                    (Cast<Char>:<Char>
+                      (1073:<Int>))
+                    ($i:<Int>))))
+              nil))
+          ($$$next =:<Void>
+            (+:<Int>
+              ($$$next:<Int>)
+              ($$$step:<Int>)))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($s:<String>))))))

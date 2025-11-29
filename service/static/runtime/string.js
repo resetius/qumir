@@ -1,3 +1,36 @@
+// Replace symbol at 1-based index symIdx with newSym (codepoint)
+export function str_replace_sym(strPtr, newSym, symIdx) {
+    const s = loadString(strPtr);
+    if (!s) return allocHandle('');
+    const entry = isJsHandle(strPtr) ? STRING_POOL.get(strPtr) : null;
+    const positions = entry ? ensureSymbolPositions(entry) : null;
+    const len = positions ? positions.length : Array.from(s).length;
+    const idx = Number(symIdx);
+    if (!Number.isFinite(idx) || idx < 1 || idx > len) {
+        // Out of bounds: return original string (retain if JS handle)
+        if (isJsHandle(strPtr)) {
+            retainHandle(strPtr);
+            return strPtr;
+        }
+        return allocHandle(s);
+    }
+    // Find UTF-16 indices for replacement
+    let start, end;
+    if (positions) {
+        start = positions[idx - 1];
+        end = (idx < len) ? positions[idx] : s.length;
+    } else {
+        // Fallback: use Array.from for generic string
+        const arr = Array.from(s);
+        arr[idx - 1] = String.fromCodePoint(Number(newSym));
+        return allocHandle(arr.join(''));
+    }
+    // Replace using JS string API
+    const before = s.slice(0, start);
+    const after = s.slice(end);
+    const replacement = String.fromCodePoint(Number(newSym));
+    return allocHandle(before + replacement + after);
+}
 "use strict";
 
 // JS string runtime with a JS-managed string pool and pointer handles.

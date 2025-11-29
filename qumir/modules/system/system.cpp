@@ -471,6 +471,18 @@ SystemModule::SystemModule() {
             .RequireArgsMaterialization = true
         },
         {
+            .Name = "str_replace_sym",
+            .MangledName = "str_replace_sym",
+            .Ptr = reinterpret_cast<void*>(static_cast<char*(*)(char*, int32_t, int64_t)>(NRuntime::str_replace_sym)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto* str = NRuntime::str_replace_sym(reinterpret_cast<char*>(args[0]), static_cast<int32_t>(std::bit_cast<int64_t>(args[1])), std::bit_cast<int64_t>(args[2]));
+                return std::bit_cast<uint64_t>(str);
+            },
+            .ArgTypes = { stringType, symbolType, integerType },
+            .ReturnType = stringType,
+            .RequireArgsMaterialization = true
+        },
+        {
             .Name = "str_retain",
             .MangledName = "str_retain",
             .Ptr = reinterpret_cast<void*>(static_cast<void(*)(char*)>(NRuntime::str_retain)),

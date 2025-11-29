@@ -73,6 +73,30 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
     std::list<TError> errors;
     bool changed = TransformAst(expr, expr,
         [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
+            // Transform string element assignment: s[i] = 'c' => s = str_replace_sym(s, 'c', i)
+            if (auto maybeArrayAssign = NAst::TMaybeNode<NAst::TArrayAssignExpr>(node)) {
+                auto arrayAssign = maybeArrayAssign.Cast();
+                auto unrefType = UnwrapReferenceType(arrayAssign->Value->Type);
+                auto maybeSymbolType = NAst::TMaybeType<NAst::TSymbolType>(unrefType);
+                if (!maybeSymbolType) {
+                    return node;
+                }
+                if (arrayAssign->Indices.size() != 1) {
+                    errors.push_back(TError(arrayAssign->Location, "string element assignment must have exactly one index"));
+                    return node;
+                }
+                auto call = std::make_shared<NAst::TCallExpr>(arrayAssign->Location,
+                    std::make_shared<NAst::TIdentExpr>(arrayAssign->Location, "str_replace_sym"),
+                    std::vector<NAst::TExprPtr>{
+                        std::make_shared<NAst::TIdentExpr>(arrayAssign->Location, arrayAssign->Name),
+                        arrayAssign->Value,
+                        arrayAssign->Indices[0]});
+
+                auto assign = std::make_shared<NAst::TAssignExpr>(arrayAssign->Location,
+                    arrayAssign->Name,
+                    call);
+                return assign;
+            }
             if (auto maybeBinary = NAst::TMaybeNode<NAst::TBinaryExpr>(node)) {
                 auto binary = maybeBinary.Cast();
 

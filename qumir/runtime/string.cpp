@@ -298,6 +298,55 @@ int64_t str_to_int(const char* s, int8_t* outOk) {
     return value;
 }
 
+char* str_replace_sym(char* str, int32_t newSym, int64_t symIdx)
+{
+    if (!str) {
+        std::cerr << "str_replace_sym called with null string\n";
+        return nullptr;
+    }
+    TString* tstr = (TString*)(str - offsetof(TString, Data));
+    if (!tstr->Utf8Indices) {
+        build_utf8_indices(tstr);
+    }
+    if (symIdx < 1 || symIdx > tstr->Symbols) {
+        str_retain(str);
+        return str;
+    }
+    int startByte = tstr->Utf8Indices[symIdx - 1];
+    int endByte = tstr->Utf8Indices[symIdx];
+    int oldSymLen = endByte - startByte;
+
+    auto* symStr = str_from_unicode(newSym);
+    int newSymLen = strlen(symStr);
+    if (oldSymLen == newSymLen) {
+        // in place
+        std::memcpy(str + startByte, symStr, newSymLen);
+        str_release(symStr);
+        str_retain(str);
+        return str;
+    } else {
+        // need to reallocate
+        int newLength = tstr->Length - oldSymLen + newSymLen;
+        TString* newTStr = (TString*)calloc(1, sizeof(TString) + newLength + 1);
+        newTStr->Rc = 1;
+        int outPos = 0;
+        if (symIdx > 1) {
+            int bytesBefore = tstr->Utf8Indices[symIdx - 1];
+            std::memcpy(newTStr->Data, str, bytesBefore);
+            outPos = bytesBefore;
+        }
+        std::memcpy(newTStr->Data + outPos, symStr, newSymLen);
+        outPos += newSymLen;
+        int bytesAfter = tstr->Length - endByte;
+        if (bytesAfter > 0) {
+            std::memcpy(newTStr->Data + outPos, str + endByte, bytesAfter);
+            outPos += bytesAfter;
+        }
+        newTStr->Length = newLength;
+        str_release(symStr);
+        return newTStr->Data;
+    }
+}
 
 char* assign_from_lit(char* dest, const char* src) {
     if (!src) {

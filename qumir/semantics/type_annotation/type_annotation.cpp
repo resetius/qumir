@@ -411,37 +411,56 @@ TTask AnnotateArrayAssign(std::shared_ptr<TArrayAssignExpr> arrayAssign, NSemant
     if (!sym || !sym->Type) {
         co_return TError(arrayAssign->Location, "untyped identifier in array assignment: " + arrayAssign->Name);
     }
+    // Allow array assignment for arrays and strings
     auto maybeArrayType = TMaybeType<TArrayType>(sym->Type);
-    if (!maybeArrayType) {
-        co_return TError(arrayAssign->Location, "identifier is not an array in array assignment: " + arrayAssign->Name);
-    }
-    auto arrayType = maybeArrayType.Cast();
-
-    auto valueType = UnwrapReferenceType(arrayAssign->Value->Type);
-    if (!EqualTypes(valueType, arrayType->ElementType)) {
-        if (!CanImplicit(valueType, arrayType->ElementType)) {
-            co_return TError(arrayAssign->Location, std::string("cannot implicitly convert '") +
-                std::string(valueType->TypeName()) + "' to '" + std::string(arrayType->ElementType->TypeName()) + "' in array assignment");
+    auto maybeStringType = TMaybeType<TStringType>(sym->Type);
+    if (maybeArrayType) {
+        auto arrayType = maybeArrayType.Cast();
+        auto valueType = UnwrapReferenceType(arrayAssign->Value->Type);
+        if (!EqualTypes(valueType, arrayType->ElementType)) {
+            if (!CanImplicit(valueType, arrayType->ElementType)) {
+                co_return TError(arrayAssign->Location, std::string("cannot implicitly convert '") +
+                    std::string(valueType->TypeName()) + "' to '" + std::string(arrayType->ElementType->TypeName()) + "' in array assignment");
+            }
+            arrayAssign->Value = InsertImplicitCastIfNeeded(arrayAssign->Value, arrayType->ElementType);
         }
-        arrayAssign->Value = InsertImplicitCastIfNeeded(arrayAssign->Value, arrayType->ElementType);
-    }
-    for (auto& indexExpr : arrayAssign->Indices) {
-        indexExpr = co_await DoAnnotate(indexExpr, context, scopeId);
-        if (!indexExpr->Type) {
-            co_return TError(arrayAssign->Location, "untyped index expression in array assignment: " + arrayAssign->Name);
+        for (auto& indexExpr : arrayAssign->Indices) {
+            indexExpr = co_await DoAnnotate(indexExpr, context, scopeId);
+            if (!indexExpr->Type) {
+                co_return TError(arrayAssign->Location, "untyped index expression in array assignment: " + arrayAssign->Name);
+            }
+            auto maybeIntType = TMaybeType<TIntegerType>(indexExpr->Type);
+            if (!maybeIntType) {
+                co_return TError(arrayAssign->Location, "non-integer index expression in array assignment: " + arrayAssign->Name);
+            }
         }
-        auto maybeIntType = TMaybeType<TIntegerType>(indexExpr->Type);
-        if (!maybeIntType) {
-            co_return TError(arrayAssign->Location, "non-integer index expression in array assignment: " + arrayAssign->Name);
+        // check arity
+        if (arrayAssign->Indices.size() != arrayType->Arity) {
+            co_return TError(arrayAssign->Location, "invalid number of indices in array assignment: " + arrayAssign->Name);
         }
+        arrayAssign->Type = std::make_shared<NAst::TVoidType>();
+        co_return arrayAssign;
+    } else if (maybeStringType) {
+        // Only allow s[1] = 'c' (symbol to string)
+        if (arrayAssign->Indices.size() != 1) {
+            co_return TError(arrayAssign->Location, "string assignment must have exactly one index: " + arrayAssign->Name);
+        }
+        // Index must be integer
+        arrayAssign->Indices[0] = co_await DoAnnotate(arrayAssign->Indices[0], context, scopeId);
+        if (!arrayAssign->Indices[0]->Type || !TMaybeType<TIntegerType>(arrayAssign->Indices[0]->Type)) {
+            co_return TError(arrayAssign->Location, "string assignment index must be integer: " + arrayAssign->Name);
+        }
+        // Value must be symbol (char)
+        auto valueType = UnwrapReferenceType(arrayAssign->Value->Type);
+        if (!TMaybeType<TSymbolType>(valueType)) {
+            std::cerr << *arrayAssign->Value << std::endl;
+            co_return TError(arrayAssign->Location, "string assignment value must be symbol (char): " + arrayAssign->Name);
+        }
+        arrayAssign->Type = std::make_shared<NAst::TVoidType>();
+        co_return arrayAssign;
+    } else {
+        co_return TError(arrayAssign->Location, "identifier is not an array or string in array assignment: " + arrayAssign->Name);
     }
-    // check arity
-    if (arrayAssign->Indices.size() != arrayType->Arity) {
-        co_return TError(arrayAssign->Location, "invalid number of indices in array assignment: " + arrayAssign->Name);
-    }
-
-    arrayAssign->Type = std::make_shared<NAst::TVoidType>();
-    co_return arrayAssign;
 }
 
 TTask AnnotateVar(std::shared_ptr<TVarStmt> var) {
