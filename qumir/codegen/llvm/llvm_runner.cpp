@@ -18,6 +18,12 @@ namespace NQumir::NCodeGen {
 
 using namespace NIR;
 
+extern "C" {
+
+void* __dso_handle = (void*)&__dso_handle;
+
+} // extern "C"
+
 TLlvmRunner::TLlvmRunner()
 {}
 
