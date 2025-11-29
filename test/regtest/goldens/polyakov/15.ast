@@ -1,0 +1,107 @@
+(Block:<Void>
+  (FunDecl $binSearch ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $N:<Int>)
+      ($N =:<Void>
+        (5:<Int>))
+      (Block:<Void>
+        (Var $$$A_lbound0:<Int>)
+        (Var $$$A_dimsize0:<Int>)
+        (Var $$$A_mulacc0:<Int>)
+        ($$$A_lbound0 =:<Void>
+          (1:<Int>))
+        ($$$A_dimsize0 =:<Void>
+          (+:<Int>
+            (-:<Int>
+              ($N:<Int>)
+              (1:<Int>))
+            (1:<Int>)))
+        ($$$A_mulacc0 =:<Void>
+          (*:<Int>
+            (1:<Int>)
+            ($$$A_dimsize0:<Int>)))
+        (Var $A:<Array [Int; 1]>))
+      (Var $i:<Int>)
+      ($A[...] =:<Void>
+        (1:<Int>)
+        (1:<Int>))
+      ($A[...] =:<Void>
+        (2:<Int>)
+        (2:<Int>))
+      ($A[...] =:<Void>
+        (3:<Int>)
+        (3:<Int>))
+      ($A[...] =:<Void>
+        (4:<Int>)
+        (7:<Int>))
+      ($A[...] =:<Void>
+        (5:<Int>)
+        (10:<Int>))
+      (Var $X:<Int>)
+      ($X =:<Void>
+        (7:<Int>))
+      (Var $L:<Int>)
+      (Var $R:<Int>)
+      (Var $c:<Int>)
+      ($L =:<Void>
+        (1:<Int>))
+      ($R =:<Void>
+        (+:<Int>
+          ($N:<Int>)
+          (1:<Int>)))
+      (Loop:<Void>
+        (<:<Bool>
+          ($L:<Int>)
+          (-:<Int>
+            ($R:<Int>)
+            (1:<Int>)))
+        nil
+        nil
+        (Block:<Void>
+          ($c =:<Void>
+            (Call:<Int>
+              ($div:<Fun (Int, Int) -> Int>)
+              (+:<Int>
+                ($L:<Int>)
+                ($R:<Int>))
+              (2:<Int>)))
+          (If:<Void>
+            (<:<Bool>
+              ($X:<Int>)
+              (Index:<Int>
+                ($A:<Array [Int; 1]>)
+                ($c:<Int>)))
+            (Block:<Void>
+              ($R =:<Void>
+                ($c:<Int>)))
+            (Block:<Void>
+              ($L =:<Void>
+                ($c:<Int>)))))
+        nil)
+      (If:<Void>
+        (==:<Bool>
+          (Index:<Int>
+            ($A:<Array [Int; 1]>)
+            ($L:<Int>))
+          ($X:<Int>))
+        (Block:<Void>
+          (Block:<Void>
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("A[":<String>))
+            (Call:<Void>
+              ($output_int64:<Fun (Int, Int) -> Void>)
+              ($L:<Int>)
+              (0:<Int>))
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("]=":<String>))
+            (Call:<Void>
+              ($output_int64:<Fun (Int, Int) -> Void>)
+              ($X:<Int>)
+              (0:<Int>))))
+        (Block:<Void>
+          (Block:<Void>
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("Не нашли!":<String>))))))))
