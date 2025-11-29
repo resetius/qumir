@@ -452,6 +452,10 @@ async function executeCase(wasmPath, algName, caseBase) {
   const ioRuntime = await loadIoRuntimeModule();
   bindIoStreams(ioRuntime, stdinStream, stdoutStream);
   const { instance } = await instantiateWasm(wasmPath, ioCapture, ioRuntime);
+  // Call global constructors if present (init_array handlers)
+  if (typeof instance.exports.__wasm_call_ctors === 'function') {
+    instance.exports.__wasm_call_ctors();
+  }
   stdinStream.assertSufficientInput();
   // Collect export function names for debugging if algorithm not found.
   const exportFnNames = Object.entries(instance.exports).filter(([n,v]) => typeof v === 'function').map(([n]) => n);
@@ -507,6 +511,10 @@ async function executeCase(wasmPath, algName, caseBase) {
   }
   if (!fn && exportFnNames.length) throw new Error('No executable export found for ' + wasmPath);
   const ret = fn();
+  // Call global destructors if present
+  if (typeof instance.exports.__wasm_call_dtors === 'function') {
+    instance.exports.__wasm_call_dtors();
+  }
   const retType = resultRuntime.wasmReturnType(bytes, algName);
   return { returnValue: ret, stdout: ioCapture.stdout, exportName: algName, returnType: retType };
 }

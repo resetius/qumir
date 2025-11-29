@@ -1006,8 +1006,12 @@ async function runWasm() {
     }
     let out = '';
   if (instance && instance.exports) {
+      // Call global constructors if present (init_array handlers)
+      if (typeof instance.exports.__wasm_call_ctors === 'function') {
+        instance.exports.__wasm_call_ctors();
+      }
       const entries = Object.entries(instance.exports)
-        .filter(([k, v]) => typeof v === 'function' && !k.startsWith('__'));
+        .filter(([k, v]) => typeof v === 'function' && !k.startsWith('__') && k !== '$$module_constructor' && k !== '$$module_destructor');
       const entry = entries.length > 0 ? entries[0] : null;
       if (entry) {
         const [name, fn] = entry;
@@ -1044,6 +1048,10 @@ async function runWasm() {
         }
       } else {
         out += 'no exported functions to invoke\n';
+      }
+      // Call global destructors if present
+      if (typeof instance.exports.__wasm_call_dtors === 'function') {
+        instance.exports.__wasm_call_dtors();
       }
   // Debug: list of WebAssembly exports (disabled)
   // out += '\nexports:\n';
