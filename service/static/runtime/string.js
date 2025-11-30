@@ -1,3 +1,34 @@
+// Insert insertStr (as string handle or C-string) into *strPtrPtr at 1-based symbol position insertSymbolPos
+// strPtrPtr: address (number) of the variable holding the handle (int32* in WASM memory)
+// insertStrPtr: handle or pointer to string to insert
+export function str_insert_symbols(insertStrPtr, strPtrPtr, insertSymbolPos) {
+    if (!MEMORY) return;
+    const u32 = new Uint32Array(MEMORY.buffer);
+    const ptrAddr = Number(strPtrPtr) >>> 0;
+    // Read the handle (signed int32) from memory
+    let handle = u32[ptrAddr >>> 2] | 0;
+    const s = loadString(handle);
+    const insertStr = loadString(insertStrPtr);
+    if (!s) {
+        u32[ptrAddr >>> 2] = allocHandle(insertStr);
+        return;
+    }
+    if (!insertStr) {
+        // Nothing to insert
+        u32[ptrAddr >>> 2] = allocHandle(s);
+        return;
+    }
+    const arr = Array.from(s);
+    const insertArr = Array.from(insertStr);
+    const len = arr.length;
+    let pos = Number(insertSymbolPos);
+    if (!Number.isFinite(pos)) pos = 1;
+    if (pos < 1) pos = 1;
+    if (pos > len + 1) pos = len + 1;
+    // Insert at position (1-based): before symbol at pos, or at end if pos > len
+    const out = arr.slice(0, pos - 1).concat(insertArr, arr.slice(pos - 1));
+    u32[ptrAddr >>> 2] = allocHandle(out.join(''));
+}
 // Delete symbols from startSymbol (1-based) for count symbols
 // strPtrPtr: address (number) of the variable holding the handle (int32* in WASM memory)
 export function str_delete_symbols(strPtrPtr, startSymbol, count) {

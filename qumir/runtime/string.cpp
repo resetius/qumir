@@ -285,6 +285,40 @@ void str_delete_symbols(char** s, int64_t startSymbol, int64_t count)
     *s = newStr->Data;
 }
 
+void str_insert_symbols(const char* insertStr, char** s, int64_t insertSymbolPos)
+{
+    if (!insertStr) {
+        return;
+    }
+    if (!s) {
+        return;
+    }
+    TString* str = (TString*)(*s - offsetof(TString, Data));
+    if (!str->Utf8Indices) {
+        build_utf8_indices(str);
+    }
+    if (insertSymbolPos < 1) {
+        insertSymbolPos = 1;
+    }
+    if (insertSymbolPos > str->Symbols + 1) {
+        insertSymbolPos = str->Symbols + 1;
+    }
+    int insertBytePos = str->Utf8Indices[insertSymbolPos - 1];
+    int insertLen = strlen(insertStr);
+    int newLength = str->Length + insertLen;
+
+    TString* newStr = (TString*)calloc(1, sizeof(TString) + newLength + 1);
+    newStr->Rc = 1;
+    newStr->Length = newLength;
+    std::memcpy(newStr->Data, str->Data, insertBytePos);
+    std::memcpy(newStr->Data + insertBytePos, insertStr, insertLen);
+    std::memcpy(newStr->Data + insertBytePos + insertLen, str->Data + insertBytePos, str->Length - insertBytePos + 1);
+
+    str_release(*s);
+    *s = newStr->Data;
+}
+
+
 char* str_input() {
     std::string line;
     std::getline(*GetInputStream(), line);

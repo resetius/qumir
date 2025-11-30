@@ -605,6 +605,18 @@ SystemModule::SystemModule() {
             .ArgTypes = { outType<NAst::TStringType>(), integerType, integerType },
             .ReturnType = voidType,
         },
+        { // string module
+            .Name = "вставить",
+            .MangledName = "str_insert_symbols",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(const char*, char**, int64_t)>(NRuntime::str_insert_symbols)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::str_insert_symbols(reinterpret_cast<const char*>(args[0]), reinterpret_cast<char**>(args[1]), std::bit_cast<int64_t>(args[2]));
+                return 0;
+            },
+            .ArgTypes = { stringType, outType<NAst::TStringType>(), integerType },
+            .ReturnType = voidType,
+            .RequireArgsMaterialization = true
+        },
         // arrays
         {
             .Name = "array_create",

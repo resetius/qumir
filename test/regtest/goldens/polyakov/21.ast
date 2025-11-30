@@ -1,0 +1,63 @@
+(Block:<Void>
+  (FunDecl $Замена всех ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $s:<String>)
+      ($s =:<Void>
+        ("12.12.12":<String>))
+      ($s =:<Void>
+        (Call:<String>
+          ($replaceBad:<Fun (String, String, String) -> String>)
+          ($s:<String>)
+          ("12":<String>)
+          ("A12B":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($s:<String>)))))
+  (FunDecl $replaceBad ($s0, $sOld, $sNew):<Fun (String, String, String) -> String>
+    (Block:<Void>
+      (Var $$$return:<String>)
+      (Var $s:<String>)
+      ($s =:<Void>
+        ($s0:<String>))
+      (Var $p:<Int>)
+      (Var $len:<Int>)
+      ($len =:<Void>
+        (Call:<Int>
+          ($длин:<Fun (String) -> Int>)
+          ($sOld:<String>)))
+      ($p =:<Void>
+        (Call:<Int>
+          ($позиция:<Fun (String, String) -> Int>)
+          ($sOld:<String>)
+          ($s:<String>)))
+      (Loop:<Void>
+        (>:<Bool>
+          ($p:<Int>)
+          (0:<Int>))
+        nil
+        nil
+        (Block:<Void>
+          (Call:<Void>
+            ($удалить:<Fun (Ref, Int, Int) -> Void>)
+            ($s:<String>)
+            ($p:<Int>)
+            ($len:<Int>))
+          (Call:<Void>
+            ($вставить:<Fun (String, Ref, Int) -> Void>)
+            ($sNew:<String>)
+            ($s:<String>)
+            ($p:<Int>))
+          ($p =:<Void>
+            (Call:<Int>
+              ($позиция после:<Fun (Int, String, String) -> Int>)
+              (+:<Int>
+                ($p:<Int>)
+                (Call:<Int>
+                  ($длин:<Fun (String) -> Int>)
+                  ($sNew:<String>)))
+              ($sOld:<String>)
+              ($s:<String>))))
+        nil)
+      ($$$return =:<Void>
+        ($s:<String>)))))
