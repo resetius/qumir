@@ -1,0 +1,85 @@
+(Block:<Void>
+  (FunDecl $ЫШЧО ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $word:<String>)
+      ($word =:<Void>
+        ("...":<String>))
+      (Call:<Void>
+        ($TumbaWords:<Fun (String, String, Int) -> Void>)
+        ("ЫШЧО":<String>)
+        ($word:<String>)
+        (0:<Int>))))
+  (FunDecl $TumbaWords ($A, $w0, $N):<Fun (String, String, Int) -> Void>
+    (Block:<Void>
+      (If:<Void>
+        (==:<Bool>
+          ($N:<Int>)
+          (Call:<Int>
+            ($длин:<Fun (String) -> Int>)
+            ($w0:<String>)))
+        (Block:<Void>
+          (Block:<Void>
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ($w0:<String>))
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("\n":<String>)))
+          (Break:<Void>))
+        nil)
+      (Var $i:<Int>)
+      (Var $w:<String>)
+      ($w =:<Void>
+        (Call:<String>
+          ($str_slice:<Fun (String, Int, Int) -> String>)
+          ($w0:<String>)
+          (1:<Int>)
+          (Call:<Int>
+            ($длин:<Fun (String) -> Int>)
+            ($w0:<String>))))
+      (Block:<Void>
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
+        ($i =:<Void>
+          (1:<Int>))
+        ($$$step =:<Void>
+          (1:<Int>))
+        ($$$next =:<Void>
+          ($i:<Int>))
+        ($$$to =:<Void>
+          (+:<Int>
+            (Call:<Int>
+              ($длин:<Fun (String) -> Int>)
+              ($A:<String>))
+            ($$$step:<Int>)))
+        (Loop:<Void>
+          (!=:<Bool>
+            ($$$next:<Int>)
+            ($$$to:<Int>))
+          nil
+          ($i =:<Void>
+            ($$$next:<Int>))
+          (Block:<Void>
+            ($w =:<Void>
+              (Call:<String>
+                ($str_replace_sym:<Fun (String, Char, Int) -> String>)
+                ($w:<String>)
+                (Call:<Char>
+                  ($str_symbol_at:<Fun (String, Int) -> Char>)
+                  ($A:<String>)
+                  ($i:<Int>))
+                (+:<Int>
+                  ($N:<Int>)
+                  (1:<Int>))))
+            (Call:<Void>
+              ($TumbaWords:<Fun (String, String, Int) -> Void>)
+              ($A:<String>)
+              ($w:<String>)
+              (+:<Int>
+                ($N:<Int>)
+                (1:<Int>))))
+          ($$$next =:<Void>
+            (+:<Int>
+              ($$$next:<Int>)
+              ($$$step:<Int>))))))))

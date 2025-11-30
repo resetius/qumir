@@ -1,0 +1,138 @@
+function ЫШЧО () { ; void
+  block {
+    label: label(0)
+    arg imm(1,ptr to i8) 
+    call tmp(0,ptr to i8) = str_from_lit 
+    load tmp(1,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(1,ptr to i8) 
+    call str_release 
+    stre local(0,ptr to i8) tmp(0,ptr to i8) 
+    arg imm(2,ptr to i8) 
+    call tmp(2,ptr to i8) = str_from_lit 
+    load tmp(3,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(2,ptr to i8) 
+    arg tmp(3,ptr to i8) 
+    arg imm(0,i64) 
+    call TumbaWords 
+    arg tmp(2,ptr to i8) 
+    call str_release 
+    load tmp(4,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(4,ptr to i8) 
+    call str_release 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}
+function TumbaWords (local(0), local(1), local(2)) { ; void
+  block {
+    label: label(0)
+    load tmp(0,i64) = local(2,i64) 
+    load tmp(1,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(1,ptr to i8) 
+    call tmp(2,i64) = длин 
+    == tmp(3,i1) = tmp(0,i64) tmp(2,i64) 
+    cmp tmp(3,i1) label(2) label(3) 
+  }
+  block {
+    label: label(2)
+    load tmp(4,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(4,ptr to i8) 
+    call output_string 
+    arg imm(3,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(3)
+    jmp label(4) 
+  }
+  block {
+    label: label(4)
+    load tmp(5,ptr to i8) = local(1,ptr to i8) 
+    load tmp(6,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(6,ptr to i8) 
+    call tmp(7,i64) = длин 
+    arg tmp(5,ptr to i8) 
+    arg imm(1,i64) 
+    arg tmp(7,i64) 
+    call tmp(8,ptr to i8) = str_slice 
+    load tmp(9,ptr to i8) = local(4,ptr to i8) 
+    arg tmp(9,ptr to i8) 
+    call str_release 
+    stre local(4,ptr to i8) tmp(8,ptr to i8) 
+    stre local(3,i64) imm(1,i64) 
+    stre local(6,i64) imm(1,i64) 
+    load tmp(10,i64) = local(3,i64) 
+    stre local(7,i64) tmp(10,i64) 
+    load tmp(11,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(11,ptr to i8) 
+    call tmp(12,i64) = длин 
+    load tmp(13,i64) = local(6,i64) 
+    + tmp(14,i64) = tmp(12,i64) tmp(13,i64) 
+    stre local(5,i64) tmp(14,i64) 
+    jmp label(5) 
+  }
+  block {
+    label: label(5)
+    load tmp(15,i64) = local(7,i64) 
+    load tmp(16,i64) = local(5,i64) 
+    != tmp(17,i1) = tmp(15,i64) tmp(16,i64) 
+    cmp tmp(17,i1) label(6) label(9) 
+  }
+  block {
+    label: label(6)
+    load tmp(18,i64) = local(7,i64) 
+    stre local(3,i64) tmp(18,i64) 
+    jmp label(7) 
+  }
+  block {
+    label: label(7)
+    load tmp(19,ptr to i8) = local(4,ptr to i8) 
+    load tmp(20,ptr to i8) = local(0,ptr to i8) 
+    load tmp(21,i64) = local(3,i64) 
+    arg tmp(20,ptr to i8) 
+    arg tmp(21,i64) 
+    call tmp(22,i32) = str_symbol_at 
+    load tmp(23,i64) = local(2,i64) 
+    + tmp(24,i64) = tmp(23,i64) imm(1,i64) 
+    arg tmp(19,ptr to i8) 
+    arg tmp(22,i32) 
+    arg tmp(24,i64) 
+    call tmp(25,ptr to i8) = str_replace_sym 
+    load tmp(26,ptr to i8) = local(4,ptr to i8) 
+    arg tmp(26,ptr to i8) 
+    call str_release 
+    stre local(4,ptr to i8) tmp(25,ptr to i8) 
+    load tmp(27,ptr to i8) = local(0,ptr to i8) 
+    load tmp(28,ptr to i8) = local(4,ptr to i8) 
+    load tmp(29,i64) = local(2,i64) 
+    + tmp(30,i64) = tmp(29,i64) imm(1,i64) 
+    arg tmp(27,ptr to i8) 
+    arg tmp(28,ptr to i8) 
+    arg tmp(30,i64) 
+    call TumbaWords 
+    jmp label(8) 
+  }
+  block {
+    label: label(8)
+    load tmp(31,i64) = local(7,i64) 
+    load tmp(32,i64) = local(6,i64) 
+    + tmp(33,i64) = tmp(31,i64) tmp(32,i64) 
+    stre local(7,i64) tmp(33,i64) 
+    jmp label(5) 
+  }
+  block {
+    label: label(9)
+    load tmp(34,ptr to i8) = local(4,ptr to i8) 
+    arg tmp(34,ptr to i8) 
+    call str_release 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

@@ -358,7 +358,7 @@ char* str_replace_sym(char* str, int32_t newSym, int64_t symIdx)
 
     auto* symStr = str_from_unicode(newSym);
     int newSymLen = strlen(symStr);
-    if (oldSymLen == newSymLen) {
+    if (oldSymLen == newSymLen && tstr->Rc == 1) {
         // in place
         std::memcpy(str + startByte, symStr, newSymLen);
         str_release(symStr);
