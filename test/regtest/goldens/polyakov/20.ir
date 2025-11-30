@@ -1,0 +1,345 @@
+function Сортировка строк () { ; void
+  block {
+    label: label(0)
+    stre local(2,i64) imm(10,i64) 
+    stre local(14,i64) imm(1,i64) 
+    load tmp(0,i64) = local(2,i64) 
+    - tmp(1,i64) = tmp(0,i64) imm(1,i64) 
+    + tmp(2,i64) = tmp(1,i64) imm(1,i64) 
+    stre local(15,i64) tmp(2,i64) 
+    load tmp(3,i64) = local(15,i64) 
+    * tmp(4,i64) = imm(1,i64) tmp(3,i64) 
+    stre local(16,i64) tmp(4,i64) 
+    load tmp(5,i64) = local(16,i64) 
+    * tmp(6,i64) = tmp(5,i64) imm(8,i64) 
+    arg tmp(6,i64) 
+    call tmp(7,ptr to ptr to i8) = array_create 
+    stre local(3,ptr to ptr to i8) tmp(7,ptr to ptr to i8) 
+    load tmp(8,i64) = local(14,i64) 
+    - tmp(9,i64) = imm(1,i64) tmp(8,i64) 
+    * tmp(10,i64) = tmp(9,i64) imm(8,i64) 
+    load tmp(11,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(12,ptr to ptr to i8) = tmp(11,ptr to ptr to i8) tmp(10,i64) 
+    arg imm(1,ptr to i8) 
+    call tmp(13,ptr to i8) = str_from_lit 
+    lde tmp(14,ptr to i8) = tmp(12,ptr to ptr to i8) 
+    arg tmp(14,ptr to i8) 
+    call str_release 
+    ste tmp(12,ptr to ptr to i8) tmp(13,ptr to i8) 
+    load tmp(15,i64) = local(14,i64) 
+    - tmp(16,i64) = imm(2,i64) tmp(15,i64) 
+    * tmp(17,i64) = tmp(16,i64) imm(8,i64) 
+    load tmp(18,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(19,ptr to ptr to i8) = tmp(18,ptr to ptr to i8) tmp(17,i64) 
+    arg imm(2,ptr to i8) 
+    call tmp(20,ptr to i8) = str_from_lit 
+    lde tmp(21,ptr to i8) = tmp(19,ptr to ptr to i8) 
+    arg tmp(21,ptr to i8) 
+    call str_release 
+    ste tmp(19,ptr to ptr to i8) tmp(20,ptr to i8) 
+    load tmp(22,i64) = local(14,i64) 
+    - tmp(23,i64) = imm(3,i64) tmp(22,i64) 
+    * tmp(24,i64) = tmp(23,i64) imm(8,i64) 
+    load tmp(25,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(26,ptr to ptr to i8) = tmp(25,ptr to ptr to i8) tmp(24,i64) 
+    arg imm(3,ptr to i8) 
+    call tmp(27,ptr to i8) = str_from_lit 
+    lde tmp(28,ptr to i8) = tmp(26,ptr to ptr to i8) 
+    arg tmp(28,ptr to i8) 
+    call str_release 
+    ste tmp(26,ptr to ptr to i8) tmp(27,ptr to i8) 
+    load tmp(29,i64) = local(14,i64) 
+    - tmp(30,i64) = imm(4,i64) tmp(29,i64) 
+    * tmp(31,i64) = tmp(30,i64) imm(8,i64) 
+    load tmp(32,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(33,ptr to ptr to i8) = tmp(32,ptr to ptr to i8) tmp(31,i64) 
+    arg imm(4,ptr to i8) 
+    call tmp(34,ptr to i8) = str_from_lit 
+    lde tmp(35,ptr to i8) = tmp(33,ptr to ptr to i8) 
+    arg tmp(35,ptr to i8) 
+    call str_release 
+    ste tmp(33,ptr to ptr to i8) tmp(34,ptr to i8) 
+    load tmp(36,i64) = local(14,i64) 
+    - tmp(37,i64) = imm(5,i64) tmp(36,i64) 
+    * tmp(38,i64) = tmp(37,i64) imm(8,i64) 
+    load tmp(39,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(40,ptr to ptr to i8) = tmp(39,ptr to ptr to i8) tmp(38,i64) 
+    arg imm(5,ptr to i8) 
+    call tmp(41,ptr to i8) = str_from_lit 
+    lde tmp(42,ptr to i8) = tmp(40,ptr to ptr to i8) 
+    arg tmp(42,ptr to i8) 
+    call str_release 
+    ste tmp(40,ptr to ptr to i8) tmp(41,ptr to i8) 
+    load tmp(43,i64) = local(14,i64) 
+    - tmp(44,i64) = imm(6,i64) tmp(43,i64) 
+    * tmp(45,i64) = tmp(44,i64) imm(8,i64) 
+    load tmp(46,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(47,ptr to ptr to i8) = tmp(46,ptr to ptr to i8) tmp(45,i64) 
+    arg imm(6,ptr to i8) 
+    call tmp(48,ptr to i8) = str_from_lit 
+    lde tmp(49,ptr to i8) = tmp(47,ptr to ptr to i8) 
+    arg tmp(49,ptr to i8) 
+    call str_release 
+    ste tmp(47,ptr to ptr to i8) tmp(48,ptr to i8) 
+    load tmp(50,i64) = local(14,i64) 
+    - tmp(51,i64) = imm(7,i64) tmp(50,i64) 
+    * tmp(52,i64) = tmp(51,i64) imm(8,i64) 
+    load tmp(53,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(54,ptr to ptr to i8) = tmp(53,ptr to ptr to i8) tmp(52,i64) 
+    arg imm(7,ptr to i8) 
+    call tmp(55,ptr to i8) = str_from_lit 
+    lde tmp(56,ptr to i8) = tmp(54,ptr to ptr to i8) 
+    arg tmp(56,ptr to i8) 
+    call str_release 
+    ste tmp(54,ptr to ptr to i8) tmp(55,ptr to i8) 
+    load tmp(57,i64) = local(14,i64) 
+    - tmp(58,i64) = imm(8,i64) tmp(57,i64) 
+    * tmp(59,i64) = tmp(58,i64) imm(8,i64) 
+    load tmp(60,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(61,ptr to ptr to i8) = tmp(60,ptr to ptr to i8) tmp(59,i64) 
+    arg imm(8,ptr to i8) 
+    call tmp(62,ptr to i8) = str_from_lit 
+    lde tmp(63,ptr to i8) = tmp(61,ptr to ptr to i8) 
+    arg tmp(63,ptr to i8) 
+    call str_release 
+    ste tmp(61,ptr to ptr to i8) tmp(62,ptr to i8) 
+    load tmp(64,i64) = local(14,i64) 
+    - tmp(65,i64) = imm(9,i64) tmp(64,i64) 
+    * tmp(66,i64) = tmp(65,i64) imm(8,i64) 
+    load tmp(67,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(68,ptr to ptr to i8) = tmp(67,ptr to ptr to i8) tmp(66,i64) 
+    arg imm(9,ptr to i8) 
+    call tmp(69,ptr to i8) = str_from_lit 
+    lde tmp(70,ptr to i8) = tmp(68,ptr to ptr to i8) 
+    arg tmp(70,ptr to i8) 
+    call str_release 
+    ste tmp(68,ptr to ptr to i8) tmp(69,ptr to i8) 
+    load tmp(71,i64) = local(14,i64) 
+    - tmp(72,i64) = imm(10,i64) tmp(71,i64) 
+    * tmp(73,i64) = tmp(72,i64) imm(8,i64) 
+    load tmp(74,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(75,ptr to ptr to i8) = tmp(74,ptr to ptr to i8) tmp(73,i64) 
+    arg imm(10,ptr to i8) 
+    call tmp(76,ptr to i8) = str_from_lit 
+    lde tmp(77,ptr to i8) = tmp(75,ptr to ptr to i8) 
+    arg tmp(77,ptr to i8) 
+    call str_release 
+    ste tmp(75,ptr to ptr to i8) tmp(76,ptr to i8) 
+    stre local(0,i64) imm(1,i64) 
+    stre local(6,i64) imm(1,i64) 
+    load tmp(78,i64) = local(0,i64) 
+    stre local(7,i64) tmp(78,i64) 
+    load tmp(79,i64) = local(2,i64) 
+    - tmp(80,i64) = tmp(79,i64) imm(1,i64) 
+    load tmp(81,i64) = local(6,i64) 
+    + tmp(82,i64) = tmp(80,i64) tmp(81,i64) 
+    stre local(5,i64) tmp(82,i64) 
+    jmp label(2) 
+  }
+  block {
+    label: label(2)
+    load tmp(83,i64) = local(7,i64) 
+    load tmp(84,i64) = local(5,i64) 
+    != tmp(85,i1) = tmp(83,i64) tmp(84,i64) 
+    cmp tmp(85,i1) label(3) label(6) 
+  }
+  block {
+    label: label(3)
+    load tmp(86,i64) = local(7,i64) 
+    stre local(0,i64) tmp(86,i64) 
+    jmp label(4) 
+  }
+  block {
+    label: label(4)
+    load tmp(87,i64) = local(2,i64) 
+    - tmp(88,i64) = tmp(87,i64) imm(1,i64) 
+    stre local(1,i64) tmp(88,i64) 
+    neg tmp(89,i64) = imm(1,i64) 
+    stre local(9,i64) tmp(89,i64) 
+    load tmp(90,i64) = local(1,i64) 
+    stre local(10,i64) tmp(90,i64) 
+    load tmp(91,i64) = local(0,i64) 
+    load tmp(92,i64) = local(9,i64) 
+    + tmp(93,i64) = tmp(91,i64) tmp(92,i64) 
+    stre local(8,i64) tmp(93,i64) 
+    jmp label(7) 
+  }
+  block {
+    label: label(5)
+    load tmp(150,i64) = local(7,i64) 
+    load tmp(151,i64) = local(6,i64) 
+    + tmp(152,i64) = tmp(150,i64) tmp(151,i64) 
+    stre local(7,i64) tmp(152,i64) 
+    jmp label(2) 
+  }
+  block {
+    label: label(7)
+    load tmp(94,i64) = local(10,i64) 
+    load tmp(95,i64) = local(8,i64) 
+    != tmp(96,i1) = tmp(94,i64) tmp(95,i64) 
+    cmp tmp(96,i1) label(8) label(11) 
+  }
+  block {
+    label: label(8)
+    load tmp(97,i64) = local(10,i64) 
+    stre local(1,i64) tmp(97,i64) 
+    jmp label(9) 
+  }
+  block {
+    label: label(9)
+    load tmp(98,i64) = local(1,i64) 
+    + tmp(99,i64) = tmp(98,i64) imm(1,i64) 
+    load tmp(100,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    load tmp(101,i64) = local(14,i64) 
+    - tmp(102,i64) = tmp(99,i64) tmp(101,i64) 
+    * tmp(103,i64) = tmp(102,i64) imm(8,i64) 
+    + tmp(104,ptr to ptr to i8) = tmp(100,ptr to ptr to i8) tmp(103,i64) 
+    lde tmp(105,ptr to i8) = tmp(104,ptr to ptr to i8) 
+    load tmp(106,i64) = local(1,i64) 
+    load tmp(107,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    load tmp(108,i64) = local(14,i64) 
+    - tmp(109,i64) = tmp(106,i64) tmp(108,i64) 
+    * tmp(110,i64) = tmp(109,i64) imm(8,i64) 
+    + tmp(111,ptr to ptr to i8) = tmp(107,ptr to ptr to i8) tmp(110,i64) 
+    lde tmp(112,ptr to i8) = tmp(111,ptr to ptr to i8) 
+    arg tmp(105,ptr to i8) 
+    arg tmp(112,ptr to i8) 
+    call tmp(113,i64) = str_compare 
+    < tmp(114,i1) = tmp(113,i64) imm(0,i64) 
+    cmp tmp(114,i1) label(12) label(13) 
+  }
+  block {
+    label: label(10)
+    load tmp(147,i64) = local(10,i64) 
+    load tmp(148,i64) = local(9,i64) 
+    + tmp(149,i64) = tmp(147,i64) tmp(148,i64) 
+    stre local(10,i64) tmp(149,i64) 
+    jmp label(7) 
+  }
+  block {
+    label: label(12)
+    load tmp(115,i64) = local(1,i64) 
+    load tmp(116,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    load tmp(117,i64) = local(14,i64) 
+    - tmp(118,i64) = tmp(115,i64) tmp(117,i64) 
+    * tmp(119,i64) = tmp(118,i64) imm(8,i64) 
+    + tmp(120,ptr to ptr to i8) = tmp(116,ptr to ptr to i8) tmp(119,i64) 
+    lde tmp(121,ptr to i8) = tmp(120,ptr to ptr to i8) 
+    arg tmp(121,ptr to i8) 
+    call str_retain 
+    load tmp(122,ptr to i8) = local(4,ptr to i8) 
+    arg tmp(122,ptr to i8) 
+    call str_release 
+    stre local(4,ptr to i8) tmp(121,ptr to i8) 
+    load tmp(123,i64) = local(1,i64) 
+    load tmp(124,i64) = local(14,i64) 
+    - tmp(125,i64) = tmp(123,i64) tmp(124,i64) 
+    * tmp(126,i64) = tmp(125,i64) imm(8,i64) 
+    load tmp(127,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(128,ptr to ptr to i8) = tmp(127,ptr to ptr to i8) tmp(126,i64) 
+    load tmp(129,i64) = local(1,i64) 
+    + tmp(130,i64) = tmp(129,i64) imm(1,i64) 
+    load tmp(131,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    load tmp(132,i64) = local(14,i64) 
+    - tmp(133,i64) = tmp(130,i64) tmp(132,i64) 
+    * tmp(134,i64) = tmp(133,i64) imm(8,i64) 
+    + tmp(135,ptr to ptr to i8) = tmp(131,ptr to ptr to i8) tmp(134,i64) 
+    lde tmp(136,ptr to i8) = tmp(135,ptr to ptr to i8) 
+    arg tmp(136,ptr to i8) 
+    call str_retain 
+    lde tmp(137,ptr to i8) = tmp(128,ptr to ptr to i8) 
+    arg tmp(137,ptr to i8) 
+    call str_release 
+    ste tmp(128,ptr to ptr to i8) tmp(136,ptr to i8) 
+    load tmp(138,i64) = local(1,i64) 
+    + tmp(139,i64) = tmp(138,i64) imm(1,i64) 
+    load tmp(140,i64) = local(14,i64) 
+    - tmp(141,i64) = tmp(139,i64) tmp(140,i64) 
+    * tmp(142,i64) = tmp(141,i64) imm(8,i64) 
+    load tmp(143,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    + tmp(144,ptr to ptr to i8) = tmp(143,ptr to ptr to i8) tmp(142,i64) 
+    load tmp(145,ptr to i8) = local(4,ptr to i8) 
+    arg tmp(145,ptr to i8) 
+    call str_retain 
+    lde tmp(146,ptr to i8) = tmp(144,ptr to ptr to i8) 
+    arg tmp(146,ptr to i8) 
+    call str_release 
+    ste tmp(144,ptr to ptr to i8) tmp(145,ptr to i8) 
+    jmp label(14) 
+  }
+  block {
+    label: label(13)
+    jmp label(14) 
+  }
+  block {
+    label: label(14)
+    jmp label(10) 
+  }
+  block {
+    label: label(11)
+    jmp label(5) 
+  }
+  block {
+    label: label(6)
+    stre local(0,i64) imm(1,i64) 
+    stre local(12,i64) imm(1,i64) 
+    load tmp(153,i64) = local(0,i64) 
+    stre local(13,i64) tmp(153,i64) 
+    load tmp(154,i64) = local(2,i64) 
+    load tmp(155,i64) = local(12,i64) 
+    + tmp(156,i64) = tmp(154,i64) tmp(155,i64) 
+    stre local(11,i64) tmp(156,i64) 
+    jmp label(15) 
+  }
+  block {
+    label: label(15)
+    load tmp(157,i64) = local(13,i64) 
+    load tmp(158,i64) = local(11,i64) 
+    != tmp(159,i1) = tmp(157,i64) tmp(158,i64) 
+    cmp tmp(159,i1) label(16) label(19) 
+  }
+  block {
+    label: label(16)
+    load tmp(160,i64) = local(13,i64) 
+    stre local(0,i64) tmp(160,i64) 
+    jmp label(17) 
+  }
+  block {
+    label: label(17)
+    load tmp(161,i64) = local(0,i64) 
+    load tmp(162,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    load tmp(163,i64) = local(14,i64) 
+    - tmp(164,i64) = tmp(161,i64) tmp(163,i64) 
+    * tmp(165,i64) = tmp(164,i64) imm(8,i64) 
+    + tmp(166,ptr to ptr to i8) = tmp(162,ptr to ptr to i8) tmp(165,i64) 
+    lde tmp(167,ptr to i8) = tmp(166,ptr to ptr to i8) 
+    arg tmp(167,ptr to i8) 
+    call output_string 
+    arg imm(11,ptr to i8) 
+    call output_string 
+    jmp label(18) 
+  }
+  block {
+    label: label(18)
+    load tmp(168,i64) = local(13,i64) 
+    load tmp(169,i64) = local(12,i64) 
+    + tmp(170,i64) = tmp(168,i64) tmp(169,i64) 
+    stre local(13,i64) tmp(170,i64) 
+    jmp label(15) 
+  }
+  block {
+    label: label(19)
+    load tmp(171,ptr to i8) = local(4,ptr to i8) 
+    arg tmp(171,ptr to i8) 
+    call str_release 
+    load tmp(172,ptr to ptr to i8) = local(3,ptr to ptr to i8) 
+    arg tmp(172,ptr to ptr to i8) 
+    arg tmp(6,i64) 
+    call array_str_destroy 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

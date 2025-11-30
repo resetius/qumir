@@ -569,7 +569,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         Builder.SetType(destPtr, arrayType);
         auto loaded = Builder.Emit1("lde"_op, { destPtr });
         Builder.SetType(loaded, FromAstType(expr->Type, Module.Types));
-        co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
+        co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
     } else if (auto maybeMultiIndex = NAst::TMaybeNode<NAst::TMultiIndexExpr>(expr)) {
         auto multiIndex = maybeMultiIndex.Cast();
         auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(multiIndex->Collection);
@@ -595,7 +595,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         Builder.SetType(destPtr, arrayType);
         auto loaded = Builder.Emit1("lde"_op, { destPtr });
         Builder.SetType(loaded, FromAstType(expr->Type, Module.Types));
-        co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
+        co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
     } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(expr)) {
         auto asg = maybeAsg.Cast();
         auto rhs = co_await Lower(asg->Value, scope);

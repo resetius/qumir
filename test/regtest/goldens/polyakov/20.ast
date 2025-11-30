@@ -1,0 +1,179 @@
+(Block:<Void>
+  (FunDecl $Сортировка строк ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $i:<Int>)
+      (Var $j:<Int>)
+      (Var $N:<Int>)
+      ($N =:<Void>
+        (10:<Int>))
+      (Block:<Void>
+        (Var $$$S_lbound0:<Int>)
+        (Var $$$S_dimsize0:<Int>)
+        (Var $$$S_mulacc0:<Int>)
+        ($$$S_lbound0 =:<Void>
+          (1:<Int>))
+        ($$$S_dimsize0 =:<Void>
+          (+:<Int>
+            (-:<Int>
+              ($N:<Int>)
+              (1:<Int>))
+            (1:<Int>)))
+        ($$$S_mulacc0 =:<Void>
+          (*:<Int>
+            (1:<Int>)
+            ($$$S_dimsize0:<Int>)))
+        (Var $S:<Array [String; 1]>))
+      (Var $s1:<String>)
+      ($S[...] =:<Void>
+        (1:<Int>)
+        ("AAAbc":<String>))
+      ($S[...] =:<Void>
+        (2:<Int>)
+        ("123_33123":<String>))
+      ($S[...] =:<Void>
+        (3:<Int>)
+        ("-1233)1":<String>))
+      ($S[...] =:<Void>
+        (4:<Int>)
+        ("Вася":<String>))
+      ($S[...] =:<Void>
+        (5:<Int>)
+        ("петя":<String>))
+      ($S[...] =:<Void>
+        (6:<Int>)
+        ("Иван Иванович":<String>))
+      ($S[...] =:<Void>
+        (7:<Int>)
+        ("Антон":<String>))
+      ($S[...] =:<Void>
+        (8:<Int>)
+        ("John":<String>))
+      ($S[...] =:<Void>
+        (9:<Int>)
+        ("   01":<String>))
+      ($S[...] =:<Void>
+        (10:<Int>)
+        ("Нет":<String>))
+      (Block:<Void>
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
+        ($i =:<Void>
+          (1:<Int>))
+        ($$$step =:<Void>
+          (1:<Int>))
+        ($$$next =:<Void>
+          ($i:<Int>))
+        ($$$to =:<Void>
+          (+:<Int>
+            (-:<Int>
+              ($N:<Int>)
+              (1:<Int>))
+            ($$$step:<Int>)))
+        (Loop:<Void>
+          (!=:<Bool>
+            ($$$next:<Int>)
+            ($$$to:<Int>))
+          nil
+          ($i =:<Void>
+            ($$$next:<Int>))
+          (Block:<Void>
+            (Block:<Void>
+              (Var $$$to:<Int>)
+              (Var $$$step:<Int>)
+              (Var $$$next:<Int>)
+              ($j =:<Void>
+                (-:<Int>
+                  ($N:<Int>)
+                  (1:<Int>)))
+              ($$$step =:<Void>
+                (-:<Int>
+                  (1:<Int>)))
+              ($$$next =:<Void>
+                ($j:<Int>))
+              ($$$to =:<Void>
+                (+:<Int>
+                  ($i:<Int>)
+                  ($$$step:<Int>)))
+              (Loop:<Void>
+                (!=:<Bool>
+                  ($$$next:<Int>)
+                  ($$$to:<Int>))
+                nil
+                ($j =:<Void>
+                  ($$$next:<Int>))
+                (Block:<Void>
+                  (If:<Void>
+                    (<:<Bool>
+                      (Call:<Int>
+                        ($str_compare:<Fun (String, String) -> Int>)
+                        (Index:<String>
+                          ($S:<Array [String; 1]>)
+                          (+:<Int>
+                            ($j:<Int>)
+                            (1:<Int>)))
+                        (Index:<String>
+                          ($S:<Array [String; 1]>)
+                          ($j:<Int>)))
+                      (0:<Int>))
+                    (Block:<Void>
+                      ($s1 =:<Void>
+                        (Index:<String>
+                          ($S:<Array [String; 1]>)
+                          ($j:<Int>)))
+                      ($S[...] =:<Void>
+                        ($j:<Int>)
+                        (Index:<String>
+                          ($S:<Array [String; 1]>)
+                          (+:<Int>
+                            ($j:<Int>)
+                            (1:<Int>))))
+                      ($S[...] =:<Void>
+                        (+:<Int>
+                          ($j:<Int>)
+                          (1:<Int>))
+                        ($s1:<String>)))
+                    nil))
+                ($$$next =:<Void>
+                  (+:<Int>
+                    ($$$next:<Int>)
+                    ($$$step:<Int>))))))
+          ($$$next =:<Void>
+            (+:<Int>
+              ($$$next:<Int>)
+              ($$$step:<Int>)))))
+      (Block:<Void>
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
+        ($i =:<Void>
+          (1:<Int>))
+        ($$$step =:<Void>
+          (1:<Int>))
+        ($$$next =:<Void>
+          ($i:<Int>))
+        ($$$to =:<Void>
+          (+:<Int>
+            ($N:<Int>)
+            ($$$step:<Int>)))
+        (Loop:<Void>
+          (!=:<Bool>
+            ($$$next:<Int>)
+            ($$$to:<Int>))
+          nil
+          ($i =:<Void>
+            ($$$next:<Int>))
+          (Block:<Void>
+            (Block:<Void>
+              (Call:<Void>
+                ($output_string:<Fun (String) -> Void>)
+                (Index:<String>
+                  ($S:<Array [String; 1]>)
+                  ($i:<Int>)))
+              (Call:<Void>
+                ($output_string:<Fun (String) -> Void>)
+                ("\n":<String>))))
+          ($$$next =:<Void>
+            (+:<Int>
+              ($$$next:<Int>)
+              ($$$step:<Int>))))))))
