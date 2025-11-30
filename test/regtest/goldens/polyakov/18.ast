@@ -1,0 +1,99 @@
+(Block:<Void>
+  (FunDecl $Замена всех ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $s:<String>)
+      ($s =:<Void>
+        ("12.12.12":<String>))
+      (Call:<Void>
+        ($replaceAll:<Fun (Ref, String, String) -> Void>)
+        ($s:<String>)
+        ("12":<String>)
+        ("A12B":<String>))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($s:<String>)))))
+  (FunDecl $replaceAll ($s, $wOld, $wNew):<Fun (Ref, String, String) -> Void>
+    (Block:<Void>
+      (Var $res:<String>)
+      (Var $p:<Int>)
+      (Var $len:<Int>)
+      ($len =:<Void>
+        (Call:<Int>
+          ($длин:<Fun (String) -> Int>)
+          ($wOld:<String>)))
+      ($res =:<Void>
+        ("":<String>))
+      (Loop:<Void>
+        (>:<Bool>
+          (Call:<Int>
+            ($длин:<Fun (String) -> Int>)
+            ($s:<Ref &String>))
+          (0:<Int>))
+        nil
+        nil
+        (Block:<Void>
+          ($p =:<Void>
+            (Call:<Int>
+              ($позиция:<Fun (String, String) -> Int>)
+              ($wOld:<String>)
+              ($s:<Ref &String>)))
+          (If:<Void>
+            (<:<Bool>
+              ($p:<Int>)
+              (0:<Int>))
+            (Block:<Void>
+              ($res =:<Void>
+                (Call:<String>
+                  ($str_concat:<Fun (String, String) -> String>)
+                  ($res:<String>)
+                  ($s:<Ref &String>)))
+              (Break:<Void>))
+            nil)
+          (If:<Void>
+            (>:<Bool>
+              ($p:<Int>)
+              (1:<Int>))
+            (Block:<Void>
+              ($res =:<Void>
+                (Call:<String>
+                  ($str_concat:<Fun (String, String) -> String>)
+                  ($res:<String>)
+                  (Call:<String>
+                    ($str_slice:<Fun (String, Int, Int) -> String>)
+                    ($s:<Ref &String>)
+                    (1:<Int>)
+                    (-:<Int>
+                      ($p:<Int>)
+                      (1:<Int>))))))
+            nil)
+          ($res =:<Void>
+            (Call:<String>
+              ($str_concat:<Fun (String, String) -> String>)
+              ($res:<String>)
+              ($wNew:<String>)))
+          (If:<Void>
+            (>:<Bool>
+              (+:<Int>
+                ($p:<Int>)
+                ($len:<Int>))
+              (Call:<Int>
+                ($длин:<Fun (String) -> Int>)
+                ($s:<Ref &String>)))
+            (Block:<Void>
+              ($s =:<Void>
+                ("":<String>)))
+            (Block:<Void>
+              ($s =:<Void>
+                (Call:<String>
+                  ($str_slice:<Fun (String, Int, Int) -> String>)
+                  ($s:<Ref &String>)
+                  (+:<Int>
+                    ($p:<Int>)
+                    ($len:<Int>))
+                  (Call:<Int>
+                    ($длин:<Fun (String) -> Int>)
+                    ($s:<Ref &String>)))))))
+        nil)
+      ($s =:<Void>
+        ($res:<String>)))))
