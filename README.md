@@ -324,10 +324,10 @@ Legend: ✔ = supported, ✖ = not supported / not yet implemented. Notes highli
 | `юнисимвол(цел n)` Unicode to char | ✔ | ✔ | Creates single‑char string from code point |
 | `верхний регистр(лит s)` to upper | ✔ | ✖ | Not implemented (future: Unicode upper) |
 | `нижний регистр(лит s)` to lower | ✔ | ✖ | Not implemented (future: Unicode lower) |
-| `позиция(лит s, лит frag)` find | ✔ | ✔ | 1‑based index or 0 if not found |
+| `позиция(лит frag, лит s)` find | ✔ | ✔ | 1‑based index or 0 if not found |
 | `поз(лит s, лит frag)` alias | ✔ | ✔ | Alias of `позиция` |
-| `позиция после(цел start, лит s, лит frag)` find from | ✔ | ✔ | Search starting at position `start` |
-| `поз после(цел start, лит s, лит frag)` alias | ✔ | ✔ | Alias of `позиция после` |
+| `позиция после(цел start, лит frag, лит s)` find from | ✔ | ✔ | Search starting at position `start` |
+| `поз после(цел start, лит frag, лит s)` alias | ✔ | ✔ | Alias of `позиция после` |
 | `вставить(лит frag, аргрез лит s, арг цел pos)` insert | ✔ | ✖ | Not implemented |
 | `заменить(аргрез лит s, арг лит old, арг лит neu, арг лог каждый)` replace | ✔ | ✖ | Not implemented |
 | `удалить(аргрез лит s, арг цел pos, арг цел count)` delete | ✔ | ✖ | Not implemented |

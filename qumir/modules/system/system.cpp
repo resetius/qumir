@@ -550,7 +550,7 @@ SystemModule::SystemModule() {
             .ArgTypes = { symbolType },
             .ReturnType = stringType,
         },
-        {
+        { // string module
             .Name = "позиция",
             .MangledName = "str_str",
             .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(const char*, const char*)>(NRuntime::str_str)),
@@ -561,7 +561,7 @@ SystemModule::SystemModule() {
             .ArgTypes = { stringType, stringType },
             .ReturnType = integerType,
         },
-        {
+        { // string module
             .Name = "поз", // alias for позиция
             .MangledName = "str_str",
             .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(const char*, const char*)>(NRuntime::str_str)),
@@ -572,7 +572,7 @@ SystemModule::SystemModule() {
             .ArgTypes = { stringType, stringType },
             .ReturnType = integerType,
         },
-        {
+        { // string module
             .Name = "позиция после",
             .MangledName = "str_str_from",
             .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, const char*, const char*)>(NRuntime::str_str_from)),
@@ -583,7 +583,7 @@ SystemModule::SystemModule() {
             .ArgTypes = { integerType, stringType, stringType },
             .ReturnType = integerType,
         },
-        {
+        { // string module
             .Name = "поз после", // alias for позиция после
             .MangledName = "str_str_from",
             .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, const char*, const char*)>(NRuntime::str_str_from)),
@@ -593,6 +593,17 @@ SystemModule::SystemModule() {
             },
             .ArgTypes = { integerType, stringType, stringType },
             .ReturnType = integerType,
+        },
+        { // string module
+            .Name = "удалить",
+            .MangledName = "str_delete_symbols",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(char**, int64_t, int64_t)>(NRuntime::str_delete_symbols)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::str_delete_symbols(reinterpret_cast<char**>(args[0]), std::bit_cast<int64_t>(args[1]), std::bit_cast<int64_t>(args[2]));
+                return 0;
+            },
+            .ArgTypes = { outType<NAst::TStringType>(), integerType, integerType },
+            .ReturnType = voidType,
         },
         // arrays
         {

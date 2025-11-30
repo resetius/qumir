@@ -5,5 +5,5 @@
       ($$$return =:<Void>
         (Call:<Int>
           ($позиция:<Fun (String, String) -> Int>)
-          ("длинная строка":<String>)
-          ("строка":<String>))))))
+          ("строка":<String>)
+          ("длинная строка":<String>))))))

@@ -202,7 +202,7 @@ char* str_from_unicode(int64_t codepoint) {
     return str_from_lit_(buffer, std::strlen(buffer));
 }
 
-int64_t str_str(const char* haystack, const char* needle) {
+int64_t str_str(const char* needle, const char* haystack) {
     if (!haystack || !needle) return 0; // strings are 1-indexed
     auto* pos = std::strstr(haystack, needle);
     if (!pos) return 0;
@@ -219,7 +219,7 @@ int64_t str_str(const char* haystack, const char* needle) {
     return haystackIndex + 1; // strings are 1-indexed
 }
 
-int64_t str_str_from(int64_t symbolStartPos, const char* haystack, const char* needle) {
+int64_t str_str_from(int64_t symbolStartPos, const char* needle, const char* haystack) {
     if (!haystack || !needle) return 0; // strings are 1-indexed
     // shift haystack to symbolStartPos
     auto* p = haystack;
@@ -243,6 +243,46 @@ int64_t str_str_from(int64_t symbolStartPos, const char* haystack, const char* n
         ++p;
     }
     return haystackIndex + needleIndex + 1; // strings are 1-indexed
+}
+
+void str_delete_symbols(char** s, int64_t startSymbol, int64_t count)
+{
+    if (!s || !(*s)) {
+        return;
+    }
+    TString* str = (TString*)(*s - offsetof(TString, Data));
+    if (!str->Utf8Indices) {
+        build_utf8_indices(str);
+    }
+    if (startSymbol < 1) {
+        startSymbol = 1;
+    }
+    if (count < 1) {
+        return;
+    }
+    int64_t endSymbol = startSymbol + count - 1;
+    if (endSymbol > str->Symbols) {
+        endSymbol = str->Symbols;
+    }
+    if (startSymbol > endSymbol) {
+        return;
+    }
+    int startByte = str->Utf8Indices[startSymbol - 1];
+    int endByte = str->Utf8Indices[endSymbol];
+    int bytesToDelete = endByte - startByte;
+    int newLength = str->Length - bytesToDelete;
+
+    TString* newStr = (TString*)calloc(1, sizeof(TString) + newLength + 1);
+    newStr->Rc = 1;
+    newStr->Length = newLength;
+    // copy data before deleted segment
+    std::memcpy(newStr->Data, str->Data, startByte);
+    // copy data after deleted segment
+    std::memcpy(newStr->Data + startByte, str->Data + endByte, str->Length - endByte + 1);
+
+    // release old string
+    str_release(*s);
+    *s = newStr->Data;
 }
 
 char* str_input() {

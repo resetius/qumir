@@ -1,3 +1,39 @@
+// Delete symbols from startSymbol (1-based) for count symbols
+// strPtrPtr: address (number) of the variable holding the handle (int32* in WASM memory)
+export function str_delete_symbols(strPtrPtr, startSymbol, count) {
+    if (!MEMORY) return;
+    const u32 = new Uint32Array(MEMORY.buffer);
+    const ptrAddr = Number(strPtrPtr) >>> 0;
+    // Read the handle (signed int32) from memory
+    let handle = u32[ptrAddr >>> 2] | 0;
+    const s = loadString(handle);
+    if (!s) {
+        u32[ptrAddr >>> 2] = allocHandle('');
+        return;
+    }
+    const arr = Array.from(s);
+    const len = arr.length;
+    let start = Number(startSymbol);
+    let cnt = Number(count);
+    if (!Number.isFinite(start) || !Number.isFinite(cnt)) {
+        u32[ptrAddr >>> 2] = allocHandle(s);
+        return;
+    }
+    if (start < 1) start = 1;
+    if (cnt < 1) {
+        u32[ptrAddr >>> 2] = allocHandle(s);
+        return;
+    }
+    let end = start + cnt - 1;
+    if (end > len) end = len;
+    if (start > end) {
+        u32[ptrAddr >>> 2] = allocHandle(s);
+        return;
+    }
+    // Remove symbols in [start-1, end-1] (0-based)
+    const out = arr.slice(0, start - 1).concat(arr.slice(end));
+    u32[ptrAddr >>> 2] = allocHandle(out.join(''));
+}
 // Replace symbol at 1-based index symIdx with newSym (codepoint)
 export function str_replace_sym(strPtr, newSym, symIdx) {
     const s = loadString(strPtr);
@@ -261,9 +297,9 @@ export function str_from_unicode(codepoint) {
     if (!Number.isFinite(cp) || cp < 0 || cp > 0x10FFFF) return allocHandle('');
     return allocHandle(String.fromCodePoint(cp));
 }
-export function str_str(haystackPtr, needlePtr) {
-    const haystack = loadString(haystackPtr);
+export function str_str(needlePtr, haystackPtr) {
     const needle = loadString(needlePtr);
+    const haystack = loadString(haystackPtr);
     const index = haystack.indexOf(needle);
     // need 1-indexed symbol position, 0 if not found
     if (index === -1) return BigInt(0);
@@ -276,11 +312,11 @@ export function str_str(haystackPtr, needlePtr) {
     symbolIndex++; // convert to 1-based
     return BigInt(symbolIndex);
 }
-export function str_str_from(startSymbolPos, haystackPtr, needlePtr) {
+export function str_str_from(startSymbolPos, needlePtr, haystackPtr) {
     const startPos = Number(startSymbolPos);
     if (!Number.isFinite(startPos) || startPos < 1) return BigInt(0);
-    const haystack = loadString(haystackPtr);
     const needle = loadString(needlePtr);
+    const haystack = loadString(haystackPtr);
     // Convert symbol position to string index
     let symbolIndex = 1;
     let strIndex = 0;

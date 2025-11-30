@@ -1,0 +1,88 @@
+(Block:<Void>
+  (FunDecl $ФИО ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $s:<String>)
+      (Var $name:<String>)
+      (Var $name2:<String>)
+      (Var $n:<Int>)
+      ($s =:<Void>
+        ("Иван Иванович Иванов":<String>))
+      ($n =:<Void>
+        (Call:<Int>
+          ($позиция:<Fun (String, String) -> Int>)
+          (Call:<String>
+            ($str_from_unicode:<Fun (Char) -> String>)
+            (Cast<Char>:<Char>
+              (32:<Int>)))
+          ($s:<String>)))
+      ($name =:<Void>
+        (Call:<String>
+          ($str_slice:<Fun (String, Int, Int) -> String>)
+          ($s:<String>)
+          (1:<Int>)
+          (-:<Int>
+            ($n:<Int>)
+            (1:<Int>))))
+      (Call:<Void>
+        ($удалить:<Fun (Ref, Int, Int) -> Void>)
+        ($s:<String>)
+        (1:<Int>)
+        ($n:<Int>))
+      ($n =:<Void>
+        (Call:<Int>
+          ($позиция:<Fun (String, String) -> Int>)
+          (Call:<String>
+            ($str_from_unicode:<Fun (Char) -> String>)
+            (Cast<Char>:<Char>
+              (32:<Int>)))
+          ($s:<String>)))
+      ($name2 =:<Void>
+        (Call:<String>
+          ($str_slice:<Fun (String, Int, Int) -> String>)
+          ($s:<String>)
+          (1:<Int>)
+          (-:<Int>
+            ($n:<Int>)
+            (1:<Int>))))
+      (Call:<Void>
+        ($удалить:<Fun (Ref, Int, Int) -> Void>)
+        ($s:<String>)
+        (1:<Int>)
+        ($n:<Int>))
+      ($s =:<Void>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
+          (Call:<String>
+            ($str_concat:<Fun (String, String) -> String>)
+            (Call:<String>
+              ($str_concat:<Fun (String, String) -> String>)
+              (Call:<String>
+                ($str_concat:<Fun (String, String) -> String>)
+                (Call:<String>
+                  ($str_concat:<Fun (String, String) -> String>)
+                  ($s:<String>)
+                  (Call:<String>
+                    ($str_from_unicode:<Fun (Char) -> String>)
+                    (Cast<Char>:<Char>
+                      (32:<Int>))))
+                (Call:<String>
+                  ($str_from_unicode:<Fun (Char) -> String>)
+                  (Call:<Char>
+                    ($str_symbol_at:<Fun (String, Int) -> Char>)
+                    ($name:<String>)
+                    (1:<Int>))))
+              (". ":<String>))
+            (Call:<String>
+              ($str_from_unicode:<Fun (Char) -> String>)
+              (Call:<Char>
+                ($str_symbol_at:<Fun (String, Int) -> Char>)
+                ($name2:<String>)
+                (1:<Int>))))
+          (Call:<String>
+            ($str_from_unicode:<Fun (Char) -> String>)
+            (Cast<Char>:<Char>
+              (46:<Int>)))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($s:<String>))))))
