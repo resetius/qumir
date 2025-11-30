@@ -296,8 +296,8 @@ Legend: ✔ = supported, ✖ = not supported / not yet implemented. Notes highli
 |-----------|:-----:|:-----:|-------|
 | `нц для ... от .. до .. шаг ..` | ✔ | ✔ | Negative step allowed |
 | `нц пока` (while) | ✔ | ✔ | |
-| `нц` ... `кц при` (repeat‑until) | ✔ | ✔ | Post‑condition loop |
-| `нц N раз` (repeat N times) | ✔ | ✖ | Emulate with `нц для` |
+| `нц` ... `кц при` (repeat‑until) | ✔ | ✔ | |
+| `нц N раз` (repeat N times) | ✔ | ✔ | |
 | Infinite `нц .. кц` | ✔ | ✔ |  |
 | `выбор / при / иначе` (switch) | ✔ | ✔ | Multi‑branch selection |
 | `если/то/иначе/все` (if/else) | ✔ | ✔ | |
@@ -330,7 +330,7 @@ Legend: ✔ = supported, ✖ = not supported / not yet implemented. Notes highli
 | `поз после(цел start, лит frag, лит s)` alias | ✔ | ✔ | Alias of `позиция после` |
 | `вставить(лит frag, аргрез лит s, арг цел pos)` insert | ✔ | ✖ | Not implemented |
 | `заменить(аргрез лит s, арг лит old, арг лит neu, арг лог каждый)` replace | ✔ | ✖ | Not implemented |
-| `удалить(аргрез лит s, арг цел pos, арг цел count)` delete | ✔ | ✖ | Not implemented |
+| `удалить(аргрез лит s, арг цел pos, арг цел count)` delete | ✔ | ✔  |  |
 
 > Qumir focuses on core search/length/code‑point operations first; mutation helpers (`вставить/заменить/удалить`) and case conversion may be added later with full Unicode support.
 
