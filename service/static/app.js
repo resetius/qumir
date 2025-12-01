@@ -525,7 +525,7 @@ function createTextTokenStream(text) {
   };
 }
 
-function createBrowserFileManager(filesAccessor) {
+function createBrowserFileManager(filesAccessor, { addFile, updateFile } = {}) {
   const handles = new Map();
   const freeHandles = [];
   let nextHandle = 1;
@@ -542,9 +542,45 @@ function createBrowserFileManager(filesAccessor) {
       const handle = freeHandles.length ? freeHandles.pop() : nextHandle++;
       handles.set(handle, {
         name: targetName,
-        stream: createTextTokenStream(file.content || '')
+        stream: createTextTokenStream(file.content || ''),
+        mode: 'read',
+        fileId: file.id
       });
       return handle;
+    },
+    openForWrite(name) {
+      const targetName = canonicalIoFileName(name);
+      if (!targetName) return -1;
+      const files = getFiles();
+      let file = files.find(f => canonicalIoFileName(f.name) === targetName);
+      if (file) {
+        // Clear existing file
+        file.content = '';
+        if (typeof updateFile === 'function') updateFile(file.id, '');
+      } else {
+        // Create new file
+        const newId = generateIoFileId();
+        file = { id: newId, name: targetName, content: '' };
+        if (typeof addFile === 'function') addFile(file);
+      }
+      const handle = freeHandles.length ? freeHandles.pop() : nextHandle++;
+      handles.set(handle, {
+        name: targetName,
+        mode: 'write',
+        fileId: file.id
+      });
+      return handle;
+    },
+    write(handle, text) {
+      const h = Number(handle) | 0;
+      const slot = handles.get(h);
+      if (!slot || slot.mode !== 'write') return;
+      const files = getFiles();
+      const file = files.find(f => f.id === slot.fileId);
+      if (file) {
+        file.content = (file.content || '') + String(text);
+        if (typeof updateFile === 'function') updateFile(file.id, file.content);
+      }
     },
     close(handle) {
       const h = Number(handle) | 0;
@@ -574,7 +610,26 @@ function ensureRuntimeFileManager(ioRuntime) {
     return;
   }
   if (!__browserFileManager) {
-    __browserFileManager = createBrowserFileManager(() => __ioFiles);
+    __browserFileManager = createBrowserFileManager(() => __ioFiles, {
+      addFile(file) {
+        __ioFiles.push(file);
+        // Create DOM pane for new file
+        renderIoFilePane(file);
+        refreshIoSelectOptions();
+        // Show the new file pane
+        setActiveIoPane(file.id);
+      },
+      updateFile(fileId, content) {
+        const file = __ioFiles.find(f => f.id === fileId);
+        if (file) {
+          file.content = content;
+          // Update the textarea if pane exists
+          if (file.elements && file.elements.editor) {
+            file.elements.editor.value = content;
+          }
+        }
+      }
+    });
   }
   ioRuntime.setFileManager(__browserFileManager);
 }

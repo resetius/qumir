@@ -26,6 +26,8 @@ const NullOutputStream = {
 };
 const NullFileManager = {
   open() { return -1; },
+  openForWrite() { return -1; },
+  write() {},
   close() {},
   hasMore() { return false; },
   getStream() { return null; },
@@ -100,11 +102,13 @@ function normalizeFileManager(manager) {
     return NullFileManager;
   }
   const open = typeof manager.open === 'function' ? manager.open.bind(manager) : NullFileManager.open;
+  const openForWrite = typeof manager.openForWrite === 'function' ? manager.openForWrite.bind(manager) : NullFileManager.openForWrite;
+  const write = typeof manager.write === 'function' ? manager.write.bind(manager) : NullFileManager.write;
   const close = typeof manager.close === 'function' ? manager.close.bind(manager) : NullFileManager.close;
   const hasMore = typeof manager.hasMore === 'function' ? manager.hasMore.bind(manager) : NullFileManager.hasMore;
   const getStream = typeof manager.getStream === 'function' ? manager.getStream.bind(manager) : NullFileManager.getStream;
   const reset = typeof manager.reset === 'function' ? manager.reset.bind(manager) : NullFileManager.reset;
-  return { open, close, hasMore, getStream, reset };
+  return { open, openForWrite, write, close, hasMore, getStream, reset };
 }
 
 // Read a string argument according to string.js rules:
@@ -176,7 +180,19 @@ function nextToken() {
   }
 }
 
+// Current output file handle for redirection (managed by output_set_file/output_reset_file)
+let __outputFileHandle = null;
+
 function appendStdout(text) {
+  // If output redirected to file, write via FILE_MANAGER
+  if (__outputFileHandle !== null) {
+    try {
+      if (FILE_MANAGER && typeof FILE_MANAGER.write === 'function') {
+        FILE_MANAGER.write(asHandle(__outputFileHandle), String(text));
+        return;
+      }
+    } catch {}
+  }
   try {
     if (OUTPUT_STREAM && typeof OUTPUT_STREAM.write === 'function') {
       OUTPUT_STREAM.write(String(text));
@@ -308,6 +324,28 @@ export function input_set_file(handle) {
 
 export function input_reset_file() {
   INPUT_STREAM = DEFAULT_INPUT_STREAM || NullInputStream;
+}
+
+export function file_open_for_write(ptr) {
+  try {
+    const name = readString(ptr);
+    if (!name) return -1;
+    if (FILE_MANAGER && typeof FILE_MANAGER.openForWrite === 'function') {
+      const handle = FILE_MANAGER.openForWrite(name);
+      return Number.isInteger(handle) ? (handle | 0) : -1;
+    }
+    return -1;
+  } catch {
+    return -1;
+  }
+}
+
+export function output_set_file(handle) {
+  __outputFileHandle = asHandle(handle);
+}
+
+export function output_reset_file() {
+  __outputFileHandle = null;
 }
 
 // Dummy implementation for C++-style destructor registration used by some runtimes.
