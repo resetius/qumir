@@ -142,7 +142,26 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                 auto output = maybeOutput.Cast();
                 // transform output(a, b, c) into a series of calls to output_xxx functions
                 std::vector<NAst::TExprPtr> stmts;
-                for (const auto& arg : output->Args) {
+                if (output->Args.size() == 0) {
+                    errors.push_back(TError(output->Location, "output requires at least one argument"));
+                    return node;
+                }
+                int i = 0;
+                const auto& arg0 = output->Args[0];
+                bool hasFileArg = false;
+                if (NAst::TMaybeType<NAst::TFileType>(arg0.Expr->Type)) {
+                    // first argument is a file, set output file
+                    auto call = std::make_shared<NAst::TCallExpr>(
+                        output->Location,
+                        std::make_shared<NAst::TIdentExpr>(output->Location, "output_set_file"),
+                        std::vector<NAst::TExprPtr>{ arg0.Expr });
+                    stmts.push_back(call);
+                    hasFileArg = true;
+                    i = 1;
+                }
+
+                for (; i < (int)output->Args.size(); ++i) {
+                    const auto& arg = output->Args[i];
                     NAst::TExprPtr call;
                     auto type = arg.Expr->Type;
                     if (auto refType = NAst::TMaybeType<NAst::TReferenceType>(type)) {
@@ -234,6 +253,16 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                     }
                     stmts.push_back(call);
                 }
+
+                if (hasFileArg) {
+                    // reset file after output
+                    auto resetFileCall = std::make_shared<NAst::TCallExpr>(
+                        output->Location,
+                        std::make_shared<NAst::TIdentExpr>(output->Location, "output_reset_file"),
+                        std::vector<NAst::TExprPtr>{});
+                    stmts.push_back(resetFileCall);
+                }
+
                 return std::make_shared<NAst::TBlockExpr>(output->Location, stmts);
             } else if (auto maybeInput = NAst::TMaybeNode<NAst::TInputExpr>(node)) {
                 auto input = maybeInput.Cast();

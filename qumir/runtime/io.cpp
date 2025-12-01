@@ -101,7 +101,8 @@ void output_symbol(int32_t s) {
 }
 
 namespace {
-    std::unordered_map<int32_t, std::ifstream> OpenFiles;
+    std::unordered_map<int32_t, std::ifstream> ReadFiles;
+    std::unordered_map<int32_t, std::ofstream> WriteFiles;
     std::forward_list<int32_t> FreeFileHandles;
     int32_t NextFileHandle = 1;
 };
@@ -121,36 +122,72 @@ int32_t file_open_for_read(const char* filename) {
     } else {
         handle = NextFileHandle++;
     }
-    OpenFiles.emplace(handle, std::move(fileStream));
+    ReadFiles.emplace(handle, std::move(fileStream));
+    return handle;
+}
+
+int32_t file_open_for_write(const char* filename) {
+    if (!filename) {
+        return -1;
+    }
+    std::ofstream fileStream(filename, std::ios::binary);
+    if (!fileStream.is_open()) {
+        return -1;
+    }
+    int32_t handle;
+    if (!FreeFileHandles.empty()) {
+        handle = FreeFileHandles.front();
+        FreeFileHandles.pop_front();
+    } else {
+        handle = NextFileHandle++;
+    }
+    WriteFiles.emplace(handle, std::move(fileStream));
     return handle;
 }
 
 void file_close(int32_t fileHandle) {
-    auto it = OpenFiles.find(fileHandle);
-    if (it != OpenFiles.end()) {
-        it->second.close();
-        OpenFiles.erase(it);
+    auto itr = ReadFiles.find(fileHandle);
+    if (itr != ReadFiles.end()) {
+        itr->second.close();
+        ReadFiles.erase(itr);
+        FreeFileHandles.push_front(fileHandle);
+    }
+    auto itw = WriteFiles.find(fileHandle);
+    if (itw != WriteFiles.end()) {
+        itw->second.close();
+        WriteFiles.erase(itw);
         FreeFileHandles.push_front(fileHandle);
     }
 }
 
 bool file_has_more_data(int32_t fileHandle) {
-    auto it = OpenFiles.find(fileHandle);
-    if (it == OpenFiles.end()) {
+    auto it = ReadFiles.find(fileHandle);
+    if (it == ReadFiles.end()) {
         return false;
     }
     return !it->second.eof();
 }
 
 void input_set_file(int32_t fileHandle) {
-    auto it = OpenFiles.find(fileHandle);
-    if (it != OpenFiles.end()) {
+    auto it = ReadFiles.find(fileHandle);
+    if (it != ReadFiles.end()) {
         SetInputStream(&it->second);
+    }
+}
+
+void output_set_file(int32_t fileHandle) {
+    auto it = WriteFiles.find(fileHandle);
+    if (it != WriteFiles.end()) {
+        SetOutputStream(&it->second);
     }
 }
 
 void input_reset_file() {
     SetInputStream(&std::cin);
+}
+
+void output_reset_file() {
+    SetOutputStream(&std::cout);
 }
 
 } // extern "C"

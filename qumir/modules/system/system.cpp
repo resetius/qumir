@@ -664,6 +664,16 @@ SystemModule::SystemModule() {
             .ReturnType = fileType,
         },
         {
+            .Name = "открыть на запись",
+            .MangledName = "file_open_for_write",
+            .Ptr = reinterpret_cast<void*>(static_cast<int32_t(*)(const char*)>(NRuntime::file_open_for_write)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return static_cast<uint64_t>(NRuntime::file_open_for_write(reinterpret_cast<const char*>(args[0])));
+            },
+            .ArgTypes = { stringType },
+            .ReturnType = fileType,
+        },
+        {
             .Name = "закрыть",
             .MangledName = "file_close",
             .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int32_t)>(NRuntime::file_close)),
@@ -708,6 +718,17 @@ SystemModule::SystemModule() {
             .ReturnType = voidType,
         },
         {
+            .Name = "output_set_file",
+            .MangledName = "output_set_file",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int32_t)>(NRuntime::output_set_file)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::output_set_file(static_cast<int32_t>(args[0]));
+                return 0;
+            },
+            .ArgTypes = { fileType },
+            .ReturnType = voidType,
+        },
+        {
             .Name = "input_reset_file",
             .MangledName = "input_reset_file",
             .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(NRuntime::input_reset_file)),
@@ -718,6 +739,17 @@ SystemModule::SystemModule() {
             .ArgTypes = {  },
             .ReturnType = voidType,
         },
+        {
+            .Name = "output_reset_file",
+            .MangledName = "output_reset_file",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(NRuntime::output_reset_file)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                NRuntime::output_reset_file();
+                return 0;
+            },
+            .ArgTypes = {  },
+            .ReturnType = voidType,
+        }
     };
 
     ExternalFunctions_.swap(functions);
