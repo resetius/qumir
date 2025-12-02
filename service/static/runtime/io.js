@@ -315,6 +315,14 @@ export function file_has_more_data(handle) {
   }
 }
 
+export function file_eof(handle) {
+  try {
+    return FILE_MANAGER.hasMore(asHandle(handle)) ? 0 : 1;
+  } catch {
+    return 1;
+  }
+}
+
 export function input_set_file(handle) {
   try {
     const stream = FILE_MANAGER.getStream(asHandle(handle));

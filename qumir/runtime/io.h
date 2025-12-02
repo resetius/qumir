@@ -25,6 +25,7 @@ int32_t file_open_for_write(const char* filename);
 int32_t file_open_for_append(const char* filename);
 void file_close(int32_t fileHandle);
 bool file_has_more_data(int32_t fileHandle);
+bool file_eof(int32_t fileHandle);
 
 void input_set_file(int32_t fileHandle);
 void input_reset_file();

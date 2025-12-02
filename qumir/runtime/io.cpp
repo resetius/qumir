@@ -187,6 +187,10 @@ bool file_has_more_data(int32_t fileHandle) {
     return !it->second.eof();
 }
 
+bool file_eof(int32_t fileHandle) {
+    return !file_has_more_data(fileHandle);
+}
+
 void input_set_file(int32_t fileHandle) {
     auto it = ReadFiles.find(fileHandle);
     if (it != ReadFiles.end()) {

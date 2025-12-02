@@ -706,6 +706,15 @@ SystemModule::SystemModule() {
             .ReturnType = boolType,
         },
         {
+            .Name = "конец файла",
+            .MangledName = "file_eof",
+            .Ptr = reinterpret_cast<void*>(static_cast<bool(*)(int32_t)>(NRuntime::file_eof)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                auto ret = NRuntime::file_eof(static_cast<int32_t>(args[0]));
+                return static_cast<uint64_t>(ret);
+            },
+        },
+        {
             .Name = "__ensure",
             .MangledName = "__ensure",
             .Ptr = reinterpret_cast<void*>(static_cast<void(*)(bool, const char*)>(__ensure)),
