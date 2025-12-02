@@ -571,6 +571,26 @@ function createBrowserFileManager(filesAccessor, { addFile, updateFile } = {}) {
       });
       return handle;
     },
+    openForAppend(name) {
+      const targetName = canonicalIoFileName(name);
+      if (!targetName) return -1;
+      const files = getFiles();
+      let file = files.find(f => canonicalIoFileName(f.name) === targetName);
+      if (!file) {
+        // Create new file if doesn't exist
+        const newId = generateIoFileId();
+        file = { id: newId, name: targetName, content: '' };
+        if (typeof addFile === 'function') addFile(file);
+      }
+      // Do NOT clear existing content
+      const handle = freeHandles.length ? freeHandles.pop() : nextHandle++;
+      handles.set(handle, {
+        name: targetName,
+        mode: 'write',  // same mode as write, just don't clear
+        fileId: file.id
+      });
+      return handle;
+    },
     write(handle, text) {
       const h = Number(handle) | 0;
       const slot = handles.get(h);

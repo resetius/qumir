@@ -674,6 +674,16 @@ SystemModule::SystemModule() {
             .ReturnType = fileType,
         },
         {
+            .Name = "открыть на добавление",
+            .MangledName = "file_open_for_append",
+            .Ptr = reinterpret_cast<void*>(static_cast<int32_t(*)(const char*)>(NRuntime::file_open_for_append)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return static_cast<uint64_t>(NRuntime::file_open_for_append(reinterpret_cast<const char*>(args[0])));
+            },
+            .ArgTypes = { stringType },
+            .ReturnType = fileType,
+        },
+        {
             .Name = "закрыть",
             .MangledName = "file_close",
             .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int32_t)>(NRuntime::file_close)),

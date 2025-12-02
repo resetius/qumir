@@ -22,6 +22,7 @@ void output_symbol(int32_t s);
 
 int32_t file_open_for_read(const char* filename);
 int32_t file_open_for_write(const char* filename);
+int32_t file_open_for_append(const char* filename);
 void file_close(int32_t fileHandle);
 bool file_has_more_data(int32_t fileHandle);
 

@@ -145,6 +145,25 @@ int32_t file_open_for_write(const char* filename) {
     return handle;
 }
 
+int32_t file_open_for_append(const char* filename) {
+    if (!filename) {
+        return -1;
+    }
+    std::ofstream fileStream(filename, std::ios::binary | std::ios::app);
+    if (!fileStream.is_open()) {
+        return -1;
+    }
+    int32_t handle;
+    if (!FreeFileHandles.empty()) {
+        handle = FreeFileHandles.front();
+        FreeFileHandles.pop_front();
+    } else {
+        handle = NextFileHandle++;
+    }
+    WriteFiles.emplace(handle, std::move(fileStream));
+    return handle;
+}
+
 void file_close(int32_t fileHandle) {
     auto itr = ReadFiles.find(fileHandle);
     if (itr != ReadFiles.end()) {
