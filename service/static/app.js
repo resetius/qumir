@@ -1484,7 +1484,6 @@ initIoWorkspace();
     const sel = $('#examples');
     if (sel && data && Array.isArray(data.examples)) {
       // Fill options grouped by folder prefix
-      // Build a simple flat list: "folder/file1"
       data.examples.forEach(it => {
         const opt = document.createElement('option');
         opt.value = it.path;
@@ -1657,10 +1656,27 @@ if (examplesSel) examplesSel.addEventListener('change', async () => {
   const path = examplesSel.value || '';
   if (!path) return;
   try {
-    const txt = await apiGet('/api/example?path=' + encodeURIComponent(path));
+    // Load example (code + optional metadata + files)
+    const data = await apiGet('/api/example?path=' + encodeURIComponent(path));
     const displayName = deriveExampleProjectName(path);
+
+    const code = data.code || '';
+    const args = data.args || '';
+
     updateActiveProjectFromInputs();
-    createProject({ name: displayName, code: txt, args: '', stdin: '' }, { activate: true });
+    createProject({ name: displayName, code: code, args: args, stdin: '' }, { activate: true });
+
+    // Add auxiliary files to IO files list
+    if (Array.isArray(data.files) && data.files.length > 0) {
+      for (const f of data.files) {
+        const newId = generateIoFileId();
+        const fileObj = { id: newId, name: f.name, content: f.content || '' };
+        __ioFiles.push(fileObj);
+        renderIoFilePane(fileObj);
+        refreshIoSelectOptions();
+      }
+    }
+
     debounceShow();
   } catch (e) {
     alert('Не удалось загрузить пример: ' + (e.message || String(e)));

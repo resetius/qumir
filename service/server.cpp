@@ -170,7 +170,69 @@ private:
                 co_await SendJson(response, "{\"error\":\"missing 'path' query parameter\"}", 400);
                 co_return;
             }
-            co_await ServeStaticFile(response, it->second, ExamplesBaseCanonical);
+
+            // Build full path to .kum file
+            std::filesystem::path kumPath = ExamplesBaseCanonical / it->second;
+            if (!std::filesystem::exists(kumPath) || !std::filesystem::is_regular_file(kumPath)) {
+                co_await Send404(response);
+                co_return;
+            }
+
+            // Read code
+            std::ifstream ifs(kumPath, std::ios::binary);
+            std::string code((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+
+            llvm::json::Object result;
+            result["code"] = code;
+
+            // Check for metadata .json file
+            auto jsonPath = kumPath;
+            jsonPath.replace_extension(".json");
+            if (std::filesystem::exists(jsonPath) && std::filesystem::is_regular_file(jsonPath)) {
+                std::ifstream mfs(jsonPath, std::ios::binary);
+                std::string metaContent((std::istreambuf_iterator<char>(mfs)), std::istreambuf_iterator<char>());
+
+                llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(metaContent);
+                if (parsed) {
+                    if (auto *metaObj = parsed->getAsObject()) {
+                        // Copy args if present
+                        if (auto *argsVal = metaObj->get("args")) {
+                            result["args"] = *argsVal;
+                        }
+                        // Load files listed in metadata
+                        if (auto *filesArr = metaObj->getArray("files")) {
+                            std::filesystem::path baseDir = kumPath.parent_path();
+                            llvm::json::Array loadedFiles;
+                            for (const auto& fileEntry : *filesArr) {
+                                if (auto *fileObj = fileEntry.getAsObject()) {
+                                    auto nameOpt = fileObj->getString("name");
+                                    auto pathOpt = fileObj->getString("path");
+                                    if (nameOpt && pathOpt) {
+                                        std::filesystem::path filePath = baseDir / std::string(*pathOpt);
+                                        if (std::filesystem::exists(filePath) && std::filesystem::is_regular_file(filePath)) {
+                                            std::ifstream ffs(filePath, std::ios::binary);
+                                            std::string fileContent((std::istreambuf_iterator<char>(ffs)), std::istreambuf_iterator<char>());
+                                            loadedFiles.push_back(llvm::json::Object{
+                                                {"name", std::string(*nameOpt)},
+                                                {"content", fileContent}
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                            if (!loadedFiles.empty()) {
+                                result["files"] = std::move(loadedFiles);
+                            }
+                        }
+                    }
+                }
+            }
+
+            std::string jsonStr;
+            llvm::raw_string_ostream os(jsonStr);
+            os << llvm::json::Value(std::move(result));
+            os.flush();
+            co_await SendJson(response, jsonStr);
         } else if (path == "/api/share") {
             co_await ServeShare(request, response);
         } else if (path.find("/s/") == 0) {
