@@ -11,6 +11,8 @@ let __compilerOutputMode = 'text';
 let __turtleCanvas = null;
 let __turtleToggle = null;
 let __turtleModule = null;
+let __robotModule = null;
+let __robotCanvas = null;
 let __ioBound = false;
 const IO_PANE_COOKIE = 'q_io_pane';
 let __ioFiles = [];
@@ -994,22 +996,212 @@ function hideTurtleUI() {
   if (__turtleCanvas) __turtleCanvas.style.display = 'none';
 }
 
+// Robot UI functions
+function ensureRobotUI() {
+  const out = document.getElementById('output');
+  if (!out) return;
+
+  // Reuse turtle toggle if exists, just add robot option
+  if (!__turtleToggle) {
+    const ctr = document.createElement('div');
+    ctr.id = 'output-mode';
+    ctr.className = 'output-mode';
+    ctr.style.margin = '6px 0';
+    ctr.style.display = 'flex';
+    ctr.style.gap = '12px';
+    out.parentNode.insertBefore(ctr, out);
+    __turtleToggle = ctr;
+  }
+
+  // Ensure we have text and robot options
+  __turtleToggle.innerHTML = '';
+  const makeOpt = (label, value) => {
+    const lab = document.createElement('label');
+    lab.style.cursor = 'pointer';
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'q-out-mode';
+    input.value = value;
+    input.style.marginRight = '6px';
+    input.addEventListener('change', () => { if (input.checked) setCompilerOutputMode(value); });
+    lab.appendChild(input);
+    lab.appendChild(document.createTextNode(label));
+    return lab;
+  };
+  __turtleToggle.appendChild(makeOpt('Текст', 'text'));
+  __turtleToggle.appendChild(makeOpt('Робот', 'robot'));
+  __turtleToggle.style.display = '';
+
+  // Sync radios with current mode or saved cookie
+  const saved = getCookie('q_out_mode');
+  const targetMode = (saved === 'robot') ? 'robot' : __compilerOutputMode;
+  const radios = __turtleToggle.querySelectorAll('input[name="q-out-mode"]');
+  radios.forEach(r => { r.checked = (r.value === targetMode); });
+
+  if (!__robotCanvas) {
+    const cnv = document.createElement('canvas');
+    cnv.id = 'robot-canvas';
+    cnv.style.display = 'none';
+    cnv.style.width = '100%';
+    cnv.style.height = (out.clientHeight > 0 ? out.clientHeight + 'px' : (out.style.height || '300px'));
+    cnv.style.background = '#fff';
+    cnv.style.border = '1px solid #2b2b2b44';
+    cnv.style.borderRadius = '4px';
+    out.parentNode.insertBefore(cnv, out.nextSibling);
+    __robotCanvas = cnv;
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => {
+        if (__robotCanvas && out) {
+          const h = out.clientHeight;
+          if (h > 32) __robotCanvas.style.height = h + 'px';
+        }
+      });
+      try { ro.observe(out); } catch {}
+    }
+  } else {
+    if (out.clientHeight > 32) __robotCanvas.style.height = out.clientHeight + 'px';
+  }
+}
+
+function hideRobotUI() {
+  if (__robotCanvas) __robotCanvas.style.display = 'none';
+}
+
+function renderRobotField() {
+  if (!__robotCanvas || !__robotModule || !__robotModule.field) return;
+
+  const field = __robotModule.field;
+  const canvas = __robotCanvas;
+  const ctx = canvas.getContext('2d');
+
+  // Set actual canvas size for crisp rendering
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width;
+  const h = rect.height;
+
+  // Calculate cell size
+  const padding = 20;
+  const cellW = Math.floor((w - 2 * padding) / field.width);
+  const cellH = Math.floor((h - 2 * padding) / field.height);
+  const cellSize = Math.min(cellW, cellH, 40); // Max 40px per cell
+
+  const gridW = cellSize * field.width;
+  const gridH = cellSize * field.height;
+  const offsetX = (w - gridW) / 2;
+  const offsetY = (h - gridH) / 2;
+
+  // Clear
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+
+  // Draw painted cells
+  ctx.fillStyle = '#a8d4a8';
+  for (const key of field.painted) {
+    const [x, y] = key.split(',').map(Number);
+    ctx.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize);
+  }
+
+  // Draw grid lines
+  ctx.strokeStyle = '#ccc';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= field.width; x++) {
+    ctx.beginPath();
+    ctx.moveTo(offsetX + x * cellSize, offsetY);
+    ctx.lineTo(offsetX + x * cellSize, offsetY + gridH);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= field.height; y++) {
+    ctx.beginPath();
+    ctx.moveTo(offsetX, offsetY + y * cellSize);
+    ctx.lineTo(offsetX + gridW, offsetY + y * cellSize);
+    ctx.stroke();
+  }
+
+  // Draw outer border (thick)
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(offsetX, offsetY, gridW, gridH);
+
+  // Draw walls (thick black lines)
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+
+  // Horizontal walls (hWalls: "x,y" = wall below cell (x,y))
+  for (const key of field.hWalls) {
+    const [x, y] = key.split(',').map(Number);
+    const px = offsetX + x * cellSize;
+    const py = offsetY + (y + 1) * cellSize;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + cellSize, py);
+    ctx.stroke();
+  }
+
+  // Vertical walls (vWalls: "x,y" = wall to the right of cell (x,y))
+  for (const key of field.vWalls) {
+    const [x, y] = key.split(',').map(Number);
+    const px = offsetX + (x + 1) * cellSize;
+    const py = offsetY + y * cellSize;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px, py + cellSize);
+    ctx.stroke();
+  }
+
+  // Draw robot
+  const rx = offsetX + field.robotX * cellSize + cellSize / 2;
+  const ry = offsetY + field.robotY * cellSize + cellSize / 2;
+  const robotRadius = cellSize * 0.35;
+
+  // Robot body (blue circle)
+  ctx.fillStyle = '#4a90d9';
+  ctx.beginPath();
+  ctx.arc(rx, ry, robotRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Robot outline
+  ctx.strokeStyle = '#2563a0';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Robot "eye" (direction indicator - for now just a dot)
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(rx, ry - robotRadius * 0.3, robotRadius * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function setCompilerOutputMode(mode) {
-  __compilerOutputMode = (mode === 'turtle') ? 'turtle' : 'text';
+  __compilerOutputMode = (mode === 'turtle' || mode === 'robot') ? mode : 'text';
   setCookie('q_out_mode', __compilerOutputMode);
   const out = document.getElementById('output');
+
+  // Hide all special canvases first
+  if (__turtleCanvas) __turtleCanvas.style.display = 'none';
+  if (__robotCanvas) __robotCanvas.style.display = 'none';
+
   if (__compilerOutputMode === 'turtle') {
     if (out) out.style.display = 'none';
     if (__turtleCanvas) __turtleCanvas.style.display = '';
-    // Sync height again to avoid initial gap
     if (__turtleCanvas && out && out.clientHeight > 32) {
       __turtleCanvas.style.height = out.clientHeight + 'px';
     }
-    // Inform turtle runtime that canvas is now visible so it can refit using real dimensions
     try { if (__turtleModule && typeof __turtleModule.__onCanvasShown === 'function') __turtleModule.__onCanvasShown(); } catch {}
+  } else if (__compilerOutputMode === 'robot') {
+    if (out) out.style.display = 'none';
+    if (__robotCanvas) __robotCanvas.style.display = '';
+    if (__robotCanvas && out && out.clientHeight > 32) {
+      __robotCanvas.style.height = out.clientHeight + 'px';
+    }
+    renderRobotField();
   } else {
     if (out) out.style.display = '';
-    if (__turtleCanvas) __turtleCanvas.style.display = 'none';
   }
   if (__turtleToggle) {
     const radios = __turtleToggle.querySelectorAll('input[name="q-out-mode"]');
@@ -1018,7 +1210,9 @@ function setCompilerOutputMode(mode) {
 }
 
 function getCurrentCompilerOutputNode() {
-  return (__compilerOutputMode === 'turtle' && __turtleCanvas) ? __turtleCanvas : document.getElementById('output');
+  if (__compilerOutputMode === 'turtle' && __turtleCanvas) return __turtleCanvas;
+  if (__compilerOutputMode === 'robot' && __robotCanvas) return __robotCanvas;
+  return document.getElementById('output');
 }
 
 async function runWasm() {
@@ -1038,7 +1232,8 @@ async function runWasm() {
     const stringEnv = await import('./runtime/string.js');
     const arrayEnv = await import('./runtime/array.js');
     if (!__turtleModule) { try { __turtleModule = await import('./runtime/turtle.js'); } catch {} }
-    const env = { ...mathEnv, ...ioEnv, ...stringEnv, ...arrayEnv, ...(__turtleModule || {}) };
+    if (!__robotModule) { try { __robotModule = await import('./runtime/robot.js'); } catch {} }
+    const env = { ...mathEnv, ...ioEnv, ...stringEnv, ...arrayEnv, ...(__turtleModule || {}), ...(__robotModule || {}) };
     const imports = { env };
     const { instance, module } = await WebAssembly.instantiate(bytes, imports);
     const mem = instance.exports && instance.exports.memory;
@@ -1053,9 +1248,11 @@ async function runWasm() {
     }
     // Turtle integration: detect if wasm imports turtle_* and prepare canvas/toggle
     let usesTurtle = false;
+    let usesRobot = false;
     try {
       const imps = module ? WebAssembly.Module.imports(module) : [];
       usesTurtle = Array.isArray(imps) && imps.some(imp => imp && imp.module === 'env' && typeof imp.name === 'string' && imp.name.startsWith('turtle_'));
+      usesRobot = Array.isArray(imps) && imps.some(imp => imp && imp.module === 'env' && typeof imp.name === 'string' && imp.name.startsWith('robot_'));
     } catch {}
     if (usesTurtle && __turtleModule) {
       ensureTurtleUI();
@@ -1067,8 +1264,13 @@ async function runWasm() {
       }
       const saved = getCookie('q_out_mode');
       setCompilerOutputMode(saved === 'turtle' ? 'turtle' : __compilerOutputMode);
+    } else if (usesRobot && __robotModule) {
+      ensureRobotUI();
+      const saved = getCookie('q_out_mode');
+      setCompilerOutputMode(saved === 'robot' ? 'robot' : 'robot');
     } else {
       hideTurtleUI();
+      hideRobotUI();
     }
     if (typeof ioEnv.__resetIO === 'function') {
       ioEnv.__resetIO(true);
@@ -1078,6 +1280,33 @@ async function runWasm() {
     }
     if (typeof arrayEnv.__resetArrays === 'function') {
       arrayEnv.__resetArrays();
+    }
+    // Robot integration: setup file accessor (same pattern as io.js)
+    if (__robotModule && typeof __robotModule.__setRobotFilesAccessor === 'function') {
+      __robotModule.__setRobotFilesAccessor(
+        () => __ioFiles,
+        (file) => {
+          // addFile callback
+          const newId = generateIoFileId();
+          const f = { id: newId, name: file.name, content: file.content || '' };
+          __ioFiles.push(f);
+          renderIoFilePane(f);
+          refreshIoSelectOptions();
+        },
+        (fileId, content) => {
+          // updateFile callback
+          const file = __ioFiles.find(f => f.id === fileId);
+          if (file) {
+            file.content = content;
+            if (file.elements && file.elements.editor) {
+              file.elements.editor.value = content;
+            }
+          }
+        }
+      );
+    }
+    if (__robotModule && typeof __robotModule.__initRobotField === 'function') {
+      __robotModule.__initRobotField();
     }
     let out = '';
   if (instance && instance.exports) {
@@ -1137,9 +1366,17 @@ async function runWasm() {
     const stdoutEl = $('#stdout');
     stdoutEl.textContent += "\n";
     stdoutEl.textContent += out;
+    // Update robot field display after execution
+    if (__compilerOutputMode === 'robot') {
+      renderRobotField();
+    }
   } catch (e) {
     $('#stdout').textContent = e.message;
     $('#stdout').classList.add('error');
+    // Still render robot field on error to show where robot crashed
+    if (__compilerOutputMode === 'robot') {
+      renderRobotField();
+    }
   }
 }
 function loadState() {
