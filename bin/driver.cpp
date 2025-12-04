@@ -13,6 +13,7 @@
 #include <qumir/codegen/llvm/llvm_initializer.h>
 #include <qumir/modules/system/system.h>
 #include <qumir/modules/turtle/turtle.h>
+#include <qumir/modules/robot/robot.h>
 #include <sstream>
 #include <string>
 
@@ -116,6 +117,8 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     NRegistry::SystemModule().Register(r);
     NRegistry::TurtleModule turtle;
     r.RegisterModule(&turtle);
+    NRegistry::RobotModule robot;
+    r.RegisterModule(&robot);
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
@@ -170,6 +173,8 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     NRegistry::SystemModule().Register(r);
     NRegistry::TurtleModule turtle;
     r.RegisterModule(&turtle);
+    NRegistry::RobotModule robot;
+    r.RegisterModule(&robot);
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
@@ -339,6 +344,8 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     NRegistry::SystemModule().Register(r);
     NRegistry::TurtleModule turtle;
     r.RegisterModule(&turtle);
+    NRegistry::RobotModule robot;
+    r.RegisterModule(&robot);
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {

@@ -4,6 +4,7 @@
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
 #include <qumir/modules/turtle/turtle.h>
+#include <qumir/modules/robot/robot.h>
 #include <qumir/ir/passes/transforms/pipeline.h>
 
 #include <iostream>
@@ -27,6 +28,7 @@ TIRRunner::TIRRunner(
     // TODO: register other modules
 
     AvailableModules.push_back(std::make_shared<NRegistry::TurtleModule>());
+    AvailableModules.push_back(std::make_shared<NRegistry::RobotModule>());
 
     for (const auto& mod : RegisteredModules) {
         mod->Register(Resolver);

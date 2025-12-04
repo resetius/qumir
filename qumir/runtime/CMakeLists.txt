@@ -10,6 +10,8 @@ add_library(qumir_runtime
     runtime.h
     string.cpp
     string.h
+    robot.cpp
+    robot.h
     turtle.cpp
     turtle.h
     )

@@ -1,6 +1,8 @@
 add_library(qumir
     modules/system/system.h
     modules/system/system.cpp
+    modules/robot/robot.h
+    modules/robot/robot.cpp
     modules/turtle/turtle.h
     modules/turtle/turtle.cpp
     modules/module.h
