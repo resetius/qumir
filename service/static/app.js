@@ -1620,6 +1620,46 @@ initEditor();
   }
 })();
 
+// If URL has ?example=<path>, load that example directly
+(async function loadExampleFromQuery(){
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const examplePath = params.get('example');
+    if (!examplePath) return;
+
+    const data = await apiGet('/api/example?path=' + encodeURIComponent(examplePath));
+    const displayName = deriveExampleProjectName(examplePath);
+    const code = data.code || '';
+    const args = data.args || '';
+
+    updateActiveProjectFromInputs();
+    createProject({ name: displayName, code: code, args: args, stdin: '' }, { activate: true });
+
+    // Add auxiliary files to IO files list
+    if (Array.isArray(data.files) && data.files.length > 0) {
+      for (const f of data.files) {
+        const newId = generateIoFileId();
+        const fileObj = { id: newId, name: f.name, content: f.content || '' };
+        __ioFiles.push(fileObj);
+        renderIoFilePane(fileObj);
+        refreshIoSelectOptions();
+      }
+    }
+
+    // Select example in dropdown if present
+    const examplesSel = $('#examples');
+    if (examplesSel) {
+      examplesSel.value = examplePath;
+    }
+
+    debounceShow();
+    const statusEl = document.getElementById('status');
+    if (statusEl) statusEl.textContent = `Пример: ${examplePath}`;
+  } catch (e) {
+    console.warn('failed to load example from query:', e);
+  }
+})();
+
 // Populate version from backend git
 (async function showVersion(){
   try {
