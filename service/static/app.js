@@ -1281,32 +1281,34 @@ async function runWasm() {
     if (typeof arrayEnv.__resetArrays === 'function') {
       arrayEnv.__resetArrays();
     }
-    // Robot integration: setup file accessor (same pattern as io.js)
-    if (__robotModule && typeof __robotModule.__setRobotFilesAccessor === 'function') {
-      __robotModule.__setRobotFilesAccessor(
-        () => __ioFiles,
-        (file) => {
-          // addFile callback
-          const newId = generateIoFileId();
-          const f = { id: newId, name: file.name, content: file.content || '' };
-          __ioFiles.push(f);
-          renderIoFilePane(f);
-          refreshIoSelectOptions();
-        },
-        (fileId, content) => {
-          // updateFile callback
-          const file = __ioFiles.find(f => f.id === fileId);
-          if (file) {
-            file.content = content;
-            if (file.elements && file.elements.editor) {
-              file.elements.editor.value = content;
+    // Robot integration: setup file accessor and init field only if program uses robot
+    if (usesRobot && __robotModule) {
+      if (typeof __robotModule.__setRobotFilesAccessor === 'function') {
+        __robotModule.__setRobotFilesAccessor(
+          () => __ioFiles,
+          (file) => {
+            // addFile callback
+            const newId = generateIoFileId();
+            const f = { id: newId, name: file.name, content: file.content || '' };
+            __ioFiles.push(f);
+            renderIoFilePane(f);
+            refreshIoSelectOptions();
+          },
+          (fileId, content) => {
+            // updateFile callback
+            const file = __ioFiles.find(f => f.id === fileId);
+            if (file) {
+              file.content = content;
+              if (file.elements && file.elements.editor) {
+                file.elements.editor.value = content;
+              }
             }
           }
-        }
-      );
-    }
-    if (__robotModule && typeof __robotModule.__initRobotField === 'function') {
-      __robotModule.__initRobotField();
+        );
+      }
+      if (typeof __robotModule.__initRobotField === 'function') {
+        __robotModule.__initRobotField();
+      }
     }
     let out = '';
   if (instance && instance.exports) {
