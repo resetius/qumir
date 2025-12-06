@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Документация — Qumir</title>
+  <link rel="stylesheet" href="styles.css?v=20251106">
+  <style>
+    /* Reset some styles from styles.css that break docs layout */
+    html { overflow: auto; }
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      overflow: auto;
+    }
+    .docs-page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: #1e1e1e;
+      border-bottom: 1px solid #333;
+    }
+    .docs-page-header h1 {
+      margin: 0;
+      font-size: 18px;
+      color: #fff;
+    }
+    .docs-page-header a {
+      color: #6cb6ff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .docs-page-header a:hover {
+      text-decoration: underline;
+    }
+    .docs-page-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .docs-page-sidebar {
+      width: 220px;
+      min-width: 180px;
+      background: #1b1b1b;
+      border-right: 1px solid #333;
+      overflow-y: auto;
+      padding: 16px 0;
+    }
+    .docs-page-sidebar a {
+      display: block;
+      padding: 10px 20px;
+      color: #bbb;
+      text-decoration: none;
+      font-size: 14px;
+      border-left: 3px solid transparent;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .docs-page-sidebar a:hover {
+      background: #252525;
+      color: #fff;
+    }
+    .docs-page-sidebar a.active {
+      background: #252525;
+      color: #fff;
+      border-left-color: #0e639c;
+    }
+    .docs-page-main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 40px;
+      max-width: 900px;
+      /* Override main grid from styles.css */
+      display: block;
+    }
+    .docs-page-footer {
+      padding: 12px 20px;
+      background: #1b1b1b;
+      border-top: 1px solid #333;
+      text-align: center;
+      color: #888;
+      font-size: 12px;
+    }
+    .docs-page-footer a {
+      color: #6cb6ff;
+      text-decoration: none;
+    }
+    .docs-page-footer a:hover {
+      text-decoration: underline;
+    }
+    /* Reuse docs-content styles for markdown */
+    .docs-page-main h1 { font-size: 26px; margin: 0 0 20px; color: #fff; border-bottom: 1px solid #444; padding-bottom: 10px; }
+    .docs-page-main h2 { font-size: 20px; margin: 28px 0 14px; color: #fff; }
+    .docs-page-main h3 { font-size: 16px; margin: 22px 0 10px; color: #eee; }
+    .docs-page-main p { margin: 0 0 14px; line-height: 1.7; }
+    .docs-page-main ul, .docs-page-main ol { margin: 0 0 14px; padding-left: 28px; }
+    .docs-page-main li { margin-bottom: 6px; }
+    .docs-page-main code {
+      background: #2d2d2d;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 13px;
+      color: #e6db74;
+    }
+    .docs-page-main pre {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 14px;
+      overflow-x: auto;
+      margin: 0 0 18px;
+      /* Ensure code blocks are not collapsed */
+      max-height: none;
+      height: auto;
+      white-space: pre;
+    }
+    .docs-page-main pre code {
+      background: none;
+      padding: 0;
+      font-size: 13px;
+      color: #ddd;
+      display: block;
+      white-space: pre;
+    }
+    .docs-page-main a { color: #6cb6ff; text-decoration: none; }
+    .docs-page-main a:hover { text-decoration: underline; }
+    .docs-page-main table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 18px;
+      font-size: 13px;
+    }
+    .docs-page-main th, .docs-page-main td {
+      border: 1px solid #444;
+      padding: 10px 12px;
+      text-align: left;
+    }
+    .docs-page-main th { background: #2a2a2a; color: #fff; }
+    .docs-page-main blockquote {
+      margin: 0 0 18px;
+      padding: 14px 18px;
+      background: #252525;
+      border-left: 4px solid #0e639c;
+      color: #ccc;
+    }
+    .docs-page-main blockquote p:last-child { margin-bottom: 0; }
+    .docs-page-main hr { border: none; border-top: 1px solid #444; margin: 28px 0; }
+    .docs-loading, .docs-error { text-align: center; padding: 60px; color: #888; }
+    .docs-error { color: #ff8a80; }
+
+    @media (max-width: 768px) {
+      .docs-page-layout { flex-direction: column; }
+      .docs-page-sidebar { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid #333; padding: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+      .docs-page-sidebar a { padding: 8px 12px; border-left: none; border-radius: 4px; background: #2a2a2a; }
+      .docs-page-sidebar a.active { background: #0e639c; border-left: none; }
+      .docs-page-main { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="docs-page-header">
+    <h1>📖 Документация Qumir</h1>
+    <a href="/">← Вернуться в Playground</a>
+  </header>
+  <div class="docs-page-layout">
+    <nav class="docs-page-sidebar" id="docs-sidebar">
+      <a href="#" data-doc="index.md" class="active">Введение</a>
+      <a href="#" data-doc="syntax.md">Синтаксис языка</a>
+      <a href="#" data-doc="interpreter.md">Интерпретатор</a>
+      <a href="#" data-doc="compiler.md">Компилятор</a>
+      <a href="#" data-doc="turtle.md">Исполнитель Черепаха</a>
+      <a href="#" data-doc="robot.md">Исполнитель Робот</a>
+      <a href="#" data-doc="examples.md">Примеры программ</a>
+    </nav>
+    <main class="docs-page-main" id="docs-main">
+      <div class="docs-loading">Загрузка...</div>
+    </main>
+  </div>
+  <footer class="docs-page-footer">
+    <a href="https://github.com/resetius/qumir" target="_blank" rel="noopener">GitHub</a> ·
+    Inspired by Ershov's language and KuMir
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    const DOCS_BASE = '/docs/';
+    const sidebar = document.getElementById('docs-sidebar');
+    const main = document.getElementById('docs-main');
+    let currentDoc = 'index.md';
+    const cache = {};
+
+    // Check URL hash for doc
+    function getDocFromHash() {
+      const hash = window.location.hash.slice(1);
+      if (hash && hash.endsWith('.md')) return hash;
+      return 'index.md';
+    }
+
+    async function loadDoc(filename) {
+      // Update sidebar
+      sidebar.querySelectorAll('a').forEach(a => {
+        a.classList.toggle('active', a.dataset.doc === filename);
+      });
+
+      main.innerHTML = '<div class="docs-loading">Загрузка...</div>';
+
+      try {
+        let md;
+        if (cache[filename]) {
+          md = cache[filename];
+        } else {
+          const res = await fetch(DOCS_BASE + filename);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          md = await res.text();
+          cache[filename] = md;
+        }
+
+        if (typeof marked !== 'undefined') {
+          marked.setOptions({ breaks: false, gfm: true, headerIds: true, mangle: false });
+          main.innerHTML = marked.parse(md);
+        } else {
+          main.innerHTML = '<pre>' + md.replace(/</g, '&lt;') + '</pre>';
+        }
+
+        // Handle internal .md links
+        main.querySelectorAll('a').forEach(link => {
+          const href = link.getAttribute('href');
+          if (href && href.endsWith('.md') && !href.startsWith('http')) {
+            link.addEventListener('click', e => {
+              e.preventDefault();
+              window.location.hash = href;
+            });
+          }
+        });
+
+        main.scrollTop = 0;
+        currentDoc = filename;
+        window.location.hash = filename;
+
+      } catch (err) {
+        main.innerHTML = '<div class="docs-error">Не удалось загрузить: ' + err.message + '</div>';
+      }
+    }
+
+    // Sidebar clicks
+    sidebar.addEventListener('click', e => {
+      const link = e.target.closest('a[data-doc]');
+      if (link) {
+        e.preventDefault();
+        loadDoc(link.dataset.doc);
+      }
+    });
+
+    // Hash change
+    window.addEventListener('hashchange', () => {
+      const doc = getDocFromHash();
+      if (doc !== currentDoc) loadDoc(doc);
+    });
+
+    // Initial load
+    loadDoc(getDocFromHash());
+  </script>
+</body>
+</html>

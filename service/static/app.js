@@ -1,6 +1,7 @@
 import { bindBrowserIO } from './io_wrapper.js';
 import * as resultEnv from './runtime/result.js';
 import * as stringEnv from './runtime/string.js';
+import { initDocs } from './docs.js';
 
 'use strict';
 
@@ -1864,6 +1865,15 @@ ${indent}знач := a
     bugTarget.addEventListener('focus', () => showTip(bugTarget, { placeAbove: true }));
     bugTarget.addEventListener('blur', hideTip);
   }
+  // Attach "above" tooltips to docs and tour buttons in footer
+  ['docs-page-btn', 'tour-restart-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('mouseenter', () => showTip(btn, { placeAbove: true }));
+    btn.addEventListener('mouseleave', hideTip);
+    btn.addEventListener('focus', () => showTip(btn, { placeAbove: true }));
+    btn.addEventListener('blur', hideTip);
+  });
 })();
 
 // Bug report button copies diagnostics to clipboard and opens GitHub issues
@@ -2128,3 +2138,6 @@ if (btnShare) {
     console.warn('Tour module not available:', e);
   }
 })();
+
+// Documentation panel
+initDocs();

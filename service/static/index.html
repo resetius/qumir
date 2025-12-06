@@ -44,6 +44,7 @@
         <option value="wasm">WASM (text)</option>
       </select>
       <button id="btn-share" title="Поделиться ссылкой">Поделиться</button>
+      <button id="btn-help" class="btn-help" title="Справка по языку">❓</button>
     </div>
   </header>
   <main>
@@ -85,7 +86,8 @@
   </section>
   <footer>
   <small><button id="bug-report-btn" type="button" class="bug-button" data-tooltip="Сообщить об ошибке"><span class="bug-icon">🐞</span></button></small>
-  <small><button id="tour-restart-btn" type="button" class="tour-restart-btn" title="Показать обучение">❓</button></small>
+  <small><button id="docs-page-btn" type="button" class="docs-link-btn" data-tooltip="Открыть документацию">📖</button></small>
+  <small><button id="tour-restart-btn" type="button" class="tour-restart-btn" data-tooltip="Показать обучающий тур">❓</button></small>
   <small>Inspired by Ershov's language and Kumir.</small>
   <small class="beta">Beta • Release soon</small>
   <small id="version" class="version">v —</small>
@@ -114,10 +116,29 @@
       <div id="fs-body" class="fs-body"></div>
     </div>
   </div>
+  <!-- Help/Documentation Drawer (no backdrop, doesn't block editing) -->
+  <aside id="docs-drawer" class="docs-drawer" aria-label="Справка">
+    <div class="docs-drawer-header">
+      <button id="docs-back" class="docs-nav-btn" type="button" title="Назад" disabled>←</button>
+      <span class="docs-title">Справка</span>
+      <button id="docs-close" class="docs-nav-btn" type="button" title="Закрыть">✕</button>
+    </div>
+    <nav id="docs-nav" class="docs-nav">
+      <a href="#" data-doc="index.md" class="docs-nav-link active">Введение</a>
+      <a href="#" data-doc="syntax.md" class="docs-nav-link">Синтаксис</a>
+      <a href="#" data-doc="interpreter.md" class="docs-nav-link">Интерпретатор</a>
+      <a href="#" data-doc="compiler.md" class="docs-nav-link">Компилятор</a>
+      <a href="#" data-doc="turtle.md" class="docs-nav-link">Черепаха</a>
+      <a href="#" data-doc="robot.md" class="docs-nav-link">Робот</a>
+      <a href="#" data-doc="examples.md" class="docs-nav-link">Примеры</a>
+    </nav>
+    <div id="docs-content" class="docs-content"></div>
+  </aside>
   <script src="https://unpkg.com/codemirror@5/lib/codemirror.js"></script>
   <script src="https://unpkg.com/codemirror@5/addon/comment/comment.js"></script>
   <script src="https://unpkg.com/codemirror@5/addon/edit/matchbrackets.js"></script>
   <script src="https://unpkg.com/codemirror@5/addon/mode/simple.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="metrika.local.js"></script>
   <script type="module" src="app.js"></script>
 </body>

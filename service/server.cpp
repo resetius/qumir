@@ -641,34 +641,36 @@ private:
             rel /= "index.html";
         }
 
+        // Security check: ensure the relative path doesn't escape the base via ..
+        // Do this BEFORE resolving symlinks to prevent path traversal attacks
+        auto relStr = rel.generic_string();
+        if (relStr.find("..") != std::string::npos) {
+            co_await Send404(response);
+            co_return;
+        }
+
+        // Build candidate path (may contain symlinks)
+        fs::path candidate = baseCanonical / rel;
+
+        // Resolve symlinks to get the actual file path
         std::error_code ec;
-        fs::path candidate = (baseCanonical / rel).lexically_normal();
-        fs::path target = fs::weakly_canonical(candidate, ec);
-        if (ec || target.empty()) {
-            // If weakly_canonical failed (e.g., components don't exist yet), fall back to lexical
-            target = candidate;
+        fs::path target = fs::canonical(candidate, ec);
+        if (ec) {
+            // canonical failed - file doesn't exist or broken symlink
+            co_await Send404(response);
+            co_return;
         }
 
         // If requested a directory (without trailing slash), also try index.html
-        if (fs::exists(target) && fs::is_directory(target)) {
+        if (fs::is_directory(target)) {
             target /= "index.html";
-        }
-
-        // Ensure the resolved target stays within the static base
-        fs::path base = baseCanonical;
-        fs::path relToBase;
-        {
-            std::error_code ec2;
-            relToBase = fs::relative(target, base, ec2);
-            if (ec2) {
-                // If relative couldn't be computed, treat as out of base
-                relToBase = fs::path("../");
+            if (!fs::exists(target)) {
+                co_await Send404(response);
+                co_return;
             }
         }
-        auto relStr = relToBase.generic_string();
-        bool underBase = !relToBase.empty() && !relToBase.is_absolute() && (relStr == "." || (relStr.rfind("..", 0) != 0));
 
-        if (!underBase || !fs::exists(target) || !fs::is_regular_file(target)) {
+        if (!fs::exists(target) || !fs::is_regular_file(target)) {
             co_await Send404(response);
             co_return;
         }
@@ -701,6 +703,7 @@ private:
         {".gif", "image/gif"},
         {".txt", "text/plain"},
         {".json", "application/json"},
+        {".md", "text/markdown; charset=utf-8"},
     };
 
     std::function<TPipe(const std::string&, const std::vector<std::string>&, bool)> PipeFactory;
