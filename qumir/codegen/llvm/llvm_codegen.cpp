@@ -374,6 +374,7 @@ llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, NIR::TModule& module)
     auto lowStringTypeId = module.Types.Ptr(module.Types.I(EKind::I8));
     auto lowFloatTypeId = module.Types.I(EKind::F64);
     auto lowIntTypeId = module.Types.I(EKind::I64);
+    auto lowBoolTypeId = module.Types.I(EKind::I1);
 
     switch (op.Type) {
         case TOperand::EType::Imm:
@@ -403,6 +404,8 @@ llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, NIR::TModule& module)
 
                 str = irb->CreateGlobalString(module.StringLiterals[id], "strlit" + std::to_string(id));
                 return StringLiterals[id] = str;
+            } else if (op.Imm.TypeId == lowBoolTypeId) {
+                return llvm::ConstantInt::get(llvm::Type::getInt1Ty(ctx), op.Imm.Value != 0 ? 1 : 0, false);
             } else {
                 throw std::runtime_error("unsupported immediate type");
             }
