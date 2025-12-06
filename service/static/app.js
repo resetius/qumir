@@ -1010,6 +1010,8 @@ function ensureRobotUI() {
     ctr.style.margin = '6px 0';
     ctr.style.display = 'flex';
     ctr.style.gap = '12px';
+    ctr.style.alignItems = 'center';
+    ctr.style.flexWrap = 'wrap';
     out.parentNode.insertBefore(ctr, out);
     __turtleToggle = ctr;
   }
@@ -1031,6 +1033,83 @@ function ensureRobotUI() {
   };
   __turtleToggle.appendChild(makeOpt('Текст', 'text'));
   __turtleToggle.appendChild(makeOpt('Робот', 'robot'));
+
+  // Add animation speed control
+  const speedContainer = document.createElement('div');
+  speedContainer.style.display = 'flex';
+  speedContainer.style.alignItems = 'center';
+  speedContainer.style.gap = '6px';
+  speedContainer.style.marginLeft = 'auto';
+
+  // Checkbox to disable animation
+  const animCheckbox = document.createElement('input');
+  animCheckbox.type = 'checkbox';
+  animCheckbox.id = 'robot-anim-enabled';
+  const savedAnimEnabled = getCookie('q_robot_anim');
+  animCheckbox.checked = savedAnimEnabled !== '0'; // enabled by default
+  animCheckbox.style.cursor = 'pointer';
+  animCheckbox.title = 'Включить анимацию';
+
+  const speedLabel = document.createElement('span');
+  speedLabel.textContent = '🐢';
+  speedLabel.style.fontSize = '14px';
+
+  const speedSlider = document.createElement('input');
+  speedSlider.type = 'range';
+  speedSlider.id = 'robot-speed';
+  speedSlider.min = '0';
+  speedSlider.max = '300';
+  // Restore saved value or default to 150
+  const savedSpeed = getCookie('q_robot_speed');
+  speedSlider.value = savedSpeed !== null ? savedSpeed : '150';
+  speedSlider.style.width = '80px';
+  speedSlider.style.cursor = 'pointer';
+  speedSlider.title = 'Скорость анимации';
+  speedSlider.disabled = !animCheckbox.checked;
+  speedSlider.style.opacity = animCheckbox.checked ? '1' : '0.5';
+
+  const speedLabelFast = document.createElement('span');
+  speedLabelFast.textContent = '🐇';
+  speedLabelFast.style.fontSize = '14px';
+
+  // Update delay based on checkbox and slider
+  const updateAnimationDelay = () => {
+    if (__robotModule && typeof __robotModule.__setAnimationDelay === 'function') {
+      if (animCheckbox.checked) {
+        __robotModule.__setAnimationDelay(300 - parseInt(speedSlider.value, 10));
+      } else {
+        __robotModule.__setAnimationDelay(0); // instant
+      }
+    }
+  };
+
+  animCheckbox.addEventListener('change', () => {
+    speedSlider.disabled = !animCheckbox.checked;
+    speedSlider.style.opacity = animCheckbox.checked ? '1' : '0.5';
+    speedLabel.style.opacity = animCheckbox.checked ? '1' : '0.5';
+    speedLabelFast.style.opacity = animCheckbox.checked ? '1' : '0.5';
+    setCookie('q_robot_anim', animCheckbox.checked ? '1' : '0', 365);
+    updateAnimationDelay();
+  });
+
+  speedSlider.addEventListener('input', () => {
+    updateAnimationDelay();
+    setCookie('q_robot_speed', speedSlider.value, 365);
+  });
+
+  // Apply initial opacity
+  speedLabel.style.opacity = animCheckbox.checked ? '1' : '0.5';
+  speedLabelFast.style.opacity = animCheckbox.checked ? '1' : '0.5';
+
+  // Apply saved delay to module
+  updateAnimationDelay();
+
+  speedContainer.appendChild(animCheckbox);
+  speedContainer.appendChild(speedLabel);
+  speedContainer.appendChild(speedSlider);
+  speedContainer.appendChild(speedLabelFast);
+
+  __turtleToggle.appendChild(speedContainer);
   __turtleToggle.style.display = '';
 
   // Sync radios with current mode or saved cookie
@@ -1307,6 +1386,10 @@ async function runWasm() {
           }
         );
       }
+      // Stop any running animation before starting new execution
+      if (typeof __robotModule.__stopAnimation === 'function') {
+        __robotModule.__stopAnimation();
+      }
       if (typeof __robotModule.__initRobotField === 'function') {
         __robotModule.__initRobotField();
       }
@@ -1369,16 +1452,70 @@ async function runWasm() {
     const stdoutEl = $('#stdout');
     stdoutEl.textContent += "\n";
     stdoutEl.textContent += out;
-    // Update robot field display after execution
-    if (__compilerOutputMode === 'robot') {
-      renderRobotField();
+    // Update robot field display after execution with animation
+    if (__compilerOutputMode === 'robot' && __robotModule) {
+      // Set render callback for animation
+      if (typeof __robotModule.__setRenderCallback === 'function') {
+        __robotModule.__setRenderCallback(renderRobotField);
+      }
+      // Check animation settings from UI
+      const animEnabled = getCookie('q_robot_anim') !== '0';
+
+      // Check if there's history to animate
+      if (animEnabled && typeof __robotModule.__hasHistory === 'function' && __robotModule.__hasHistory() &&
+          typeof __robotModule.__getHistoryLength === 'function' && __robotModule.__getHistoryLength() > 1) {
+        // Apply animation speed
+        const speedVal = getCookie('q_robot_speed');
+        if (typeof __robotModule.__setAnimationDelay === 'function') {
+          __robotModule.__setAnimationDelay(300 - parseInt(speedVal || '150', 10));
+        }
+        // Replay with animation - error will be shown after animation completes
+        __robotModule.__replayHistory((deferredError) => {
+          // Animation complete - show deferred error if any
+          if (deferredError) {
+            stdoutEl.textContent = deferredError;
+            stdoutEl.classList.add('error');
+          }
+        });
+      } else {
+        // No animation - just render final state
+        renderRobotField();
+      }
     }
   } catch (e) {
-    $('#stdout').textContent = e.message;
-    $('#stdout').classList.add('error');
-    // Still render robot field on error to show where robot crashed
-    if (__compilerOutputMode === 'robot') {
-      renderRobotField();
+    // For robot errors, don't show immediately - let animation play first
+    if (__compilerOutputMode === 'robot' && __robotModule) {
+      // Check animation settings
+      const animEnabled = getCookie('q_robot_anim') !== '0';
+      const hasHistory = typeof __robotModule.__hasHistory === 'function' && __robotModule.__hasHistory();
+      const historyLen = typeof __robotModule.__getHistoryLength === 'function' ? __robotModule.__getHistoryLength() : 0;
+
+      if (animEnabled && hasHistory && historyLen > 1) {
+        // Set render callback and replay with animation
+        if (typeof __robotModule.__setRenderCallback === 'function') {
+          __robotModule.__setRenderCallback(renderRobotField);
+        }
+        // Apply animation speed
+        const speedVal = getCookie('q_robot_speed');
+        if (typeof __robotModule.__setAnimationDelay === 'function') {
+          __robotModule.__setAnimationDelay(300 - parseInt(speedVal || '150', 10));
+        }
+        const stdoutEl = $('#stdout');
+        stdoutEl.textContent = ''; // Clear while animating
+        __robotModule.__replayHistory((deferredError) => {
+          // Animation complete - show the error
+          stdoutEl.textContent = deferredError || e.message;
+          stdoutEl.classList.add('error');
+        });
+      } else {
+        // No animation - show error immediately and render final state
+        $('#stdout').textContent = e.message;
+        $('#stdout').classList.add('error');
+        renderRobotField();
+      }
+    } else {
+      $('#stdout').textContent = e.message;
+      $('#stdout').classList.add('error');
     }
   }
 }

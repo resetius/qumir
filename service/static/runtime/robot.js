@@ -5,6 +5,12 @@ let __filesAccessor = null;
 let __addFileCallback = null;
 let __updateFileCallback = null;
 
+// History recording for animation replay
+let __robotHistory = [];
+let __renderCallback = null;
+let __animationDelay = 150; // ms between steps
+let __deferredError = null; // Error to show after animation
+
 // Default field: 7x7, robot at (0,0), no walls, no painted cells
 const DEFAULT_FIELD = `; Kumir Robot Field Format
 ; ========================
@@ -256,6 +262,8 @@ function getFiles() {
 
 export function __initRobotField() {
   field.reset();
+  __robotHistory = []; // Clear history on init
+  __deferredError = null; // Clear deferred error
 
   const files = getFiles();
 
@@ -278,6 +286,9 @@ export function __initRobotField() {
       __addFileCallback({ name: 'robot.fil', content: DEFAULT_FIELD });
     }
   }
+
+  // Record initial state
+  __robotHistory.push({ action: 'init', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function __resetRobot() {
@@ -300,34 +311,48 @@ export function __getRobotState() {
 
 export function robot_left() {
   if (field.hasWallLeft()) {
+    // Record error in history for deferred display
+    __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: слева стена' });
+    __deferredError = 'Робот: слева стена';
     robotError('слева стена');
   }
   field.robotX--;
+  __robotHistory.push({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function robot_right() {
   if (field.hasWallRight()) {
+    __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: справа стена' });
+    __deferredError = 'Робот: справа стена';
     robotError('справа стена');
   }
   field.robotX++;
+  __robotHistory.push({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function robot_up() {
   if (field.hasWallUp()) {
+    __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: сверху стена' });
+    __deferredError = 'Робот: сверху стена';
     robotError('сверху стена');
   }
   field.robotY--;
+  __robotHistory.push({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function robot_down() {
   if (field.hasWallDown()) {
+    __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: снизу стена' });
+    __deferredError = 'Робот: снизу стена';
     robotError('снизу стена');
   }
   field.robotY++;
+  __robotHistory.push({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function robot_paint() {
   field.paint();
+  __robotHistory.push({ action: 'paint', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function robot_left_free() {
@@ -376,4 +401,109 @@ export function robot_radiation() {
 
 export function robot_temperature() {
   return field.getTemperature();
+}
+
+// Animation replay system
+
+export function __setRenderCallback(callback) {
+  __renderCallback = callback;
+}
+
+export function __setAnimationDelay(delay) {
+  __animationDelay = delay;
+}
+
+export function __getAnimationDelay() {
+  return __animationDelay;
+}
+
+export function __hasHistory() {
+  return __robotHistory.length > 0;
+}
+
+export function __getHistoryLength() {
+  return __robotHistory.length;
+}
+
+export function __clearHistory() {
+  __robotHistory = [];
+  __deferredError = null;
+}
+
+export function __getDeferredError() {
+  return __deferredError;
+}
+
+export function __clearDeferredError() {
+  __deferredError = null;
+}
+
+// Replay robot history with animation
+// onComplete(error) - called when animation is complete, with error message if any
+export function __replayHistory(onComplete) {
+  if (__robotHistory.length === 0) {
+    if (onComplete) onComplete(__deferredError);
+    return;
+  }
+
+  // Save final state
+  const finalX = field.robotX;
+  const finalY = field.robotY;
+  const finalPainted = new Set(field.painted);
+  const errorToShow = __deferredError;
+
+  let stepIndex = 0;
+  let animationId = null;
+  let stopped = false;
+
+  // Store reference for stopping
+  __currentAnimation = {
+    stop: () => {
+      stopped = true;
+      if (animationId) clearTimeout(animationId);
+      // Restore final state
+      field.robotX = finalX;
+      field.robotY = finalY;
+      field.painted = finalPainted;
+      if (__renderCallback) __renderCallback();
+    }
+  };
+
+  function step() {
+    if (stopped || stepIndex >= __robotHistory.length) {
+      // Animation complete - restore final state
+      field.robotX = finalX;
+      field.robotY = finalY;
+      field.painted = finalPainted;
+      __currentAnimation = null;
+      if (__renderCallback) __renderCallback();
+      if (onComplete) onComplete(errorToShow);
+      return;
+    }
+
+    const entry = __robotHistory[stepIndex++];
+    field.robotX = entry.x;
+    field.robotY = entry.y;
+    field.painted = entry.painted;
+
+    if (__renderCallback) __renderCallback();
+
+    animationId = setTimeout(step, __animationDelay);
+  }
+
+  // Start animation
+  step();
+}
+
+let __currentAnimation = null;
+
+export function __stopAnimation() {
+  if (__currentAnimation) {
+    __currentAnimation.stop();
+    __currentAnimation = null;
+  }
+}
+
+export function __isAnimating() {
+  return __currentAnimation !== null;
 }
