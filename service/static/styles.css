@@ -376,8 +376,7 @@ footer .version { opacity: 0.9; }
 	top: 0;
 	bottom: 0;
 	right: 0;
-	width: 420px;
-	max-width: 45vw;
+	width: 50vw;
 	background: #1b1b1b;
 	border-left: 1px solid #333;
 	box-shadow: -8px 0 24px rgba(0,0,0,0.45);
@@ -386,6 +385,12 @@ footer .version { opacity: 0.9; }
 	z-index: 2800;
 	display: flex;
 	flex-direction: column;
+}
+@media (max-width: 768px) {
+	.docs-drawer {
+		width: 100vw;
+		border-left: none;
+	}
 }
 .docs-drawer.open {
 	transform: translateX(0);
