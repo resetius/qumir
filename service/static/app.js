@@ -2104,3 +2104,27 @@ if (btnShare) {
     }
   });
 }
+
+// Onboarding tour
+(async function setupTour() {
+  try {
+    const tour = await import('./tour.js');
+
+    // Button to restart tour
+    const restartBtn = document.getElementById('tour-restart-btn');
+    if (restartBtn) {
+      restartBtn.addEventListener('click', () => {
+        tour.resetTour();
+        tour.startTour();
+      });
+    }
+
+    // Don't auto-start tour if coming from a shared link or example
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get('share') && !params.get('example')) {
+      tour.initTour();
+    }
+  } catch (e) {
+    console.warn('Tour module not available:', e);
+  }
+})();
