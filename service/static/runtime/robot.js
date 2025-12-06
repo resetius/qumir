@@ -260,10 +260,13 @@ function getFiles() {
   return typeof __filesAccessor === 'function' ? __filesAccessor() : [];
 }
 
-export function __initRobotField() {
-  field.reset();
-  __robotHistory = []; // Clear history on init
-  __deferredError = null; // Clear deferred error
+// Lazy loading flag - field is loaded on first robot command
+let __fieldLoaded = false;
+
+// Load field from .fil file (called lazily on first robot command)
+function ensureFieldLoaded() {
+  if (__fieldLoaded) return;
+  __fieldLoaded = true;
 
   const files = getFiles();
 
@@ -291,6 +294,13 @@ export function __initRobotField() {
   __robotHistory.push({ action: 'init', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
+export function __initRobotField() {
+  field.reset();
+  __robotHistory = []; // Clear history on init
+  __deferredError = null; // Clear deferred error
+  __fieldLoaded = false; // Reset lazy loading flag - field will be loaded on first command
+}
+
 export function __resetRobot() {
   __initRobotField();
 }
@@ -310,6 +320,7 @@ export function __getRobotState() {
 // Runtime API functions (exported for WASM)
 
 export function robot_left() {
+  ensureFieldLoaded();
   if (field.hasWallLeft()) {
     // Record error in history for deferred display
     __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: слева стена' });
@@ -321,6 +332,7 @@ export function robot_left() {
 }
 
 export function robot_right() {
+  ensureFieldLoaded();
   if (field.hasWallRight()) {
     __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: справа стена' });
     __deferredError = 'Робот: справа стена';
@@ -331,6 +343,7 @@ export function robot_right() {
 }
 
 export function robot_up() {
+  ensureFieldLoaded();
   if (field.hasWallUp()) {
     __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: сверху стена' });
     __deferredError = 'Робот: сверху стена';
@@ -341,6 +354,7 @@ export function robot_up() {
 }
 
 export function robot_down() {
+  ensureFieldLoaded();
   if (field.hasWallDown()) {
     __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: снизу стена' });
     __deferredError = 'Робот: снизу стена';
@@ -351,55 +365,68 @@ export function robot_down() {
 }
 
 export function robot_paint() {
+  ensureFieldLoaded();
   field.paint();
   __robotHistory.push({ action: 'paint', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function robot_left_free() {
+  ensureFieldLoaded();
   return !field.hasWallLeft();
 }
 
 export function robot_right_free() {
+  ensureFieldLoaded();
   return !field.hasWallRight();
 }
 
 export function robot_top_free() {
+  ensureFieldLoaded();
   return !field.hasWallUp();
 }
 
 export function robot_bottom_free() {
+  ensureFieldLoaded();
   return !field.hasWallDown();
 }
 
 export function robot_left_wall() {
+  ensureFieldLoaded();
   return field.hasWallLeft();
 }
 
 export function robot_right_wall() {
+  ensureFieldLoaded();
   return field.hasWallRight();
 }
 
 export function robot_top_wall() {
+  ensureFieldLoaded();
   return field.hasWallUp();
 }
 
 export function robot_bottom_wall() {
+  ensureFieldLoaded();
   return field.hasWallDown();
 }
 
 export function robot_cell_painted() {
+  ensureFieldLoaded();
   return field.isPainted();
 }
 
 export function robot_cell_clean() {
+  ensureFieldLoaded();
   return !field.isPainted();
 }
 
 export function robot_radiation() {
+  ensureFieldLoaded();
   return field.getRadiation();
 }
 
 export function robot_temperature() {
+  ensureFieldLoaded();
   return field.getTemperature();
 }
 
