@@ -191,11 +191,11 @@
     let currentDoc = 'index.md';
     const cache = {};
 
-    // Check URL for doc - supports both ?section=doc.md and #doc.md (for backward compatibility)
+    // Check URL for doc - supports ?section=, ?page=, and #doc.md (for backward compatibility)
     function getDocFromUrl() {
-      // First check query parameter
       const params = new URLSearchParams(window.location.search);
-      const section = params.get('section');
+      // Check query parameters: section and page are synonyms
+      const section = params.get('section') || params.get('page');
       if (section && section.endsWith('.md')) return section;
       // Then check hash (backward compatibility)
       const hash = window.location.hash.slice(1);
