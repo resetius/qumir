@@ -929,24 +929,28 @@ function ensureTurtleUI() {
     ctr.style.margin = '6px 0';
     ctr.style.display = 'flex';
     ctr.style.gap = '12px';
-    const makeOpt = (label, value) => {
-      const lab = document.createElement('label');
-      lab.style.cursor = 'pointer';
-      const input = document.createElement('input');
-      input.type = 'radio';
-      input.name = 'q-out-mode';
-      input.value = value;
-      input.style.marginRight = '6px';
-      input.addEventListener('change', () => { if (input.checked) setCompilerOutputMode(value); });
-      lab.appendChild(input);
-      lab.appendChild(document.createTextNode(label));
-      return lab;
-    };
-    ctr.appendChild(makeOpt('Текст', 'text'));
-    ctr.appendChild(makeOpt('Черепаха', 'turtle'));
     out.parentNode.insertBefore(ctr, out);
     __turtleToggle = ctr;
   }
+  
+  // Rebuild options for turtle mode
+  __turtleToggle.innerHTML = '';
+  const makeOpt = (label, value) => {
+    const lab = document.createElement('label');
+    lab.style.cursor = 'pointer';
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'q-out-mode';
+    input.value = value;
+    input.style.marginRight = '6px';
+    input.addEventListener('change', () => { if (input.checked) setCompilerOutputMode(value); });
+    lab.appendChild(input);
+    lab.appendChild(document.createTextNode(label));
+    return lab;
+  };
+  __turtleToggle.appendChild(makeOpt('Текст', 'text'));
+  __turtleToggle.appendChild(makeOpt('Черепаха', 'turtle'));
+  
   __turtleToggle.style.display = '';
   // Sync radios with current mode or saved cookie
   const saved = getCookie('q_out_mode');
@@ -1144,7 +1148,15 @@ function ensureRobotUI() {
 }
 
 function hideRobotUI() {
+  // Stop any running animation
+  if (__robotModule && typeof __robotModule.__stopAnimation === 'function') {
+    __robotModule.__stopAnimation();
+  }
   if (__robotCanvas) __robotCanvas.style.display = 'none';
+  // Also hide toggle and restore text output
+  if (__turtleToggle) __turtleToggle.style.display = 'none';
+  const out = document.getElementById('output');
+  if (out) out.style.display = '';
 }
 
 function renderRobotField() {
@@ -1335,6 +1347,7 @@ async function runWasm() {
       usesRobot = Array.isArray(imps) && imps.some(imp => imp && imp.module === 'env' && typeof imp.name === 'string' && imp.name.startsWith('robot_'));
     } catch {}
     if (usesTurtle && __turtleModule) {
+      hideRobotUI();  // скрыть робота при переключении на черепаху
       ensureTurtleUI();
       if (__turtleCanvas && typeof __turtleModule.__bindTurtleCanvas === 'function') {
         __turtleModule.__bindTurtleCanvas(__turtleCanvas);
@@ -1343,14 +1356,16 @@ async function runWasm() {
         __turtleModule.__resetTurtle(true);
       }
       const saved = getCookie('q_out_mode');
-      setCompilerOutputMode(saved === 'turtle' ? 'turtle' : __compilerOutputMode);
+      setCompilerOutputMode(saved === 'turtle' ? 'turtle' : 'turtle');
     } else if (usesRobot && __robotModule) {
+      hideTurtleUI();  // скрыть черепаху при переключении на робота
       ensureRobotUI();
       const saved = getCookie('q_out_mode');
       setCompilerOutputMode(saved === 'robot' ? 'robot' : 'robot');
     } else {
       hideTurtleUI();
       hideRobotUI();
+      setCompilerOutputMode('text');
     }
     if (typeof ioEnv.__resetIO === 'function') {
       ioEnv.__resetIO(true);
