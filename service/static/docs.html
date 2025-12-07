@@ -191,11 +191,24 @@
     let currentDoc = 'index.md';
     const cache = {};
 
-    // Check URL hash for doc
-    function getDocFromHash() {
+    // Check URL for doc - supports both ?section=doc.md and #doc.md (for backward compatibility)
+    function getDocFromUrl() {
+      // First check query parameter
+      const params = new URLSearchParams(window.location.search);
+      const section = params.get('section');
+      if (section && section.endsWith('.md')) return section;
+      // Then check hash (backward compatibility)
       const hash = window.location.hash.slice(1);
       if (hash && hash.endsWith('.md')) return hash;
       return 'index.md';
+    }
+
+    // Update URL with query param only (no hash) - doesn't cause page reload
+    function updateUrl(filename) {
+      const url = new URL(window.location);
+      url.searchParams.set('section', filename);
+      url.hash = '';  // Clear hash
+      window.history.pushState({ doc: filename }, '', url);
     }
 
     async function loadDoc(filename) {
@@ -230,14 +243,14 @@
           if (href && href.endsWith('.md') && !href.startsWith('http')) {
             link.addEventListener('click', e => {
               e.preventDefault();
-              window.location.hash = href;
+              loadDoc(href);
             });
           }
         });
 
         main.scrollTop = 0;
         currentDoc = filename;
-        window.location.hash = filename;
+        updateUrl(filename);
 
       } catch (err) {
         main.innerHTML = '<div class="docs-error">Не удалось загрузить: ' + err.message + '</div>';
@@ -253,14 +266,14 @@
       }
     });
 
-    // Hash change
-    window.addEventListener('hashchange', () => {
-      const doc = getDocFromHash();
+    // Handle popstate for back/forward navigation
+    window.addEventListener('popstate', (e) => {
+      const doc = e.state?.doc || getDocFromUrl();
       if (doc !== currentDoc) loadDoc(doc);
     });
 
     // Initial load
-    loadDoc(getDocFromHash());
+    loadDoc(getDocFromUrl());
   </script>
 </body>
 </html>
