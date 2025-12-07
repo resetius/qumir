@@ -301,6 +301,35 @@ export function __initRobotField() {
   __fieldLoaded = false; // Reset lazy loading flag - field will be loaded on first command
 }
 
+// Preview field from .fil file without running program
+// Returns true if field was loaded, false otherwise
+export function __previewField() {
+  field.reset();
+  __robotHistory = [];
+  __deferredError = null;
+  __fieldLoaded = true;
+
+  const files = getFiles();
+
+  // Look for first .fil file
+  let filFile = null;
+  for (const f of files) {
+    const name = (f.name || '').toLowerCase();
+    if (name.endsWith('.fil')) {
+      filFile = f;
+      break;
+    }
+  }
+
+  if (filFile && filFile.content) {
+    field.parseField(filFile.content);
+    return true;
+  } else {
+    field.parseField(DEFAULT_FIELD);
+    return false;
+  }
+}
+
 export function __resetRobot() {
   __initRobotField();
 }

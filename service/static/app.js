@@ -256,10 +256,74 @@ function applyProjectToInputs(project, { silent = false } = {}) {
       renderIoFilePane(f);
     });
     refreshIoSelectOptions();
+    // Restore active pane - if saved pane exists in this project's files, use it; otherwise stdout
+    const savedPane = getCookie(IO_PANE_COOKIE) || 'stdout';
+    const knownIds = new Set(['stdout', 'stdin', ...__ioFiles.map(f => f.id)]);
+    const targetPane = knownIds.has(savedPane) ? savedPane : 'stdout';
+    setActiveIoPane(targetPane, { persistCookie: false });
   }
   if (!silent) {
     saveState();
   }
+  // Preview robot field if code uses robot and .fil file exists
+  tryPreviewRobotField(project.code, project.files);
+}
+
+// Check if code likely uses robot (by looking for robot keywords)
+function codeUsesRobot(code) {
+  if (!code) return false;
+  // Check for "использовать Робот" or robot function calls
+  return /(использовать)\s+Робот/i.test(code) ||
+         /\b(вверх|вниз|влево|вправо|закрасить|сверху_свободно|снизу_свободно|слева_свободно|справа_свободно|сверху_стена|снизу_стена|слева_стена|справа_стена|клетка_закрашена|клетка_чистая)\s*[\(\n]/i.test(code);
+}
+
+// Check if files contain a .fil file
+function hasFilFile(files) {
+  if (!Array.isArray(files)) return false;
+  return files.some(f => f && typeof f.name === 'string' && f.name.toLowerCase().endsWith('.fil'));
+}
+
+// Try to preview robot field if applicable
+async function tryPreviewRobotField(code, files) {
+  if (!codeUsesRobot(code)) {
+    // Hide robot UI if code doesn't use robot
+    hideRobotUI();
+    return;
+  }
+
+  // Ensure robot module is loaded
+  if (!__robotModule) {
+    try { __robotModule = await import('./runtime/robot.js'); } catch { return; }
+  }
+
+  // Setup canvas if needed
+  ensureRobotUI();
+
+  // Setup file accessor for robot module
+  if (__robotModule && typeof __robotModule.__setRobotFilesAccessor === 'function') {
+    __robotModule.__setRobotFilesAccessor(() => __ioFiles);
+  }
+
+  // Preview field
+  if (__robotModule && typeof __robotModule.__previewField === 'function') {
+    __robotModule.__previewField();
+  }
+
+  // Show robot canvas
+  setCompilerOutputMode('robot');
+}
+
+// Update robot field preview when .fil file is edited (if robot view is active)
+function tryUpdateRobotFieldPreview() {
+  // Only update if robot mode is active
+  if (__compilerOutputMode !== 'robot') return;
+  if (!__robotModule) return;
+
+  // Re-preview the field
+  if (typeof __robotModule.__previewField === 'function') {
+    __robotModule.__previewField();
+  }
+  renderRobotField();
 }
 
 function setActiveProject(projectId, { silent = false } = {}) {
@@ -732,9 +796,15 @@ function renderIoFilePane(file) {
   file.elements = { pane, nameInput, editor };
 
   const commitName = (value) => {
+    const wasFil = file.name && file.name.toLowerCase().endsWith('.fil');
     file.name = value;
     refreshIoSelectOptions();
     persistIoFiles();
+    // Update robot preview if file became or stopped being .fil
+    const isFil = file.name && file.name.toLowerCase().endsWith('.fil');
+    if (isFil || wasFil) {
+      tryUpdateRobotFieldPreview();
+    }
   };
 
   nameInput.addEventListener('input', () => {
@@ -754,6 +824,10 @@ function renderIoFilePane(file) {
 
   editor.addEventListener('input', () => {
     file.content = editor.value;
+    // If this is a .fil file and robot view is active, update the field preview
+    if (file.name && file.name.toLowerCase().endsWith('.fil')) {
+      tryUpdateRobotFieldPreview();
+    }
   });
 }
 
@@ -932,7 +1006,7 @@ function ensureTurtleUI() {
     out.parentNode.insertBefore(ctr, out);
     __turtleToggle = ctr;
   }
-  
+
   // Rebuild options for turtle mode
   __turtleToggle.innerHTML = '';
   const makeOpt = (label, value) => {
@@ -950,7 +1024,7 @@ function ensureTurtleUI() {
   };
   __turtleToggle.appendChild(makeOpt('Текст', 'text'));
   __turtleToggle.appendChild(makeOpt('Черепаха', 'turtle'));
-  
+
   __turtleToggle.style.display = '';
   // Sync radios with current mode or saved cookie
   const saved = getCookie('q_out_mode');
@@ -1176,16 +1250,20 @@ function renderRobotField() {
   const w = rect.width;
   const h = rect.height;
 
-  // Calculate cell size
-  const padding = 20;
-  const cellW = Math.floor((w - 2 * padding) / field.width);
-  const cellH = Math.floor((h - 2 * padding) / field.height);
+  // Calculate cell size (reserve space for coordinate labels on all sides)
+  const labelSpace = 20; // Space for coordinate numbers
+  const padding = 5;
+  const availW = w - 2 * padding - 2 * labelSpace;
+  const availH = h - 2 * padding - 2 * labelSpace;
+  const cellW = Math.floor(availW / field.width);
+  const cellH = Math.floor(availH / field.height);
   const cellSize = Math.min(cellW, cellH, 40); // Max 40px per cell
 
   const gridW = cellSize * field.width;
   const gridH = cellSize * field.height;
-  const offsetX = (w - gridW) / 2;
-  const offsetY = (h - gridH) / 2;
+  // Center grid in available area (between label spaces)
+  const offsetX = padding + labelSpace + (availW - gridW) / 2;
+  const offsetY = padding + labelSpace + (availH - gridH) / 2;
 
   // Clear
   ctx.fillStyle = '#fff';
@@ -1212,6 +1290,30 @@ function renderRobotField() {
     ctx.moveTo(offsetX, offsetY + y * cellSize);
     ctx.lineTo(offsetX + gridW, offsetY + y * cellSize);
     ctx.stroke();
+  }
+
+  // Draw coordinate labels on all four sides
+  ctx.fillStyle = '#666';
+  ctx.font = `${Math.min(12, cellSize * 0.4)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // X coordinates (top and bottom)
+  for (let x = 0; x < field.width; x++) {
+    const cx = offsetX + x * cellSize + cellSize / 2;
+    // Top
+    ctx.fillText(String(x), cx, offsetY - labelSpace / 2);
+    // Bottom
+    ctx.fillText(String(x), cx, offsetY + gridH + labelSpace / 2);
+  }
+
+  // Y coordinates (left and right)
+  for (let y = 0; y < field.height; y++) {
+    const cy = offsetY + y * cellSize + cellSize / 2;
+    // Left
+    ctx.fillText(String(y), offsetX - labelSpace / 2, cy);
+    // Right
+    ctx.fillText(String(y), offsetX + gridW + labelSpace / 2, cy);
   }
 
   // Draw outer border (thick)
@@ -1629,9 +1731,9 @@ function initEditor() {
   setTimeout(() => editor.refresh(), 0);
 }
 
+initIoWorkspace();  // Must be before loadState() so __ioFilesRoot is ready
 loadState();
 initProjectsUI();
-initIoWorkspace();
 // Load examples list
 (async function initExamples(){
   try {
@@ -1785,19 +1887,16 @@ initEditor();
     const code = data.code || '';
     const args = data.args || '';
 
-    updateActiveProjectFromInputs();
-    createProject({ name: displayName, code: code, args: args, stdin: '' }, { activate: true });
-
-    // Add auxiliary files to IO files list
+    // Prepare files array for the project
+    const projectFiles = [];
     if (Array.isArray(data.files) && data.files.length > 0) {
       for (const f of data.files) {
-        const newId = generateIoFileId();
-        const fileObj = { id: newId, name: f.name, content: f.content || '' };
-        __ioFiles.push(fileObj);
-        renderIoFilePane(fileObj);
-        refreshIoSelectOptions();
+        projectFiles.push({ name: f.name, content: f.content || '' });
       }
     }
+
+    updateActiveProjectFromInputs();
+    createProject({ name: displayName, code: code, args: args, stdin: '', files: projectFiles }, { activate: true });
 
     // Select example in dropdown if present
     const examplesSel = $('#examples');
@@ -1858,19 +1957,16 @@ if (examplesSel) examplesSel.addEventListener('change', async () => {
     const code = data.code || '';
     const args = data.args || '';
 
-    updateActiveProjectFromInputs();
-    createProject({ name: displayName, code: code, args: args, stdin: '' }, { activate: true });
-
-    // Add auxiliary files to IO files list
+    // Prepare files array for the project
+    const projectFiles = [];
     if (Array.isArray(data.files) && data.files.length > 0) {
       for (const f of data.files) {
-        const newId = generateIoFileId();
-        const fileObj = { id: newId, name: f.name, content: f.content || '' };
-        __ioFiles.push(fileObj);
-        renderIoFilePane(fileObj);
-        refreshIoSelectOptions();
+        projectFiles.push({ name: f.name, content: f.content || '' });
       }
     }
+
+    updateActiveProjectFromInputs();
+    createProject({ name: displayName, code: code, args: args, stdin: '', files: projectFiles }, { activate: true });
 
     debounceShow();
   } catch (e) {
