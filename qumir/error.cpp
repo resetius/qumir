@@ -7,8 +7,10 @@ std::string TError::ToString() const {
 }
 
 std::string TError::ToString(int indent) const {
-    std::string result(indent, ' ');
-    result += Msg + ": " + Location.ToString() + "\n";
+    std::string result;
+    if (!Msg.empty()) {
+        result += Msg + " @ " + Location.ToString() + "\n";
+    }
     for (const auto& child : Children) {
         result += child.ToString(indent + 2);
     }

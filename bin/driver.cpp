@@ -79,7 +79,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     NAst::TParser p;
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
-        std::cerr << "Parse error: " << expected.error().ToString() << std::endl;
+        std::cerr << expected.error().ToString() << std::endl;
         return 1;
     }
     auto ast = std::move(expected.value());
@@ -122,7 +122,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
-        std::cerr << "Transform error: " << error.error().ToString() << "\n";
+        std::cerr << error.error().ToString() << "\n";
         return 1;
     }
 
@@ -132,7 +132,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     NIR::TAstLowerer lowerer(module, builder, r);
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
-        std::cerr << "Lowering error: " << lowerResult.error().ToString() << "\n";
+        std::cerr << lowerResult.error().ToString() << "\n";
         return 1;
     }
     if (optLevel > 0) {
@@ -164,7 +164,7 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     NAst::TParser p;
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
-        std::cerr << "Parse error: " << expected.error().ToString() << std::endl;
+        std::cerr << expected.error().ToString() << std::endl;
         return 1;
     }
     auto ast = std::move(expected.value());
@@ -178,7 +178,7 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
-        std::cerr << "Transform error: " << error.error().ToString() << "\n";
+        std::cerr << error.error().ToString() << "\n";
         return 1;
     }
 
@@ -188,7 +188,7 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     NIR::TAstLowerer lowerer(module, builder, r);
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
-        std::cerr << "Lowering error: " << lowerResult.error().ToString() << "\n";
+        std::cerr << lowerResult.error().ToString() << "\n";
         return 1;
     }
 
@@ -335,7 +335,7 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     NAst::TParser p;
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
-        std::cerr << "Parse error: " << expected.error().ToString() << std::endl;
+        std::cerr << expected.error().ToString() << std::endl;
         return 1;
     }
     auto ast = std::move(expected.value());
@@ -349,7 +349,7 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
-        std::cerr << "Transform error: " << error.error().ToString() << "\n";
+        std::cerr << error.error().ToString() << "\n";
         return 1;
     }
 
@@ -359,7 +359,7 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     NIR::TAstLowerer lowerer(module, builder, r);
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
-        std::cerr << "Lowering error: " << lowerResult.error().ToString() << "\n";
+        std::cerr << lowerResult.error().ToString() << "\n";
         return 1;
     }
     if (optLevel > 0) {

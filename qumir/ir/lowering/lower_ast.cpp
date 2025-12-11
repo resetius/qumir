@@ -2,6 +2,7 @@
 #include "qumir/ir/builder.h"
 #include "qumir/parser/parser.h"
 #include "qumir/parser/type.h"
+#include "qumir/error.h"
 
 #include <iostream>
 #include <sstream>
@@ -32,7 +33,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerWhileLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope)
 {
     if (loop->PreCond == nullptr) {
-        co_return TError(loop->Location, "while loop must have a condition");
+        co_return TError(loop->Location, TErrorString::Get<EErrorId::WHILE_MISSING_CONDITION>());
     }
 
     auto entryId = Builder.CurrentBlockIdx();
@@ -48,7 +49,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     // Condition check
     Builder.SetCurrentBlock(condId);
     auto cond = co_await Lower(loop->PreCond, scope);
-    if (!cond.Value) co_return TError(loop->PreCond->Location, "while condition must be a number");
+    if (!cond.Value) co_return TError(loop->PreCond->Location, TErrorString::Get<EErrorId::WHILE_CONDITION_NOT_NUMBER>());
     Builder.Emit0("cmp"_op, {*cond.Value, bodyLabel, endLabel});
 
     // Body
@@ -77,13 +78,13 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     // continue should jump to PostBody (or cond if PostBody is absent)
 
     if (loop->PreCond == nullptr) {
-        co_return TError(loop->Location, "for loop must have a pre-condition");
+        co_return TError(loop->Location, TErrorString::Get<EErrorId::FOR_MISSING_PRECONDITION>());
     }
     if (loop->PreBody == nullptr) {
-        co_return TError(loop->Location, "for loop must have a pre-body");
+        co_return TError(loop->Location, TErrorString::Get<EErrorId::FOR_MISSING_PREBODY>());
     }
     if (loop->PostBody == nullptr) {
-        co_return TError(loop->Location, "for loop must have a post-body");
+        co_return TError(loop->Location, TErrorString::Get<EErrorId::FOR_MISSING_POSTBODY>());
     }
 
     auto entryId = Builder.CurrentBlockIdx();
@@ -100,7 +101,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     // Condition
     Builder.SetCurrentBlock(condId);
     auto cond = co_await Lower(loop->PreCond, scope);
-    if (!cond.Value) co_return TError(loop->PreCond->Location, "for condition must be a number");
+    if (!cond.Value) co_return TError(loop->PreCond->Location, TErrorString::Get<EErrorId::FOR_CONDITION_NOT_NUMBER>());
     // If true -> pre or body depending on PreBody presence; if false -> end
     auto trueTarget = preLabel;
     Builder.Emit0("cmp"_op, {*cond.Value, trueTarget, endLabel});
@@ -153,7 +154,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerRepeatLoop(std::shared_ptr<NAst::TLoopStmtExpr> loop, TBlockScope scope)
 {
     if (loop->PostCond == nullptr) {
-        co_return TError(loop->Location, "repeat-until loop must have a condition");
+        co_return TError(loop->Location, TErrorString::Get<EErrorId::REPEAT_MISSING_CONDITION>());
     }
 
     // Create blocks for body and condition
@@ -181,7 +182,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     // Condition block
     Builder.SetCurrentBlock(condId);
     auto cond = co_await Lower(loop->PostCond, scope);
-    if (!cond.Value) co_return TError(loop->PostCond->Location, "repeat-until condition must be a number");
+    if (!cond.Value) co_return TError(loop->PostCond->Location, TErrorString::Get<EErrorId::REPEAT_CONDITION_NOT_NUMBER>());
     // If condition is true, repeat; if false, exit
     Builder.Emit0("cmp"_op, {*cond.Value, bodyLabel, endLabel});
 
@@ -194,12 +195,12 @@ TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& n
 {
     auto var = Context.Lookup(name, scope.Id);
     if (!var) {
-        co_return TError(loc, "undefined variable: `" + name + "'");
+        co_return TError(loc, TErrorString::Get<EErrorId::UNDEFINED_VARIABLE>(name));
     }
 
     auto node = Context.GetSymbolNode(NSemantics::TSymbolId{var->Id});
     if (!node) {
-        co_return TError(loc, "undefined variable: `" + name + "'");
+        co_return TError(loc, TErrorString::Get<EErrorId::UNDEFINED_VARIABLE>(name));
     }
     if (NAst::TMaybeType<NAst::TReferenceType>(node->Type) && takeRefOfNotRef) {
         takeRefOfNotRef = false;
@@ -226,7 +227,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     for (; i >= 0; --i) {
         auto indexRes = co_await Lower(indices[i], scope);
         if (!indexRes.Value) {
-            co_return TError(indices[i]->Location, "array index must be a number");
+            co_return TError(indices[i]->Location, TErrorString::Get<EErrorId::ARRAY_INDEX_NOT_NUMBER>());
         }
         // totalIndex = sum (index - lowerBound) * stride_i
         // stride_n = 1
@@ -259,7 +260,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     if (auto maybeCast = NAst::TMaybeNode<NAst::TCastExpr>(expr)) {
         auto cast = maybeCast.Cast();
         auto operand = co_await Lower(cast->Operand, scope);
-        if (!operand.Value) co_return TError(cast->Operand->Location, "operand of cast must be a value");
+        if (!operand.Value) co_return TError(cast->Operand->Location, TErrorString::Get<EErrorId::OPERAND_OF_CAST_NOT_VALUE>());
         std::optional<TOperand> tmp;
         if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TFloatType>(cast->Operand->Type)) {
             // float to int cast
@@ -277,7 +278,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             // oposite of above: int to symbol
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
         } else {
-            co_return TError(cast->Location, "unsupported cast types: from " + std::string(cast->Operand->Type->TypeName()) + " to " + std::string(expr->Type->TypeName()));
+            co_return TError(cast->Location, TErrorString::Get<EErrorId::UNSUPPORTED_CAST_TYPES>(std::string(cast->Operand->Type->TypeName()), std::string(expr->Type->TypeName())));
         }
         Builder.SetType(tmp->Tmp, FromAstType(expr->Type, Module.Types));
         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
@@ -350,7 +351,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     } else if (auto maybeUnary = NAst::TMaybeNode<NAst::TUnaryExpr>(expr)) {
         auto unary = maybeUnary.Cast();
         auto operand = co_await Lower(unary->Operand, scope);
-        if (!operand.Value) co_return TError(unary->Operand->Location, "operand of unary must be a number");
+        if (!operand.Value) co_return TError(unary->Operand->Location, TErrorString::Get<EErrorId::OPERAND_OF_UNARY_NOT_NUMBER>());
         if (unary->Operator == '-') {
             auto tmp = Builder.Emit1("neg"_op, {*operand.Value});
             Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
@@ -373,8 +374,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             rightRes = co_await Lower(binary->Right, scope);
             rightNum = rightRes.Value;
         }
-        if (!leftNum) co_return TError(binary->Location, "binary operands must be numbers");
-        if (!isLazy && !rightNum) co_return TError(binary->Location, "binary operands must be numbers");
+        if (!leftNum) co_return TError(binary->Location, TErrorString::Get<EErrorId::BINARY_OPERANDS_NOT_NUMBERS>());
+        if (!isLazy && !rightNum) co_return TError(binary->Location, TErrorString::Get<EErrorId::BINARY_OPERANDS_NOT_NUMBERS>());
 
         switch ((uint64_t)binary->Operator) {
             case "&&"_op: {
@@ -394,7 +395,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 // RHS path
                 Builder.SetCurrentBlock(rhsId);
                 auto r = co_await Lower(binary->Right, scope);
-                if (!r.Value) co_return TError(binary->Right->Location, "binary operands must be numbers");
+                if (!r.Value) co_return TError(binary->Right->Location, TErrorString::Get<EErrorId::BINARY_OPERANDS_NOT_NUMBERS>());
                 // Record truth of RHS (both edges go to end)
                 Builder.Emit0("jmp"_op, {endLabel});
                 auto rightEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was true
@@ -420,7 +421,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
                 Builder.SetCurrentBlock(rhsId);
                 auto r = co_await Lower(binary->Right, scope);
-                if (!r.Value) co_return TError(binary->Right->Location, "binary operands must be numbers");
+                if (!r.Value) co_return TError(binary->Right->Location, TErrorString::Get<EErrorId::BINARY_OPERANDS_NOT_NUMBERS>());
                 Builder.Emit0("jmp"_op, {endLabel});
                 auto rightEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was false
 
@@ -443,7 +444,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // If is a statement in this language: no result value, no phi merge.
         auto ife = maybeIfe.Cast();
         auto cond = co_await Lower(ife->Cond, scope);
-        if (!cond.Value) co_return TError(ife->Cond->Location, "if condition must be a number");
+        if (!cond.Value) co_return TError(ife->Cond->Location, TErrorString::Get<EErrorId::IF_CONDITION_NOT_NUMBER>());
 
         auto entryId = Builder.CurrentBlockIdx();
         auto [thenLabel, thenId] = Builder.NewBlock();
@@ -479,14 +480,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         co_return co_await LowerLoop(loop, scope);
     } else if (NAst::TMaybeNode<NAst::TBreakStmt>(expr)) {
         if (!scope.BreakLabel) {
-            co_return TError(expr->Location, "break not in a loop");
+            co_return TError(expr->Location, TErrorString::Get<EErrorId::BREAK_NOT_IN_LOOP>());
         }
         // terminate current block by jumping to the break target
         Builder.Emit0("jmp"_op, {*scope.BreakLabel});
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (NAst::TMaybeNode<NAst::TContinueStmt>(expr)) {
         if (!scope.ContinueLabel) {
-            co_return TError(expr->Location, "continue not in a loop");
+            co_return TError(expr->Location, TErrorString::Get<EErrorId::CONTINUE_NOT_IN_LOOP>());
         }
         // terminate current block by jumping to the continue target
         Builder.Emit0("jmp"_op, {*scope.ContinueLabel});
@@ -496,7 +497,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         auto indices = co_await LowerIndices(asg->Name, asg->Indices, scope);
         if (!indices.Value) {
-            co_return TError(asg->Location, "failed to lower array indices");
+            co_return TError(asg->Location, TErrorString::Get<EErrorId::FAILED_LOWER_ARRAY_INDICES>());
         }
         auto totalIndex = *indices.Value;
 
@@ -506,7 +507,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         Builder.SetType(destPtr, arrayType);
 
         auto rhs = co_await Lower(asg->Value, scope);
-        if (!rhs.Value) co_return TError(asg->Value->Location, "right-hand side of assignment must be a number");
+        if (!rhs.Value) co_return TError(asg->Value->Location, TErrorString::Get<EErrorId::RIGHT_HAND_SIDE_NOT_NUMBER>());
 
         int arrayElemType = Module.Types.UnderlyingType(arrayType);
         // copy-paste
@@ -545,15 +546,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto index = maybeIndex.Cast();
         auto indexValue = co_await Lower(index->Index, scope);
         if (!indexValue.Value) {
-            co_return TError(index->Index->Location, "array index must be a number");
+            co_return TError(index->Index->Location, TErrorString::Get<EErrorId::ARRAY_INDEX_NOT_NUMBER>());
         }
         auto value = co_await Lower(index->Collection, scope);
         if (!value.Value) {
-            co_return TError(index->Collection->Location, "failed to lower collection");
+            co_return TError(index->Collection->Location, TErrorString::Get<EErrorId::FAILED_LOWER_COLLECTION>());
         }
         auto arrayPtr = *value.Value;
         if (arrayPtr.Type != TOperand::EType::Tmp) {
-            co_return TError(index->Collection->Location, "collection is not an array");
+            co_return TError(index->Collection->Location, TErrorString::Get<EErrorId::COLLECTION_NOT_ARRAY>());
         }
 
         // Adjust index by lower bound: index0 = index - lbound0
@@ -574,21 +575,21 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto multiIndex = maybeMultiIndex.Cast();
         auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(multiIndex->Collection);
         if (!maybeIdent) {
-            co_return TError(multiIndex->Collection->Location, "multi-index collection must be an identifier");
+            co_return TError(multiIndex->Collection->Location, TErrorString::Get<EErrorId::MULTI_INDEX_COLLECTION_MUST_BE_IDENTIFIER>());
         }
         auto asg = maybeIdent.Cast();
         auto indices = co_await LowerIndices(asg->Name, multiIndex->Indices, scope);
         if (!indices.Value) {
-            co_return TError(asg->Location, "failed to lower array indices");
+            co_return TError(asg->Location, TErrorString::Get<EErrorId::FAILED_LOWER_ARRAY_INDICES>());
         }
         auto totalIndex = *indices.Value;
         auto value = co_await Lower(multiIndex->Collection, scope);
         if (!value.Value) {
-            co_return TError(multiIndex->Collection->Location, "failed to lower collection");
+            co_return TError(multiIndex->Collection->Location, TErrorString::Get<EErrorId::FAILED_LOWER_COLLECTION>());
         }
         auto arrayPtr = *value.Value;
         if (arrayPtr.Type != TOperand::EType::Tmp) {
-            co_return TError(multiIndex->Collection->Location, "collection is not an array");
+            co_return TError(multiIndex->Collection->Location, TErrorString::Get<EErrorId::COLLECTION_NOT_ARRAY>());
         }
         auto arrayType = Builder.GetType(arrayPtr.Tmp);
         auto destPtr = Builder.Emit1("+"_op, {arrayPtr, totalIndex});
@@ -599,9 +600,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(expr)) {
         auto asg = maybeAsg.Cast();
         auto rhs = co_await Lower(asg->Value, scope);
-        if (!rhs.Value) co_return TError(asg->Value->Location, "right-hand side of assignment must be a number");
+        if (!rhs.Value) co_return TError(asg->Value->Location, TErrorString::Get<EErrorId::RIGHT_HAND_SIDE_NOT_NUMBER>());
         auto sidOpt = Context.Lookup(asg->Name, scope.Id);
-        if (!sidOpt) co_return TError(asg->Location, "assignment to undefined");
+        if (!sidOpt) co_return TError(asg->Location, TErrorString::Get<EErrorId::ASSIGNMENT_TO_UNDEFINED>());
 
         auto node = Context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id});
         auto slotType = FromAstType(node->Type, Module.Types);
@@ -702,7 +703,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto name = var->Name;
         auto sidOpt = Context.Lookup(var->Name, scope.Id);
         if (!sidOpt) {
-            co_return TError(var->Location, "variable has no binding");
+            co_return TError(var->Location, TErrorString::Get<EErrorId::VAR_HAS_NO_BINDING>());
         }
         if (sidOpt->FunctionLevelIdx >= 0) {
             Builder.SetType(TLocal{sidOpt->FunctionLevelIdx}, FromAstType(var->Type, Module.Types));
@@ -733,7 +734,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto ctorId = co_await GlobalSymbolId("array_create");
 
             auto totalElements = Context.Lookup("$$" + var->Name + "_mulacc0", scope.Id);
-            if (!totalElements) co_return TError(var->Location, std::string("undefined name"));
+            if (!totalElements) co_return TError(var->Location, TErrorString::Get<EErrorId::UNDEFINED_NAME>());
             TOperand op = (totalElements->FunctionLevelIdx >= 0)
                 ? TOperand { TLocal{ totalElements->FunctionLevelIdx } }
                 : TOperand { TSlot{ totalElements->Id } };
@@ -777,7 +778,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto fun = maybeFun.Cast();
         auto name = fun->Name;
         if (scope.Id.Id != 0) {
-            co_return TError(fun->Location, "nested function declarations not supported");
+            co_return TError(fun->Location, TErrorString::Get<EErrorId::NESTED_FUNCTIONS_NOT_SUPPORTED>());
         }
         auto params = fun->Params;
         auto body = fun->Body;
@@ -786,7 +787,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // Prefer direct decl binding (robust for nested functions where scope.Id may not be the decl scope).
         auto sidOpt = Context.Lookup(fun->Name, scope.Id);
         if (!sidOpt) {
-            co_return TError(fun->Location, std::string("unbound function symbol '") + fun->Name + "' in scope " + std::to_string(scope.Id.Id) );
+            co_return TError(fun->Location, TErrorString::Get<EErrorId::UNBOUND_FUNCTION_SYMBOL>(fun->Name, scope.Id.Id));
         }
         auto funScope = fun->Body->Scope;
         std::vector<TLocal> args; args.reserve(params.size());
@@ -794,7 +795,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         for (auto& p : params) {
             auto psid = Context.Lookup(p->Name, NSemantics::TScopeId{funScope});
             if (!psid) {
-                co_return TError(p->Location, "parameter has no binding");
+                co_return TError(p->Location, TErrorString::Get<EErrorId::PARAMETER_NO_BINDING>());
             }
             auto local = TLocal{ psid->FunctionLevelIdx };
             args.push_back(local);
@@ -851,15 +852,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto ident = maybeIdent.Cast();
             auto sidOpt = Context.Lookup(ident->Name, scope.Id);
             calleeName = ident->Name;
-            if (!sidOpt) co_return TError(ident->Location, std::string("undefined function: `") + ident->Name + "' in scope: " + std::to_string(scope.Id.Id));
+                if (!sidOpt) co_return TError(ident->Location, TErrorString::Get<EErrorId::UNBOUND_FUNCTION_SYMBOL>(ident->Name, scope.Id.Id));
             calleeSymId = sidOpt->Id;
         } else {
-            co_return TError(call->Callee->Location, "function call to non-identifier not supported");
+            co_return TError(call->Callee->Location, TErrorString::Get<EErrorId::FUNCTION_CALL_NON_IDENTIFIER>());
         }
 
         auto funDecl = NAst::TMaybeNode<NAst::TFunDecl>(Context.GetSymbolNode(NSemantics::TSymbolId{calleeSymId})).Cast();
         if (!funDecl) {
-            co_return TError(call->Callee->Location, "not a function");
+            co_return TError(call->Callee->Location, TErrorString::Get<EErrorId::NOT_A_FUNCTION>());
         }
         NAst::TTypePtr returnType = funDecl->RetType;
         std::vector<NAst::TTypePtr>* argTypes = nullptr;
@@ -878,7 +879,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 // a must be an identifier
                 auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(a);
                 if (!maybeIdent) {
-                    co_return TError(a->Location, "argument for reference parameter must be an identifier");
+                    co_return TError(a->Location, TErrorString::Get<EErrorId::ARG_REF_MUST_BE_IDENTIFIER>());
                 }
                 av.Value = co_await LoadVar(maybeIdent.Cast()->Name, scope, a->Location, true /*address*/);
                 Builder.SetType(av.Value->Tmp, FromAstType(argType, Module.Types));
@@ -886,7 +887,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 av = co_await Lower(a, scope);
             }
 
-            if (!av.Value) co_return TError(a->Location, "invalid argument");
+            if (!av.Value) co_return TError(a->Location, TErrorString::Get<EErrorId::INVALID_ARGUMENT>());
 
             if (av.Value->Type == TOperand::EType::Imm && av.Value->Imm.TypeId == lowStringTypeId && (!funDecl->IsExternal() || funDecl->RequireArgsMaterialization)) {
                 // Argument is a string literal pointer: materialize to string object
@@ -934,8 +935,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     } else {
         std::ostringstream oss;
         oss << *expr;
-        co_return TError(expr->Location,
-            std::string("not implemented: lowering for this AST node: ") + oss.str());
+        co_return TError(expr->Location, TErrorString::Get<EErrorId::NOT_IMPLEMENTED_LOWERING>(oss.str()));
     }
 }
 
@@ -970,7 +970,7 @@ TExpectedTask<int, TError, TLocation> TAstLowerer::GlobalSymbolId(const std::str
     if (sidOpt) {
         co_return sidOpt->Id;
     }
-    co_return TError({}, "undefined global symbol: " + name);
+    co_return TError({}, TErrorString::Get<EErrorId::UNDEFINED_GLOBAL_SYMBOL>(name));
 }
 
 void TAstLowerer::ImportExternalFunctions() {
@@ -983,7 +983,7 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
     ImportExternalFunctions();
     auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr);
     if (!maybeBlock) {
-        return std::unexpected(TError(expr->Location, "Root expr must be a block"));
+        return std::unexpected(TError(expr->Location, TErrorString::Get<EErrorId::ROOT_EXPR_MUST_BE_BLOCK>()));
     }
     auto block = maybeBlock.Cast();
 
@@ -1024,12 +1024,12 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
                 }
             } else if (auto maybeVar = NAst::TMaybeNode<NAst::TVarStmt>(s)) {
                 if (functionSeen) {
-                    return std::unexpected(TError(s->Location, "variable declarations must appear before function declarations"));
+                    return std::unexpected(TError(s->Location, TErrorString::Get<EErrorId::VARIABLE_DECLS_BEFORE_FUNS>()));
                 }
                 auto var = maybeVar.Cast();
                 auto sidOpt = Context.Lookup(var->Name, scope.Id);
                 if (!sidOpt) {
-                    return std::unexpected(TError(var->Location, "var declaration has no binding"));
+                    return std::unexpected(TError(var->Location, TErrorString::Get<EErrorId::VAR_HAS_NO_BINDING>()));
                 }
                 auto slotType = FromAstType(var->Type, Module.Types);
                 if (Module.GlobalTypes.size() <= (size_t)sidOpt->Id) {
@@ -1056,13 +1056,13 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
 
             } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(s)) {
                 if (functionSeen) {
-                    return std::unexpected(TError(s->Location, "variable assignments must appear before function declarations"));
-                }
+                        return std::unexpected(TError(s->Location, TErrorString::Get<EErrorId::VARIABLE_DECLS_BEFORE_FUNS>()));
+                    }
                 auto asg = maybeAsg.Cast();
                 auto maybeNumber = NAst::TMaybeNode<NAst::TNumberExpr>(asg->Value);
                 auto sid = Context.Lookup(asg->Name, scope.Id);
                 if (!sid) {
-                    return std::unexpected(TError(s->Location, "undefined variable: " + asg->Name));
+                    return std::unexpected(TError(s->Location, TErrorString::Get<EErrorId::UNDEFINED_VARIABLE>(asg->Name)));
                 }
                 if (maybeNumber) {
                     auto num = maybeNumber.Cast();
@@ -1087,7 +1087,7 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
                     return std::unexpected(lowered.error());
                 }
             } else {
-                return std::unexpected(TError(s->Location, "Unexpected top-level statement: " + s->ToString()));
+                return std::unexpected(TError(s->Location, TErrorString::Get<EErrorId::UNEXPECTED_TOP_LEVEL_STATEMENT>(s->ToString())));
             }
         }
 

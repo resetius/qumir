@@ -46,6 +46,7 @@ TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TSco
 }
 
 TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TScopePtr funcScope) {
+    std::list<TError> errors;
     if (auto maybeFdecl = TMaybeNode<TFunDecl>(node)) {
         auto fdecl = maybeFdecl.Cast();
         auto scopeId = TScopeId{fdecl->Scope};
@@ -64,30 +65,36 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         auto ident = maybeIdent.Cast();
         auto found = Lookup(ident->Name, scope->Id);
         if (!found) {
-            co_return TError(ident->Location, "undefined identifier: " + ident->Name + " in scope " + std::to_string(scope->Id.Id));
+            co_return TError(ident->Location, TErrorString::Get<EErrorId::UNDEFINED_IDENTIFIER>(ident->Name, scope->Id.Id));
         }
         co_return {};
     } else if (auto maybeAsg = TMaybeNode<TAssignExpr>(node)) {
         auto asg = maybeAsg.Cast();
         auto found = Lookup(asg->Name, scope->Id);
         if (!found) {
-            co_return TError(asg->Location, "assignment to undefined identifier: " + asg->Name + " in scope " + std::to_string(scope->Id.Id));
+            errors.emplace_back(TError(asg->Location, TErrorString::Get<EErrorId::ASSIGNMENT_TO_UNDEFINED_IDENTIFIER>(asg->Name, scope->Id.Id)));
         }
     } else if (auto maybeVarStmt = TMaybeNode<TVarStmt>(node)) {
         auto varStmt = maybeVarStmt.Cast();
         auto res = Declare(varStmt->Name, node, scope, funcScope);
         if (!res) {
-            co_return TError(varStmt->Location, res.error().what());
+            co_return res.error();
         }
         co_return {};
     }
 
     for (const auto& child : node->Children()) {
         if (child == nullptr) continue; // LoopExpr may have null children
-        co_await Resolve(child, scope, funcScope);
+        auto res = Resolve(child, scope, funcScope).result();
+        if (!res) {
+            errors.emplace_back(res.error());
+        }
     }
 
-    co_return {};
+    if (errors.empty()) {
+        co_return {};
+    }
+    co_return TError(node->Location, errors);
 }
 
 std::optional<TError> TNameResolver::Resolve(TExprPtr root) {
