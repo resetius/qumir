@@ -964,6 +964,107 @@ function hexdump(bytes) {
   return out;
 }
 
+// Format compiler error lines like:
+// "Error: <text> @ Line: N, Byte: B, Column: C"
+// into:
+// "Строка: N, Колонка: C\n   <spaces>Ошибка"
+function formatCompilerErrors(payload) {
+  if (typeof payload !== 'string') return payload;
+  const lines = payload.split(/\r?\n/);
+  const re = /^Error:\s*(.+?)\s*@\s*Line:\s*(\d+),\s*Byte:\s*\d+,\s*Column:\s*(\d+)/;
+  const blocks = [];
+  for (const line of lines) {
+    const m = re.exec(line);
+    if (!m) continue;
+    const text = m[1];
+    const lineNum = Number(m[2]) || 0;
+    const colNum = Number(m[3]) || 0;
+    blocks.push(`Строка: ${lineNum}, Колонка: ${colNum}\n  ${text}`);
+  }
+  // If we detected any error lines, return the formatted blocks joined by newlines;
+  // otherwise, keep the original payload.
+  return blocks.length ? blocks.join('\n') : payload;
+}
+
+// Parse compiler errors into { line, col, text }
+function parseCompilerErrors(payload) {
+  if (typeof payload !== 'string') return [];
+  const lines = payload.split(/\r?\n/);
+  const errs = [];
+  const reA = /^Error:\s*(.+?)\s*@\s*Line:\s*(\d+),\s*Byte:\s*\d+,\s*Column:\s*(\d+)/;
+  for (let i = 0; i < lines.length; i++) {
+    const a = reA.exec(lines[i]);
+    if (a) {
+      errs.push({ line: Number(a[2]) || 0, col: Number(a[3]) || 0, text: a[1] });
+      continue;
+    }
+    const head = /^Строка:\s*(\d+)\s*,\s*Колонка:\s*(\d+)/.exec(lines[i]);
+    if (head && i + 1 < lines.length) {
+      const bodyLine = lines[i + 1] || '';
+      const m = /^(\s*)(.*)$/.exec(bodyLine);
+      const text = m ? m[2] : bodyLine;
+      errs.push({ line: Number(head[1]) || 0, col: Number(head[2]) || 0, text });
+      i++;
+    }
+  }
+  return errs;
+}
+
+let __errorMarks = [];
+function clearErrorHighlights() {
+  if (editor && __errorMarks && __errorMarks.length) {
+    for (const mk of __errorMarks) {
+      try { mk.clear(); } catch (_) {}
+    }
+  }
+  __errorMarks = [];
+  // Clear line classes
+  if (editor && typeof editor.eachLine === 'function') {
+    try {
+      editor.eachLine((h) => { try { editor.removeLineClass(h, 'background', 'q-error-line'); } catch (_) {} });
+    } catch (_) {}
+  }
+  // Clear gutter markers
+  if (editor && typeof editor.clearGutter === 'function') {
+    try { editor.clearGutter('q-error-gutter'); } catch (_) {}
+  }
+}
+
+function addErrorHighlights(errors) {
+  if (!Array.isArray(errors) || !errors.length) return;
+  if (!editor || typeof editor.getDoc !== 'function') return;
+  const doc = editor.getDoc();
+  clearErrorHighlights();
+  ensureErrorGutter();
+  for (const err of errors) {
+    const lineIdx = Math.max(0, (err.line || 1) - 1);
+    const chIdx = Math.max(0, (err.col || 1) - 1);
+    const from = { line: lineIdx, ch: chIdx };
+    const lineText = doc.getLine(lineIdx) || '';
+    let endCh = chIdx;
+    while (endCh < lineText.length && lineText[endCh] === ' ') endCh++;
+    while (endCh < lineText.length && /[^\s\t\n\r]/.test(lineText[endCh])) endCh++;
+    if (endCh === chIdx) endCh = Math.min(lineText.length, chIdx + 1);
+    const to = { line: lineIdx, ch: endCh };
+    const mark = doc.markText(from, to, {
+      className: 'q-error-mark',
+      // Use data-error only to avoid native title tooltip duplication
+      attributes: { 'data-error': err.text || 'Ошибка' }
+    });
+    __errorMarks.push(mark);
+    try { editor.addLineClass(lineIdx, 'background', 'q-error-line'); } catch (_) {}
+
+    // Add gutter marker (red dot) on the line
+    try {
+      const dot = document.createElement('div');
+      dot.className = 'q-error-dot';
+      // Avoid native title to prevent double tooltip; fast tooltip reads data-error
+      dot.setAttribute('data-error', err.text || 'Ошибка');
+      editor.setGutterMarker(lineIdx, 'q-error-gutter', dot);
+    } catch (_) {}
+  }
+}
+
 async function show(mode) {
   const code = getCode();
   const O = $('#opt').value;
@@ -982,15 +1083,114 @@ async function show(mode) {
     const data = await api(endpoint, { code, O }, bin, signal);
     if (bin) {
       $('#output').textContent = hexdump(data);
+      clearErrorHighlights();
     } else {
-      $('#output').textContent = data;
+      const formatted = formatCompilerErrors(data);
+      $('#output').textContent = formatted;
+      const errs = parseCompilerErrors(data);
+      if (errs.length) addErrorHighlights(errs); else clearErrorHighlights();
     }
   } catch (e) {
     if (e.name === 'AbortError') return;
-    $('#output').textContent = e.message;
+    const msg = typeof e?.message === 'string' ? e.message : String(e);
+    const formatted = formatCompilerErrors(msg);
+    $('#output').textContent = formatted;
+    const errs = parseCompilerErrors(msg);
+    if (errs.length) addErrorHighlights(errs); else clearErrorHighlights();
     $('#output').classList.add('error');
   }
 }
+
+// Ensure basic styles exist for error highlights
+(function ensureErrorStyles(){
+  if (typeof document === 'undefined') return;
+  const id = 'q-error-styles';
+  if (document.getElementById(id)) return;
+  const style = document.createElement('style');
+  style.id = id;
+  style.textContent = `
+    .q-error-line { background: rgba(255, 0, 0, 0.08) !important; }
+    .q-error-mark { background: rgba(255, 0, 0, 0.18); border-bottom: 1px solid rgba(255,0,0,0.6); }
+    .CodeMirror-gutters { border-right: 1px solid #e0e0e0; }
+    /* Make error gutter compact so dot sits close to line number */
+    .CodeMirror-gutter.q-error-gutter { width: 10px; }
+    .q-error-dot { width: 8px; height: 8px; border-radius: 50%; background: #e53935; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); margin: 0 auto; }
+  `;
+  document.head.appendChild(style);
+})();
+
+// Ensure a dedicated gutter for error markers exists on the editor
+function ensureErrorGutter() {
+  if (!editor || typeof editor.setOption !== 'function') return;
+  const existing = editor.getOption && editor.getOption('gutters');
+  const gutters = Array.isArray(existing) ? existing.slice() : [];
+  // Ensure both gutters and order: error gutter first (left), then line numbers
+  const hasErr = gutters.includes('q-error-gutter');
+  const hasLine = gutters.includes('CodeMirror-linenumbers');
+  const next = [];
+  if (!hasErr) next.push('q-error-gutter'); else next.push('q-error-gutter');
+  if (!hasLine) next.push('CodeMirror-linenumbers'); else next.push('CodeMirror-linenumbers');
+  // Append any remaining existing gutters preserving order
+  for (const g of gutters) {
+    if (g !== 'q-error-gutter' && g !== 'CodeMirror-linenumbers') next.push(g);
+  }
+  editor.setOption('gutters', next);
+}
+
+// Fast, JS-driven tooltip over error marks (appears quicker than native title)
+(function enableFastErrorTooltip(){
+  if (typeof document === 'undefined') return;
+  let tipEl = null;
+  const showTip = (target, text) => {
+    if (!text) return;
+    if (!tipEl) {
+      tipEl = document.createElement('div');
+      tipEl.className = 'q-tooltip';
+      tipEl.style.position = 'fixed';
+      tipEl.style.zIndex = '9999';
+      tipEl.style.background = '#222';
+      tipEl.style.color = '#fff';
+      tipEl.style.padding = '6px 8px';
+      tipEl.style.borderRadius = '4px';
+      tipEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
+      tipEl.style.fontSize = '12px';
+      tipEl.style.pointerEvents = 'none';
+      document.body.appendChild(tipEl);
+    }
+    tipEl.textContent = text;
+    tipEl.style.display = 'block';
+  };
+  const hideTip = () => { if (tipEl) tipEl.style.display = 'none'; };
+
+  // Listen on editor wrapper for hover over error marks or dots
+  const attach = () => {
+    if (!editor || !editor.getWrapperElement) return;
+    const wrap = editor.getWrapperElement();
+    if (!wrap) return;
+    let hoverTimer = null;
+    const delay = 120; // faster than default title
+    wrap.addEventListener('mousemove', (ev) => {
+      const target = ev.target;
+      const isMark = target.classList && target.classList.contains('q-error-mark');
+      const isDot = target.classList && target.classList.contains('q-error-dot');
+      if (!(isMark || isDot)) { hideTip(); return; }
+      const text = target.getAttribute('data-error') || '';
+      clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(() => {
+        showTip(target, text);
+        const r = target.getBoundingClientRect();
+        const pad = 8;
+        const top = r.top - (tipEl ? tipEl.offsetHeight : 20) - pad;
+        const left = Math.max(8, Math.min(window.innerWidth - (tipEl ? tipEl.offsetWidth : 100) - 8, r.left + r.width / 2 - ((tipEl ? tipEl.offsetWidth : 100) / 2)));
+        if (tipEl) { tipEl.style.top = `${top}px`; tipEl.style.left = `${left}px`; }
+      }, delay);
+    });
+    wrap.addEventListener('mouseleave', () => { hideTip(); });
+  };
+  // Defer attach slightly in case editor is initialized later
+  const readyCheck = () => { if (editor) attach(); else setTimeout(readyCheck, 200); };
+  readyCheck();
+})();
 // Helpers: turtle UI in the compiler output pane
 function ensureTurtleUI() {
   const out = document.getElementById('output');
