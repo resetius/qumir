@@ -732,18 +732,19 @@ function refreshIoSelectOptions() {
   };
   addOption('stdout', 'stdout');
   addOption('stdin', 'stdin');
+  addOption('errors', 'errors');
   __ioFiles.forEach(file => {
     const label = file.name && file.name.trim() ? file.name.trim() : 'untitled';
     addOption(file.id, label);
   });
   __ioSelectEl.replaceChildren(fragment);
-  const knownIds = new Set(['stdout', 'stdin', ...__ioFiles.map(f => f.id)]);
+  const knownIds = new Set(['stdout', 'stdin', 'errors', ...__ioFiles.map(f => f.id)]);
   const target = knownIds.has(__currentIoPane) ? __currentIoPane : 'stdout';
   __ioSelectEl.value = target;
 }
 
 function setActiveIoPane(candidate, { persistCookie = true } = {}) {
-  const knownIds = new Set(['stdout', 'stdin', ...__ioFiles.map(f => f.id)]);
+  const knownIds = new Set(['stdout', 'stdin', 'errors', ...__ioFiles.map(f => f.id)]);
   const target = knownIds.has(candidate) ? candidate : 'stdout';
   __currentIoPane = target;
   if (__ioSelectEl && __ioSelectEl.value !== target) {
@@ -872,6 +873,35 @@ function initIoWorkspace() {
   });
 
   setActiveIoPane(__currentIoPane, { persistCookie: false });
+
+  // Create Errors pane placeholder
+  ensureErrorsPane();
+}
+
+// Ensure a dedicated read-only Errors pane exists under IO
+function ensureErrorsPane() {
+  if (!__ioFilesRoot) return;
+  let pane = document.querySelector('.io-pane.errors-pane');
+  if (pane) return;
+  pane = document.createElement('div');
+  pane.className = 'io-pane errors-pane';
+  pane.dataset.ioPane = 'errors';
+  const viewer = document.createElement('pre');
+  viewer.id = 'errors';
+  viewer.className = 'io-file-text';
+  viewer.style.whiteSpace = 'pre-wrap';
+  viewer.style.userSelect = 'text';
+  viewer.setAttribute('aria-label', 'Ошибки');
+  pane.appendChild(viewer);
+  __ioFilesRoot.appendChild(pane);
+}
+
+function setErrorsPaneContent(text) {
+  ensureErrorsPane();
+  const viewer = document.getElementById('errors');
+  if (viewer) {
+    viewer.textContent = text || '';
+  }
 }
 
 function initProjectsUI() {
@@ -941,6 +971,7 @@ function initProjectsUI() {
 function getCurrentIoPaneNode() {
   if (__currentIoPane === 'stdout') return document.getElementById('stdout');
   if (__currentIoPane === 'stdin') return document.getElementById('stdin');
+  if (__currentIoPane === 'errors') return document.getElementById('errors');
   const file = __ioFiles.find(f => f.id === __currentIoPane);
   return file && file.elements ? file.elements.editor : null;
 }
@@ -948,6 +979,7 @@ function getCurrentIoPaneNode() {
 function getCurrentIoPaneLabel() {
   if (__currentIoPane === 'stdout') return 'stdout';
   if (__currentIoPane === 'stdin') return 'stdin';
+  if (__currentIoPane === 'errors') return 'errors';
   const file = __ioFiles.find(f => f.id === __currentIoPane);
   if (!file) return 'file';
   return file.name && file.name.trim() ? file.name.trim() : 'file';
@@ -1084,11 +1116,14 @@ async function show(mode) {
     if (bin) {
       $('#output').textContent = hexdump(data);
       clearErrorHighlights();
+      setErrorsPaneContent('Успешно');
     } else {
       const formatted = formatCompilerErrors(data);
       $('#output').textContent = formatted;
       const errs = parseCompilerErrors(data);
       if (errs.length) addErrorHighlights(errs); else clearErrorHighlights();
+      const errorsText = errs.length ? formatted : 'Успешно';
+      setErrorsPaneContent(errorsText);
     }
   } catch (e) {
     if (e.name === 'AbortError') return;
@@ -1098,6 +1133,8 @@ async function show(mode) {
     const errs = parseCompilerErrors(msg);
     if (errs.length) addErrorHighlights(errs); else clearErrorHighlights();
     $('#output').classList.add('error');
+    const errorsText = errs.length ? formatted : 'Успешно';
+    setErrorsPaneContent(errorsText);
   }
 }
 
