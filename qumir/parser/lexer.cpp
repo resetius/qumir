@@ -177,24 +177,47 @@ std::optional<int64_t> AsSingleCharCode(const std::string& s) {
 }
 
 struct TIdentifierList {
-    std::vector<std::string> Words;
+    struct TWord {
+        std::string Value;
+        int ByteOffset = 0;
+        int CharOffset = 0;
+    };
+
+    int ByteOffset = 0;
+    int CharOffset = 0;
+    std::vector<TWord> Words;
 
     bool Append(char ch) {
+        auto byteOffset = ByteOffset;
+        auto charOffset = CharOffset;
+        Advance(ch);
+
         if (std::isspace(ch)) {
-            if (!Words.empty() && !Words.back().empty()) {
+            if (!Words.empty() && !Words.back().Value.empty()) {
                 Words.emplace_back();
+                Words.back().ByteOffset = ByteOffset;
+                Words.back().CharOffset = CharOffset;
             }
             return true;
         }
         if (Words.empty()) {
             Words.emplace_back();
+            Words.back().ByteOffset = byteOffset;
+            Words.back().CharOffset = charOffset;
         }
-        if (std::isdigit(ch) && Words.back().empty()) {
+        if (std::isdigit(ch) && Words.back().Value.empty()) {
             // identifier cannot start with a digit
             return false;
         }
-        Words.back() += ch;
+        Words.back().Value += ch;
         return true;
+    }
+
+    void Advance(char ch) {
+        ByteOffset++;
+        if ((ch & 0b11000000) != 0b10000000) {
+            CharOffset++;
+        }
     }
 };
 
@@ -283,7 +306,17 @@ void TTokenStream::Read() {
         } else if (std::holds_alternative<TIdentifierList>(token)) {
             auto idList = std::get<TIdentifierList>(token);
             std::string logIdentifier;
-            for (auto& word : idList.Words) {
+            auto identLocation = tokenLocation;
+            auto baseLocation = tokenLocation;
+            for (const auto& wordItem : idList.Words) {
+                const auto& word = wordItem.Value;
+                int byteOffset = wordItem.ByteOffset;
+                int charOffset = wordItem.CharOffset;
+                auto wordLocation = TLocation {
+                    .Line = baseLocation.Line,
+                    .Byte = baseLocation.Byte + byteOffset,
+                    .Column = baseLocation.Column + charOffset
+                };
                 if (word.empty()) {
                     continue;
                 }
@@ -291,17 +324,24 @@ void TTokenStream::Read() {
                 auto maybeOp = OperatorMap.find(word);
                 if (maybeKw != KeywordMapRu.end()) {
                     if (!logIdentifier.empty()) {
+                        tokenLocation = identLocation;
                         emitIdentifier(logIdentifier);
                         logIdentifier.clear();
                     }
+                    tokenLocation = wordLocation;
                     emitKeyword(maybeKw->second);
                 } else if (maybeOp != OperatorMap.end()) {
                     if (!logIdentifier.empty()) {
+                        tokenLocation = identLocation;
                         emitIdentifier(logIdentifier);
                         logIdentifier.clear();
                     }
+                    tokenLocation = wordLocation;
                     emitOperator(maybeOp->second);
                 } else {
+                    if (logIdentifier.empty()) {
+                        identLocation = wordLocation;
+                    }
                     if (!logIdentifier.empty()) {
                         logIdentifier += " ";
                     }
@@ -309,6 +349,7 @@ void TTokenStream::Read() {
                 }
             }
             if (!logIdentifier.empty()) {
+                tokenLocation = identLocation;
                 emitIdentifier(logIdentifier);
             }
         } else if (std::holds_alternative<TStringLiteral>(token)) {
