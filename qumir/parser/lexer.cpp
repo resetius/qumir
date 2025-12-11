@@ -369,8 +369,8 @@ void TTokenStream::Read() {
     while ((Tokens.empty() || state != Start) && In.get(ch)) {
         if (ch == '\n') {
             CurrentLocation.Line++;
-            CurrentLocation.Byte = 1;
-            CurrentLocation.Column = 1;
+            CurrentLocation.Byte = 0;
+            CurrentLocation.Column = 0;
         } else {
             if ((ch & 0b11000000) != 0b10000000) { // not a UTF-8 continuation byte
                 CurrentLocation.Column++;
@@ -387,7 +387,6 @@ void TTokenStream::Read() {
                 case Start:
                     if (ch == '\n' || ch == ';') {
                         emitOperator(EOperator::Eol);
-                        tokenLocation = CurrentLocation;
                     } else if (std::isdigit(ch)) {
                         state = InNumber;
                         token = (int64_t)(ch - '0');
@@ -406,7 +405,6 @@ void TTokenStream::Read() {
                         state = InMaybeOperator; // reuse this state for 2-char operators
                     } else if (isSingleCharOperator(ch)) {
                         emitOperator(OperatorMap.at(std::string(1, ch)));
-                        tokenLocation = CurrentLocation;
                     } else if (!std::isspace(ch)) {
                         // identifiers/keywords: start with a letter, continue with letters, digits, underscores
                         TIdentifierList idList;
@@ -414,6 +412,7 @@ void TTokenStream::Read() {
                         state = InIdentifier;
                         token = std::move(idList);
                     }
+                    tokenLocation = CurrentLocation;
                     break;
                 case InIdentifier: {
                     if (!isIdentifierStop(ch)) {
