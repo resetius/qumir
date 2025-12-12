@@ -79,6 +79,7 @@ public:
     void RegisterModule(NRegistry::IModule* module);
     // adds modules symbols to list of symbols
     bool ImportModule(const std::string& name);
+    std::string ModulesList() const;
 
     // For testing/debugging
     const std::vector<TSymbol>& GetSymbols() const {

@@ -9,6 +9,13 @@ namespace NSemantics {
 
 using namespace NAst;
 
+namespace {
+    std::unordered_set<std::string> implicitImports = {
+        "Файлы",
+        "Строки",
+    };
+};
+
 TNameResolver::TNameResolver(const TNameResolverOptions& options)
     : Options(options)
 { }
@@ -246,11 +253,22 @@ void TNameResolver::RegisterModule(NRegistry::IModule* module) {
     }
 }
 
+std::string TNameResolver::ModulesList() const
+{
+    std::ostringstream oss;
+    for (const auto& [name, module] : Modules) {
+        if (name == "System") {
+            continue; // skip System module
+        }
+        oss << name << ",";
+    }
+    for (const auto& name : implicitImports) {
+        oss << name << ",";
+    }
+    return oss.str().substr(0, oss.str().size() - 1); // remove last comma
+}
+
 bool TNameResolver::ImportModule(const std::string& name) {
-    std::unordered_set<std::string> implicitImports = {
-        "Файлы",
-        "Строки",
-    };
     if (implicitImports.find(name) != implicitImports.end()) {
         return true;
     }

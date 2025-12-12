@@ -621,7 +621,8 @@ std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics:
             if (auto maybeUse = NAst::TMaybeNode<NAst::TUseExpr>(first)) {
                 auto use = maybeUse.Cast();
                 if (!r.ImportModule(use->ModuleName)) {
-                    return std::unexpected(TError(use->Location, "unknown module: " + use->ModuleName));
+                    return std::unexpected(TError(use->Location,
+                        "Неизвестный модуль: " + use->ModuleName + ", доступные модули: " + r.ModulesList()));
                 }
                 stmts.erase(stmts.begin());
             }

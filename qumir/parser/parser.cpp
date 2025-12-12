@@ -129,6 +129,56 @@ inline TOperator MakeOperator(EOperator op) {
     }
 }
 
+static std::string TokenToString(const TToken& tok) {
+    switch (tok.Type) {
+        case TToken::Integer:
+            return std::to_string(tok.Value.i64);
+        case TToken::Float: {
+            return std::to_string(tok.Value.f64);
+        }
+        case TToken::Char: {
+            return std::string("символ(") + std::to_string(tok.Value.i64) + ")";
+        }
+        case TToken::String:
+            return std::string("строка(\"") + tok.Name + "\")";
+        case TToken::Identifier:
+            return std::string("идентификатор(") + tok.Name + ")";
+        case TToken::Keyword: {
+            return std::string("ключевое слово(") + std::to_string((int)static_cast<EKeyword>(tok.Value.i64)) + ")";
+        }
+        case TToken::Operator: {
+            auto op = static_cast<EOperator>(tok.Value.i64);
+            switch (op) {
+                case EOperator::Assign: return ":=";
+                case EOperator::Pow: return "**";
+                case EOperator::Mul: return "*";
+                case EOperator::FDiv: return "/";
+                case EOperator::Plus: return "+";
+                case EOperator::Minus: return "-";
+                case EOperator::Eq: return "=";
+                case EOperator::Neq: return "<>";
+                case EOperator::Lt: return "<";
+                case EOperator::Gt: return ">";
+                case EOperator::Leq: return "<=";
+                case EOperator::Geq: return ">=";
+                case EOperator::LParen: return "(";
+                case EOperator::RParen: return ")";
+                case EOperator::LSqBr: return "[";
+                case EOperator::RSqBr: return "]";
+                case EOperator::Colon: return ":";
+                case EOperator::Comma: return ",";
+                case EOperator::Eol: return "<EOL>";
+                case EOperator::And: return "и";
+                case EOperator::Or: return "или";
+                case EOperator::Not: return "не";
+                default: return std::string("оператор(") + std::to_string((int)op) + ")";
+            }
+        }
+        default:
+            return "<неизвестный токен>";
+    }
+}
+
 
 inline bool IsTypeKeyword(EKeyword kw) {
     return kw == EKeyword::Int
@@ -1301,9 +1351,11 @@ TAstTask stmt(TTokenStream& stream) {
         }
         co_return std::make_shared<TUseExpr>(first->Location, moduleName);
     } else {
-        // std::cerr << "Debug " << (int)first->Type << " " << first->Name << " " << first->Value.i64 << "\n";
+        auto location = first->Location;
         stream.Unget(*first);
-        co_return TError(stream.GetLocation(), "неизвестный стейтмент");
+        std::string got = TokenToString(*first);
+        std::string expected = "ожидались: объявление переменной, присваивание, ввод/вывод, условие, цикл, выбор, объявление функции, 'использовать'";
+        co_return TError(location, "не ожидалось `" + got + "'; " + expected);
     }
 }
 
