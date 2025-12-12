@@ -1333,15 +1333,12 @@ TAstTask stmt(TTokenStream& stream) {
             // Assignment statement
             auto rhs = co_await expr(stream);
             co_return std::make_shared<TAssignExpr>(first->Location, first->Name, rhs);
-        } else if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::LParen) {
-            // Call expression as statement
+        } else {
+            // Вызов функции без скобок (Кумир-стиль) или выражение
+            // Возвращаем токены и парсим как выражение
             stream.Unget(next);
             stream.Unget(*first);
             co_return co_await expr(stream);
-        } else {
-            std::string got = TokenToString(next);
-            co_return TError(next.Location,
-                "после идентификатора '" + first->Name + "' ожидались ':=' (присваивание), '[' (индекс массива) или '(' (вызов функции); получено " + got);
         }
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Use) {
         auto next = co_await stream.Next();
