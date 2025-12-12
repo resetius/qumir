@@ -1324,7 +1324,8 @@ TAstTask stmt(TTokenStream& stream) {
             auto exprs = co_await parse_arg_list_opt(stream, EOperator::RSqBr);
             auto assignTok = co_await stream.Next();
             if (!(assignTok.Type == TToken::Operator && static_cast<EOperator>(assignTok.Value.i64) == EOperator::Assign)) {
-                co_return TError(assignTok.Location, "ожидался ':=' после индексов массива");
+                co_return TError(assignTok.Location,
+                    "после '" + first->Name + "[...]' ожидался ':=' для присваивания элементу массива, получено " + TokenToString(assignTok));
             }
             auto rhs = co_await expr(stream);
             co_return std::make_shared<TArrayAssignExpr>(first->Location, first->Name, std::move(exprs), rhs);
@@ -1332,12 +1333,15 @@ TAstTask stmt(TTokenStream& stream) {
             // Assignment statement
             auto rhs = co_await expr(stream);
             co_return std::make_shared<TAssignExpr>(first->Location, first->Name, rhs);
-        } else {
-            // Important: restore tokens in reverse order of reading
-            // so that the identifier comes before '(' again.
+        } else if (next.Type == TToken::Operator && static_cast<EOperator>(next.Value.i64) == EOperator::LParen) {
+            // Call expression as statement
             stream.Unget(next);
             stream.Unget(*first);
             co_return co_await expr(stream);
+        } else {
+            std::string got = TokenToString(next);
+            co_return TError(next.Location,
+                "после идентификатора '" + first->Name + "' ожидались ':=' (присваивание), '[' (индекс массива) или '(' (вызов функции); получено " + got);
         }
     } else if (first->Type == TToken::Keyword && static_cast<EKeyword>(first->Value.i64) == EKeyword::Use) {
         auto next = co_await stream.Next();
