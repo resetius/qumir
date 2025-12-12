@@ -108,7 +108,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     NAst::TParser p;
     auto&& expected = p.parse(ts);
     if (!expected.has_value()) {
-        std::cerr << "Parse error: " << expected.error().ToString() << std::endl;
+        std::cerr << expected.error().ToString() << std::endl;
         return 1;
     }
     auto ast = std::move(expected.value());
