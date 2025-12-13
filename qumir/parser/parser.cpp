@@ -1464,8 +1464,7 @@ TError unexpectedOperator(TWrappedTokenStream& stream) {
     auto location = current.Location;
     auto op = static_cast<EOperator>(current.Value.i64);
 
-    std::string hint;
-    std::string baseMsg = "неожиданный оператор `" + current.RawValue + "'";
+    std::string hint = "неожиданный оператор `" + current.RawValue + "'";
 
     switch (op) {
         case EOperator::RParen:
@@ -1515,7 +1514,7 @@ TError unexpectedOperator(TWrappedTokenStream& stream) {
             break;
     }
 
-    return TError(location, baseMsg + "; " + hint);
+    return TError(location, hint);
 }
 
 /*
