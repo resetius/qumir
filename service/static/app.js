@@ -1140,6 +1140,7 @@ async function show(mode) {
       $('#output').textContent = hexdump(data);
       clearErrorHighlights();
       setErrorsPaneContent('Успешно');
+      if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(false);
     } else {
       const formatted = formatCompilerErrors(data);
       $('#output').textContent = formatted;
@@ -1147,6 +1148,7 @@ async function show(mode) {
       if (errs.length) addErrorHighlights(errs); else clearErrorHighlights();
       const errorsText = errs.length ? formatted : 'Успешно';
       setErrorsPaneContent(errorsText);
+      if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(errs.length > 0);
     }
   } catch (e) {
     if (e.name === 'AbortError') return;
@@ -1158,6 +1160,7 @@ async function show(mode) {
     $('#output').classList.add('error');
     const errorsText = errs.length ? formatted : 'Успешно';
     setErrorsPaneContent(errorsText);
+    if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(true);
   }
 }
 
@@ -1962,7 +1965,8 @@ function initEditor() {
       Tab: cm => cm.execCommand('indentMore'),
       'Shift-Tab': cm => cm.execCommand('indentLess'),
       'Ctrl-/': cm => cm.execCommand('toggleComment'),
-      'Ctrl-Enter': async () => {
+      'Ctrl-Enter': () => {
+        if (window.__runHintOnRun) window.__runHintOnRun();
         const runBtn = document.getElementById('btn-run');
         if (runBtn) runBtn.click();
       }
@@ -2524,8 +2528,75 @@ const debounceShow = () => {
 // Auto show on first load
 show($('#view').value);
 
+// Run hint arrow logic
+(function setupRunHint() {
+  let hintTimer = null;
+  let arrowEl = null;
+  let hasCompilationErrors = false;
+  let hasRunOnce = false;
+
+  function createArrow() {
+    if (arrowEl) return arrowEl;
+    arrowEl = document.createElement('div');
+    arrowEl.className = 'run-hint-arrow';
+    arrowEl.textContent = '↓';
+    arrowEl.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(arrowEl);
+    return arrowEl;
+  }
+
+  function showArrow() {
+    if (hasRunOnce || hasCompilationErrors) return;
+    const runBtn = document.getElementById('btn-run');
+    if (!runBtn) return;
+    const arrow = createArrow();
+    const rect = runBtn.getBoundingClientRect();
+    arrow.style.left = `${rect.left + rect.width / 2 - 16}px`;
+    arrow.style.top = `${rect.top - 40}px`;
+    arrow.classList.add('show');
+  }
+
+  function hideArrow() {
+    if (arrowEl) {
+      arrowEl.classList.remove('show');
+    }
+  }
+
+  function resetHintTimer() {
+    if (hintTimer) clearTimeout(hintTimer);
+    hideArrow();
+    if (!hasRunOnce && !hasCompilationErrors) {
+      hintTimer = setTimeout(showArrow, 10000); // 10 seconds
+    }
+  }
+
+  function onCompilationResult(hasErrors) {
+    hasCompilationErrors = hasErrors;
+    if (hasErrors) {
+      hideArrow();
+      if (hintTimer) clearTimeout(hintTimer);
+    } else {
+      resetHintTimer();
+    }
+  }
+
+  function onRun() {
+    hasRunOnce = true;
+    hideArrow();
+    if (hintTimer) clearTimeout(hintTimer);
+  }
+
+  // Export to global scope for use in show() function
+  window.__runHintOnCompilationResult = onCompilationResult;
+  window.__runHintOnRun = onRun;
+
+  // Start timer on first load (assuming no errors initially)
+  resetHintTimer();
+})();
+
 // Ensure Run also refreshes the right pane
 $('#btn-run').addEventListener('click', async () => {
+  if (window.__runHintOnRun) window.__runHintOnRun();
   await runWasm();
   show($('#view').value);
 });

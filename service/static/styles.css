@@ -531,3 +531,24 @@ footer .version { opacity: 0.9; }
 	padding: 40px;
 	color: #ff8a80;
 }
+
+/* Animated arrow hint pointing to Run button */
+.run-hint-arrow {
+	position: fixed;
+	color: #ff4444;
+	font-size: 32px;
+	font-weight: bold;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.3s ease;
+	z-index: 1000;
+	animation: bounce-hint 1s ease-in-out infinite;
+	text-shadow: 0 0 8px rgba(255, 68, 68, 0.6);
+}
+.run-hint-arrow.show {
+	opacity: 1;
+}
+@keyframes bounce-hint {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-8px); }
+}
