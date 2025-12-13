@@ -70,6 +70,7 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TWrappedTo
 TAstTask expr(TWrappedTokenStream& stream);
 TAstTask for_loop(TWrappedTokenStream& stream);
 TAstTask for_times(TWrappedTokenStream& stream, TExprPtr countExpr, TLocation loopLoc);
+TError unexpectedOperator(TWrappedTokenStream& stream);
 
 void SkipEols(TWrappedTokenStream& stream) {
     while (true) {
@@ -979,7 +980,7 @@ TAstTask factor(TWrappedTokenStream& stream) {
             }
             co_return ret;
         } else {
-            co_return TError(stream.GetLocation(), std::string("неожиданный оператор"));
+            co_return unexpectedOperator(stream);
         }
     } else if (token.Type == TToken::Keyword && ((EKeyword)token.Value.i64 == EKeyword::True || (EKeyword)token.Value.i64 == EKeyword::False)) {
         bool v = (EKeyword)token.Value.i64 == EKeyword::True;
@@ -1432,6 +1433,86 @@ TError unexpectedTokenAfterExpr(TWrappedTokenStream& stream) {
 
     if (hint.empty()) {
         hint = "ожидался конец строки или оператор (+, -, *, /, и, или, ...)";
+    }
+
+    return TError(location, baseMsg + "; " + hint);
+}
+
+/*
+Generate error message for unexpected operator in expression context (factor).
+
+Called when parsing factor() and encountered an operator instead of
+number, identifier, or opening parenthesis.
+
+Handled cases:
+  1. `)` - closing paren without opening
+  2. `]` - closing bracket without opening
+  3. `:=` - assignment in expression context
+  4. `,` - comma in unexpected place
+  5. `:` - colon outside array bounds or output format
+  6. `*`, `/` - binary operator at start of expression
+  7. `=`, `<>`, `<`, `>`, `<=`, `>=` - comparison at start
+  8. `и`, `или` - logical operator at start
+*/
+TError unexpectedOperator(TWrappedTokenStream& stream) {
+    auto& window = stream.GetWindow();
+    if (window.empty()) {
+        return TError(stream.GetLocation(), "неожиданный конец файла в выражении");
+    }
+
+    auto current = window.back();
+    auto location = current.Location;
+    auto op = static_cast<EOperator>(current.Value.i64);
+
+    std::string hint;
+    std::string baseMsg = "неожиданный оператор `" + current.RawValue + "'";
+
+    switch (op) {
+        case EOperator::RParen:
+            hint = "закрывающая скобка ')' без соответствующей открывающей '('";
+            break;
+        case EOperator::RSqBr:
+            hint = "закрывающая скобка ']' без соответствующей открывающей '['";
+            break;
+        case EOperator::Assign:
+            hint = "оператор присваивания ':=' не может использоваться внутри выражения";
+            break;
+        case EOperator::Comma:
+            hint = "запятая ',' в неожиданном месте; возможно, лишняя запятая или пропущен аргумент";
+            break;
+        case EOperator::Colon:
+            hint = "двоеточие ':' в неожиданном месте";
+            break;
+        case EOperator::Mul:
+        case EOperator::FDiv:
+            hint = "оператор `" + current.RawValue + "' требует операнд слева; возможно, пропущено число или переменная";
+            break;
+        case EOperator::Pow:
+            hint = "оператор возведения в степень '**' требует операнд слева";
+            break;
+        case EOperator::Eq:
+        case EOperator::Neq:
+        case EOperator::Lt:
+        case EOperator::Gt:
+        case EOperator::Leq:
+        case EOperator::Geq:
+            hint = "оператор сравнения `" + current.RawValue + "' требует операнд слева";
+            break;
+        case EOperator::And:
+            hint = "логический оператор 'и' требует операнд слева";
+            break;
+        case EOperator::Or:
+            hint = "логический оператор 'или' требует операнд слева";
+            break;
+        case EOperator::Eol:
+            hint = "неожиданный конец строки; возможно, выражение не завершено";
+            break;
+        case EOperator::Eof:
+            hint = "неожиданный конец файла; возможно, выражение не завершено";
+            break;
+        default:
+            hint = "в этом месте ожидалось число, переменная или '('";
+            break;
     }
 
     return TError(location, baseMsg + "; " + hint);
