@@ -470,27 +470,29 @@ TTask AnnotateVar(std::shared_ptr<TVarStmt> var) {
 TTask AnnotateIdent(std::shared_ptr<TIdentExpr> ident, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId, bool pathThrough = false) {
     auto symbolId = context.Lookup(ident->Name, scopeId);
     if (!symbolId) {
-        co_return TError(ident->Location, "undefined identifier: " + ident->Name);
+        co_return TError(ident->Location, "Идентификатор '" + ident->Name + "' не определён. Проверьте правильность написания имени или объявите переменную перед использованием.");
     }
     auto sym = context.GetSymbolNode(NSemantics::TSymbolId{symbolId->Id});
     if (!sym) {
-        co_return TError(ident->Location, "invalid identifier symbol: " + ident->Name);
+        co_return TError(ident->Location, "Внутренняя ошибка: не удалось получить информацию о символе идентификатора '" + ident->Name + "'.");
     }
     ident->Type = sym->Type;
     if (!ident->Type) {
-        co_return TError(ident->Location, "untyped identifier: " + ident->Name);
+        co_return TError(ident->Location, "У идентификатора '" + ident->Name + "' не определён тип. Возможно, переменная объявлена без типа или произошла ошибка при анализе типов.");
     }
     if (pathThrough) {
         co_return ident;
     }
     auto unwrappedType = UnwrapReferenceType(ident->Type);
     if (!unwrappedType->Readable) {
-        co_return TError(ident->Location, "cannot read from write-only identifier: " + ident->Name);
+        co_return TError(ident->Location, "Нельзя читать из `рез' аргумента '" + ident->Name + "'.\n"
+            "`рез' аргумент предназначен только для записи. Если нужно читать значение, объявите его как `арг рез'.");
     }
     if (auto maybeArray = TMaybeType<TArrayType>(unwrappedType)) {
         auto arrayType = maybeArray.Cast();
         if (!arrayType->ElementType->Readable) {
-            co_return TError(ident->Location, "cannot read from write-only array elements: " + ident->Name);
+            co_return TError(ident->Location, "Нельзя читать элементы массива `рез' аргумента '" + ident->Name + "'.\n"
+                "Массив `рез' аргумента предназначен только для записи. Если нужно читать элементы, объявите аргумент как `арг рез'.");
         }
     }
 
@@ -500,13 +502,13 @@ TTask AnnotateIdent(std::shared_ptr<TIdentExpr> ident, NSemantics::TNameResolver
 TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     call->Callee = co_await DoAnnotate(call->Callee, context, scopeId);
     if (!call->Callee->Type) {
-        co_return TError(call->Location, "cannot call untyped expression");
+        co_return TError(call->Location, "Нельзя вызвать выражение без типа (функция или процедура не определена или не имеет типа).");
     }
     auto maybeFunType = TMaybeType<TFunctionType>(call->Callee->Type);
     if (maybeFunType) {
         auto funT = maybeFunType.Cast();
         if (funT->ParamTypes.size() != call->Args.size()) {
-            co_return TError(call->Location, "invalid number of arguments");
+            co_return TError(call->Location, "Неверное количество аргументов при вызове функции: ожидается " + std::to_string(funT->ParamTypes.size()) + ", передано " + std::to_string(call->Args.size()) + ".");
         }
         for (size_t i = 0; i < call->Args.size(); ++i) {
             auto& paramT = funT->ParamTypes[i];
@@ -521,7 +523,7 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
                 arg = co_await DoAnnotate(arg, context, scopeId);
             }
             if (!arg->Type) {
-                co_return TError(arg->Location, "cannot pass untyped argument in function call");
+                co_return TError(arg->Location, "Аргумент #" + std::to_string(i+1) + " не имеет типа. Проверьте корректность выражения.");
             }
 
             // if ParamT is reference type, arg must be of the same referenced type or ident of that underlying type
@@ -531,22 +533,26 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
                     auto identType = UnwrapReferenceType(maybeIdent.Cast()->Type);
                     // ident must be writable
                     if (maybeIdent && !identType->Mutable) {
-                        co_return TError(arg->Location, "cannot pass read-only identifier as reference argument");
+                        co_return TError(arg->Location,
+                            "Аргумент #" + std::to_string(i+1) + ": нельзя передать этот идентификатор в ссылочный (рез/арг рез) параметр, так как он не является изменяемым (immutable).\n"
+                            "\nПричина: вы передаёте, например, аргумент функции, объявленный как обычный, в параметр, объявленный как 'рез' или 'арг рез'.\n"
+                            "\nРешения:\n"
+                            "- Объявите параметр исходной функции как 'арг рез', если хотите передавать его по ссылке и изменять.\n"
+                            "- Или скопируйте значение в отдельную переменную и передайте её.\n"
+                            "\nПример:\n"
+                            "алг ф(цел i)\n  g(i)  // ошибка: i нельзя передать как 'рез'\n\nалг g(рез i)\n  ...\n");
                     }
                 }
                 auto argTypeUnwrapped = UnwrapReferenceType(arg->Type);
                 if (!EqualTypes(argTypeUnwrapped, paramRefT->ReferencedType)) {
-                    co_return TError(arg->Location, "cannot pass argument " + std::to_string(i+1) +
-                        " of type '" + std::string(arg->Type->TypeName()) + "' to reference parameter of type '" +
-                        std::string(paramT->TypeName()) + "'");
+                    co_return TError(arg->Location, "Аргумент #" + std::to_string(i+1) + ": тип '" + std::string(arg->Type->TypeName()) + "' не совпадает с типом ссылочного параметра '" + std::string(paramT->TypeName()) + "'.");
                 }
                 // no implicit cast for reference parameters
                 continue;
             }
             if (!EqualTypes(arg->Type, paramT)) {
                 if (!CanImplicit(UnwrapReferenceType(arg->Type), paramT)) {
-                    co_return TError(arg->Location, "cannot implicitly convert argument " + std::to_string(i+1) +
-                        " from '" + std::string(arg->Type->TypeName()) + "' to '" + std::string(paramT->TypeName()) + "'");
+                    co_return TError(arg->Location, "Аргумент #" + std::to_string(i+1) + ": нельзя неявно преобразовать тип '" + std::string(arg->Type->TypeName()) + "' к типу параметра '" + std::string(paramT->TypeName()) + "'.");
                 }
                 arg = InsertImplicitCastIfNeeded(arg, paramT);
             }
@@ -561,7 +567,7 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
 TTask AnnotateIf(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     ifExpr->Cond = co_await DoAnnotate(ifExpr->Cond, context, scopeId);
     if (!ifExpr->Cond->Type) {
-        co_return TError(ifExpr->Cond->Location, "untyped condition in if");
+        co_return TError(ifExpr->Cond->Location, "Условие в `если' не имеет типа. Проверьте корректность выражения в условии.");
     }
     {
         auto boolT = std::make_shared<TBoolType>();
@@ -572,12 +578,12 @@ TTask AnnotateIf(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver& con
     }
     ifExpr->Then = co_await DoAnnotate(ifExpr->Then, context, scopeId);
     if (!ifExpr->Then->Type) {
-        co_return TError(ifExpr->Then->Location, "untyped then branch in if");
+        co_return TError(ifExpr->Then->Location, "Ветвь `то' в `если' не имеет типа. Проверьте корректность выражения.");
     }
     if (ifExpr->Else) {
         ifExpr->Else = co_await DoAnnotate(ifExpr->Else, context, scopeId);
         if (!ifExpr->Else->Type) {
-            co_return TError(ifExpr->Else->Location, "untyped else branch in if");
+            co_return TError(ifExpr->Else->Location, "Ветвь `иначе' в `если' не имеет типа. Проверьте корректность выражения.");
         }
     }
     // If is not expression, its type is always void
@@ -601,22 +607,23 @@ TTask AnnotateLoop(std::shared_ptr<TLoopStmtExpr> loop, NSemantics::TNameResolve
 TTask AnnotateMultiIndex(std::shared_ptr<TMultiIndexExpr> indexExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     indexExpr->Collection = co_await DoAnnotate(indexExpr->Collection, context, scopeId);
     if (!indexExpr->Collection->Type) {
-        co_return TError(indexExpr->Location, "untyped collection in multi-index expression");
+        co_return TError(indexExpr->Location, "В выражении многомерного индекса не удалось определить тип коллекции (массив). Проверьте корректность выражения.");
     }
     auto maybeArrayType = TMaybeType<TArrayType>(indexExpr->Collection->Type);
     if (!maybeArrayType) {
-        co_return TError(indexExpr->Location, "only array indexing is supported for now");
+        co_return TError(indexExpr->Location, "Многомерная индексация поддерживается только для массивов. Проверьте, что вы обращаетесь к массиву, а не к другому типу.");
     }
 
     auto intType = std::make_shared<TIntegerType>();
-    for (auto& index : indexExpr->Indices) {
+    for (size_t i = 0; i < indexExpr->Indices.size(); ++i) {
+        auto& index = indexExpr->Indices[i];
         index = co_await DoAnnotate(index, context, scopeId);
         if (!index->Type) {
-            co_return TError(index->Location, "untyped index in multi-index expression");
+            co_return TError(index->Location, "Индекс #" + std::to_string(i+1) + " в многомерном обращении к массиву не имеет типа. Проверьте выражение индекса.");
         }
         if (!EqualTypes(index->Type, intType)) {
             if (!CanImplicit(index->Type, intType)) {
-                co_return TError(index->Location, "index expression requires integer index");
+                co_return TError(index->Location, "Индекс #" + std::to_string(i+1) + " в многомерном обращении к массиву должен быть целым числом.");
             }
             index = InsertImplicitCastIfNeeded(index, intType);
         }
