@@ -409,7 +409,7 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr)
                     if (stmt->Type) {
                         auto maybeVoidType = NAst::TMaybeType<NAst::TVoidType>(stmt->Type);
                         if (!maybeVoidType) {
-                            errors.push_back(TError(stmt->Location, "Expression returning result must be assigned or used"));
+                            errors.push_back(TError(stmt->Location, "выражение, возвращающее результат, должно быть присвоено переменной или использовано"));
                         }
                     }
                 }

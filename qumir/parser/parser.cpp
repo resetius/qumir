@@ -1204,30 +1204,30 @@ TAstTask expr(TWrappedTokenStream& stream) {
 }
 
 
-/**
- * Generate a context-aware error message for unexpected tokens.
- *
- * Analyzes the token window to provide helpful hints about common mistakes.
- *
- * Handled cases:
- *   1. Function call without parentheses: `sqrt 16` -> suggests `sqrt(16)`
- *   2. Number at line start: `10` -> suggests missing variable for assignment
- *   3. Parenthesized expr at line start: `(x+5)` -> suggests missing variable
- *   4. Keyword after identifier: `foo нач` -> suggests missing `алг`
- *   5. String at line start: `"hello"` -> suggests `вывод "hello"`
- *   6. Minus at line start: `-5` -> suggests missing variable for assignment
- *   7. Plus at line start: `+5` -> suggests missing variable for assignment
- *   8. Assignment without LHS: `:= 10` -> suggests missing variable name
- *   9. Closing keywords without opening:
- *      - `кон` without `алг/нач`
- *      - `все` without `если/выбор/цикл`
- *      - `кц` without `нц`
- *      - `иначе` without `если/выбор`
- *      - `то` without `если`
- *  10. Two identifiers in sequence (across lines)
- *  11. Closing paren at line start: `)` without `(`
- *  12. Closing bracket at line start: `]` without `[`
- */
+/*
+Generate a context-aware error message for unexpected tokens.
+
+Analyzes the token window to provide helpful hints about common mistakes.
+
+Handled cases:
+  1. Function call without parentheses: `sqrt 16` -> suggests `sqrt(16)`
+  2. Number at line start: `10` -> suggests missing variable for assignment
+  3. Parenthesized expr at line start: `(x+5)` -> suggests missing variable
+  4. Keyword after identifier: `foo нач` -> suggests missing `алг`
+  5. String at line start: `"hello"` -> suggests `вывод "hello"`
+  6. Minus at line start: `-5` -> suggests missing variable for assignment
+  7. Plus at line start: `+5` -> suggests missing variable for assignment
+  8. Assignment without LHS: `:= 10` -> suggests missing variable name
+  9. Closing keywords without opening:
+     - `кон` without `алг/нач`
+     - `все` without `если/выбор/цикл`
+     - `кц` without `нц`
+     - `иначе` without `если/выбор`
+     - `то` without `если`
+ 10. Two identifiers in sequence (across lines)
+ 11. Closing paren at line start: `)` without `(`
+ 12. Closing bracket at line start: `]` without `[`
+*/
 TError unexpected(TWrappedTokenStream& stream) {
     auto& window = stream.GetWindow();
     if (window.empty()) {
@@ -1363,6 +1363,81 @@ TError unexpected(TWrappedTokenStream& stream) {
 }
 
 /*
+Generate error message when unexpected token appears after expression.
+
+Handles cases like:
+   i := j + 10 + 5   mod(30)
+                     ^-- unexpected identifier after expression
+
+Analyzes window to suggest adding an operator between expressions.
+*/
+TError unexpectedTokenAfterExpr(TWrappedTokenStream& stream) {
+    auto& window = stream.GetWindow();
+    if (window.empty()) {
+        return TError(stream.GetLocation(), "неожиданный конец файла после выражения");
+    }
+
+    auto current = window.back();
+    auto location = current.Location;
+
+    std::string hint;
+    std::string baseMsg = "после выражения не ожидалось `" + current.RawValue + "'";
+
+    // Helper: check if token is a number (integer or float)
+    auto isNumber = [](const TToken& t) {
+        return t.Type == TToken::Integer || t.Type == TToken::Float;
+    };
+
+    // Look for pattern: ... number/ident identifier/number
+    // This suggests missing operator between two parts of expression
+    if (window.size() >= 2) {
+        auto& prev = window[window.size() - 2];
+
+        // Case: number followed by identifier (like "5 mod")
+        if (isNumber(prev) && current.Type == TToken::Identifier) {
+            hint = "возможно, пропущен оператор между `" + prev.RawValue + "' и `" + current.RawValue +
+                   "'; попробуйте добавить +, -, *, / или другой оператор";
+        }
+        // Case: identifier followed by identifier (like "x mod")
+        else if (prev.Type == TToken::Identifier && current.Type == TToken::Identifier) {
+            hint = "возможно, пропущен оператор между `" + prev.Name + "' и `" + current.Name +
+                   "'; попробуйте добавить +, -, *, / или другой оператор";
+        }
+        // Case: closing paren followed by identifier (like ") mod")
+        else if (isOp(prev, EOperator::RParen) && current.Type == TToken::Identifier) {
+            hint = "возможно, пропущен оператор перед `" + current.RawValue +
+                   "'; попробуйте добавить +, -, *, / или другой оператор";
+        }
+        // Case: closing bracket followed by identifier (like "] mod")
+        else if (isOp(prev, EOperator::RSqBr) && current.Type == TToken::Identifier) {
+            hint = "возможно, пропущен оператор перед `" + current.RawValue +
+                   "'; попробуйте добавить +, -, *, / или другой оператор";
+        }
+        // Case: number followed by number (like "5 3")
+        else if (isNumber(prev) && isNumber(current)) {
+            hint = "два числа подряд; возможно, пропущен оператор между `" + prev.RawValue +
+                   "' и `" + current.RawValue + "'";
+        }
+        // Case: number followed by opening paren (like "5 (")
+        else if (isNumber(prev) && isOp(current, EOperator::LParen)) {
+            hint = "возможно, пропущен оператор перед `('; попробуйте добавить *, +, - или другой оператор";
+        }
+        // Case: identifier followed by number (like "x 5")
+        else if (prev.Type == TToken::Identifier && isNumber(current)) {
+            // This might be function call without parens, but in this context it's after expr
+            hint = "возможно, пропущен оператор между `" + prev.Name + "' и `" + current.RawValue +
+                   "'; попробуйте добавить +, -, *, / или другой оператор";
+        }
+    }
+
+    if (hint.empty()) {
+        hint = "ожидался конец строки или оператор (+, -, *, /, и, или, ...)";
+    }
+
+    return TError(location, baseMsg + "; " + hint);
+}
+
+/*
 Stmt ::= VarDecl
     | Assign
     | Input
@@ -1447,17 +1522,28 @@ TAstTask stmt(TWrappedTokenStream& stream) {
                     "после `" + first.Name + "[...]' ожидался `:=' для присваивания элементу массива, получено `" + assignTok.RawValue + "'");
             }
             auto rhs = co_await expr(stream);
+            auto next = stream.Next();
+            if (!(next.Type == TToken::EType::Operator)) {
+                co_return unexpectedTokenAfterExpr(stream);
+            }
             co_return std::make_shared<TArrayAssignExpr>(first.Location, first.Name, std::move(exprs), rhs);
         } else if (isOp(next, EOperator::Assign)) {
             // Assignment statement
             auto rhs = co_await expr(stream);
+            if (!(next.Type == TToken::EType::Operator)) {
+                co_return unexpectedTokenAfterExpr(stream);
+            }
             co_return std::make_shared<TAssignExpr>(first.Location, first.Name, rhs);
         } else {
-            // Вызов функции без скобок (Кумир-стиль) или выражение
-            // Возвращаем токены и парсим как выражение
+            // Important: restore tokens in reverse order of reading
+            // so that the identifier comes before '(' again.
             stream.Unget(next);
             stream.Unget(first);
-            co_return co_await expr(stream);
+            auto rhs = co_await expr(stream);
+            if (!(next.Type == TToken::EType::Operator)) {
+                co_return unexpectedTokenAfterExpr(stream);
+            }
+            co_return rhs;
         }
     } else if (isKeyword(first, EKeyword::Use)) {
         auto next = stream.Next();
