@@ -90,6 +90,7 @@ enum class EOperator : uint8_t {
     Colon, // :
     // Special operators
     Eol, // \n
+    Eof, // end of file
     // Logical operators
     And,
     Or,
@@ -122,7 +123,7 @@ class TTokenStream
 {
 public:
     TTokenStream(std::istream& in);
-    std::optional<TToken> Next();
+    TToken Next(); // returns Eof token on EOF
     void Unget(TToken token);
     const TLocation& operator()() const;
     const TLocation& GetLocation() const;

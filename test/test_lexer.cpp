@@ -10,41 +10,36 @@ namespace {
 #define ExpectKeyword(t, kw) \
     do { \
         auto value = (t); \
-        ASSERT_TRUE(value.has_value()); \
-        EXPECT_EQ(value->Type, TToken::Keyword); \
-        EXPECT_EQ(value->Value.i64, (int64_t)(kw)); \
+        EXPECT_EQ(value.Type, TToken::Keyword); \
+        EXPECT_EQ(value.Value.i64, (int64_t)(kw)); \
     } while(0);
 
 #define ExpectOp(t, op) \
     do { \
         auto value = (t); \
-        ASSERT_TRUE(value.has_value()); \
-        EXPECT_EQ(value->Type, TToken::Operator); \
-        EXPECT_EQ(value->Value.i64, (int64_t)(op)); \
+        EXPECT_EQ(value.Type, TToken::Operator); \
+        EXPECT_EQ(value.Value.i64, (int64_t)(op)); \
     } while(0);
 
 #define ExpectIdent(t, name) \
     do { \
         auto value = (t); \
-        ASSERT_TRUE(value.has_value()); \
-        EXPECT_EQ(value->Type, TToken::Identifier); \
-        EXPECT_EQ(value->Name, (name)); \
+        EXPECT_EQ(value.Type, TToken::Identifier); \
+        EXPECT_EQ(value.Name, (name)); \
     } while(0);
 
 #define ExpectInt(t, v) \
     do { \
         auto value = (t); \
-        ASSERT_TRUE(value.has_value()); \
-        EXPECT_EQ(value->Type, TToken::Integer); \
-        EXPECT_EQ(value->Value.i64, (v)); \
+        EXPECT_EQ(value.Type, TToken::Integer); \
+        EXPECT_EQ(value.Value.i64, (v)); \
     } while(0);
 
 #define ExpectFloat(t, v) \
     do { \
         auto value = (t); \
-        ASSERT_TRUE(value.has_value()); \
-        EXPECT_EQ(value->Type, TToken::Float); \
-        EXPECT_EQ(value->Value.f64, (v)); \
+        EXPECT_EQ(value.Type, TToken::Float); \
+        EXPECT_EQ(value.Value.f64, (v)); \
     } while(0);
 
 } // namespace
@@ -199,8 +194,7 @@ TEST(LexerTest, InputOutputListsWithMultiWordIdentifiers) {
     ExpectOp(tokens.Next(), EOperator::Comma);
     // "нс" как keyword переноса строки (если у тебя так заведено) — иначе можно ожидать Identifier("нс")
     auto t = tokens.Next();
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::Keyword) << "ожидался keyword 'нс'";
+    EXPECT_EQ(t.Type, TToken::Keyword) << "ожидался keyword 'нс'";
     ExpectOp(tokens.Next(), EOperator::Eol);
 }
 
@@ -248,23 +242,20 @@ TEST(LexerTest, StringLiteralAndComments) {
 
     ExpectKeyword(tokens.Next(), EKeyword::Output);
     auto t = tokens.Next(); // "Привет"
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::String);
-    EXPECT_EQ(t->Name, std::string("Привет"));
+    EXPECT_EQ(t.Type, TToken::String);
+    EXPECT_EQ(t.Name, std::string("Привет"));
     ExpectOp(tokens.Next(), EOperator::Comma);
     // "нс" — как keyword (или идентификатор — см. реализацию)
     t = tokens.Next();
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::Keyword) << "ожидался keyword 'нс'";
+    EXPECT_EQ(t.Type, TToken::Keyword) << "ожидался keyword 'нс'";
     ExpectOp(tokens.Next(), EOperator::Eol); // comment 1
     ExpectOp(tokens.Next(), EOperator::Eol); // comment 2
 
     // комментарии должны быть съедены, далее снова "вывод"
     ExpectKeyword(tokens.Next(), EKeyword::Output);
     t = tokens.Next();
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::String);
-    EXPECT_EQ(t->Name, std::string("OK"));
+    EXPECT_EQ(t.Type, TToken::String);
+    EXPECT_EQ(t.Name, std::string("OK"));
 }
 
 TEST(LexerTest, EolBetweenStatements) {
@@ -283,18 +274,16 @@ TEST(LexerTest, String) {
     std::istringstream input("\"Hello, World!\"");
     TTokenStream tokens(input);
     auto t = tokens.Next();
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::String);
-    EXPECT_EQ(t->Name, std::string("Hello, World!"));
+    EXPECT_EQ(t.Type, TToken::String);
+    EXPECT_EQ(t.Name, std::string("Hello, World!"));
 }
 
 TEST(LexerTest, EmptyString) {
     std::istringstream input("\"\"");
     TTokenStream tokens(input);
     auto t = tokens.Next();
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->Type, TToken::String);
-    EXPECT_EQ(t->Name, std::string(""));
+    EXPECT_EQ(t.Type, TToken::String);
+    EXPECT_EQ(t.Name, std::string(""));
 }
 
 // --- "иначе если" should be two keywords in control flow --------------------

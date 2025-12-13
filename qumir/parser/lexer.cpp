@@ -228,12 +228,16 @@ TTokenStream::TTokenStream(std::istream& in)
     , CurrentLocation({1, 1, 1})
 { }
 
-std::optional<TToken> TTokenStream::Next() {
+TToken TTokenStream::Next() {
     if (Tokens.empty()) {
         Read();
     }
     if (Tokens.empty()) {
-        return {};
+        return TToken {
+            .Value = {.i64 = static_cast<int64_t>(EOperator::Eof)},
+            .Type = TToken::Operator,
+            .Location = CurrentLocation
+        };
     }
     TToken token = std::move(Tokens.front()); Tokens.pop_front();
     return token;
