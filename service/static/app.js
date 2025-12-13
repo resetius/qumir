@@ -996,6 +996,23 @@ function hexdump(bytes) {
   return out;
 }
 
+// Helper: collect multiline error text until next error header
+function collectErrorText(lines, startIdx, initialText = '') {
+  let text = initialText;
+  let i = startIdx;
+  while (i < lines.length) {
+    const nextLine = lines[i];
+    // Stop if we hit another error line
+    if (/^Error:\s*/.test(nextLine) || /^Строка:\s*\d+/.test(nextLine)) {
+      break;
+    }
+    // Append this line to the error text
+    text += (text ? '\n' : '') + nextLine;
+    i++;
+  }
+  return { text, nextIdx: i };
+}
+
 // Format compiler error lines like:
 // "Error: <text> @ Line: N, Byte: B, Column: C"
 // into:
@@ -1005,12 +1022,14 @@ function formatCompilerErrors(payload) {
   const lines = payload.split(/\r?\n/);
   const re = /^Error:\s*(.+?)\s*@\s*Line:\s*(\d+),\s*Byte:\s*\d+,\s*Column:\s*(\d+)/;
   const blocks = [];
-  for (const line of lines) {
-    const m = re.exec(line);
+  for (let i = 0; i < lines.length; i++) {
+    const m = re.exec(lines[i]);
     if (!m) continue;
-    const text = m[1];
     const lineNum = Number(m[2]) || 0;
     const colNum = Number(m[3]) || 0;
+    // Collect subsequent lines until next error or end
+    const { text, nextIdx } = collectErrorText(lines, i + 1, m[1]);
+    i = nextIdx - 1; // -1 because loop will increment
     blocks.push(`Строка: ${lineNum}, Колонка: ${colNum}\n  ${text}`);
   }
   // If we detected any error lines, return the formatted blocks joined by newlines;
@@ -1027,16 +1046,20 @@ function parseCompilerErrors(payload) {
   for (let i = 0; i < lines.length; i++) {
     const a = reA.exec(lines[i]);
     if (a) {
-      errs.push({ line: Number(a[2]) || 0, col: Number(a[3]) || 0, text: a[1] });
+      const lineNum = Number(a[2]) || 0;
+      const colNum = Number(a[3]) || 0;
+      // Collect subsequent lines until next error
+      const { text, nextIdx } = collectErrorText(lines, i + 1, a[1]);
+      i = nextIdx - 1;
+      errs.push({ line: lineNum, col: colNum, text });
       continue;
     }
     const head = /^Строка:\s*(\d+)\s*,\s*Колонка:\s*(\d+)/.exec(lines[i]);
     if (head && i + 1 < lines.length) {
       const bodyLine = lines[i + 1] || '';
-      const m = /^(\s*)(.*)$/.exec(bodyLine);
-      const text = m ? m[2] : bodyLine;
+      const text = bodyLine.replace(/^\s+/, '');
       errs.push({ line: Number(head[1]) || 0, col: Number(head[2]) || 0, text });
-      i++;
+      i++; // Skip the body line
     }
   }
   return errs;
