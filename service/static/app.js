@@ -1961,7 +1961,11 @@ function initEditor() {
     extraKeys: {
       Tab: cm => cm.execCommand('indentMore'),
       'Shift-Tab': cm => cm.execCommand('indentLess'),
-      'Ctrl-/': cm => cm.execCommand('toggleComment')
+      'Ctrl-/': cm => cm.execCommand('toggleComment'),
+      'Ctrl-Enter': async () => {
+        const runBtn = document.getElementById('btn-run');
+        if (runBtn) runBtn.click();
+      }
     }
   });
   // Responsive height: fixed on desktop, auto on mobile (CSS controls heights)
@@ -2382,6 +2386,32 @@ ${indent}знач := a
     btn.addEventListener('focus', () => showTip(btn, { placeAbove: true }));
     btn.addEventListener('blur', hideTip);
   });
+  // Attach default (below) tooltips to header controls
+  ['opt', 'examples', 'view', 'btn-share', 'btn-help'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('mouseenter', () => showTip(el));
+    el.addEventListener('mouseleave', hideTip);
+    el.addEventListener('focus', () => showTip(el));
+    el.addEventListener('blur', hideTip);
+  });
+  // Attach default (below) tooltips to IO toolbar controls
+  ['io-select', 'io-add-file', 'args', 'btn-run'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('mouseenter', () => showTip(el));
+    el.addEventListener('mouseleave', hideTip);
+    el.addEventListener('focus', () => showTip(el));
+    el.addEventListener('blur', hideTip);
+  });
+  // Attach "above" tooltip to fullscreen close button
+  const fsClose = document.getElementById('fs-close');
+  if (fsClose) {
+    fsClose.addEventListener('mouseenter', () => showTip(fsClose, { placeAbove: true }));
+    fsClose.addEventListener('mouseleave', hideTip);
+    fsClose.addEventListener('focus', () => showTip(fsClose, { placeAbove: true }));
+    fsClose.addEventListener('blur', hideTip);
+  }
 })();
 
 // Bug report button copies diagnostics to clipboard and opens GitHub issues

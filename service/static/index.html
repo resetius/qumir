@@ -27,24 +27,24 @@
     </div>
     <div class="controls">
       <label>Opt:</label>
-      <select id="opt">
+      <select id="opt" data-tooltip="Уровень оптимизации компилятора">
         <option value="0">O0</option>
         <option value="1">O1</option>
         <option value="2">O2</option>
         <option value="3">O3</option>
       </select>
       <label>Примеры:</label>
-      <select id="examples">
+      <select id="examples" data-tooltip="Загрузить пример кода">
         <option value="">—</option>
       </select>
-      <select id="view">
+      <select id="view" data-tooltip="Выбор представления компилятора">
         <option value="ir">IR</option>
         <option value="llvm">LLVM</option>
         <option value="asm">ASM</option>
         <option value="wasm">WASM (text)</option>
       </select>
-      <button id="btn-share" title="Поделиться ссылкой">Поделиться</button>
-      <button id="btn-help" class="btn-help" title="Справка по языку">❓</button>
+      <button id="btn-share" data-tooltip="Поделиться ссылкой">Поделиться</button>
+      <button id="btn-help" class="btn-help" data-tooltip="Справка по языку">❓</button>
     </div>
   </header>
   <main>
@@ -64,15 +64,15 @@
     <div class="pane-title" id="title-io">IO &amp; files</div>
     <div class="io-toolbar">
       <label for="io-select">Просмотр:</label>
-      <select id="io-select">
+      <select id="io-select" data-tooltip="Переключение между stdout, stdin и файлами">
         <option value="stdout">stdout</option>
         <option value="stdin">stdin</option>
       </select>
-        <button id="io-add-file" class="io-icon" title="Добавить файл">＋</button>
+        <button id="io-add-file" class="io-icon" data-tooltip="Добавить файл">＋</button>
         <span class="io-toolbar-separator"></span>
         <label for="args">Args:</label>
-        <input id="args" type="text" placeholder="e.g. 1, 2.5, да, нет" />
-        <button id="btn-run">Run</button>
+        <input id="args" type="text" placeholder="e.g. 1, 2.5, да, нет" data-tooltip="Аргументы командной строки" />
+        <button id="btn-run" data-tooltip="Запустить программу (Ctrl+Enter)">Run</button>
     </div>
     <div class="io-pane-container">
       <div class="io-pane io-pane-stdout active" data-io-pane="stdout">
@@ -111,7 +111,7 @@
     <div class="fs-panel" role="dialog" aria-modal="true">
       <div class="fs-header">
         <span id="fs-title">Output</span>
-        <button id="fs-close" class="fs-close" aria-label="Закрыть">✕</button>
+        <button id="fs-close" class="fs-close" aria-label="Закрыть" data-tooltip="Закрыть">✕</button>
       </div>
       <div id="fs-body" class="fs-body"></div>
     </div>
