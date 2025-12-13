@@ -588,5 +588,32 @@ const TLocation& TTokenStream::GetLocation() const {
     return CurrentLocation;
 }
 
+TWrappedTokenStream::TWrappedTokenStream(TTokenStream& baseStream, int windowSize)
+    : BaseStream(baseStream)
+    , WindowSize(windowSize)
+{ }
+
+TToken TWrappedTokenStream::Next() {
+    auto tok = BaseStream.Next();
+    Window.push_back(tok);
+    while (static_cast<int>(Window.size()) > WindowSize) {
+        Window.pop_front();
+    }
+    return tok;
+}
+
+void TWrappedTokenStream::Unget(TToken token) {
+    BaseStream.Unget(token);
+    Window.pop_back();
+}
+
+const TLocation& TWrappedTokenStream::operator()() const {
+    return BaseStream();
+}
+
+const TLocation& TWrappedTokenStream::GetLocation() const {
+    return BaseStream.GetLocation();
+}
+
 } // namespace NAst
 } // namespace NQumir

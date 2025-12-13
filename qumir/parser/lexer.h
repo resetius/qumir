@@ -137,5 +137,21 @@ private:
     TLocation CurrentLocation;
 };
 
+class TWrappedTokenStream {
+public:
+    TWrappedTokenStream(TTokenStream& baseStream, int windowSize);
+
+    TToken Next();
+    void Unget(TToken token);
+    const TLocation& operator()() const;
+    const TLocation& GetLocation() const;
+    const std::deque<TToken>& GetWindow() const { return Window; }
+
+private:
+    TTokenStream& BaseStream;
+    std::deque<TToken> Window;
+    int WindowSize;
+};
+
 } // namespace NAst
 } // namespace NQumir

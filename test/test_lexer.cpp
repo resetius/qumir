@@ -325,6 +325,170 @@ TEST(LexerTest, ScientificNotationWithOperators) {
     ExpectFloat(tokens.Next(), 10.0);           // 1E+1
 }
 
+TEST(WrappedTokenStreamTest, BasicWindowFilling) {
+    std::istringstream input("x := 1 + 2");
+    TTokenStream baseTokens(input);
+    TWrappedTokenStream wrapped(baseTokens, 3);
+
+    auto t1 = wrapped.Next();
+    ExpectIdent(t1, "x");
+    EXPECT_EQ(wrapped.GetWindow().size(), 1);
+    EXPECT_EQ(wrapped.GetWindow()[0].Name, "x");
+
+    auto t2 = wrapped.Next();
+    ExpectOp(t2, EOperator::Assign);
+    EXPECT_EQ(wrapped.GetWindow().size(), 2);
+
+    auto t3 = wrapped.Next();
+    ExpectInt(t3, 1);
+    EXPECT_EQ(wrapped.GetWindow().size(), 3);
+}
+
+TEST(WrappedTokenStreamTest, WindowSizeLimit) {
+    std::istringstream input("a := b + c - d");
+    TTokenStream baseTokens(input);
+    TWrappedTokenStream wrapped(baseTokens, 3);
+
+    wrapped.Next(); // a
+    wrapped.Next(); // :=
+    wrapped.Next(); // b
+    wrapped.Next(); // +
+    wrapped.Next(); // c
+
+    EXPECT_EQ(wrapped.GetWindow().size(), 3);
+    ExpectIdent(wrapped.GetWindow()[0], "b");
+    ExpectOp(wrapped.GetWindow()[1], EOperator::Plus);
+    ExpectIdent(wrapped.GetWindow()[2], "c");
+
+    wrapped.Next(); // -
+    EXPECT_EQ(wrapped.GetWindow().size(), 3);
+    ExpectOp(wrapped.GetWindow()[0], EOperator::Plus);
+    ExpectIdent(wrapped.GetWindow()[1], "c");
+    ExpectOp(wrapped.GetWindow()[2], EOperator::Minus);
+}
+
+TEST(WrappedTokenStreamTest, UngetRemovesFromWindow) {
+    std::istringstream input("x := 5");
+    TTokenStream baseTokens(input);
+    TWrappedTokenStream wrapped(baseTokens, 5);
+
+    auto t1 = wrapped.Next(); // x
+    auto t2 = wrapped.Next(); // :=
+    auto t3 = wrapped.Next(); // 5
+
+    EXPECT_EQ(wrapped.GetWindow().size(), 3);
+
+    wrapped.Unget(t3);
+    EXPECT_EQ(wrapped.GetWindow().size(), 2);
+    ExpectIdent(wrapped.GetWindow()[0], "x");
+    ExpectOp(wrapped.GetWindow()[1], EOperator::Assign);
+
+    auto t3_again = wrapped.Next();
+    ExpectInt(t3_again, 5);
+    EXPECT_EQ(wrapped.GetWindow().size(), 3);
+}
+
+TEST(WrappedTokenStreamTest, MultipleUngets) {
+    std::istringstream input("a + b * c");
+    TTokenStream baseTokens(input);
+    TWrappedTokenStream wrapped(baseTokens, 10);
+
+    auto t1 = wrapped.Next(); // a
+    auto t2 = wrapped.Next(); // +
+    auto t3 = wrapped.Next(); // b
+    auto t4 = wrapped.Next(); // *
+    auto t5 = wrapped.Next(); // c
+
+    EXPECT_EQ(wrapped.GetWindow().size(), 5);
+
+    wrapped.Unget(t5);
+    wrapped.Unget(t4);
+    EXPECT_EQ(wrapped.GetWindow().size(), 3);
+
+    auto t4_again = wrapped.Next();
+    ExpectOp(t4_again, EOperator::Mul);
+    EXPECT_EQ(wrapped.GetWindow().size(), 4);
+
+    auto t5_again = wrapped.Next();
+    ExpectIdent(t5_again, "c");
+    EXPECT_EQ(wrapped.GetWindow().size(), 5);
+}
+
+TEST(WrappedTokenStreamTest, WindowContextForErrorMessages) {
+    std::istringstream input("если x > 0 то\n  вывод x\nвсе");
+    TTokenStream baseTokens(input);
+    TWrappedTokenStream wrapped(baseTokens, 5);
+
+    wrapped.Next(); // если
+    wrapped.Next(); // x
+    wrapped.Next(); // >
+    wrapped.Next(); // 0
+    wrapped.Next(); // то
+    wrapped.Next(); // Eol
+    wrapped.Next(); // вывод
+
+    const auto& window = wrapped.GetWindow();
+    EXPECT_EQ(window.size(), 5);
+}
+
+TEST(WrappedTokenStreamTest, EmptyWindow) {
+    std::istringstream input("test");
+    TTokenStream baseTokens(input);
+    TWrappedTokenStream wrapped(baseTokens, 3);
+
+    EXPECT_EQ(wrapped.GetWindow().size(), 0);
+}
+
+TEST(WrappedTokenStreamTest, WindowSizeOne) {
+    std::istringstream input("1 + 2 + 3");
+    TTokenStream baseTokens(input);
+    TWrappedTokenStream wrapped(baseTokens, 1);
+
+    wrapped.Next(); // 1
+    EXPECT_EQ(wrapped.GetWindow().size(), 1);
+    ExpectInt(wrapped.GetWindow()[0], 1);
+
+    wrapped.Next(); // +
+    EXPECT_EQ(wrapped.GetWindow().size(), 1);
+    ExpectOp(wrapped.GetWindow()[0], EOperator::Plus);
+
+    wrapped.Next(); // 2
+    EXPECT_EQ(wrapped.GetWindow().size(), 1);
+    ExpectInt(wrapped.GetWindow()[0], 2);
+}
+
+TEST(WrappedTokenStreamTest, LocationDelegation) {
+    std::istringstream input("x := 5");
+    TTokenStream baseTokens(input);
+    TWrappedTokenStream wrapped(baseTokens, 3);
+
+    wrapped.Next(); // x
+    auto loc1 = wrapped.GetLocation();
+
+    wrapped.Next(); // :=
+    auto loc2 = wrapped.GetLocation();
+
+    EXPECT_TRUE(true);
+}
+
+TEST(WrappedTokenStreamTest, UngetThenReadSequence) {
+    std::istringstream input("1 2 3");
+    TTokenStream baseTokens(input);
+    TWrappedTokenStream wrapped(baseTokens, 5);
+
+    auto t1 = wrapped.Next(); // 1
+    auto t2 = wrapped.Next(); // 2
+
+    wrapped.Unget(t2);
+    auto t2_v2 = wrapped.Next();
+    ExpectInt(t2_v2, 2);
+
+    auto t3 = wrapped.Next(); // 3
+    ExpectInt(t3, 3);
+
+    EXPECT_EQ(wrapped.GetWindow().size(), 3);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

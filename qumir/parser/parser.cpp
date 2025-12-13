@@ -64,14 +64,14 @@ inline bool isKeyword(const TToken& tok, EKeyword kw) {
 }
 
 using TAstTask = TExpectedTask<TExprPtr, TError, TLocation>;
-TAstTask stmt(TTokenStream& stream);
-TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts = {});
-TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes = false);
-TAstTask expr(TTokenStream& stream);
-TAstTask for_loop(TTokenStream& stream);
-TAstTask for_times(TTokenStream& stream, TExprPtr countExpr, TLocation loopLoc);
+TAstTask stmt(TWrappedTokenStream& stream);
+TAstTask stmt_list(TWrappedTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts = {});
+TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TWrappedTokenStream& stream, bool parseAttributes = false);
+TAstTask expr(TWrappedTokenStream& stream);
+TAstTask for_loop(TWrappedTokenStream& stream);
+TAstTask for_times(TWrappedTokenStream& stream, TExprPtr countExpr, TLocation loopLoc);
 
-void SkipEols(TTokenStream& stream) {
+void SkipEols(TWrappedTokenStream& stream) {
     while (true) {
         auto t = stream.Next();
         if (isEof(t)) break;
@@ -165,7 +165,7 @@ inline bool IsTypeKeyword(EKeyword kw) {
 /*
 StmtList ::= Stmt*
 */
-TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts) {
+TAstTask stmt_list(TWrappedTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts) {
     while (true) {
         // Skip standalone EOLs between statements
         bool skipped = false;
@@ -205,7 +205,7 @@ TAstTask stmt_list(TTokenStream& stream, std::set<EKeyword> terminators, std::ve
     co_return list(stream.GetLocation(), std::move(stmts));
 }
 
-TExpectedTask<std::pair<TExprPtr, TExprPtr>, TError, TLocation> array_bounds(TTokenStream& stream)
+TExpectedTask<std::pair<TExprPtr, TExprPtr>, TError, TLocation> array_bounds(TWrappedTokenStream& stream)
 {
     // left bound
     auto leftExpr = co_await expr(stream);
@@ -224,7 +224,7 @@ TypeKw  ::= 'цел' | 'вещ' | 'лог' | 'лит' | 'таб'
 Name    ::= NamePart (' ' NamePart)*
 NamePart::= Identifier | Keyword
 */
-TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TTokenStream& stream, TTypePtr scalarType, bool isArray, bool isPointer, bool isReference) {
+TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TWrappedTokenStream& stream, TTypePtr scalarType, bool isArray, bool isPointer, bool isReference) {
     auto nameTok = stream.Next();
     if (nameTok.Type != TToken::Identifier) {
         // Если здесь пошёл новый тип — пусть внешняя логика разрулит (мы вернём ошибку)
@@ -324,7 +324,7 @@ TTypePtr getScalarType(EKeyword kw, bool& isArray) {
     }
 }
 
-TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TTokenStream& stream, bool parseAttributes) {
+TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TWrappedTokenStream& stream, bool parseAttributes) {
     auto first = stream.Next();
 
     bool isPointer = false;
@@ -456,7 +456,7 @@ TypeKw ::= 'цел' | 'вещ' | 'лог' | 'лит'
 ArrayMark ::= 'таб'  [массивные параметры, если используются]
 IdentList ::= Ident (',' Ident)*
 */
-TAstTask fun_decl(TTokenStream& stream) {
+TAstTask fun_decl(TWrappedTokenStream& stream) {
     auto next = stream.Next();
     TTypePtr returnType = std::make_shared<TVoidType>();
     std::vector<std::shared_ptr<TVarStmt>> args;
@@ -574,7 +574,7 @@ TAstTask fun_decl(TTokenStream& stream) {
 /*
     ForLoop ::= identifier 'от' expr 'до' expr ('шаг' expr)?
 */
-TAstTask for_loop(TTokenStream& stream) {
+TAstTask for_loop(TWrappedTokenStream& stream) {
     auto location = stream.GetLocation();
 
     auto varTok = stream.Next();
@@ -646,7 +646,7 @@ TAstTask for_loop(TTokenStream& stream) {
 
     sugar for: for i from 1 to expr
 */
-TAstTask for_times(TTokenStream& stream, TExprPtr countExpr, TLocation loopLoc) {
+TAstTask for_times(TWrappedTokenStream& stream, TExprPtr countExpr, TLocation loopLoc) {
     auto location = loopLoc;
 
     auto body = co_await stmt_list(stream, { EKeyword::LoopEnd });
@@ -693,7 +693,7 @@ TAstTask for_times(TTokenStream& stream, TExprPtr countExpr, TLocation loopLoc) 
     body
   кц
  */
-TAstTask while_loop(TTokenStream& stream) {
+TAstTask while_loop(TWrappedTokenStream& stream) {
     auto location = stream.GetLocation();
 
     auto cond = co_await expr(stream);
@@ -717,7 +717,7 @@ TAstTask while_loop(TTokenStream& stream) {
     body
   кц при условие
 */
-TAstTask repeat_until_loop(TTokenStream& stream) {
+TAstTask repeat_until_loop(TWrappedTokenStream& stream) {
     auto location = stream.GetLocation();
 
     auto body = co_await stmt_list(stream, { EKeyword::LoopEndWhen, EKeyword::LoopEnd });
@@ -772,7 +772,7 @@ or
 все
 
 */
-TAstTask switch_expr(TTokenStream& stream) {
+TAstTask switch_expr(TWrappedTokenStream& stream) {
     SkipEols(stream);
     auto location = stream.GetLocation();
     // collect cases
@@ -839,7 +839,7 @@ OptElse ::= EOL* 'иначе' EOL* StmtList | ε
 // - EOL* означает, что между элементами могут быть пустые строки/переводы строк.
 // - Примеры допускают как серию на той же строке после 'то'/'иначе', так и на следующих строках.
 */
-TAstTask if_expr(TTokenStream& stream) {
+TAstTask if_expr(TWrappedTokenStream& stream) {
     auto location = stream.GetLocation();
     auto cond = co_await expr(stream);
     SkipEols(stream);
@@ -873,7 +873,7 @@ TAstTask if_expr(TTokenStream& stream) {
 }
 
 // Parse optional argument list after '(' then ')' or after '[' then ']'
-TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_arg_list_opt(TTokenStream& stream, EOperator rParen = EOperator::RParen) {
+TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_arg_list_opt(TWrappedTokenStream& stream, EOperator rParen = EOperator::RParen) {
     std::vector<TExprPtr> args;
     auto tok = stream.Next();
     if (isOp(tok, rParen)) {
@@ -906,7 +906,7 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_arg_list_opt(TToke
 // Parse input/output operator list - i.e. arguments for 'ввод'/'вывод' separated by commas, without surrounding parentheses
 // ввод a:width:prec, b, c
 template<typename TIoArg>
-TExpectedTask<std::vector<TIoArg>, TError, TLocation> parse_io_arg_list_opt(TTokenStream& stream) {
+TExpectedTask<std::vector<TIoArg>, TError, TLocation> parse_io_arg_list_opt(TWrappedTokenStream& stream) {
     std::vector<TIoArg> args;
     auto tok = stream.Next();
     if (isOp(tok, EOperator::Eol)) {
@@ -954,7 +954,7 @@ TExpectedTask<std::vector<TIoArg>, TError, TLocation> parse_io_arg_list_opt(TTok
 /*
 Factor/Primary ::= Number | Ident | ( Expr ) | fun
 */
-TAstTask factor(TTokenStream& stream) {
+TAstTask factor(TWrappedTokenStream& stream) {
     auto token = stream.Next();
     if (token.Type == TToken::Integer) {
         co_return num(token.Location, token.Value.i64);
@@ -993,7 +993,7 @@ TAstTask factor(TTokenStream& stream) {
 //              | factor ( '[' expr ':' expr ']' )* // <- string slice
 //              | factor ( '[' expr ']' )* // <- array index or string index
 //              | factor ( '[' expr (',' expr)? ']' )* // <- multi-dimensional array index
-TAstTask call_expr(TTokenStream& stream) {
+TAstTask call_expr(TWrappedTokenStream& stream) {
     auto base = co_await factor(stream);
     TToken tok;
     while (!isEof(tok = stream.Next())) {
@@ -1047,13 +1047,13 @@ TAstTask call_expr(TTokenStream& stream) {
 }
 
 // Forward declaration for mutual recursion with power_expr
-TAstTask unary_expr(TTokenStream& stream);
+TAstTask unary_expr(TWrappedTokenStream& stream);
 // Forward declaration to place logical NOT between equality and AND
-TAstTask not_expr(TTokenStream& stream);
+TAstTask not_expr(TWrappedTokenStream& stream);
 
 // power_expr ::= call_expr ( '**' unary_expr )?
 // Right-associative: a ** b ** c == a ** (b ** c)
-TAstTask power_expr(TTokenStream& stream) {
+TAstTask power_expr(TWrappedTokenStream& stream) {
     auto base = co_await call_expr(stream);
     auto tok = stream.Next();
     if (isOp(tok, EOperator::Pow)) {
@@ -1067,7 +1067,7 @@ TAstTask power_expr(TTokenStream& stream) {
 }
 
 // unary ::= call_expr | '+' unary | '-' unary
-TAstTask unary_expr(TTokenStream& stream) {
+TAstTask unary_expr(TWrappedTokenStream& stream) {
     auto tok = stream.Next();
     if (tok.Type == TToken::Operator && ((EOperator)tok.Value.i64 == EOperator::Plus
         || (EOperator)tok.Value.i64 == EOperator::Minus))
@@ -1085,7 +1085,7 @@ TAstTask unary_expr(TTokenStream& stream) {
 }
 
 template<typename Func, typename... TOps>
-TAstTask binary_op_helper(TTokenStream& stream, Func prev, TOps... ops) {
+TAstTask binary_op_helper(TWrappedTokenStream& stream, Func prev, TOps... ops) {
     auto ret = co_await prev(stream);
     TToken token;
     while (!isEof(token = stream.Next())) {
@@ -1107,7 +1107,7 @@ MulExpr ::= Factor
          | MulExpr*Factor
          | MulExpr/Factor
 */
-TAstTask mul_expr(TTokenStream& stream) {
+TAstTask mul_expr(TWrappedTokenStream& stream) {
     co_return co_await binary_op_helper(stream, unary_expr
         , EOperator::Mul, EOperator::FDiv);
 }
@@ -1117,7 +1117,7 @@ AddExpr ::= MulExpr
          | AddExpr+MulExpr
          | AddExpr-MulExpr
 */
-TAstTask add_expr(TTokenStream& stream) {
+TAstTask add_expr(TWrappedTokenStream& stream) {
     co_return co_await binary_op_helper(stream, mul_expr, EOperator::Plus, EOperator::Minus);
 }
 
@@ -1131,7 +1131,7 @@ If one operator  -> returns single binary comparison node (backwards compatible)
 Mixed operators allowed (e.g. a < b == c <= d).
 Precedence: sits where equality used to sit (above AND, below + / -).
 */
-TAstTask comp_chain_expr(TTokenStream& stream) {
+TAstTask comp_chain_expr(TWrappedTokenStream& stream) {
     auto first = co_await add_expr(stream);
     std::vector<EOperator> ops;
     std::vector<TExprPtr> operands; operands.push_back(first);
@@ -1179,7 +1179,7 @@ TAstTask comp_chain_expr(TTokenStream& stream) {
 }
 
 /* NotExpr ::= '!' NotExpr | CompChain */
-TAstTask not_expr(TTokenStream& stream) {
+TAstTask not_expr(TWrappedTokenStream& stream) {
     auto tok = stream.Next();
     if (tok.Type == TToken::Operator && (EOperator)tok.Value.i64 == EOperator::Not) {
         auto inner = co_await not_expr(stream);
@@ -1190,17 +1190,27 @@ TAstTask not_expr(TTokenStream& stream) {
 }
 
 /* AndExpr ::= NotExpr ( "&&" NotExpr )* */
-TAstTask and_expr(TTokenStream& stream) {
+TAstTask and_expr(TWrappedTokenStream& stream) {
     co_return co_await binary_op_helper(stream, not_expr, EOperator::And);
 }
 
 /* OrExpr ::= AndExpr ( "||" OrExpr )* */
-TAstTask or_expr(TTokenStream& stream) {
+TAstTask or_expr(TWrappedTokenStream& stream) {
     co_return co_await binary_op_helper(stream, and_expr, EOperator::Or);
 }
 
-TAstTask expr(TTokenStream& stream) {
+TAstTask expr(TWrappedTokenStream& stream) {
     co_return co_await or_expr(stream);
+}
+
+
+TError unexpected(TWrappedTokenStream& stream) {
+    auto& window = stream.GetWindow();
+    auto first = window.back();
+    auto location = first.Location;
+    stream.Unget(first);
+    std::string expected = "ожидались: объявление переменной, присваивание, ввод/вывод, условие, цикл, выбор, объявление функции";
+    return TError(location, "не ожидалось `" + first.RawValue + "'; " + expected);
 }
 
 /*
@@ -1216,7 +1226,7 @@ Stmt ::= VarDecl
     | FunDecl
     | Use
 */
-TAstTask stmt(TTokenStream& stream) {
+TAstTask stmt(TWrappedTokenStream& stream) {
     // Variable declarations:
     //   (цел|вещ|лог|лит|таб) Name (',' Name)* EOL
     // Names may consist of identifiers and/or keywords (multi-word), e.g. "не готов", "если число"
@@ -1312,10 +1322,7 @@ TAstTask stmt(TTokenStream& stream) {
         }
         co_return std::make_shared<TUseExpr>(first.Location, moduleName);
     } else {
-        auto location = first.Location;
-        stream.Unget(first);
-        std::string expected = "ожидались: объявление переменной, присваивание, ввод/вывод, условие, цикл, выбор, объявление функции";
-        co_return TError(location, "не ожидалось `" + first.RawValue + "'; " + expected);
+        co_return unexpected(stream);
     }
 }
 
@@ -1323,7 +1330,8 @@ TAstTask stmt(TTokenStream& stream) {
 
 std::expected<TExprPtr, TError> TParser::parse(TTokenStream& stream)
 {
-    auto task = stmt_list(stream, {});
+    TWrappedTokenStream wrappedStream(stream, /*windowSize = */ 10);
+    auto task = stmt_list(wrappedStream, {});
     return task.result();
 }
 
