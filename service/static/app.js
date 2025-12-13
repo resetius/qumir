@@ -1151,7 +1151,7 @@ async function show(mode) {
     .CodeMirror-gutters { border-right: 1px solid #e0e0e0; }
     /* Make error gutter compact so dot sits close to line number */
     .CodeMirror-gutter.q-error-gutter { width: 10px; }
-    .q-error-dot { width: 8px; height: 8px; border-radius: 50%; background: #e53935; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); margin: 0 auto; }
+    .q-error-dot { width: 8px; height: 8px; border-radius: 50%; background: #e53935; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); margin: 0 auto; margin-top: 4px; }
   `;
   document.head.appendChild(style);
 })();
