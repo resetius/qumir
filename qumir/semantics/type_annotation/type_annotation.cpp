@@ -637,16 +637,16 @@ TTask AnnotateMultiIndex(std::shared_ptr<TMultiIndexExpr> indexExpr, NSemantics:
 TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     indexExpr->Collection = co_await DoAnnotate(indexExpr->Collection, context, scopeId);
     if (!indexExpr->Collection->Type) {
-        co_return TError(indexExpr->Location, "untyped collection in index expression");
+        co_return TError(indexExpr->Location, "В выражении индексации не удалось определить тип коллекции (массива или строки). Проверьте корректность выражения.");
     }
     indexExpr->Index = co_await DoAnnotate(indexExpr->Index, context, scopeId);
     if (!indexExpr->Index->Type) {
-        co_return TError(indexExpr->Location, "untyped index in index expression");
+        co_return TError(indexExpr->Location, "Индекс в выражении индексации не имеет типа. Убедитесь, что выражение индекса корректно и его тип определён.");
     }
     auto intType = std::make_shared<TIntegerType>();
     if (!EqualTypes(indexExpr->Index->Type, intType)) {
         if (!CanImplicit(indexExpr->Index->Type, intType)) {
-            co_return TError(indexExpr->Location, "index expression requires integer index");
+            co_return TError(indexExpr->Location, "Индекс в выражении индексации должен быть целым числом. Например: a[2], s[1].");
         }
         indexExpr->Index = InsertImplicitCastIfNeeded(indexExpr->Index, intType);
     }
@@ -657,7 +657,10 @@ TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameReso
         auto arrayType = maybeArrayType.Cast();
         indexExpr->Type = arrayType->ElementType;
     } else {
-        co_return TError(indexExpr->Location, "unsupported collection type in index expression");
+        co_return TError(indexExpr->Location, "Индексация поддерживается только для массивов и строк.\n"
+            "Пример корректной индексации массива: a[2] (где a — массив).\n"
+            "Пример корректной индексации строки: s[1] (где s — строка).\n"
+            "Проверьте, что вы обращаетесь к массиву или строке, а не к другому типу.");
     }
 
     co_return indexExpr;
@@ -666,28 +669,36 @@ TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameReso
 TTask AnnotateSlice(std::shared_ptr<TSliceExpr> sliceExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     sliceExpr->Collection = co_await DoAnnotate(sliceExpr->Collection, context, scopeId);
     if (!sliceExpr->Collection->Type) {
-        co_return TError(sliceExpr->Location, "untyped collection in slice expression");
+        co_return TError(sliceExpr->Location, "В выражении среза не удалось определить тип коллекции. Проверьте корректность выражения.");
     }
     auto collectionType = UnwrapReferenceType(sliceExpr->Collection->Type);
     if (!TMaybeType<TStringType>(collectionType)) {
-        co_return TError(sliceExpr->Location, "only string slicing is supported for now");
+        co_return TError(sliceExpr->Location, "Срезы поддерживаются только для строк.\n"
+            "Пример корректного среза: s[1:3] (где s — строка).\n"
+            "Проверьте, что вы используете строку, а не другой тип.");
     }
     sliceExpr->Start = co_await DoAnnotate(sliceExpr->Start, context, scopeId);
     if (!sliceExpr->Start->Type) {
-        co_return TError(sliceExpr->Location, "untyped start index in slice expression");
+        co_return TError(sliceExpr->Location, "Начальный индекс в срезе не имеет типа. Убедитесь, что выражение индекса корректно и его тип определён.");
     }
     sliceExpr->End = co_await DoAnnotate(sliceExpr->End, context, scopeId);
     if (!sliceExpr->End->Type) {
-        co_return TError(sliceExpr->Location, "untyped end index in slice expression");
+        co_return TError(sliceExpr->Location, "Конечный индекс в срезе не имеет типа. Убедитесь, что выражение индекса корректно и его тип определён.");
     }
     auto intType = std::make_shared<TIntegerType>();
     if (!EqualTypes(sliceExpr->Start->Type, intType)) {
         if (!CanImplicit(sliceExpr->Start->Type, intType)) {
-            co_return TError(sliceExpr->Location, "slice expression requires integer start index");
+            co_return TError(sliceExpr->Location, "Начальный индекс в срезе должен быть целым числом. Пример: s[1:3].");
         }
         sliceExpr->Start = InsertImplicitCastIfNeeded(sliceExpr->Start, intType);
     }
-    // indexing a string yields a string (1-character substring)
+    if (!EqualTypes(sliceExpr->End->Type, intType)) {
+        if (!CanImplicit(sliceExpr->End->Type, intType)) {
+            co_return TError(sliceExpr->Location, "Конечный индекс в срезе должен быть целым числом. Пример: s[1:3].");
+        }
+        sliceExpr->End = InsertImplicitCastIfNeeded(sliceExpr->End, intType);
+    }
+    // Срез строки возвращает строку
     sliceExpr->Type = collectionType;
 
     co_return sliceExpr;
@@ -735,7 +746,11 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         if (!expr->Type) {
             // if expr->Type => node was annotated on construction
             co_return TError(expr->Location,
-                std::string("unknown expression type for type annotation: ") + std::string(expr->NodeName()));
+                "Не удалось определить тип выражения для аннотации типов: '" + std::string(expr->NodeName()) + "'.\n"
+                "Возможно, это неизвестный или некорректный вид выражения.\n"
+                "Проверьте корректность синтаксиса и структуры кода.\n"
+                "\nПример: выражение типа ??? не поддерживается.\n"
+                "Если вы считаете, что это ошибка компилятора, пожалуйста, сообщите о ней с примером кода.");
         }
 
         for (auto* child : expr->MutableChildren()) {
