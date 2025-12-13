@@ -438,7 +438,7 @@ void TTokenStream::Read() {
             switch (state) {
                 case Start:
                     if (ch == '\n' || ch == ';') {
-                        emitOperator(EOperator::Eol, ch == '\n' ? "\n" : std::string(1, ch));
+                        emitOperator(EOperator::Eol, ch == '\n' ? "\\n" : std::string(1, ch));
                     } else if (std::isdigit(ch)) {
                         state = InNumber;
                         token = (int64_t)(ch - '0');
