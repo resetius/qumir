@@ -1204,13 +1204,162 @@ TAstTask expr(TWrappedTokenStream& stream) {
 }
 
 
+/**
+ * Generate a context-aware error message for unexpected tokens.
+ *
+ * Analyzes the token window to provide helpful hints about common mistakes.
+ *
+ * Handled cases:
+ *   1. Function call without parentheses: `sqrt 16` -> suggests `sqrt(16)`
+ *   2. Number at line start: `10` -> suggests missing variable for assignment
+ *   3. Parenthesized expr at line start: `(x+5)` -> suggests missing variable
+ *   4. Keyword after identifier: `foo нач` -> suggests missing `алг`
+ *   5. String at line start: `"hello"` -> suggests `вывод "hello"`
+ *   6. Minus at line start: `-5` -> suggests missing variable for assignment
+ *   7. Plus at line start: `+5` -> suggests missing variable for assignment
+ *   8. Assignment without LHS: `:= 10` -> suggests missing variable name
+ *   9. Closing keywords without opening:
+ *      - `кон` without `алг/нач`
+ *      - `все` without `если/выбор/цикл`
+ *      - `кц` without `нц`
+ *      - `иначе` without `если/выбор`
+ *      - `то` without `если`
+ *  10. Two identifiers in sequence (across lines)
+ *  11. Closing paren at line start: `)` without `(`
+ *  12. Closing bracket at line start: `]` without `[`
+ */
 TError unexpected(TWrappedTokenStream& stream) {
     auto& window = stream.GetWindow();
-    auto first = window.back();
-    auto location = first.Location;
-    stream.Unget(first);
+    if (window.empty()) {
+        return TError(stream.GetLocation(), "неожиданный конец файла");
+    }
+
+    auto current = window.back();
+    auto location = current.Location;
+
+    // Analyze context: look at previous tokens in the window
+    // window = [tok1, tok2, ..., tokN] where tokN is the current (failing) token
+
+    std::string hint;
+    std::string baseMsg = "не ожидалось `" + current.RawValue + "'";
+
+    // Helper: check if token is a number (integer or float)
+    auto isNumber = [](const TToken& t) {
+        return t.Type == TToken::Integer || t.Type == TToken::Float;
+    };
+
+    // Helper: check if previous token is EOL or we're at the start
+    auto afterEol = [&window]() {
+        return window.size() < 2 ||
+            (window[window.size() - 2].Type == TToken::Operator &&
+             (EOperator)window[window.size() - 2].Value.i64 == EOperator::Eol);
+    };
+
+    // Case 1: identifier followed by number -> possibly function call without parentheses
+    // foo 10 -> foo(10)
+    // foo 0.5 -> foo(0.5)
+    if (window.size() >= 2) {
+        auto& prev = window[window.size() - 2];
+        if (prev.Type == TToken::Identifier && isNumber(current)) {
+            hint = "возможно, вы имели в виду вызов функции: " + prev.Name + "(" + current.RawValue + ")";
+        }
+    }
+
+    // Case 2: number at line start -> meaningless expression
+    if (hint.empty() && isNumber(current) && afterEol()) {
+        hint = "число не может быть началом оператора; возможно, вы забыли имя переменной для присваивания";
+    }
+
+    // Case 3: opening parenthesis at line start
+    if (hint.empty() && current.Type == TToken::Operator && (EOperator)current.Value.i64 == EOperator::LParen) {
+        if (afterEol()) {
+            hint = "выражение в скобках не может быть началом оператора; возможно, вы забыли имя переменной для присваивания";
+        }
+    }
+
+    // Case 4: keyword after identifier
+    if (hint.empty() && window.size() >= 2) {
+        auto& prev = window[window.size() - 2];
+        if (prev.Type == TToken::Identifier && current.Type == TToken::Keyword) {
+            auto kw = static_cast<EKeyword>(current.Value.i64);
+            // identifier followed by 'нач' -> missing 'алг'?
+            if (kw == EKeyword::Begin) {
+                hint = "возможно, пропущено объявление алгоритма 'алг' перед '" + prev.Name + "'";
+            }
+        }
+    }
+
+    // Case 5: string at line start
+    if (hint.empty() && current.Type == TToken::String && afterEol()) {
+        hint = "строка не может быть началом оператора; возможно, вы имели в виду 'вывод \"" + current.Name + "\"'";
+    }
+
+    // Case 6: minus at line start (possibly negative number without assignment)
+    if (hint.empty() && current.Type == TToken::Operator &&
+        (EOperator)current.Value.i64 == EOperator::Minus && afterEol()) {
+        hint = "выражение не может быть началом оператора; возможно, вы забыли имя переменной для присваивания";
+    }
+
+    // Case 7: plus at line start
+    if (hint.empty() && current.Type == TToken::Operator &&
+        (EOperator)current.Value.i64 == EOperator::Plus && afterEol()) {
+        hint = "выражение не может быть началом оператора; возможно, вы забыли имя переменной для присваивания";
+    }
+
+    // Case 8: assignment operator without LHS (:= at line start)
+    if (hint.empty() && current.Type == TToken::Operator &&
+        (EOperator)current.Value.i64 == EOperator::Assign && afterEol()) {
+        hint = "оператор присваивания ':=' требует имя переменной слева";
+    }
+
+    // Case 9: closing keywords without corresponding opening keywords
+    if (hint.empty() && current.Type == TToken::Keyword && afterEol()) {
+        auto kw = static_cast<EKeyword>(current.Value.i64);
+        if (kw == EKeyword::End) {
+            hint = "'кон' без соответствующего 'алг'/'нач'";
+        } else if (kw == EKeyword::EndIf) {
+            hint = "'все' без соответствующего 'если', 'выбор' или 'цикл'";
+        } else if (kw == EKeyword::LoopEnd) {
+            hint = "'кц' без соответствующего 'нц'";
+        } else if (kw == EKeyword::Else) {
+            hint = "'иначе' без соответствующего 'если' или 'выбор'";
+        } else if (kw == EKeyword::Then) {
+            hint = "'то' без соответствующего 'если'";
+        }
+    }
+
+    // Case 10: identifier after identifier and EOL (possibly missing operator)
+    // Usually this is a multi-word identifier case, but if we got here something is wrong
+    if (hint.empty() && window.size() >= 3 && current.Type == TToken::Identifier) {
+        auto& prev = window[window.size() - 2];
+        auto& prevprev = window[window.size() - 3];
+        // If there was EOL, then identifier, and now another identifier
+        if (prev.Type == TToken::Operator && (EOperator)prev.Value.i64 == EOperator::Eol &&
+            prevprev.Type == TToken::Identifier) {
+            hint = "два идентификатора подряд; возможно, пропущен оператор между '" +
+                   prevprev.Name + "' и '" + current.Name + "'";
+        }
+    }
+
+    // Case 11: closing parenthesis at line start
+    if (hint.empty() && current.Type == TToken::Operator &&
+        (EOperator)current.Value.i64 == EOperator::RParen && afterEol()) {
+        hint = "закрывающая скобка ')' без соответствующей открывающей '('";
+    }
+
+    // Case 12: closing bracket at line start
+    if (hint.empty() && current.Type == TToken::Operator &&
+        (EOperator)current.Value.i64 == EOperator::RSqBr && afterEol()) {
+        hint = "закрывающая скобка ']' без соответствующей открывающей '['";
+    }
+
+    // Build final message
     std::string expected = "ожидались: объявление переменной, присваивание, ввод/вывод, условие, цикл, выбор, объявление функции";
-    return TError(location, "не ожидалось `" + first.RawValue + "'; " + expected);
+
+    if (!hint.empty()) {
+        return TError(location, baseMsg + "; " + hint);
+    }
+    return TError(location, baseMsg + "; " + expected);
 }
 
 /*
