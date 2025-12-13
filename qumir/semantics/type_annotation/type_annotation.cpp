@@ -188,7 +188,7 @@ TTask AnnotateUnary(std::shared_ptr<TUnaryExpr> unary, NSemantics::TNameResolver
         if (maybeInt) {
             auto intType = maybeInt.Cast();
             if (false /*!intType->IsSigned()*/) {
-                co_return TError(unary->Location, "cannot negate unsigned integer type");
+                co_return TError(unary->Location, "Нельзя применять унарный минус к беззнаковому целому типу");
             }
             co_return unary;
         }
@@ -196,7 +196,7 @@ TTask AnnotateUnary(std::shared_ptr<TUnaryExpr> unary, NSemantics::TNameResolver
         if (maybeFloat) {
             co_return unary;
         }
-        co_return TError(unary->Location, "cannot negate non-numeric type");
+        co_return TError(unary->Location, "Нельзя применять унарный минус к нечисловому типу");
     }
     if (unary->Operator == TOperator("!")) {
         auto maybeBool = TMaybeType<TBoolType>(unary->Type);
@@ -214,7 +214,7 @@ TTask AnnotateUnary(std::shared_ptr<TUnaryExpr> unary, NSemantics::TNameResolver
             unary->Type = std::make_shared<TBoolType>();
             co_return unary;
         }
-        co_return TError(unary->Location, "cannot apply '!' to non-boolean type");
+        co_return TError(unary->Location, "Оператор отрицания (не) применяется только к логическим выражениям");
     }
     co_return unary;
 }
@@ -224,20 +224,19 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
     for (auto& p : funDecl->Params) {
         co_await DoAnnotate(p, context, NSemantics::TScopeId{funDecl->Body->Scope});
         if (!p->Type) {
-            co_return TError(p->Location, "untyped function parameter: " + p->Name);
+            co_return TError(p->Location, "Не указан тип параметра функции: " + p->Name);
         }
         params.push_back(p->Type);
     }
     if (!funDecl->RetType) {
-        co_return TError(funDecl->Location, "function return type unknown");
+        co_return TError(funDecl->Location, "Не указан возвращаемый тип функции");
     }
 
     funDecl->Type = std::make_shared<TFunctionType>(std::move(params), funDecl->RetType);
 
     co_await DoAnnotate(funDecl->Body, context, scopeId);
     if (!funDecl->Body->Type) {
-        // function body type always set to void
-        co_return TError(funDecl->Location, "function body type unknown");
+        co_return TError(funDecl->Location, "Не удалось определить тип тела функции");
     }
 
     co_return funDecl;
@@ -247,7 +246,7 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
     binary->Left = co_await DoAnnotate(binary->Left, context, scopeId);
     binary->Right = co_await DoAnnotate(binary->Right, context, scopeId);
     if (!binary->Left->Type || !binary->Right->Type) {
-        co_return TError(binary->Location, "cannot type binary expression with untyped operand");
+        co_return TError(binary->Location, "Не удалось определить типы выражения для бинарной операции");
     }
     auto left = UnwrapReferenceType(binary->Left->Type);
     auto right = UnwrapReferenceType(binary->Right->Type);
@@ -293,7 +292,7 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
 
             auto common = CommonNumericType(left, right);
             if (!common) {
-                co_return TError(binary->Location, "arithmetic operands must be numbers");
+                co_return TError(binary->Location, "+, -, *, / применимы только к числам (оператор + также работает для строк)");
             }
             if (binary->Operator == TOperator("/")) {
                 // 3/2 -> 1.5 : convert to float division
@@ -334,7 +333,7 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 (TMaybeType<TFloatType>(right) || TMaybeType<TIntegerType>(right))) {
                 auto common = CommonNumericType(left, right);
                 if (!common) {
-                    co_return TError(binary->Location, "comparison requires numeric operands");
+                    co_return TError(binary->Location, "Операции сравнения применимы только к числам");
                 }
                 binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common);
                 binary->Right = InsertImplicitCastIfNeeded(binary->Right, common);
@@ -348,7 +347,7 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
             binary->Type  = std::make_shared<TBoolType>();
             break;
         default:
-            co_return TError(binary->Location, "unknown binary operator: " + binary->Operator.ToString());
+            co_return TError(binary->Location, "Неизвестный бинарный оператор: '" + binary->Operator.ToString() + "'");
             break;
     }
 
@@ -359,7 +358,7 @@ TTask AnnotateBlock(std::shared_ptr<TBlockExpr> block, NSemantics::TNameResolver
     for (auto& s : block->Stmts) {
         s = co_await DoAnnotate(s, context, NSemantics::TScopeId{block->Scope});
         if (!s->Type) {
-            co_return TError(s->Location, "statement in block has no type");
+            co_return TError(s->Location, "Не удалось определить тип выражения внутри блока");
         }
     }
     block->Type = std::make_shared<TVoidType>();
@@ -369,27 +368,26 @@ TTask AnnotateBlock(std::shared_ptr<TBlockExpr> block, NSemantics::TNameResolver
 TTask AnnotateAssign(std::shared_ptr<TAssignExpr> assign, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     assign->Value = co_await DoAnnotate(assign->Value, context, scopeId);
     if (!assign->Value->Type) {
-        co_return TError(assign->Location, "cannot assign untyped value to: " + assign->Name);
+        co_return TError(assign->Location, "Нельзя присвоить значение с неопределённым типом переменной: " + assign->Name);
     }
     auto symbolId = context.Lookup(assign->Name, scopeId);
     if (!symbolId) {
-        co_return TError(assign->Location, "undefined identifier in assignment: " + assign->Name);
+        co_return TError(assign->Location, "Переменная не определена: " + assign->Name);
     }
     auto sym = context.GetSymbolNode(NSemantics::TSymbolId{symbolId->Id});
     if (!sym || !sym->Type) {
-        co_return TError(assign->Location, "untyped identifier in assignment: " + assign->Name);
+        co_return TError(assign->Location, "У переменной не определён тип: " + assign->Name);
     }
     auto symbolType = UnwrapReferenceType(sym->Type);
 
     if (!symbolType->Mutable) {
-        co_return TError(assign->Location, "cannot assign to immutable variable: " + assign->Name);
+        co_return TError(assign->Location, "Нельзя присвоить аргументу функции '" + assign->Name + "'. Присваивать можно только переменным, а для аргументов функции — только если они объявлены как 'рез' или 'арг рез'.");
     }
 
     auto valueType = UnwrapReferenceType(assign->Value->Type);
     if (!EqualTypes(valueType, symbolType)) {
         if (!CanImplicit(valueType, symbolType)) {
-            co_return TError(assign->Location, std::string("cannot implicitly convert '") +
-                std::string(valueType->TypeName()) + "' to '" + std::string(symbolType->TypeName()) + "' in assignment");
+            co_return TError(assign->Location, "Нельзя неявно преобразовать тип '" + std::string(valueType->TypeName()) + "' к типу '" + std::string(symbolType->TypeName()) + "' при присваивании переменной '" + assign->Name + "'.");
         }
         assign->Value = InsertImplicitCastIfNeeded(assign->Value, sym->Type);
     }
@@ -401,15 +399,15 @@ TTask AnnotateAssign(std::shared_ptr<TAssignExpr> assign, NSemantics::TNameResol
 TTask AnnotateArrayAssign(std::shared_ptr<TArrayAssignExpr> arrayAssign, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     arrayAssign->Value = co_await DoAnnotate(arrayAssign->Value, context, scopeId);
     if (!arrayAssign->Value->Type) {
-        co_return TError(arrayAssign->Location, "cannot assign untyped value to array: " + arrayAssign->Name);
+        co_return TError(arrayAssign->Location, "Нельзя присвоить значение без типа элементу массива '" + arrayAssign->Name + "'.");
     }
     auto symbolId = context.Lookup(arrayAssign->Name, scopeId);
     if (!symbolId) {
-        co_return TError(arrayAssign->Location, "undefined identifier in array assignment: " + arrayAssign->Name);
+        co_return TError(arrayAssign->Location, "Массив не определён: '" + arrayAssign->Name + "'.");
     }
     auto sym = context.GetSymbolNode(NSemantics::TSymbolId{symbolId->Id});
     if (!sym || !sym->Type) {
-        co_return TError(arrayAssign->Location, "untyped identifier in array assignment: " + arrayAssign->Name);
+        co_return TError(arrayAssign->Location, "У массива не определён тип: '" + arrayAssign->Name + "'.");
     }
     // Allow array assignment for arrays and strings
     auto maybeArrayType = TMaybeType<TArrayType>(sym->Type);
@@ -419,53 +417,52 @@ TTask AnnotateArrayAssign(std::shared_ptr<TArrayAssignExpr> arrayAssign, NSemant
         auto valueType = UnwrapReferenceType(arrayAssign->Value->Type);
         if (!EqualTypes(valueType, arrayType->ElementType)) {
             if (!CanImplicit(valueType, arrayType->ElementType)) {
-                co_return TError(arrayAssign->Location, std::string("cannot implicitly convert '") +
-                    std::string(valueType->TypeName()) + "' to '" + std::string(arrayType->ElementType->TypeName()) + "' in array assignment");
+                co_return TError(arrayAssign->Location, "Нельзя неявно преобразовать тип '" +
+                    std::string(valueType->TypeName()) + "' к типу '" + std::string(arrayType->ElementType->TypeName()) + "' при присваивании элементу массива '" + arrayAssign->Name + "'.");
             }
             arrayAssign->Value = InsertImplicitCastIfNeeded(arrayAssign->Value, arrayType->ElementType);
         }
         for (auto& indexExpr : arrayAssign->Indices) {
             indexExpr = co_await DoAnnotate(indexExpr, context, scopeId);
             if (!indexExpr->Type) {
-                co_return TError(arrayAssign->Location, "untyped index expression in array assignment: " + arrayAssign->Name);
+                co_return TError(arrayAssign->Location, "Индекс в присваивании элементу массива '" + arrayAssign->Name + "' не имеет типа. Убедитесь, что выражение индекса корректно и его тип определён.");
             }
             auto maybeIntType = TMaybeType<TIntegerType>(indexExpr->Type);
             if (!maybeIntType) {
-                co_return TError(arrayAssign->Location, "non-integer index expression in array assignment: " + arrayAssign->Name);
+                co_return TError(arrayAssign->Location, "Индекс в присваивании элементу массива '" + arrayAssign->Name + "' должен быть целым числом. Проверьте выражение индекса.");
             }
         }
         // check arity
         if (arrayAssign->Indices.size() != arrayType->Arity) {
-            co_return TError(arrayAssign->Location, "invalid number of indices in array assignment: " + arrayAssign->Name);
+            co_return TError(arrayAssign->Location, "Неверное количество индексов в присваивании элементу массива '" + arrayAssign->Name + "': ожидается " + std::to_string(arrayType->Arity) + ", получено " + std::to_string(arrayAssign->Indices.size()) + ".");
         }
         arrayAssign->Type = std::make_shared<NAst::TVoidType>();
         co_return arrayAssign;
     } else if (maybeStringType) {
         // Only allow s[1] = 'c' (symbol to string)
         if (arrayAssign->Indices.size() != 1) {
-            co_return TError(arrayAssign->Location, "string assignment must have exactly one index: " + arrayAssign->Name);
+            co_return TError(arrayAssign->Location, "В присваивании элементу строки '" + arrayAssign->Name + "' должно быть ровно один индекс (например, s[1]='a'). Получено индексов: " + std::to_string(arrayAssign->Indices.size()) + ".");
         }
         // Index must be integer
         arrayAssign->Indices[0] = co_await DoAnnotate(arrayAssign->Indices[0], context, scopeId);
         if (!arrayAssign->Indices[0]->Type || !TMaybeType<TIntegerType>(arrayAssign->Indices[0]->Type)) {
-            co_return TError(arrayAssign->Location, "string assignment index must be integer: " + arrayAssign->Name);
+            co_return TError(arrayAssign->Location, "Индекс в присваивании элементу строки '" + arrayAssign->Name + "' должен быть целым числом (например, s[1]='a').");
         }
         // Value must be symbol (char)
         auto valueType = UnwrapReferenceType(arrayAssign->Value->Type);
         if (!TMaybeType<TSymbolType>(valueType)) {
-            std::cerr << *arrayAssign->Value << std::endl;
-            co_return TError(arrayAssign->Location, "string assignment value must be symbol (char): " + arrayAssign->Name);
+            co_return TError(arrayAssign->Location, "Значение в присваивании элементу строки '" + arrayAssign->Name + "' должно быть символом (например, s[1]='a').");
         }
         arrayAssign->Type = std::make_shared<NAst::TVoidType>();
         co_return arrayAssign;
     } else {
-        co_return TError(arrayAssign->Location, "identifier is not an array or string in array assignment: " + arrayAssign->Name);
+        co_return TError(arrayAssign->Location, "Идентификатор '" + arrayAssign->Name + "' не является массивом или строкой, поэтому нельзя использовать присваивание по индексу.");
     }
 }
 
 TTask AnnotateVar(std::shared_ptr<TVarStmt> var) {
     if (!var->Type) {
-        co_return TError(var->Location, "untyped var declaration: " + var->Name);
+        co_return TError(var->Location, "Не указан тип переменной при объявлении: " + var->Name);
     }
     co_return var;
 }

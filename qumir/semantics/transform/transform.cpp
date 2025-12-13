@@ -525,12 +525,12 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
                 auto ident = maybeIdent.Cast();
                 auto symbolId = context.Lookup(ident->Name, NSemantics::TScopeId{scopeId});
                 if (!symbolId) {
-                    errors.push_back(TError(ident->Location, "undefined identifier: " + ident->Name + " in scope " + std::to_string(scopeId)));
+                    errors.push_back(TError(ident->Location, "Идентификатор '" + ident->Name + "' не определён."));
                     return node;
                 }
                 auto sym = context.GetSymbolNode(NSemantics::TSymbolId{symbolId->Id});
                 if (!sym) {
-                    errors.push_back(TError(ident->Location, "invalid identifier symbol: " + ident->Name));
+                    errors.push_back(TError(ident->Location, "Некорректный идентификатор: '" + ident->Name + "'."));
                     return node;
                 }
                 if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(sym)) {
@@ -548,7 +548,7 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
                 if (!var->Bounds.empty() && NAst::TMaybeType<NAst::TArrayType>(node->Type)) {
                     auto symbolId = context.Lookup(var->Name, NSemantics::TScopeId{scopeId});
                     if (!symbolId) {
-                        errors.push_back(TError(var->Location, "undefined identifier: " + var->Name + " in scope " + std::to_string(scopeId)));
+                        errors.push_back(TError(var->Location, "Идентификатор '" + var->Name + "' не определён."));
                         return node;
                     }
 
@@ -571,7 +571,7 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
 
                     auto symbolId = context.Lookup(param->Name, NSemantics::TScopeId{funDecl->Scope});;
                     if (!symbolId) {
-                        errors.push_back(TError(param->Location, "undefined identifier: " + param->Name + " in scope " + std::to_string(funDecl->Scope)));
+                        errors.push_back(TError(param->Location, "Идентификатор '" + param->Name + "' не определён."));
                         return node;
                     }
 

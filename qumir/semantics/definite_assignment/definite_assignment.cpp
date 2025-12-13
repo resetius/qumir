@@ -60,7 +60,7 @@ std::expected<int, TError> TDefiniteAssignmentChecker::GetSymbolId(
     auto symbolId = Context.Lookup(name, scopeId);
     if (!symbolId) {
         return std::unexpected(TError(where->Location,
-            "undefined identifier (in definite assignment pass): " + name));
+            "Идентификатор '" + name + "' не определён."));
     }
     return symbolId->Id;
 }
@@ -73,7 +73,7 @@ std::expected<NAst::TExprPtr, TError> TDefiniteAssignmentChecker::GetSymbolNode(
     auto symbolId = Context.Lookup(name, scopeId);
     if (!symbolId) {
         return std::unexpected(TError(where->Location,
-            "undefined identifier (in definite assignment pass): " + name));
+            "Идентификатор '" + name + "' не определён."));
     }
     return Context.GetSymbolNode(TSymbolId{symbolId->Id});
 }
@@ -333,7 +333,8 @@ TDefiniteAssignmentChecker::CheckIdent(
         if (!inAssigned.contains(id)) {
             return std::unexpected(TError(
                 ident->Location,
-                "variable '" + ident->Name + "' may be used before assignment"));
+                "Переменная '" + ident->Name + "' используется до первого присваивания значения. "
+                "Необходимо присвоить значение перед использованием."));
         }
     }
 
@@ -355,7 +356,7 @@ TDefiniteAssignmentChecker::CheckFunDecl(
         if (!symbolId) {
             return std::unexpected(TError(
                 param->Location,
-                "undefined parameter (in definite assignment pass): " + param->Name));
+                "Параметр '" + param->Name + "' не определён."));
         }
 
         initialAssigned.insert(symbolId->Id);
