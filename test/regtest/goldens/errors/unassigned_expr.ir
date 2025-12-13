@@ -1,2 +1,2 @@
-Error: Error: Expression returning result must be assigned or used @ Line: 4, Byte: 3, Column: 3
+Error: Error: выражение, возвращающее результат, должно быть присвоено переменной или использовано @ Line: 4, Byte: 3, Column: 3
 

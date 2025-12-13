@@ -1604,16 +1604,19 @@ TAstTask stmt(TWrappedTokenStream& stream) {
             }
             auto rhs = co_await expr(stream);
             auto next = stream.Next();
-            if (!(next.Type == TToken::EType::Operator)) {
+            if (!(next.Type == TToken::EType::Operator || next.Type == TToken::EType::Keyword)) {
                 co_return unexpectedTokenAfterExpr(stream);
             }
+            stream.Unget(next);
             co_return std::make_shared<TArrayAssignExpr>(first.Location, first.Name, std::move(exprs), rhs);
         } else if (isOp(next, EOperator::Assign)) {
             // Assignment statement
             auto rhs = co_await expr(stream);
-            if (!(next.Type == TToken::EType::Operator)) {
+            auto next = stream.Next();
+            if (!(next.Type == TToken::EType::Operator || next.Type == TToken::EType::Keyword)) {
                 co_return unexpectedTokenAfterExpr(stream);
             }
+            stream.Unget(next);
             co_return std::make_shared<TAssignExpr>(first.Location, first.Name, rhs);
         } else {
             // Important: restore tokens in reverse order of reading
@@ -1621,9 +1624,11 @@ TAstTask stmt(TWrappedTokenStream& stream) {
             stream.Unget(next);
             stream.Unget(first);
             auto rhs = co_await expr(stream);
-            if (!(next.Type == TToken::EType::Operator)) {
+            auto next = stream.Next();
+            if (!(next.Type == TToken::EType::Operator || next.Type == TToken::EType::Keyword)) {
                 co_return unexpectedTokenAfterExpr(stream);
             }
+            stream.Unget(next);
             co_return rhs;
         }
     } else if (isKeyword(first, EKeyword::Use)) {

@@ -1,0 +1,16 @@
+(Block
+  (FunDecl $функция ():<Fun () -> Int>
+    (Block
+      (Var $$$return:<Int>)
+      (Var $i:<Int>)
+      ($i =
+        (Call
+          ($div)
+          (*
+            (+
+              (2:<Int>)
+              (3:<Int>))
+            (7:<Int>))
+          (4:<Int>)))
+      ($$$return =
+        ($i)))))

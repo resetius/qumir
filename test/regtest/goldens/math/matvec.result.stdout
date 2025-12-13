@@ -1,0 +1,3 @@
+matvec: ||e||_2^2 = 0
+matvec: ||e||_2    = 0
+matvec: ||e||_inf  = 0

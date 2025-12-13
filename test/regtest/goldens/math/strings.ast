@@ -1,0 +1,518 @@
+(Block:<Void>
+  (FunDecl $строки ():<Fun () -> Void>
+    (Block:<Void>
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("=== Конкатенация строк ===":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $а:<String>)
+      (Var $б:<String>)
+      (Var $результат:<String>)
+      ($а =:<Void>
+        ("Привет, ":<String>))
+      ($б =:<Void>
+        ("мир!":<String>))
+      ($результат =:<Void>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
+          ($а:<String>)
+          ($б:<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($результат:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("=== Сравнение строк ===":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $строка1:<String>)
+      (Var $строка2:<String>)
+      (Var $строка3:<String>)
+      ($строка1 =:<Void>
+        ("яблоко":<String>))
+      ($строка2 =:<Void>
+        ("яблоко":<String>))
+      ($строка3 =:<Void>
+        ("груша":<String>))
+      (If:<Void>
+        (==:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($строка1:<String>)
+            ($строка2:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          (Block:<Void>
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("строка1 = строка2: истина":<String>))
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("\n":<String>))))
+        nil)
+      (If:<Void>
+        (==:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($строка1:<String>)
+            ($строка3:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          (Block:<Void>
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("строка1 = строка3: истина":<String>))
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("\n":<String>))))
+        (Block:<Void>
+          (Block:<Void>
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("строка1 = строка3: ложь":<String>))
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("\n":<String>)))))
+      (If:<Void>
+        (<:<Bool>
+          (Call:<Int>
+            ($str_compare:<Fun (String, String) -> Int>)
+            ($строка3:<String>)
+            ($строка2:<String>))
+          (0:<Int>))
+        (Block:<Void>
+          (Block:<Void>
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("строка3 < строка2":<String>))
+            (Call:<Void>
+              ($output_string:<Fun (String) -> Void>)
+              ("\n":<String>))))
+        nil)
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("=== Юникод (получить код символа) ===":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $текст:<String>)
+      (Var $символ_а:<Char>)
+      (Var $код:<Int>)
+      (Var $код_а:<Int>)
+      ($текст =:<Void>
+        ("Привет":<String>))
+      ($код =:<Void>
+        (Cast<Int>:<Int>
+          (Call:<Char>
+            ($str_symbol_at:<Fun (String, Int) -> Char>)
+            ($текст:<String>)
+            (1:<Int>))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Первый символ строки 'Привет': ":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($код:<Int>)
+          (0:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($символ_а =:<Void>
+        (Cast<Char>:<Char>
+          (1040:<Int>)))
+      ($код_а =:<Void>
+        (Cast<Int>:<Int>
+          ($символ_а:<Char>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Код символа 'А': ":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($код_а:<Int>)
+          (0:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("=== Юнисимвол (создать символ из кода) ===":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $код1:<Int>)
+      (Var $код2:<Int>)
+      (Var $код3:<Int>)
+      (Var $код4:<Int>)
+      (Var $код5:<Int>)
+      (Var $код6:<Int>)
+      (Var $слово:<String>)
+      ($код1 =:<Void>
+        (1055:<Int>))
+      ($код2 =:<Void>
+        (1088:<Int>))
+      ($код3 =:<Void>
+        (1080:<Int>))
+      ($код4 =:<Void>
+        (1074:<Int>))
+      ($код5 =:<Void>
+        (1077:<Int>))
+      ($код6 =:<Void>
+        (1090:<Int>))
+      ($слово =:<Void>
+        (Call:<String>
+          ($str_concat:<Fun (String, String) -> String>)
+          (Call:<String>
+            ($str_concat:<Fun (String, String) -> String>)
+            (Call:<String>
+              ($str_concat:<Fun (String, String) -> String>)
+              (Call:<String>
+                ($str_concat:<Fun (String, String) -> String>)
+                (Call:<String>
+                  ($str_concat:<Fun (String, String) -> String>)
+                  (Call:<String>
+                    ($str_from_unicode:<Fun (Char) -> String>)
+                    (Cast<Char>:<Char>
+                      ($код1:<Int>)))
+                  (Call:<String>
+                    ($str_from_unicode:<Fun (Char) -> String>)
+                    (Cast<Char>:<Char>
+                      ($код2:<Int>))))
+                (Call:<String>
+                  ($str_from_unicode:<Fun (Char) -> String>)
+                  (Cast<Char>:<Char>
+                    ($код3:<Int>))))
+              (Call:<String>
+                ($str_from_unicode:<Fun (Char) -> String>)
+                (Cast<Char>:<Char>
+                  ($код4:<Int>))))
+            (Call:<String>
+              ($str_from_unicode:<Fun (Char) -> String>)
+              (Cast<Char>:<Char>
+                ($код5:<Int>))))
+          (Call:<String>
+            ($str_from_unicode:<Fun (Char) -> String>)
+            (Cast<Char>:<Char>
+              ($код6:<Int>)))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Слово из кодов: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($слово:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("=== Индексация строк ===":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $фраза:<String>)
+      (Var $первый:<String>)
+      (Var $третий:<String>)
+      (Var $подстрока:<String>)
+      (Var $окончание:<String>)
+      (Var $длина:<Int>)
+      ($фраза =:<Void>
+        ("Программирование":<String>))
+      ($длина =:<Void>
+        (Call:<Int>
+          ($длин:<Fun (String) -> Int>)
+          ($фраза:<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Строка: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($фраза:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Длина строки: ":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($длина:<Int>)
+          (0:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($первый =:<Void>
+        (Call:<String>
+          ($str_from_unicode:<Fun (Char) -> String>)
+          (Call:<Char>
+            ($str_symbol_at:<Fun (String, Int) -> Char>)
+            ($фраза:<String>)
+            (1:<Int>))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Первый символ (индекс 1): ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($первый:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($третий =:<Void>
+        (Call:<String>
+          ($str_from_unicode:<Fun (Char) -> String>)
+          (Call:<Char>
+            ($str_symbol_at:<Fun (String, Int) -> Char>)
+            ($фраза:<String>)
+            (3:<Int>))))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Третий символ (индекс 3): ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($третий:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($подстрока =:<Void>
+        (Call:<String>
+          ($str_slice:<Fun (String, Int, Int) -> String>)
+          ($фраза:<String>)
+          (1:<Int>)
+          (7:<Int>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Подстрока [1:7]: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($подстрока:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($окончание =:<Void>
+        (Call:<String>
+          ($str_slice:<Fun (String, Int, Int) -> String>)
+          ($фраза:<String>)
+          (8:<Int>)
+          (16:<Int>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Подстрока [8:16]: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($окончание:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("=== Поиск подстроки (поз) ===":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $предложение:<String>)
+      (Var $образец:<String>)
+      (Var $не_найдено:<String>)
+      (Var $позиция:<Int>)
+      (Var $поз_не_найден:<Int>)
+      ($предложение =:<Void>
+        ("Это тестовое предложение для теста":<String>))
+      ($образец =:<Void>
+        ("тест":<String>))
+      ($позиция =:<Void>
+        (Call:<Int>
+          ($поз:<Fun (String, String) -> Int>)
+          ($предложение:<String>)
+          ($образец:<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Строка: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($предложение:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Ищем: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($образец:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Первое вхождение на позиции: ":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($позиция:<Int>)
+          (0:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($не_найдено =:<Void>
+        ("xyz":<String>))
+      ($поз_не_найден =:<Void>
+        (Call:<Int>
+          ($поз:<Fun (String, String) -> Int>)
+          ($предложение:<String>)
+          ($не_найдено:<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Ищем: ":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ($не_найдено:<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Результат (не найдено): ":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($поз_не_найден:<Int>)
+          (0:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("=== Поиск следующего вхождения (поз после) ===":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Var $текст2:<String>)
+      (Var $образец2:<String>)
+      (Var $первая_поз:<Int>)
+      (Var $вторая_поз:<Int>)
+      (Var $третья_поз:<Int>)
+      ($текст2 =:<Void>
+        ("Это тестовое предложение для теста":<String>))
+      ($образец2 =:<Void>
+        ("тест":<String>))
+      ($первая_поз =:<Void>
+        (Call:<Int>
+          ($поз:<Fun (String, String) -> Int>)
+          ($текст2:<String>)
+          ($образец2:<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Первое вхождение 'тест': ":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($первая_поз:<Int>)
+          (0:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($вторая_поз =:<Void>
+        (Call:<Int>
+          ($поз после:<Fun (Int, String, String) -> Int>)
+          (+:<Int>
+            ($первая_поз:<Int>)
+            (1:<Int>))
+          ($текст2:<String>)
+          ($образец2:<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Второе вхождение 'тест' (поиск после позиции ":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          (+:<Int>
+            ($первая_поз:<Int>)
+            (1:<Int>))
+          (0:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("): ":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($вторая_поз:<Int>)
+          (0:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($третья_поз =:<Void>
+        (Call:<Int>
+          ($поз после:<Fun (Int, String, String) -> Int>)
+          (+:<Int>
+            ($вторая_поз:<Int>)
+            (1:<Int>))
+          ($текст2:<String>)
+          ($образец2:<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("Третье вхождение (не найдено): ":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($третья_поз:<Int>)
+          (0:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("=== Все примеры выполнены ===":<String>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>))))))
