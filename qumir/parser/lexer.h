@@ -115,6 +115,7 @@ struct TToken {
     };
     UPrimitive Value; // valid for Integer, Float, Operator, Keyword
     std::string Name; // valid for Identifier, String
+    std::string RawValue; // original raw value from source code (for error messages)
     EType Type;
     TLocation Location;
 };

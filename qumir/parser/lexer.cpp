@@ -247,8 +247,8 @@ void TTokenStream::Read() {
     char ch = 0;
     char prev = 0; // for 2-char operators or current string quote
     std::variant<int64_t,double,TIdentifierList,TStringLiteral,std::monostate> token = std::monostate();
+    std::string rawTokenValue;
     int frac = 10;
-    int sign = 1;
     bool repeat = false;
     bool unescape = false;
     TLocation tokenLocation = CurrentLocation;
@@ -259,17 +259,19 @@ void TTokenStream::Read() {
     int expValue = 0;
     int utf8bytesLeft = -1;
 
-    auto emitKeyword = [&](EKeyword kw) {
+    auto emitKeyword = [&](EKeyword kw, const std::string& rawValue) {
         Tokens.emplace_back(TToken {
             .Value = {.i64 = static_cast<int64_t>(kw)},
+            .RawValue = rawValue,
             .Type = TToken::Keyword,
             .Location = tokenLocation
         });
     };
 
-    auto emitOperator = [&](EOperator op) {
+    auto emitOperator = [&](EOperator op, const std::string& rawValue) {
         Tokens.emplace_back(TToken {
             .Value = {.i64 = static_cast<int64_t>(op)},
+            .RawValue = rawValue,
             .Type = TToken::Operator,
             .Location = tokenLocation
         });
@@ -281,6 +283,7 @@ void TTokenStream::Read() {
         }
         Tokens.emplace_back(TToken {
             .Name = name,
+            .RawValue = name,
             .Type = TToken::Identifier,
             .Location = tokenLocation
         });
@@ -297,13 +300,15 @@ void TTokenStream::Read() {
 
         if (std::holds_alternative<int64_t>(token)) {
             Tokens.emplace_back(TToken {
-                .Value = {.i64 = sign ? std::get<int64_t>(token) : -std::get<int64_t>(token)},
+                .Value = {.i64 = std::get<int64_t>(token)},
+                .RawValue = rawTokenValue,
                 .Type = utf8bytesLeft == -1 ? TToken::Integer : TToken::Char,
                 .Location = tokenLocation
             });
         } else if (std::holds_alternative<double>(token)) {
             Tokens.emplace_back(TToken {
-                .Value = {.f64 = sign ? std::get<double>(token) : -std::get<double>(token)},
+                .Value = {.f64 = std::get<double>(token)},
+                .RawValue = rawTokenValue,
                 .Type = TToken::Float,
                 .Location = tokenLocation
             });
@@ -333,7 +338,7 @@ void TTokenStream::Read() {
                         logIdentifier.clear();
                     }
                     tokenLocation = wordLocation;
-                    emitKeyword(maybeKw->second);
+                    emitKeyword(maybeKw->second, word);
                 } else if (maybeOp != OperatorMap.end()) {
                     if (!logIdentifier.empty()) {
                         tokenLocation = identLocation;
@@ -341,7 +346,7 @@ void TTokenStream::Read() {
                         logIdentifier.clear();
                     }
                     tokenLocation = wordLocation;
-                    emitOperator(maybeOp->second);
+                    emitOperator(maybeOp->second, word);
                 } else {
                     if (logIdentifier.empty()) {
                         identLocation = wordLocation;
@@ -361,12 +366,14 @@ void TTokenStream::Read() {
             if (auto chCode = AsSingleCharCode(strVal)) {
                 Tokens.emplace_back(TToken {
                     .Value = {.i64 = *chCode},
+                    .RawValue = strVal,
                     .Type = TToken::Char,
                     .Location = tokenLocation
                 });
             } else {
                 Tokens.emplace_back(TToken {
                     .Name = strVal,
+                    .RawValue = strVal,
                     .Type = TToken::String,
                     .Location = tokenLocation
                 });
@@ -375,7 +382,6 @@ void TTokenStream::Read() {
 
         state = Start;
         repeat = true;
-        sign = 1;
         unescape = false;
         tokenLocation = CurrentLocation;
         token = std::monostate();
@@ -384,6 +390,7 @@ void TTokenStream::Read() {
         expSign = 1;
         expValue = 0;
         utf8bytesLeft = -1;
+        rawTokenValue.clear();
     };
 
     // single char operators:
@@ -431,15 +438,17 @@ void TTokenStream::Read() {
             switch (state) {
                 case Start:
                     if (ch == '\n' || ch == ';') {
-                        emitOperator(EOperator::Eol);
+                        emitOperator(EOperator::Eol, ch == '\n' ? "\n" : std::string(1, ch));
                     } else if (std::isdigit(ch)) {
                         state = InNumber;
                         token = (int64_t)(ch - '0');
+                        rawTokenValue += ch;
                     } else if (ch == '|') {
                         state = InLineComment;
                     } else if (ch == '.') {
                         state = InNumber;
                         token = (double)0.0;
+                        rawTokenValue += '.';
                     } else if (ch == '\'' || ch == '"') {
                         token = TStringLiteral{};
                         state = InString;
@@ -449,7 +458,8 @@ void TTokenStream::Read() {
                         prev = ch;
                         state = InMaybeOperator; // reuse this state for 2-char operators
                     } else if (isSingleCharOperator(ch)) {
-                        emitOperator(OperatorMap.at(std::string(1, ch)));
+                        auto singleOpStr = std::string(1, ch);
+                        emitOperator(OperatorMap.at(singleOpStr), singleOpStr);
                     } else if (!std::isspace(ch)) {
                         // identifiers/keywords: start with a letter, continue with letters, digits, underscores
                         TIdentifierList idList;
@@ -493,12 +503,13 @@ void TTokenStream::Read() {
                     opStr += ch;
                     auto it = OperatorMap.find(opStr);
                     if (it != OperatorMap.end()) {
-                        emitOperator(it->second);
+                        emitOperator(it->second, opStr);
                         tokenLocation = CurrentLocation;
                         state = Start;
                     } else {
                         // not a 2-char operator, just the first char
-                        emitOperator(OperatorMap.at(std::string(1, prev)));
+                        auto singleOpStr = std::string(1, prev);
+                        emitOperator(OperatorMap.at(singleOpStr), singleOpStr);
                         tokenLocation = CurrentLocation;
                         state = Start;
                         repeat = true;
@@ -514,6 +525,7 @@ void TTokenStream::Read() {
                 case InNumber:
                     if (expMode == 0) {
                         if (std::isdigit(ch)) {
+                            rawTokenValue += ch;
                             if (std::holds_alternative<double>(token)) {
                                 token = (double)(std::get<double>(token) * frac + (ch - '0')) / frac;
                                 frac *= 10;
@@ -521,6 +533,7 @@ void TTokenStream::Read() {
                                 token = (int64_t)(std::get<int64_t>(token) * 10 + (ch - '0'));
                             }
                         } else if (ch == '.') {
+                            rawTokenValue += ch;
                             if (std::holds_alternative<double>(token)) {
                                 // Second dot in a number
                                 flush();
@@ -528,6 +541,7 @@ void TTokenStream::Read() {
                                 token = (double)(std::get<int64_t>(token));
                             }
                         } else if (ch == 'E' || ch == 'e') {
+                            rawTokenValue += ch;
                             // start exponent part
                             if (!std::holds_alternative<double>(token)) {
                                 token = (double)(std::get<int64_t>(token));
@@ -541,9 +555,11 @@ void TTokenStream::Read() {
                     } else {
                         // parsing exponent
                         if (std::isdigit(ch)) {
+                            rawTokenValue += ch;
                             expMode = 2;
                             expValue = expValue * 10 + (ch - '0');
                         } else if (expMode == 1 && (ch == '+' || ch == '-')) {
+                            rawTokenValue += ch;
                             expSign = (ch == '-') ? -1 : 1;
                             expMode = 2;
                         } else {
