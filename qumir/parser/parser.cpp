@@ -167,6 +167,7 @@ inline bool IsTypeKeyword(EKeyword kw) {
 StmtList ::= Stmt*
 */
 TAstTask stmt_list(TWrappedTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts) {
+    auto loc = stream.GetLocation();
     while (true) {
         // Skip standalone EOLs between statements
         bool skipped = false;
@@ -203,7 +204,7 @@ TAstTask stmt_list(TWrappedTokenStream& stream, std::set<EKeyword> terminators, 
             stmts.push_back(std::move(s));
         }
     }
-    co_return list(stream.GetLocation(), std::move(stmts));
+    co_return list(loc, std::move(stmts));
 }
 
 TExpectedTask<std::pair<TExprPtr, TExprPtr>, TError, TLocation> array_bounds(TWrappedTokenStream& stream)
@@ -212,7 +213,7 @@ TExpectedTask<std::pair<TExprPtr, TExprPtr>, TError, TLocation> array_bounds(TWr
     auto leftExpr = co_await expr(stream);
     auto colonTok = stream.Next();
     if (!isOp(colonTok, EOperator::Colon)) {
-        co_return TError(stream.GetLocation(), "ожидается ':' между границами массива");
+        co_return TError(colonTok.Location, "ожидается ':' между границами массива");
     }
     // right bound
     auto rightExpr = co_await expr(stream);
@@ -240,14 +241,14 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TWrappedTok
         // ожидаем границы массива: '[' expr ':' expr (',' expr ':' expr )* ']'
         auto t = stream.Next();
         if (!isOp(t, EOperator::LSqBr)) {
-            co_return TError(stream.GetLocation(), "для табличного типа ожидаются границы массива после имени: '['");
+            co_return TError(t.Location, "для табличного типа ожидаются границы массива после имени: '['");
         }
         while (true) {
             bounds.push_back(co_await array_bounds(stream));
             // ']'
             auto rsbTok = stream.Next();
             if (!isOp(rsbTok, EOperator::RSqBr) && !isOp(rsbTok, EOperator::Comma)) {
-                co_return TError(stream.GetLocation(), "ожидалась закрывающая ']' для границ массива");
+                co_return TError(rsbTok.Location, "ожидалась закрывающая ']' для границ массива");
             }
             if (isOp(rsbTok, EOperator::RSqBr)) {
                 break;
@@ -896,9 +897,9 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> parse_arg_list_opt(TWrap
         }
         stream.Unget(t);
         if (rParen == EOperator::RParen) {
-            co_return TError(stream.GetLocation(), "ожидается ',' или ')'");
+            co_return TError(t.Location, "ожидается ',' или ')'");
         } else {
-            co_return TError(stream.GetLocation(), "ожидается ',' или ']'");
+            co_return TError(t.Location, "ожидается ',' или ']'");
         }
     }
     co_return args;
@@ -947,7 +948,7 @@ TExpectedTask<std::vector<TIoArg>, TError, TLocation> parse_io_arg_list_opt(TWra
             }
         }
         stream.Unget(t);
-        co_return TError(stream.GetLocation(), "ожидается ',' или конец строки в списке аргументов ввода/вывода");
+        co_return TError(t.Location, "ожидается ',' или конец строки в списке аргументов ввода/вывода");
     }
     co_return args;
 }
@@ -976,7 +977,7 @@ TAstTask factor(TWrappedTokenStream& stream) {
             auto ret = co_await expr(stream);
             token = stream.Next();
             if (!isOp(token, EOperator::RParen)) {
-                co_return TError(stream.GetLocation(), std::string("ожидается ')'"));
+                co_return TError(token.Location, std::string("ожидается ')'"));
             }
             co_return ret;
         } else {
@@ -986,7 +987,7 @@ TAstTask factor(TWrappedTokenStream& stream) {
         bool v = (EKeyword)token.Value.i64 == EKeyword::True;
         co_return num(token.Location, v);
     } else {
-        co_return TError(stream.GetLocation(), std::string("ожидалось число или '('"));
+        co_return TError(token.Location, std::string("ожидалось число или '('"));
     }
 }
 
@@ -1539,7 +1540,7 @@ TAstTask stmt(TWrappedTokenStream& stream) {
     auto first = stream.Next();
 
     if (isEof(first)) {
-        co_return TError(stream.GetLocation(), "ожидался стейтмент, но достигнут конец файла");
+        co_return TError(first.Location, "ожидался стейтмент, но достигнут конец файла");
     }
 
     if (first.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(first.Value.i64))) {
