@@ -83,7 +83,11 @@ function getCode() {
 function setCode(text) {
   if (editor) return editor.setValue(text);
   const el = document.getElementById('code');
-  if (el) el.value = text;
+  if (el) {
+    el.value = text;
+  } else {
+    console.warn('setCode: textarea not found, code will not be set');
+  }
 }
 
 function setCookie(name, value, days = 365) {
@@ -1906,7 +1910,21 @@ function loadState() {
     applyProjectToInputs(active, { silent: true });
   } else {
     const c = readPersistedValue('q_code');
-    setCode((c !== null && c !== undefined) ? c : sample);
+    const codeToSet = (c !== null && c !== undefined) ? c : sample;
+    setCode(codeToSet);
+    // Verify code was actually set
+    const actualCode = getCode();
+    if (!actualCode || actualCode.length === 0) {
+      console.error('loadState: code was not set, textarea may be missing or blocked');
+      // Try to recover by setting directly
+      setTimeout(() => {
+        const ta = document.getElementById('code');
+        if (ta && !ta.value) {
+          ta.value = codeToSet;
+          console.log('loadState: recovered by setting textarea directly');
+        }
+      }, 100);
+    }
     const a = readPersistedValue('q_args');
     if (a !== null && a !== undefined) $('#args').value = a;
   }
@@ -1929,8 +1947,12 @@ function saveState() {
 // Initialize CodeMirror if available
 function initEditor() {
   const ta = document.getElementById('code');
-  if (!ta) return;
+  if (!ta) {
+    console.error('initEditor: textarea#code not found');
+    return;
+  }
   if (typeof window.CodeMirror === 'undefined') {
+    console.warn('CodeMirror not loaded, using plain textarea. Check if CDN is blocked.');
     ta.addEventListener('input', () => { saveState(); debounceShow(); });
     return;
   }
@@ -1999,6 +2021,15 @@ function initEditor() {
   setTimeout(() => editor.refresh(), 0);
 }
 
+// Diagnostic check for critical elements
+(() => {
+  const critical = ['code', 'args', 'stdin', 'stdout', 'view', 'opt', 'btn-run', 'examples'];
+  const missing = critical.filter(id => !document.getElementById(id));
+  if (missing.length > 0) {
+    console.error('Critical elements missing:', missing);
+  }
+})();
+
 initIoWorkspace();  // Must be before loadState() so __ioFilesRoot is ready
 loadState();
 initProjectsUI();
@@ -2015,9 +2046,30 @@ initProjectsUI();
         opt.textContent = it.path;
         sel.appendChild(opt);
       });
+    } else {
+      console.warn('examples: unexpected response format', data);
+      const sel = $('#examples');
+      if (sel) {
+        sel.disabled = true;
+        sel.title = 'Не удалось загрузить список примеров';
+      }
     }
   } catch (e) {
-    console.warn('examples load failed:', e);
+    console.error('examples load failed:', e);
+    const sel = $('#examples');
+    if (sel) {
+      sel.disabled = true;
+      sel.title = 'Не удалось загрузить список примеров. Проверьте подключение или отключите блокировщик рекламы.';
+      // Add fallback option
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '⚠ Ошибка загрузки примеров';
+      sel.appendChild(opt);
+    }
+    // Show user-visible notification
+    setTimeout(() => {
+      showToast('⚠ Не удалось загрузить примеры', 3000);
+    }, 1000);
   }
 })();
 // Initialize editor (assets are loaded via HTML)
