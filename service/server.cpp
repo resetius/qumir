@@ -128,6 +128,13 @@ private:
     TFuture<void> Get(const TRequest& request, TResponse& response) {
         auto&& path = request.Uri().Path();
         if (path == "/api/version") {
+            auto now = std::chrono::steady_clock::now();
+            if (!VersionCache.empty() && (now - VersionCacheTime) < VersionCacheDuration) {
+                co_await SendJson(response, VersionCache);
+                co_return;
+            }
+
+            // Refresh cache
             auto [shortOut, shortCode] = co_await ReadPipe("git", {"rev-parse", "--short", "HEAD"}, false, true);
             auto [dateOut, dateCode] = co_await ReadPipe("git", {"log", "-1", "--date=iso-strict", "--format=%cd"}, false, true);
             auto [branchOut, branchCode] = co_await ReadPipe("git", {"rev-parse", "--abbrev-ref", "HEAD"}, false, true);
@@ -137,6 +144,8 @@ private:
             } else {
                 Trim(shortOut); Trim(dateOut); Trim(branchOut);
                 std::string json = std::string("{\"hash\":\"") + shortOut + "\",\"date\":\"" + dateOut + "\",\"branch\":\"" + branchOut + "\"}";
+                VersionCache = json;
+                VersionCacheTime = now;
                 co_await SendJson(response, json);
                 co_return;
             }
@@ -716,6 +725,10 @@ private:
     std::string SharedLinksDir;
     std::filesystem::path SharedLinksBaseCanonical = std::filesystem::weakly_canonical(std::filesystem::path(SharedLinksDir));
     std::string Path;
+
+    static constexpr std::chrono::minutes VersionCacheDuration{5};
+    std::string VersionCache;
+    std::chrono::steady_clock::time_point VersionCacheTime;
 };
 
 int main(int argc, char** argv) {
