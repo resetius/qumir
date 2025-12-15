@@ -79,6 +79,8 @@ button.project-action.danger { border-color: #7c3a3a; color: #ff8a80; }
 pre.error { color: #ff8a80; white-space: pre-wrap; }
 footer { padding: 6px 12px; border-top: 1px solid #333; color: #bbb; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 footer .cookies-note { margin-left: auto; opacity: 0.9; }
+footer a { color: #7ec8e3; text-decoration: none; }
+footer a:hover { text-decoration: underline; color: #9ed8f3; }
 .bug-icon { font-size: 1.6em; line-height: 1; display: inline-block; }
 footer .beta { color: #ffa726; opacity: 0.95; }
 footer .version { opacity: 0.9; }
