@@ -1089,12 +1089,99 @@ function clearErrorHighlights() {
   }
 }
 
+// Clear operator hints
+function clearOperatorHints() {
+  if (!editor || typeof editor.getDoc !== 'function') return;
+  const doc = editor.getDoc();
+  // Clear all marks with class q-hint-mark
+  try {
+    const marks = doc.getAllMarks();
+    for (const mark of marks) {
+      if (mark.className && mark.className.includes('q-hint-mark')) {
+        mark.clear();
+      }
+    }
+  } catch (_) {}
+}
+
+// Add operator hints (for input and file operations)
+function addOperatorHints() {
+  if (!editor || typeof editor.getDoc !== 'function') return;
+  const doc = editor.getDoc();
+  clearOperatorHints();
+
+  // Collect lines with errors to skip hints on them
+  const errorLines = new Set();
+  try {
+    const marks = doc.getAllMarks();
+    for (const mark of marks) {
+      if (mark.className && mark.className.includes('q-error-mark')) {
+        const pos = mark.find();
+        if (pos && pos.from) {
+          errorLines.add(pos.from.line);
+        }
+      }
+    }
+  } catch (_) {}
+
+  const hints = [
+    { pattern: 'ввод', tooltip: 'Используйте вкладку "stdin" внизу для ввода данных' },
+    { pattern: 'открыть на чтение', tooltip: 'Создайте файл во вкладке "files" внизу' },
+    { pattern: 'открыть на запись', tooltip: 'Файл будет создан и доступен во вкладке "files" внизу' }
+  ];
+
+  const lineCount = doc.lineCount();
+  for (let i = 0; i < lineCount; i++) {
+    // Skip lines with errors
+    if (errorLines.has(i)) continue;
+
+    const lineText = doc.getLine(i);
+    if (!lineText) continue;
+
+    for (const hint of hints) {
+      let pos = 0;
+      while ((pos = lineText.indexOf(hint.pattern, pos)) !== -1) {
+        const from = { line: i, ch: pos };
+        const to = { line: i, ch: pos + hint.pattern.length };
+        try {
+          doc.markText(from, to, {
+            className: 'q-hint-mark',
+            attributes: { 'data-hint': hint.tooltip }
+          });
+        } catch (_) {}
+        pos += hint.pattern.length;
+      }
+    }
+  }
+}
+
 function addErrorHighlights(errors) {
   if (!Array.isArray(errors) || !errors.length) return;
   if (!editor || typeof editor.getDoc !== 'function') return;
   const doc = editor.getDoc();
   clearErrorHighlights();
   ensureErrorGutter();
+
+  // Collect error lines first
+  const errorLines = new Set();
+  for (const err of errors) {
+    const lineIdx = Math.max(0, (err.line || 1) - 1);
+    errorLines.add(lineIdx);
+  }
+
+  // Clear hints only on lines with errors
+  try {
+    const marks = doc.getAllMarks();
+    for (const mark of marks) {
+      if (mark.className && mark.className.includes('q-hint-mark')) {
+        const pos = mark.find();
+        if (pos && pos.from && errorLines.has(pos.from.line)) {
+          mark.clear();
+        }
+      }
+    }
+  } catch (_) {}
+
   for (const err of errors) {
     const lineIdx = Math.max(0, (err.line || 1) - 1);
     const chIdx = Math.max(0, (err.col || 1) - 1);
@@ -1143,13 +1230,19 @@ async function show(mode) {
     if (bin) {
       $('#output').textContent = hexdump(data);
       clearErrorHighlights();
+      addOperatorHints();
       setErrorsPaneContent('Успешно');
       if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(false);
     } else {
       const formatted = formatCompilerErrors(data);
       $('#output').textContent = formatted;
       const errs = parseCompilerErrors(data);
-      if (errs.length) addErrorHighlights(errs); else clearErrorHighlights();
+      if (errs.length) {
+        addErrorHighlights(errs);
+      } else {
+        clearErrorHighlights();
+        addOperatorHints();
+      }
       const errorsText = errs.length ? formatted : 'Успешно';
       setErrorsPaneContent(errorsText);
       if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(errs.length > 0);
@@ -1168,7 +1261,7 @@ async function show(mode) {
   }
 }
 
-// Ensure basic styles exist for error highlights
+// Ensure basic styles exist for error highlights and operator hints
 (function ensureErrorStyles(){
   if (typeof document === 'undefined') return;
   const id = 'q-error-styles';
@@ -1182,6 +1275,8 @@ async function show(mode) {
     /* Make error gutter compact so dot sits close to line number */
     .CodeMirror-gutter.q-error-gutter { width: 10px; }
     .q-error-dot { width: 8px; height: 8px; border-radius: 50%; background: #e53935; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); margin: 0 auto; margin-top: 4px; }
+    /* Operator hints - lighter styling */
+    .q-hint-mark { border-bottom: 1px dashed rgba(100, 150, 250, 0.5); cursor: help; }
   `;
   document.head.appendChild(style);
 })();
@@ -1240,8 +1335,9 @@ function ensureErrorGutter() {
       const target = ev.target;
       const isMark = target.classList && target.classList.contains('q-error-mark');
       const isDot = target.classList && target.classList.contains('q-error-dot');
-      if (!(isMark || isDot)) { hideTip(); return; }
-      const text = target.getAttribute('data-error') || '';
+      const isHint = target.classList && target.classList.contains('q-hint-mark');
+      if (!(isMark || isDot || isHint)) { hideTip(); return; }
+      const text = target.getAttribute('data-error') || target.getAttribute('data-hint') || '';
       clearTimeout(hoverTimer);
       hoverTimer = setTimeout(() => {
         showTip(target, text);
