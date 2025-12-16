@@ -33,6 +33,7 @@ let __projectToggleBtn = null;
 let __projectActiveNameEl = null;
 let __projectNewBtn = null;
 let __projectsRenderPending = false;
+let __successfulRunsCount = 0;
 const api = async (path, body, asBinary, signal) => {
   // New protocol: send raw code as text/plain and pass optimization level via X-Qumir-O
   const code = body.code || '';
@@ -1735,6 +1736,77 @@ function getCurrentCompilerOutputNode() {
   return document.getElementById('output');
 }
 
+// Celebration animation for successful runs
+function showCelebration() {
+  const overlay = document.createElement('div');
+  overlay.className = 'celebration-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10000;
+  `;
+  document.body.appendChild(overlay);
+
+  const colors = ['#ff0', '#f0f', '#0ff', '#0f0', '#ff4444', '#44ff44', '#4444ff', '#ff44ff'];
+  const particleCount = 400;
+
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement('div');
+    const size = Math.random() * 8 + 4;
+    const startX = Math.random() * 100;
+    const startY = Math.random() * 100;
+    const angle = (Math.random() - 0.5) * Math.PI;
+    const velocity = Math.random() * 300 + 200;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    particle.style.cssText = `
+      position: absolute;
+      width: ${size}px;
+      height: ${size}px;
+      background: ${color};
+      border-radius: 50%;
+      left: ${startX}%;
+      top: ${startY}%;
+      box-shadow: 0 0 ${size * 2}px ${color};
+      animation: firework-${i} 3.0s ease-out forwards;
+    `;
+
+    const endX = startX + Math.cos(angle) * (velocity / 10);
+    const endY = startY + Math.sin(angle) * (velocity / 10);
+
+    const keyframes = `
+      @keyframes firework-${i} {
+        0% {
+          transform: translate(0, 0) scale(1);
+          opacity: 1;
+        }
+        100% {
+          transform: translate(${endX - startX}vw, ${endY - startY}vh) scale(0);
+          opacity: 0;
+        }
+      }
+    `;
+
+    const style = document.createElement('style');
+    style.textContent = keyframes;
+    document.head.appendChild(style);
+
+    overlay.appendChild(particle);
+  }
+
+  setTimeout(() => {
+    overlay.remove();
+    // Clean up animation styles
+    document.querySelectorAll('style').forEach(s => {
+      if (s.textContent.includes('@keyframes firework-')) s.remove();
+    });
+  }, 1500);
+}
+
 async function runWasm() {
   const code = getCode();
   const { type: algType } = parseAlgHeader(code);
@@ -1925,6 +1997,15 @@ async function runWasm() {
         renderRobotField();
       }
     }
+
+    // Celebration for successful runs
+    // ========================================
+    __successfulRunsCount++;
+    setCookie('q_runs_count', String(__successfulRunsCount), 365);
+    if (__successfulRunsCount === 1 || __successfulRunsCount % 10 === 0) {
+      showCelebration();
+    }
+    // ========================================
   } catch (e) {
     // For robot errors, don't show immediately - let animation play first
     if (__compilerOutputMode === 'robot' && __robotModule) {
@@ -1993,6 +2074,11 @@ function loadState() {
   if (o !== null && o !== undefined) $('#opt').value = o;
   const pane = getCookie(IO_PANE_COOKIE);
   if (pane) __currentIoPane = pane;
+  // Load successful runs counter
+  const runsCount = getCookie('q_runs_count');
+  if (runsCount !== null) {
+    __successfulRunsCount = parseInt(runsCount, 10) || 0;
+  }
 }
 
 function saveState() {
