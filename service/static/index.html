@@ -49,19 +49,19 @@
   </header>
   <main>
     <section class="pane left">
-      <div class="pane-title" id="title-code">Language</div>
+      <div class="pane-title" id="title-code">Редактор</div>
       <textarea id="code" spellcheck="false"></textarea>
       <div id="status" class="status"></div>
     </section>
   <div id="output-anchor"></div>
     <section class="pane right dev-only">
-      <div class="pane-title" id="title-output">Output</div>
+      <div class="pane-title" id="title-output">Компилятор</div>
   <div id="view-slot" class="view-slot"></div>
       <pre id="output" class="scroll"></pre>
     </section>
   </main>
   <section class="io">
-    <div class="pane-title" id="title-io">IO &amp; files</div>
+    <div class="pane-title" id="title-io">Ввод/Вывод</div>
     <div class="io-toolbar">
       <label for="io-select">Просмотр:</label>
       <select id="io-select" data-tooltip="Переключение между выводом, вводом и файлами">
@@ -79,7 +79,7 @@
         <pre id="stdout" class="scroll"></pre>
       </div>
       <div class="io-pane io-pane-stdin" data-io-pane="stdin">
-        <textarea id="stdin" placeholder="input for your program" spellcheck="false"></textarea>
+        <textarea id="stdin" placeholder="Данные для вашей программы" spellcheck="false"></textarea>
       </div>
       <div id="io-files" class="io-files"></div>
     </div>
@@ -88,12 +88,10 @@
   <small><button id="bug-report-btn" type="button" class="bug-button" data-tooltip="Сообщить об ошибке"><span class="bug-icon">🐞</span></button></small>
   <small><button id="docs-page-btn" type="button" class="docs-link-btn" data-tooltip="Открыть документацию">📖</button></small>
   <small><button id="tour-restart-btn" type="button" class="tour-restart-btn" data-tooltip="Показать обучающий тур">❓</button></small>
-  <small>Inspired by Ershov's language and Kumir.</small>
-  <small class="beta">Beta • Release soon</small>
+  <small>По мотивам <a href="https://ru.wikipedia.org/wiki/%D0%9A%D1%83%D0%BC%D0%B8%D1%80_(%D1%8F%D0%B7%D1%8B%D0%BA_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D1%8F)" target="_blank" rel="noopener">Кумира</a> и языка Ершова.</small>
   <small id="version" class="version">v —</small>
-  <small><a href="https://github.com/resetius/qumir" target="_blank" rel="noopener">source code</a></small>
-  <small>Service powered by <a href="https://github.com/resetius/coroio" target="_blank" rel="noopener">coroio</a>.</small>
-  <small class="cookies-note">We use cookies only to save your code and settings.</small>
+  <small><a href="https://github.com/resetius/qumir" target="_blank" rel="noopener">исходный код</a></small>
+  <small>Сервис на <a href="https://github.com/resetius/coroio" target="_blank" rel="noopener">coroio</a>.</small>
   <small><button id="dev-mode-toggle" type="button" class="dev-mode-toggle" data-tooltip="Режим разработчика: показать расширенные настройки">⚙️</button></small>
   </footer>
   <div id="projects-backdrop" class="projects-backdrop" aria-hidden="true"></div>
@@ -111,7 +109,7 @@
   <div id="fs-overlay" class="fs-overlay" aria-hidden="true">
     <div class="fs-panel" role="dialog" aria-modal="true">
       <div class="fs-header">
-        <span id="fs-title">Output</span>
+        <span id="fs-title">Просмотр</span>
         <button id="fs-close" class="fs-close" aria-label="Закрыть" data-tooltip="Закрыть">✕</button>
       </div>
       <div id="fs-body" class="fs-body"></div>

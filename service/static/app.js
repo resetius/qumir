@@ -981,12 +981,12 @@ function getCurrentIoPaneNode() {
 }
 
 function getCurrentIoPaneLabel() {
-  if (__currentIoPane === 'stdout') return 'stdout';
-  if (__currentIoPane === 'stdin') return 'stdin';
-  if (__currentIoPane === 'errors') return 'errors';
+  if (__currentIoPane === 'stdout') return 'Вывод';
+  if (__currentIoPane === 'stdin') return 'Ввод';
+  if (__currentIoPane === 'errors') return 'Ошибки';
   const file = __ioFiles.find(f => f.id === __currentIoPane);
-  if (!file) return 'file';
-  return file.name && file.name.trim() ? file.name.trim() : 'file';
+  if (!file) return 'файл';
+  return file.name && file.name.trim() ? file.name.trim() : 'файл';
 }
 
 function hexdump(bytes) {
@@ -2108,9 +2108,9 @@ function initEditor() {
       } else if (text === 'вывод') {
         message = '📤 Оператор вывода\n\nРезультат появится внизу во вкладке "Вывод" после нажатия Запустить';
       } else if (text.includes('открыть на чтение')) {
-        message = '📂 Открыть файл на чтение\n\nФайлы можно добавить внизу в разделе "IO & files"';
+        message = '📂 Открыть файл на чтение\n\nФайлы можно добавить внизу через кнопку ＋';
       } else if (text.includes('открыть на запись')) {
-        message = '💾 Открыть файл на запись\n\nРезультат записи появится в файле внизу в разделе "IO & files"';
+        message = '💾 Открыть файл на запись\n\nРезультат записи появится в файле внизу (добавьте через ＋)';
       }
 
       if (!message) return;
@@ -2847,7 +2847,7 @@ $('#btn-run').addEventListener('click', async () => {
     titleOutput.addEventListener('mousedown', e => e.preventDefault());
     titleOutput.addEventListener('click', () => {
       const node = getCurrentCompilerOutputNode();
-      open('Compiler output', node);
+      open('Компилятор', node);
     });
   }
   const titleIo = document.getElementById('title-io');
@@ -2855,7 +2855,7 @@ $('#btn-run').addEventListener('click', async () => {
     titleIo.addEventListener('mousedown', e => e.preventDefault());
     titleIo.addEventListener('click', () => {
       const node = getCurrentIoPaneNode();
-      if (node) open(`IO • ${getCurrentIoPaneLabel()}`, node);
+      if (node) open(`Ввод/Вывод • ${getCurrentIoPaneLabel()}`, node);
     });
   }
   const titleCode = document.getElementById('title-code');
@@ -2864,7 +2864,7 @@ $('#btn-run').addEventListener('click', async () => {
     titleCode.addEventListener('click', () => {
       // Move the CodeMirror wrapper if exists, otherwise textarea
       const cm = editor && editor.getWrapperElement ? editor.getWrapperElement() : null;
-      if (cm) open('Code', cm); else open('Code', document.getElementById('code'));
+      if (cm) open('Код', cm); else open('Код', document.getElementById('code'));
     });
   }
 })();

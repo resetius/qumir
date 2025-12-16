@@ -98,8 +98,11 @@ button.project-action { background: #333; color: #ddd; border: 1px solid #555; w
 button.project-action:hover { background: #3a3a3a; }
 button.project-action.danger { border-color: #7c3a3a; color: #ff8a80; }
 pre.error { color: #ff8a80; white-space: pre-wrap; }
-footer { padding: 6px 12px; border-top: 1px solid #333; color: #bbb; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-footer .cookies-note { margin-left: auto; opacity: 0.9; }
+footer { padding: 6px 12px; border-top: 1px solid #333; color: #bbb; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+footer .cookies-note { opacity: 0.9; }
+/* Кнопки слева, текст по центру, шестеренка справа */
+footer > small:nth-child(4) { margin-left: auto; }
+footer > small:last-child { margin-left: auto; }
 footer a { color: #7ec8e3; text-decoration: none; }
 footer a:hover { text-decoration: underline; color: #9ed8f3; }
 .bug-icon { font-size: 1.6em; line-height: 1; display: inline-block; }
