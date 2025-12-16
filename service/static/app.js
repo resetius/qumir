@@ -877,14 +877,18 @@ function initIoWorkspace() {
     }
   });
 
-  setActiveIoPane(__currentIoPane, { persistCookie: false });
-
-  // Create Errors pane placeholder
+  // Create Errors pane BEFORE setting active pane
   ensureErrorsPane();
+
+  setActiveIoPane(__currentIoPane, { persistCookie: false });
 }
 
 // Ensure a dedicated read-only Errors pane exists under IO
 function ensureErrorsPane() {
+  // Try to get ioFilesRoot if not set
+  if (!__ioFilesRoot) {
+    __ioFilesRoot = document.getElementById('io-files');
+  }
   if (!__ioFilesRoot) return;
   let pane = document.querySelector('.io-pane.errors-pane');
   if (pane) return;
@@ -1165,7 +1169,7 @@ async function show(mode) {
     if (bin) {
       $('#output').textContent = hexdump(data);
       clearErrorHighlights();
-      setErrorsPaneContent('Успешно');
+      // Don't set errors pane here - will be set in runWasm after execution
       if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(false);
     } else {
       const formatted = formatCompilerErrors(data);
@@ -1176,8 +1180,10 @@ async function show(mode) {
       } else {
         clearErrorHighlights();
       }
-      const errorsText = errs.length ? formatted : 'Успешно';
-      setErrorsPaneContent(errorsText);
+      // Only show compilation errors, success will be shown after execution in runWasm
+      if (errs.length) {
+        setErrorsPaneContent(formatted);
+      }
       if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(errs.length > 0);
     }
   } catch (e) {
@@ -1188,8 +1194,8 @@ async function show(mode) {
     const errs = parseCompilerErrors(msg);
     if (errs.length) addErrorHighlights(errs); else clearErrorHighlights();
     $('#output').classList.add('error');
-    const errorsText = errs.length ? formatted : 'Успешно';
-    setErrorsPaneContent(errorsText);
+    // Show compilation errors
+    setErrorsPaneContent(formatted);
     if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(true);
   }
 }
@@ -1948,8 +1954,8 @@ async function runWasm() {
             returnType: retType,
             algType
           });
-          out += `${name} => ${normalized}\n`;
-          out += `time: ${micros} µs\n`;
+          // Don't print to stdout, save for errors pane
+          window.__lastRunInfo = { name, normalized, micros, hasReturn: retType !== 'void' };
         }
       } else {
         out += 'no exported functions to invoke\n';
@@ -1965,8 +1971,10 @@ async function runWasm() {
   // }
     }
     const stdoutEl = $('#stdout');
-    stdoutEl.textContent += "\n";
-    stdoutEl.textContent += out;
+    if (out) {
+      stdoutEl.textContent += "\n";
+      stdoutEl.textContent += out;
+    }
     // Update robot field display after execution with animation
     if (__compilerOutputMode === 'robot' && __robotModule) {
       // Set render callback for animation
@@ -1997,6 +2005,20 @@ async function runWasm() {
         renderRobotField();
       }
     }
+
+    // Show success info in errors pane
+    let successMsg = 'Успешно';
+    if (window.__lastRunInfo) {
+      const info = window.__lastRunInfo;
+      if (info.hasReturn) {
+        successMsg += `\n\nФункция "${info.name}" вернула: ${info.normalized}`;
+      }
+      successMsg += `\nВремя работы программы: ${info.micros} нс`;
+      delete window.__lastRunInfo;
+    }
+    setErrorsPaneContent(successMsg);
+    // Switch to errors pane to show result
+    setActiveIoPane('errors');
 
     // Celebration for successful runs
     // ========================================
