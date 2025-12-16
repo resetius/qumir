@@ -19,7 +19,7 @@ const IO_PANE_COOKIE = 'q_io_pane';
 let __ioFiles = [];
 let __ioSelectEl = null;
 let __ioFilesRoot = null;
-let __currentIoPane = 'stdout';
+let __currentIoPane = 'errors';
 let __ioFileCounter = 0;
 let __browserFileManager = null;
 const PROJECTS_STORAGE_KEY = 'q_projects';
@@ -260,10 +260,10 @@ function applyProjectToInputs(project, { silent = false } = {}) {
       renderIoFilePane(f);
     });
     refreshIoSelectOptions();
-    // Restore active pane - if saved pane exists in this project's files, use it; otherwise stdout
-    const savedPane = getCookie(IO_PANE_COOKIE) || 'stdout';
-    const knownIds = new Set(['stdout', 'stdin', ...__ioFiles.map(f => f.id)]);
-    const targetPane = knownIds.has(savedPane) ? savedPane : 'stdout';
+    // Restore active pane - if saved pane exists in this project's files, use it; otherwise errors
+    const savedPane = getCookie(IO_PANE_COOKIE) || 'errors';
+    const knownIds = new Set(['stdout', 'stdin', 'errors', ...__ioFiles.map(f => f.id)]);
+    const targetPane = knownIds.has(savedPane) ? savedPane : 'errors';
     setActiveIoPane(targetPane, { persistCookie: false });
   }
   if (!silent) {
@@ -734,22 +734,22 @@ function refreshIoSelectOptions() {
     opt.textContent = label;
     fragment.appendChild(opt);
   };
-  addOption('stdout', 'stdout');
-  addOption('stdin', 'stdin');
-  addOption('errors', 'errors');
+  addOption('stdout', 'Вывод');
+  addOption('stdin', 'Ввод');
+  addOption('errors', 'Ошибки');
   __ioFiles.forEach(file => {
     const label = file.name && file.name.trim() ? file.name.trim() : 'untitled';
     addOption(file.id, label);
   });
   __ioSelectEl.replaceChildren(fragment);
   const knownIds = new Set(['stdout', 'stdin', 'errors', ...__ioFiles.map(f => f.id)]);
-  const target = knownIds.has(__currentIoPane) ? __currentIoPane : 'stdout';
+  const target = knownIds.has(__currentIoPane) ? __currentIoPane : 'errors';
   __ioSelectEl.value = target;
 }
 
 function setActiveIoPane(candidate, { persistCookie = true } = {}) {
   const knownIds = new Set(['stdout', 'stdin', 'errors', ...__ioFiles.map(f => f.id)]);
-  const target = knownIds.has(candidate) ? candidate : 'stdout';
+  const target = knownIds.has(candidate) ? candidate : 'errors';
   __currentIoPane = target;
   if (__ioSelectEl && __ioSelectEl.value !== target) {
     __ioSelectEl.value = target;
@@ -1089,72 +1089,6 @@ function clearErrorHighlights() {
   }
 }
 
-// Clear operator hints
-function clearOperatorHints() {
-  if (!editor || typeof editor.getDoc !== 'function') return;
-  const doc = editor.getDoc();
-  // Clear all marks with class q-hint-mark
-  try {
-    const marks = doc.getAllMarks();
-    for (const mark of marks) {
-      if (mark.className && mark.className.includes('q-hint-mark')) {
-        mark.clear();
-      }
-    }
-  } catch (_) {}
-}
-
-// Add operator hints (for input and file operations)
-function addOperatorHints() {
-  if (!editor || typeof editor.getDoc !== 'function') return;
-  const doc = editor.getDoc();
-  clearOperatorHints();
-
-  // Collect lines with errors to skip hints on them
-  const errorLines = new Set();
-  try {
-    const marks = doc.getAllMarks();
-    for (const mark of marks) {
-      if (mark.className && mark.className.includes('q-error-mark')) {
-        const pos = mark.find();
-        if (pos && pos.from) {
-          errorLines.add(pos.from.line);
-        }
-      }
-    }
-  } catch (_) {}
-
-  const hints = [
-    { pattern: 'ввод', tooltip: 'Используйте вкладку "stdin" внизу для ввода данных' },
-    { pattern: 'открыть на чтение', tooltip: 'Создайте файл во вкладке "files" внизу' },
-    { pattern: 'открыть на запись', tooltip: 'Файл будет создан и доступен во вкладке "files" внизу' }
-  ];
-
-  const lineCount = doc.lineCount();
-  for (let i = 0; i < lineCount; i++) {
-    // Skip lines with errors
-    if (errorLines.has(i)) continue;
-
-    const lineText = doc.getLine(i);
-    if (!lineText) continue;
-
-    for (const hint of hints) {
-      let pos = 0;
-      while ((pos = lineText.indexOf(hint.pattern, pos)) !== -1) {
-        const from = { line: i, ch: pos };
-        const to = { line: i, ch: pos + hint.pattern.length };
-        try {
-          doc.markText(from, to, {
-            className: 'q-hint-mark',
-            attributes: { 'data-hint': hint.tooltip }
-          });
-        } catch (_) {}
-        pos += hint.pattern.length;
-      }
-    }
-  }
-}
-
 function addErrorHighlights(errors) {
   if (!Array.isArray(errors) || !errors.length) return;
   if (!editor || typeof editor.getDoc !== 'function') return;
@@ -1230,7 +1164,6 @@ async function show(mode) {
     if (bin) {
       $('#output').textContent = hexdump(data);
       clearErrorHighlights();
-      addOperatorHints();
       setErrorsPaneContent('Успешно');
       if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(false);
     } else {
@@ -1241,7 +1174,6 @@ async function show(mode) {
         addErrorHighlights(errs);
       } else {
         clearErrorHighlights();
-        addOperatorHints();
       }
       const errorsText = errs.length ? formatted : 'Успешно';
       setErrorsPaneContent(errorsText);
@@ -1356,8 +1288,16 @@ function ensureErrorGutter() {
 })();
 // Helpers: turtle UI in the compiler output pane
 function ensureTurtleUI() {
+  showOutputPane();
   const out = document.getElementById('output');
   if (!out) return;
+
+  // In non-dev mode, automatically switch to turtle view
+  const isDevMode = document.body.classList.contains('dev-mode');
+  if (!isDevMode) {
+    setCompilerOutputMode('turtle');
+  }
+
   // Toggle UI (radio buttons)
   if (!__turtleToggle) {
     const ctr = document.createElement('div');
@@ -1436,12 +1376,34 @@ function hideTurtleUI() {
   const out = document.getElementById('output');
   if (out) out.style.display = '';
   if (__turtleCanvas) __turtleCanvas.style.display = 'none';
+  hideOutputPane();
+}
+
+function showOutputPane() {
+  const rightPane = document.querySelector('.pane.right');
+  if (rightPane) {
+    rightPane.classList.add('executor-active');
+  }
+}
+
+function hideOutputPane() {
+  const rightPane = document.querySelector('.pane.right');
+  if (rightPane && !document.body.classList.contains('dev-mode')) {
+    rightPane.classList.remove('executor-active');
+  }
 }
 
 // Robot UI functions
 function ensureRobotUI() {
+  showOutputPane();
   const out = document.getElementById('output');
   if (!out) return;
+
+  // In non-dev mode, automatically switch to robot view
+  const isDevMode = document.body.classList.contains('dev-mode');
+  if (!isDevMode) {
+    setCompilerOutputMode('robot');
+  }
 
   // Reuse turtle toggle if exists, just add robot option
   if (!__turtleToggle) {
@@ -1594,6 +1556,7 @@ function hideRobotUI() {
   if (__turtleToggle) __turtleToggle.style.display = 'none';
   const out = document.getElementById('output');
   if (out) out.style.display = '';
+  hideOutputPane();
 }
 
 function renderRobotField() {
@@ -2057,7 +2020,9 @@ function initEditor() {
     window.CodeMirror.defineSimpleMode('qumir', {
       start: [
         { regex: /\s*(\|.*$)/, token: 'comment' },
-        { regex: /(алг|нач|кон|если|иначе|все|нц|кц|пока|для|шаг|вывод|ввод|цел|вещ|лог|стр)/u, token: 'keyword' },
+        { regex: /(ввод|вывод)/u, token: 'keyword io-keyword' },
+        { regex: /(открыть \u043dа чтение|открыть \u043dа запись)/u, token: 'keyword file-keyword' },
+        { regex: /(алг|нач|кон|если|иначе|все|нц|кц|пока|для|шаг|цел|вещ|лог|стр)/u, token: 'keyword' },
         { regex: /(истина|ложь)/u, token: 'atom' },
         { regex: /[-+]?\d+(?:_\d+)*(?:[eE][-+]?\d+)?/, token: 'number' },
         { regex: /[-+]?\d*\.\d+(?:[eE][-+]?\d+)?/, token: 'number' },
@@ -2113,6 +2078,73 @@ function initEditor() {
   }
   // Mirror initial text and change events
   editor.on('change', () => { saveState(); debounceShow(); });
+
+  // Add tooltip for I/O keywords
+  const editorWrapper = editor.getWrapperElement();
+  let ioTooltip = null;
+  let ioTooltipTimer = null;
+
+  editorWrapper.addEventListener('mousemove', (e) => {
+    clearTimeout(ioTooltipTimer);
+
+    const target = e.target;
+    const isIoKeyword = target.classList && target.classList.contains('cm-io-keyword');
+    const isFileKeyword = target.classList && target.classList.contains('cm-file-keyword');
+
+    if (!isIoKeyword && !isFileKeyword) {
+      if (ioTooltip) {
+        ioTooltip.remove();
+        ioTooltip = null;
+      }
+      return;
+    }
+
+    ioTooltipTimer = setTimeout(() => {
+      const text = target.textContent.trim();
+      let message = '';
+
+      if (text === 'ввод') {
+        message = '📥 Оператор ввода\n\nДанные для ввода нужно указать внизу во вкладке "Ввод"';
+      } else if (text === 'вывод') {
+        message = '📤 Оператор вывода\n\nРезультат появится внизу во вкладке "Вывод" после нажатия Запустить';
+      } else if (text.includes('открыть на чтение')) {
+        message = '📂 Открыть файл на чтение\n\nФайлы можно добавить внизу в разделе "IO & files"';
+      } else if (text.includes('открыть на запись')) {
+        message = '💾 Открыть файл на запись\n\nРезультат записи появится в файле внизу в разделе "IO & files"';
+      }
+
+      if (!message) return;
+
+      if (!ioTooltip) {
+        ioTooltip = document.createElement('div');
+        ioTooltip.className = 'q-tooltip';
+        document.body.appendChild(ioTooltip);
+      }
+
+      ioTooltip.textContent = message;
+      ioTooltip.style.display = 'block';
+
+      const rect = target.getBoundingClientRect();
+      const pad = 8;
+      const top = rect.bottom + pad;
+      const left = Math.max(8, Math.min(
+        window.innerWidth - ioTooltip.offsetWidth - 8,
+        rect.left + rect.width / 2 - ioTooltip.offsetWidth / 2
+      ));
+
+      ioTooltip.style.top = `${top}px`;
+      ioTooltip.style.left = `${left}px`;
+    }, 400);
+  });
+
+  editorWrapper.addEventListener('mouseleave', () => {
+    clearTimeout(ioTooltipTimer);
+    if (ioTooltip) {
+      ioTooltip.remove();
+      ioTooltip = null;
+    }
+  });
+
   // Ensure layout after attach
   setTimeout(() => editor.refresh(), 0);
 }
@@ -2529,8 +2561,8 @@ ${indent}знач := a
     bugTarget.addEventListener('focus', () => showTip(bugTarget, { placeAbove: true }));
     bugTarget.addEventListener('blur', hideTip);
   }
-  // Attach "above" tooltips to docs and tour buttons in footer
-  ['docs-page-btn', 'tour-restart-btn'].forEach(id => {
+  // Attach "above" tooltips to docs, tour, and dev-mode buttons in footer
+  ['docs-page-btn', 'tour-restart-btn', 'dev-mode-toggle'].forEach(id => {
     const btn = document.getElementById(id);
     if (!btn) return;
     btn.addEventListener('mouseenter', () => showTip(btn, { placeAbove: true }));
@@ -2723,6 +2755,17 @@ show($('#view').value);
     if (hasErrors) {
       hideArrow();
       if (hintTimer) clearTimeout(hintTimer);
+
+      // Auto-switch to stdout in non-dev mode on errors (but not if already on I/O views)
+      if (!document.body.classList.contains('dev-mode')) {
+        const ioSelect = document.getElementById('io-select');
+        const currentView = ioSelect ? ioSelect.value : '';
+        // Only switch if on files, not if on stdout/stdin/errors
+        if (ioSelect && currentView !== 'stdout' && currentView !== 'stdin' && currentView !== 'errors') {
+          ioSelect.value = 'stdout';
+          ioSelect.dispatchEvent(new Event('change'));
+        }
+      }
     } else {
       resetHintTimer();
     }
@@ -2745,6 +2788,18 @@ show($('#view').value);
 // Ensure Run also refreshes the right pane
 $('#btn-run').addEventListener('click', async () => {
   if (window.__runHintOnRun) window.__runHintOnRun();
+
+  // Auto-switch to stdout in non-dev mode (but not if already on I/O views)
+  if (!document.body.classList.contains('dev-mode')) {
+    const ioSelect = document.getElementById('io-select');
+    const currentView = ioSelect ? ioSelect.value : '';
+    // Only switch if on files, not if on stdout/stdin/errors
+    if (ioSelect && currentView !== 'stdout' && currentView !== 'stdin' && currentView !== 'errors') {
+      ioSelect.value = 'stdout';
+      ioSelect.dispatchEvent(new Event('change'));
+    }
+  }
+
   await runWasm();
   show($('#view').value);
 });
@@ -2871,6 +2926,33 @@ if (btnShare) {
     }
   });
 }
+
+// Developer mode toggle
+(function setupDevMode() {
+  const devModeBtn = document.getElementById('dev-mode-toggle');
+  if (!devModeBtn) return;
+
+  // Load saved state from localStorage
+  const savedDevMode = localStorage.getItem('qumir-dev-mode') === 'true';
+  if (savedDevMode) {
+    document.body.classList.add('dev-mode');
+  }
+
+  // Toggle dev mode on click
+  devModeBtn.addEventListener('click', () => {
+    const isDevMode = document.body.classList.toggle('dev-mode');
+    localStorage.setItem('qumir-dev-mode', isDevMode);
+
+    if (!isDevMode) {
+      // Switch to I/O view when leaving dev mode (avoid errors pane)
+      const ioSelect = document.getElementById('io-select');
+      if (ioSelect && ioSelect.value !== 'stdout' && ioSelect.value !== 'stdin') {
+        ioSelect.value = 'stdout';
+        ioSelect.dispatchEvent(new Event('change'));
+      }
+    }
+  });
+})();
 
 // Onboarding tour
 (async function setupTour() {

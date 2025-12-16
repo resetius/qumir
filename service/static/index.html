@@ -26,8 +26,8 @@
       <button id="btn-snippet-decl">𝜏</button>
     </div>
     <div class="controls">
-      <label>Opt:</label>
-      <select id="opt" data-tooltip="Уровень оптимизации компилятора">
+      <label class="dev-only">Opt:</label>
+      <select id="opt" class="dev-only" data-tooltip="Уровень оптимизации компилятора">
         <option value="0">O0</option>
         <option value="1">O1</option>
         <option value="2">O2</option>
@@ -37,7 +37,7 @@
       <select id="examples" data-tooltip="Загрузить пример кода">
         <option value="">—</option>
       </select>
-      <select id="view" data-tooltip="Выбор представления компилятора">
+      <select id="view" class="dev-only" data-tooltip="Выбор представления компилятора">
         <option value="ir">IR</option>
         <option value="llvm">LLVM</option>
         <option value="asm">ASM</option>
@@ -54,7 +54,7 @@
       <div id="status" class="status"></div>
     </section>
   <div id="output-anchor"></div>
-    <section class="pane right">
+    <section class="pane right dev-only">
       <div class="pane-title" id="title-output">Output</div>
   <div id="view-slot" class="view-slot"></div>
       <pre id="output" class="scroll"></pre>
@@ -64,15 +64,15 @@
     <div class="pane-title" id="title-io">IO &amp; files</div>
     <div class="io-toolbar">
       <label for="io-select">Просмотр:</label>
-      <select id="io-select" data-tooltip="Переключение между stdout, stdin и файлами">
-        <option value="stdout">stdout</option>
-        <option value="stdin">stdin</option>
+      <select id="io-select" data-tooltip="Переключение между выводом, вводом и файлами">
+        <option value="stdout">Вывод</option>
+        <option value="stdin">Ввод</option>
       </select>
         <button id="io-add-file" class="io-icon" data-tooltip="Добавить файл">＋</button>
         <span class="io-toolbar-separator"></span>
-        <label for="args">Args:</label>
-        <input id="args" type="text" placeholder="e.g. 1, 2.5, да, нет" data-tooltip="Аргументы командной строки" />
-        <button id="btn-run" data-tooltip="Запустить программу (Ctrl+Enter)">Run</button>
+        <label for="args">Аргументы:</label>
+        <input id="args" type="text" placeholder="например: 1, 2.5, да, нет" data-tooltip="Параметры, которые программа получит при запуске" />
+        <button id="btn-run" data-tooltip="Запустить программу (Ctrl+Enter)">Запустить</button>
     </div>
     <div class="io-pane-container">
       <div class="io-pane io-pane-stdout active" data-io-pane="stdout">
@@ -94,6 +94,7 @@
   <small><a href="https://github.com/resetius/qumir" target="_blank" rel="noopener">source code</a></small>
   <small>Service powered by <a href="https://github.com/resetius/coroio" target="_blank" rel="noopener">coroio</a>.</small>
   <small class="cookies-note">We use cookies only to save your code and settings.</small>
+  <small><button id="dev-mode-toggle" type="button" class="dev-mode-toggle" data-tooltip="Режим разработчика: показать расширенные настройки">⚙️</button></small>
   </footer>
   <div id="projects-backdrop" class="projects-backdrop" aria-hidden="true"></div>
   <aside id="projects-drawer" class="projects-drawer" aria-label="Список проектов">

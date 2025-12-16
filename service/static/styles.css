@@ -1,3 +1,22 @@
+/* Developer mode: hide advanced controls by default */
+.dev-only { display: none !important; }
+body.dev-mode .dev-only { display: inline-block !important; }
+body.dev-mode .pane.right.dev-only { display: flex !important; }
+body:not(.dev-mode) main { grid-template-columns: 1fr !important; }
+
+/* Show right pane when executor (turtle/robot) is active, even in non-dev mode */
+body:not(.dev-mode) .pane.right.executor-active {
+  display: flex !important;
+}
+/* Restore two-column layout when executor is active */
+body:not(.dev-mode) main:has(.pane.right.executor-active) {
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr) !important;
+}
+/* Hide output mode toggle (text/executor radio buttons) in non-dev mode */
+body:not(.dev-mode) .output-mode {
+  display: none !important;
+}
+
 html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color: #e6e6e6; background: #1e1e1e; }
 html { overflow: hidden; }
 /* Ensure borders/padding are included in width calculations for editors */
@@ -18,6 +37,8 @@ button.project-toggle:hover { background: #3a3a3a; }
 .toolbar button { position: relative; }
 /* CSS pseudo-element tooltips removed in favor of JS-driven .q-tooltip */
 .controls { display: flex; gap: 8px; align-items: center; }
+.controls label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; user-select: none; }
+.controls label input[type="checkbox"] { cursor: pointer; width: 16px; height: 16px; }
 main { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; padding: 8px; box-sizing: border-box; flex: 1 1 auto; min-height: 0; overflow: auto; }
 .pane { display: flex; flex-direction: column; border: 1px solid #333; border-radius: 4px; overflow: hidden; min-height: 0; min-width: 0; max-width: 100%; }
 .pane-title { background: #2d2d2d; padding: 6px 8px; border-bottom: 1px solid #333; font-size: 12px; color: #ccc; }
@@ -86,9 +107,45 @@ footer .beta { color: #ffa726; opacity: 0.95; }
 footer .version { opacity: 0.9; }
 .bug-button { background: none; border: none; padding: 0; margin: 0; cursor: pointer; color: inherit; display: inline-flex; align-items: center; justify-content: center; }
 .bug-button:focus { outline: 1px solid #666; outline-offset: 2px; }
+.dev-mode-toggle { background: none; border: none; padding: 0; margin: 0; cursor: pointer; font-size: 1.3em; line-height: 1; display: inline-flex; align-items: center; justify-content: center; opacity: 0.4; transition: opacity 0.2s, transform 0.2s; }
+.dev-mode-toggle:hover { opacity: 0.7; transform: scale(1.1); }
+.dev-mode-toggle:focus { outline: 1px solid #666; outline-offset: 2px; }
+body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 
 /* JS-driven tooltip */
 .q-tooltip { position: fixed; background: #2d2d2d; color: #eee; padding: 6px 8px; border-radius: 4px; font-size: 12px; white-space: pre; border: 1px solid #555; box-shadow: 0 6px 16px rgba(0,0,0,0.5); z-index: 4000; pointer-events: none; max-width: 60vw; }
+
+/* I/O keyword highlighting */
+.cm-io-keyword {
+  background: rgba(100, 181, 246, 0.1);
+  border-radius: 2px;
+  padding: 0 2px;
+  cursor: help;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: rgba(100, 181, 246, 0.5);
+  text-underline-offset: 2px;
+}
+.cm-io-keyword:hover {
+  background: rgba(100, 181, 246, 0.2);
+  text-decoration-color: rgba(100, 181, 246, 0.8);
+}
+
+/* File operation keyword highlighting */
+.cm-file-keyword {
+  background: rgba(156, 204, 101, 0.1);
+  border-radius: 2px;
+  padding: 0 2px;
+  cursor: help;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: rgba(156, 204, 101, 0.5);
+  text-underline-offset: 2px;
+}
+.cm-file-keyword:hover {
+  background: rgba(156, 204, 101, 0.2);
+  text-decoration-color: rgba(156, 204, 101, 0.8);
+}
 
 /* Toast notification */
 .q-toast {
