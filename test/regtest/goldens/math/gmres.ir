@@ -1827,8 +1827,8 @@ function main () { ; void
     call output_string 
     load tmp(1064,f64) = local(81,f64) 
     arg tmp(1064,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     arg imm(3,ptr to i8) 
     call output_string 
@@ -1836,8 +1836,8 @@ function main () { ; void
     call output_string 
     load tmp(1065,f64) = local(82,f64) 
     arg tmp(1065,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     arg imm(3,ptr to i8) 
     call output_string 

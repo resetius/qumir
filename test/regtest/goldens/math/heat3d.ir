@@ -997,22 +997,22 @@ function <main> () { ; void
     call output_string 
     load tmp(577,f64) = local(19,f64) 
     arg tmp(577,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     arg imm(3,ptr to i8) 
     call output_string 
     load tmp(578,f64) = local(6,f64) 
     arg tmp(578,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     arg imm(4,ptr to i8) 
     call output_string 
     load tmp(579,f64) = local(20,f64) 
     arg tmp(579,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     mov tmp(580,i32) = imm(10,i64) 
     arg tmp(580,i32) 

@@ -84,7 +84,7 @@
     кц
   кц
 
-  вывод "Poisson3D-GS: N=", Nx, " max|u-uex|=", err, "\n"
+  вывод "Poisson3D-GS: N=", Nx, " max|u-uex|=", err:8:8, "\n"
   если err < tol то
     вывод "OK\n"
   иначе

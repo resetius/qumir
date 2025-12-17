@@ -745,24 +745,24 @@
         (Call:<Void>
           ($output_double:<Fun (Float, Int, Int) -> Void>)
           ($t:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
+          (8:<Int>)
+          (8:<Int>))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           (", dt=":<String>))
         (Call:<Void>
           ($output_double:<Fun (Float, Int, Int) -> Void>)
           ($dt:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
+          (8:<Int>)
+          (8:<Int>))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           (", max|u-uex|=":<String>))
         (Call:<Void>
           ($output_double:<Fun (Float, Int, Int) -> Void>)
           ($err:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
+          (8:<Int>)
+          (8:<Int>))
         (Call:<Void>
           ($output_symbol:<Fun (Char) -> Void>)
           (Cast<Char>:<Char>

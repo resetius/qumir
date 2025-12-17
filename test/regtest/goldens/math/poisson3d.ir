@@ -1190,8 +1190,8 @@ function <main> () { ; void
     call output_string 
     load tmp(674,f64) = local(15,f64) 
     arg tmp(674,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     mov tmp(675,i32) = imm(10,i64) 
     arg tmp(675,i32) 

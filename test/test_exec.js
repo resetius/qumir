@@ -48,10 +48,12 @@ const stdinDir = casesDir;
 const defaultIoRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'io.js');
 const defaultResultRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'result.js');
 const defaultStringRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'string.js');
+const defaultArrayRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'array.js');
 
 let cachedIoRuntime = null;
 let cachedResultRuntime = null;
 let cachedStringRuntime = null;
+let cachedArrayRuntime = null;
 
 class TestInputStream {
   constructor(stdinContent) {
@@ -181,6 +183,18 @@ async function loadStringRuntimeModule() {
 	const url = pathToFileURL(stringPath).href;
 	cachedStringRuntime = await import(url);
 	return cachedStringRuntime;
+}
+
+async function loadArrayRuntimeModule() {
+  if (cachedArrayRuntime) return cachedArrayRuntime;
+  let arrayPath = defaultArrayRuntimePath;
+  if (runtimeDir) {
+    const candidate = path.join(runtimeDir, 'array.js');
+    if (fs.existsSync(candidate)) arrayPath = candidate;
+  }
+  const url = pathToFileURL(arrayPath).href;
+  cachedArrayRuntime = await import(url);
+  return cachedArrayRuntime;
 }
 
 function bindIoStreams(ioRuntime, inputStream, outputStream) {
@@ -389,6 +403,18 @@ async function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
   }
   // Common import names guesses; adjust if actual wasm expects different.
   const runtimeFns = await loadRuntimeFunctions(runtimeDir, memory);
+  // Load built-in array runtime (if present) and merge into runtime functions so
+  // __bindMemory from array.js will be available and called below.
+  try {
+    const arrayRuntime = await loadArrayRuntimeModule();
+    if (arrayRuntime) {
+      for (const [name, val] of Object.entries(arrayRuntime)) {
+        if (typeof val === 'function') runtimeFns[name] = val;
+      }
+    }
+  } catch (e) {
+    if (printOutput) log('[WARN] failed to load array runtime', e.message);
+  }
   const ioEnvFns = extractIoEnv(ioRuntime);
   const bindIoMemory = (mem) => {
     if (ioRuntime && typeof ioRuntime.__bindMemory === 'function') {

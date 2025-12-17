@@ -1,2 +1,2 @@
-Heat3D implicit (4D): N=8, T=0.0918367, dt=0.0102041, max|u-uex|=0.0280693
+Heat3D implicit (4D): N=8, T=0.09183673, dt=0.01020408, max|u-uex|=0.02806930
 FAIL

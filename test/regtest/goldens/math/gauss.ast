@@ -736,8 +736,8 @@
         (Call:<Void>
           ($output_double:<Fun (Float, Int, Int) -> Void>)
           ($res_l2_sq:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
+          (8:<Int>)
+          (8:<Int>))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           ("\n":<String>)))
@@ -748,8 +748,8 @@
         (Call:<Void>
           ($output_double:<Fun (Float, Int, Int) -> Void>)
           ($res_l2:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
+          (8:<Int>)
+          (8:<Int>))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           ("\n":<String>)))
@@ -760,8 +760,8 @@
         (Call:<Void>
           ($output_double:<Fun (Float, Int, Int) -> Void>)
           ($res_inf:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
+          (8:<Int>)
+          (8:<Int>))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           ("\n":<String>))))))
