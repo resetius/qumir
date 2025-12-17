@@ -1,4 +1,4 @@
-function <main> () { ; void
+function lanczos2d () { ; void
   block {
     label: label(0)
     stre local(0,i64) imm(8,i64) 
@@ -2223,8 +2223,8 @@ function <main> () { ; void
     + tmp(1185,ptr to f64) = tmp(1181,ptr to f64) tmp(1184,i64) 
     lde tmp(1186,f64) = tmp(1185,ptr to f64) 
     arg tmp(1186,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     mov tmp(1187,i32) = imm(10,i64) 
     arg tmp(1187,i32) 
@@ -2390,36 +2390,36 @@ function <main> () { ; void
     call output_string 
     load tmp(1301,f64) = local(122,f64) 
     arg tmp(1301,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     arg imm(7,ptr to i8) 
     call output_string 
     load tmp(1302,f64) = local(123,f64) 
     arg tmp(1302,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     arg imm(7,ptr to i8) 
     call output_string 
     load tmp(1303,f64) = local(124,f64) 
     arg tmp(1303,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     arg imm(7,ptr to i8) 
     call output_string 
     load tmp(1304,f64) = local(125,f64) 
     arg tmp(1304,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     arg imm(7,ptr to i8) 
     call output_string 
     load tmp(1305,f64) = local(126,f64) 
     arg tmp(1305,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
+    arg imm(8,i64) 
+    arg imm(8,i64) 
     call output_double 
     mov tmp(1306,i32) = imm(10,i64) 
     arg tmp(1306,i32) 

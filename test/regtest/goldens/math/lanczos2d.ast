@@ -1,5 +1,5 @@
 (Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
+  (FunDecl $lanczos2d ():<Fun () -> Void>
     (Block:<Void>
       (Var $Nx:<Int>)
       (Var $Ny:<Int>)
@@ -1535,8 +1535,8 @@
                 (Index:<Float>
                   ($evals:<Array [Float; 1]>)
                   ($t:<Int>))
-                (0:<Int>)
-                (-1:<Int>))
+                (8:<Int>)
+                (8:<Int>))
               (Call:<Void>
                 ($output_symbol:<Fun (Char) -> Void>)
                 (Cast<Char>:<Char>
@@ -1737,40 +1737,40 @@
         (Call:<Void>
           ($output_double:<Fun (Float, Int, Int) -> Void>)
           ($lam11:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
+          (8:<Int>)
+          (8:<Int>))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           (", ":<String>))
         (Call:<Void>
           ($output_double:<Fun (Float, Int, Int) -> Void>)
           ($lam12:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
+          (8:<Int>)
+          (8:<Int>))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           (", ":<String>))
         (Call:<Void>
           ($output_double:<Fun (Float, Int, Int) -> Void>)
           ($lam21:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
+          (8:<Int>)
+          (8:<Int>))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           (", ":<String>))
         (Call:<Void>
           ($output_double:<Fun (Float, Int, Int) -> Void>)
           ($lam13:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
+          (8:<Int>)
+          (8:<Int>))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           (", ":<String>))
         (Call:<Void>
           ($output_double:<Fun (Float, Int, Int) -> Void>)
           ($lam22:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
+          (8:<Int>)
+          (8:<Int>))
         (Call:<Void>
           ($output_symbol:<Fun (Char) -> Void>)
           (Cast<Char>:<Char>
