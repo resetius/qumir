@@ -13,6 +13,9 @@ const ALLOC_MAP = new Map();
 // Sorted free-list: array of {n, ptr}, ordered by (n, ptr)
 const FREE_LIST = [];
 
+// Import string runtime so we can call str_release when freeing array elements
+import * as StringRuntime from './string.js';
+
 export function __bindMemory(mem) {
   MEMORY = mem;
   __resetArrays();
@@ -133,5 +136,21 @@ export function array_destroy(_ptr) {
 }
 
 export function array_str_destroy(ptr, arraySize) {
-  // No-op under JS GC; signature exists to match lowered calls.
+  // Walk the memory region [ptr, ptr+arraySize) with 8-byte stride,
+  // read an int32 at each cell and call string.str_release(handle).
+  const p = toU32(ptr);
+  const n = toU32(arraySize);
+  if (n === 0) return;
+  const i32 = new Int32Array(MEMORY.buffer);
+  const start = p >>> 0;
+  const end = (start + n) >>> 0;
+  for (let off = start; off + 4 <= end; off += 8) {
+    const idx = off >>> 2;
+    if (idx >= 0 && idx < i32.length) {
+      const handle = i32[idx];
+      StringRuntime.str_release(handle);
+    }
+  }
+
+  array_destroy(ptr);
 }
