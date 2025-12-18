@@ -1093,7 +1093,7 @@ function parseCompilerErrors(payload) {
   if (typeof payload !== 'string') return [];
   const lines = payload.split(/\r?\n/);
   const errs = [];
-  
+
   for (let i = 0; i < lines.length; i++) {
     // Check if line starts with "Error:"
     if (!/^Error:\s*/.test(lines[i])) {
@@ -1107,11 +1107,11 @@ function parseCompilerErrors(payload) {
       }
       continue;
     }
-    
+
     const firstLine = lines[i];
     // Check if coordinates are on the same line (single-line error)
     const inlineCoord = /^Error:\s*(.+?)\s*@\s*Line:\s*(\d+),\s*Byte:\s*\d+,\s*Column:\s*(\d+)/.exec(firstLine);
-    
+
     if (inlineCoord) {
       // Single-line error format
       const errorText = inlineCoord[1].trim();
@@ -1120,12 +1120,12 @@ function parseCompilerErrors(payload) {
       errs.push({ line: lineNum, col: colNum, text: errorText });
       continue;
     }
-    
+
     // Multi-line error: collect all lines until we find coordinates
     let errorText = firstLine.replace(/^Error:\s*/, '').trim();
     let lineNum = 0, colNum = 0;
     let j = i + 1;
-    
+
     while (j < lines.length) {
       const nextLine = lines[j];
       // Check if this line contains coordinates
@@ -1149,11 +1149,11 @@ function parseCompilerErrors(payload) {
       errorText += '\n' + nextLine.trim();
       j++;
     }
-    
+
     i = j - 1;
     errs.push({ line: lineNum, col: colNum, text: errorText });
   }
-  
+
   return errs;
 }let __errorMarks = [];
 function clearErrorHighlights() {
@@ -1428,32 +1428,12 @@ function ensureTurtleUI() {
     cnv.id = 'turtle-canvas';
     cnv.style.display = 'none';
     cnv.style.width = '100%';
-    // try to mirror output height if fixed; otherwise default
-    cnv.style.height = (out.clientHeight > 0 ? out.clientHeight + 'px' : (out.style.height || '300px'));
+    cnv.style.height = '100%';
     cnv.style.background = '#fff';
     cnv.style.border = '1px solid #2b2b2b44';
     cnv.style.borderRadius = '4px';
     out.parentNode.insertBefore(cnv, out.nextSibling);
     __turtleCanvas = cnv;
-    if (window.ResizeObserver) {
-      const ro = new ResizeObserver(() => {
-        if (__turtleCanvas && out) {
-          const h = out.clientHeight;
-          if (h > 32) __turtleCanvas.style.height = h + 'px';
-        }
-      });
-      try { ro.observe(out); } catch {}
-    }
-    // One-time async adjust in case layout not settled yet
-    setTimeout(() => {
-      if (__turtleCanvas && out) {
-        const h = out.clientHeight;
-        if (h > 32) __turtleCanvas.style.height = h + 'px';
-      }
-    }, 0);
-  } else {
-    // Update existing canvas height if output grew before first toggle
-    if (out.clientHeight > 32) __turtleCanvas.style.height = out.clientHeight + 'px';
   }
 }
 
@@ -1614,23 +1594,12 @@ function ensureRobotUI() {
     cnv.id = 'robot-canvas';
     cnv.style.display = 'none';
     cnv.style.width = '100%';
-    cnv.style.height = (out.clientHeight > 0 ? out.clientHeight + 'px' : (out.style.height || '300px'));
+    cnv.style.height = '100%';
     cnv.style.background = '#fff';
     cnv.style.border = '1px solid #2b2b2b44';
     cnv.style.borderRadius = '4px';
     out.parentNode.insertBefore(cnv, out.nextSibling);
     __robotCanvas = cnv;
-    if (window.ResizeObserver) {
-      const ro = new ResizeObserver(() => {
-        if (__robotCanvas && out) {
-          const h = out.clientHeight;
-          if (h > 32) __robotCanvas.style.height = h + 'px';
-        }
-      });
-      try { ro.observe(out); } catch {}
-    }
-  } else {
-    if (out.clientHeight > 32) __robotCanvas.style.height = out.clientHeight + 'px';
   }
 }
 
@@ -1654,23 +1623,38 @@ function renderRobotField() {
   const canvas = __robotCanvas;
   const ctx = canvas.getContext('2d');
 
-  // Set actual canvas size for crisp rendering
+  // Get canvas container size - use cached dimensions if available to prevent shifting
   const rect = canvas.getBoundingClientRect();
+  let w, h;
+  if (canvas.__cachedWidth && canvas.__cachedHeight &&
+      Math.abs(rect.width - canvas.__cachedWidth) < 10 &&
+      Math.abs(rect.height - canvas.__cachedHeight) < 10) {
+    // Use cached dimensions if container size hasn't changed significantly
+    w = canvas.__cachedWidth;
+    h = canvas.__cachedHeight;
+  } else {
+    // First render or significant size change - cache the dimensions
+    w = rect.width;
+    h = rect.height;
+    canvas.__cachedWidth = w;
+    canvas.__cachedHeight = h;
+  }
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-  ctx.scale(dpr, dpr);
 
-  const w = rect.width;
-  const h = rect.height;
+  // Set canvas resolution (this clears the canvas and resets the context)
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
 
   // Calculate cell size (reserve space for coordinate labels on all sides)
   const labelSpace = 20; // Space for coordinate numbers
   const padding = 5;
   const availW = w - 2 * padding - 2 * labelSpace;
   const availH = h - 2 * padding - 2 * labelSpace;
-  const cellW = Math.floor(availW / field.width);
-  const cellH = Math.floor(availH / field.height);
+
+  // Calculate cell size to fit field with aspect ratio preserved
+  const cellW = availW / field.width;
+  const cellH = availH / field.height;
   const cellSize = Math.min(cellW, cellH, 40); // Max 40px per cell
 
   const gridW = cellSize * field.width;
@@ -1797,16 +1781,10 @@ function setCompilerOutputMode(mode) {
   if (__compilerOutputMode === 'turtle') {
     if (out) out.style.display = 'none';
     if (__turtleCanvas) __turtleCanvas.style.display = '';
-    if (__turtleCanvas && out && out.clientHeight > 32) {
-      __turtleCanvas.style.height = out.clientHeight + 'px';
-    }
     try { if (__turtleModule && typeof __turtleModule.__onCanvasShown === 'function') __turtleModule.__onCanvasShown(); } catch {}
   } else if (__compilerOutputMode === 'robot') {
     if (out) out.style.display = 'none';
     if (__robotCanvas) __robotCanvas.style.display = '';
-    if (__robotCanvas && out && out.clientHeight > 32) {
-      __robotCanvas.style.height = out.clientHeight + 'px';
-    }
     renderRobotField();
   } else {
     if (out) out.style.display = '';
@@ -2258,7 +2236,18 @@ function initEditor() {
     editor.refresh();
   };
   __applyEditorHeight();
-  window.addEventListener('resize', __applyEditorHeight);
+  window.addEventListener('resize', () => {
+    __applyEditorHeight();
+    // Clear cached canvas dimensions on resize
+    if (__robotCanvas) {
+      delete __robotCanvas.__cachedWidth;
+      delete __robotCanvas.__cachedHeight;
+    }
+    if (__turtleCanvas) {
+      delete __turtleCanvas.__cachedWidth;
+      delete __turtleCanvas.__cachedHeight;
+    }
+  });
   // Set initial text explicitly (getCode would query editor and return empty on first init)
   editor.setValue(initialText);
   // Cursor status line

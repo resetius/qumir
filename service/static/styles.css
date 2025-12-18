@@ -12,8 +12,8 @@ body:not(.dev-mode) .pane.right.executor-active {
 body:not(.dev-mode) main:has(.pane.right.executor-active) {
   grid-template-columns: minmax(0,1fr) minmax(0,1fr) !important;
 }
-/* Hide output mode toggle (text/executor radio buttons) in non-dev mode */
-body:not(.dev-mode) .output-mode {
+/* Hide output mode radio buttons (text/executor) in non-dev mode, but keep speed slider */
+body:not(.dev-mode) .output-mode label {
   display: none !important;
 }
 
