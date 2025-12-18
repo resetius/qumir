@@ -54,6 +54,12 @@ TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TSco
 
 TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TScopePtr funcScope) {
     std::list<TError> errors;
+
+    auto suggestionMessage = [&](const std::string& name, int scopeId, bool includeFunctions) {
+        auto suggestion = Suggest(name, TScopeId{scopeId}, includeFunctions);
+        return suggestion ? suggestion->ToString() : "";
+    };
+
     if (auto maybeFdecl = TMaybeNode<TFunDecl>(node)) {
         auto fdecl = maybeFdecl.Cast();
         auto scopeId = TScopeId{fdecl->Scope};
@@ -72,14 +78,17 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         auto ident = maybeIdent.Cast();
         auto found = Lookup(ident->Name, scope->Id);
         if (!found) {
-            co_return TError(ident->Location, TErrorString::Get<EErrorId::UNDEFINED_IDENTIFIER>(ident->Name, scope->Id.Id));
+            auto suggestionMsg = suggestionMessage(ident->Name, scope->Id.Id, /*includeFunctions=*/ true);
+            co_return TError(ident->Location, TErrorString::Get<EErrorId::UNDEFINED_IDENTIFIER>(ident->Name) + suggestionMsg);
         }
+
         co_return {};
     } else if (auto maybeAsg = TMaybeNode<TAssignExpr>(node)) {
         auto asg = maybeAsg.Cast();
         auto found = Lookup(asg->Name, scope->Id);
         if (!found) {
-            errors.emplace_back(TError(asg->Location, TErrorString::Get<EErrorId::ASSIGNMENT_TO_UNDEFINED_IDENTIFIER>(asg->Name, scope->Id.Id)));
+            auto suggestionMsg = suggestionMessage(asg->Name, scope->Id.Id, /*includeFunctions=*/ false);
+            errors.emplace_back(TError(asg->Location, TErrorString::Get<EErrorId::UNDEFINED_IDENTIFIER>(asg->Name) + suggestionMsg));
         }
     } else if (auto maybeVarStmt = TMaybeNode<TVarStmt>(node)) {
         auto varStmt = maybeVarStmt.Cast();
@@ -141,6 +150,124 @@ std::optional<TSymbolInfo> TNameResolver::Lookup(const std::string& name, TScope
         scope = scope->Parent;
     }
     return std::nullopt;
+}
+
+std::optional<TSuggestion> TNameResolver::Suggest(const std::string& name, TScopeId scopeId, bool includeFunctions) {
+    TScopePtr scope = nullptr;
+    if (scopeId.Id < 0 || static_cast<size_t>(scopeId.Id) >= Scopes.size()) {
+        return std::nullopt;
+    }
+    scope = Scopes[scopeId.Id];
+
+    static constexpr int MAX_DISTANCE = 2;
+    TSuggestion bestSuggestion;
+    bestSuggestion.Distance = INT32_MAX;
+    bestSuggestion.OriginalName = name;
+    std::unordered_set<std::string> checkedNames;
+
+    auto calcCodePoint = [](const std::string& s) {
+        // parse utf-8 to code points
+        std::vector<uint32_t>  cp;
+        uint32_t codepoint = 0;
+        for (char c : s) {
+            if ((c & 0x80) == 0) {
+                // 1-byte
+                if (codepoint != 0) {
+                    cp.push_back(codepoint);
+                    codepoint = 0;
+                }
+                cp.push_back(c);
+            } else if ((c & 0xC0) == 0x80) {
+                // continuation byte
+                codepoint = (codepoint << 6) | (c & 0x3F);
+            } else if ((c & 0xE0) == 0xC0) {
+                // 2-byte
+                if (codepoint != 0) {
+                    cp.push_back(codepoint);
+                }
+                codepoint = c & 0x1F;
+            } else if ((c & 0xF0) == 0xE0) {
+                // 3-byte
+                if (codepoint != 0) {
+                    cp.push_back(codepoint);
+                }
+                codepoint = c & 0x0F;
+            } else if ((c & 0xF8) == 0xF0) {
+                // 4-byte
+                if (codepoint != 0) {
+                    cp.push_back(codepoint);
+                }
+                codepoint = c & 0x07;
+            }
+        }
+        return cp;
+    };
+
+    auto nameCodePoints = calcCodePoint(name);
+
+    while (scope) {
+        for (auto symbolId : scope->Symbols) {
+            auto& symbol = Symbols[symbolId];
+            if (!includeFunctions) {
+                if (TMaybeNode<TFunDecl>(symbol.Node)) {
+                    continue;
+                }
+            }
+            if (checkedNames.find(symbol.Name) != checkedNames.end()) {
+                continue;
+            }
+            checkedNames.insert(symbol.Name);
+            if (symbol.CodePoints.empty()) {
+                symbol.CodePoints = calcCodePoint(symbol.Name);
+            }
+            if ( (int)symbol.CodePoints.size() - (int)nameCodePoints.size() > MAX_DISTANCE ) {
+                continue;
+            }
+            int distance = EditDistanceCalculator.Calc(
+                std::span<const uint32_t>(nameCodePoints.data(), nameCodePoints.size()),
+                std::span<const uint32_t>(symbol.CodePoints.data(), symbol.CodePoints.size())
+            );
+            if (distance < bestSuggestion.Distance && distance <= MAX_DISTANCE) {
+                bestSuggestion.Name = symbol.Name;
+                bestSuggestion.Distance = distance;
+            }
+        }
+        scope = scope->Parent;
+    }
+
+    // search in modules
+    if (includeFunctions && bestSuggestion.Distance == INT32_MAX) {
+        for (const auto& [moduleName, module] : Modules) {
+            for (const auto& extFunc : module->ExternalFunctions()) {
+                const auto& symbolName = extFunc.Name;
+                if (checkedNames.find(symbolName) != checkedNames.end()) {
+                    continue;
+                }
+                checkedNames.insert(symbolName);
+                auto& symbolCodePoints = extFunc.NameCodePoints;
+                if (symbolCodePoints.empty()) {
+                    symbolCodePoints = calcCodePoint(symbolName);
+                }
+                if ( (int)symbolCodePoints.size() - (int)nameCodePoints.size() > MAX_DISTANCE ) {
+                    continue;
+                }
+                int distance = EditDistanceCalculator.Calc(
+                    std::span<const uint32_t>(nameCodePoints.data(), nameCodePoints.size()),
+                    std::span<const uint32_t>(symbolCodePoints.data(), symbolCodePoints.size())
+                );
+                if (distance < bestSuggestion.Distance && distance <= MAX_DISTANCE) {
+                    bestSuggestion.Name = symbolName;
+                    bestSuggestion.Distance = distance;
+                    bestSuggestion.RequiredModuleName = moduleName;
+                }
+            }
+        }
+    }
+
+    if (bestSuggestion.Distance == INT32_MAX) {
+        return std::nullopt;
+    }
+    return bestSuggestion;
 }
 
 std::expected<TSymbolId, TError> TNameResolver::Declare(const std::string& name, TExprPtr node, TScopePtr scope, TScopePtr funcScope) {

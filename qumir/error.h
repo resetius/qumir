@@ -10,9 +10,7 @@
 namespace NQumir {
 
 enum class EErrorId {
-    // existing
     UNDEFINED_IDENTIFIER,
-    ASSIGNMENT_TO_UNDEFINED_IDENTIFIER,
 
     // lower_ast specific
     WHILE_MISSING_CONDITION,
@@ -75,8 +73,7 @@ public:
 private:
     static consteval const char* GetFormat(EErrorId id) {
         switch (id) {
-        case EErrorId::UNDEFINED_IDENTIFIER: return "неопределённый идентификатор `{}` в области видимости `{}`";
-        case EErrorId::ASSIGNMENT_TO_UNDEFINED_IDENTIFIER: return "присваивание неопределённому идентификатору `{}` в области видимости `{}`";
+        case EErrorId::UNDEFINED_IDENTIFIER: return "неопределённый идентификатор `{}`";
 
         case EErrorId::WHILE_MISSING_CONDITION: return "while: условие обязательно";
         case EErrorId::WHILE_CONDITION_NOT_NUMBER: return "условие while должно быть числом";

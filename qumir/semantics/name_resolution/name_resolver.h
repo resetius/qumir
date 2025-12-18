@@ -5,6 +5,7 @@
 #include <qumir/error.h>
 #include <qumir/optional.h>
 
+#include <span>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -41,7 +42,26 @@ struct TSymbol {
     int32_t FunctionLevelIdx {-1}; // index among function-local symbols, -1 if not in function scope
     TScopeId FuncScopeId {-1}; // function scope id, -1 if not in function scope
     std::string Name;
+    std::vector<uint32_t> CodePoints;
     NAst::TExprPtr Node;
+};
+
+struct TSuggestion {
+    std::string OriginalName;
+    std::string Name;
+    std::optional<std::string> RequiredModuleName;
+    int Distance;
+
+    std::string ToString() const {
+        if (Distance == 0 && RequiredModuleName) {
+            return "\n Возможно вы забыли импортировать модуль `" + *RequiredModuleName + "',\n добавьте строку `использовать " + *RequiredModuleName + "' в начало программы.";
+        }
+        std::string result = "\n Возможно вы имели в виду `" + Name + "'";;
+        if (RequiredModuleName) {
+            result += " из модуля `" + *RequiredModuleName + "',\n добавьте строку `использовать " + *RequiredModuleName + "' в начало программы и замените `" + OriginalName + "' на `" + Name + "'.";
+        }
+        return result;
+    }
 };
 
 struct TNameResolverOptions {
@@ -61,6 +81,39 @@ struct TScope {
     bool RootLevel{false};
 };
 
+class TEditDistance {
+public:
+    template<typename T>
+    int Calc(std::span<const T> a, std::span<const T> b) {
+        int n = a.size();
+        int m = b.size();
+        DP.resize((n + 1) * (m + 1), 0);
+
+        for (int i = 0; i <= n; i++) {
+            DP[i * (m + 1) + 0] = i;
+        }
+        for (int j = 0; j <= m; j++) {
+            DP[0 * (m + 1) + j] = j;
+        }
+
+        for (int i = 1; i <= n; i++) {
+            for (int j = 1; j <= m; j++) {
+                int cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
+                DP[i * (m + 1) + j] = std::min({
+                    DP[(i - 1) * (m + 1) + j] + 1,      // deletion
+                    DP[i * (m + 1) + (j - 1)] + 1,      // insertion
+                    DP[(i - 1) * (m + 1) + (j - 1)] + cost // substitution
+                });
+            }
+        }
+
+        return DP[n * (m + 1) + m];
+    }
+
+private:
+    std::vector<int> DP;
+};
+
 class TNameResolver {
 public:
     TNameResolver(const TNameResolverOptions& options = {});
@@ -69,6 +122,8 @@ public:
     TScopePtr GetOrCreateRootScope();
 
     std::optional<TSymbolInfo> Lookup(const std::string& name, TScopeId scope) const;
+    std::optional<TSuggestion> Suggest(const std::string& name, TScopeId scope, bool includeFunctions);
+
     TSymbolId DeclareFunction(const std::string& name, NAst::TExprPtr node);
     NAst::TExprPtr GetSymbolNode(TSymbolId id) const;
     std::vector<std::pair<int, std::shared_ptr<NAst::TFunDecl>>> GetExternalFunctions();
@@ -121,6 +176,8 @@ private:
     std::vector<TScopePtr> Scopes;
 
     std::unordered_map<std::string, NRegistry::IModule*> Modules;
+
+    TEditDistance EditDistanceCalculator;
 };
 
 } // namespace NSemantics

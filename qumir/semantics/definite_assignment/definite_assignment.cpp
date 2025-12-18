@@ -59,8 +59,10 @@ std::expected<int, TError> TDefiniteAssignmentChecker::GetSymbolId(
 {
     auto symbolId = Context.Lookup(name, scopeId);
     if (!symbolId) {
+        auto suggestion = Context.Suggest(name, scopeId, /*includeFunctions=*/ true);
+        auto suggestionMsg = suggestion ? suggestion->ToString() : "";
         return std::unexpected(TError(where->Location,
-            "Идентификатор '" + name + "' не определён."));
+            "Идентификатор '" + name + "' не определён." + suggestionMsg));
     }
     return symbolId->Id;
 }
@@ -72,8 +74,10 @@ std::expected<NAst::TExprPtr, TError> TDefiniteAssignmentChecker::GetSymbolNode(
 {
     auto symbolId = Context.Lookup(name, scopeId);
     if (!symbolId) {
+        auto suggestion = Context.Suggest(name, scopeId, /*includeFunctions=*/ true);
+        auto suggestionMsg = suggestion ? suggestion->ToString() : "";
         return std::unexpected(TError(where->Location,
-            "Идентификатор '" + name + "' не определён."));
+            "Идентификатор '" + name + "' не определён." + suggestionMsg));
     }
     return Context.GetSymbolNode(TSymbolId{symbolId->Id});
 }

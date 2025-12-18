@@ -525,7 +525,9 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
                 auto ident = maybeIdent.Cast();
                 auto symbolId = context.Lookup(ident->Name, NSemantics::TScopeId{scopeId});
                 if (!symbolId) {
-                    errors.push_back(TError(ident->Location, "Идентификатор '" + ident->Name + "' не определён."));
+                    auto suggestion = context.Suggest(ident->Name, NSemantics::TScopeId{scopeId}, /*includeFunctions=*/ true);
+                    auto suggestionMsg = suggestion ? suggestion->ToString() : "";
+                    errors.push_back(TError(ident->Location, "Идентификатор '" + ident->Name + "' не определён." + suggestionMsg));
                     return node;
                 }
                 auto sym = context.GetSymbolNode(NSemantics::TSymbolId{symbolId->Id});
