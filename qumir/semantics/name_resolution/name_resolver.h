@@ -99,11 +99,13 @@ public:
         for (int i = 1; i <= n; i++) {
             for (int j = 1; j <= m; j++) {
                 int cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
-                DP[i * (m + 1) + j] = std::min({
-                    DP[(i - 1) * (m + 1) + j] + 1,      // deletion
-                    DP[i * (m + 1) + (j - 1)] + 1,      // insertion
-                    DP[(i - 1) * (m + 1) + (j - 1)] + cost // substitution
-                });
+                DP[i * (m + 1) + j] = std::min(
+                    DP[(i - 1) * (m + 1) + j] + 1, // deletion
+                    std::min(
+                        DP[i * (m + 1) + (j - 1)] + 1, // insertion
+                        DP[(i - 1) * (m + 1) + (j - 1)] + cost // substitution
+                    )
+                );
             }
         }
 
