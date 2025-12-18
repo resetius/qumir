@@ -1032,16 +1032,29 @@ function formatCompilerErrors(payload) {
   if (typeof payload !== 'string') return payload;
   const lines = payload.split(/\r?\n/);
   const blocks = [];
-  
+
   for (let i = 0; i < lines.length; i++) {
     // Check if line starts with "Error:"
     if (!/^Error:\s*/.test(lines[i])) continue;
-    
-    // Collect all lines until we find coordinates or next error
-    let errorText = lines[i].replace(/^Error:\s*/, '').trim();
+
+    const firstLine = lines[i];
+    // Check if coordinates are on the same line (single-line error)
+    const inlineCoord = /^Error:\s*(.+?)\s*@\s*Line:\s*(\d+),\s*Byte:\s*\d+,\s*Column:\s*(\d+)/.exec(firstLine);
+
+    if (inlineCoord) {
+      // Single-line error format
+      const errorText = inlineCoord[1].trim();
+      const lineNum = Number(inlineCoord[2]) || 0;
+      const colNum = Number(inlineCoord[3]) || 0;
+      blocks.push(`Строка: ${lineNum}, Колонка: ${colNum}\n  ${errorText}`);
+      continue;
+    }
+
+    // Multi-line error: collect all lines until we find coordinates
+    let errorText = firstLine.replace(/^Error:\s*/, '').trim();
     let lineNum = 0, colNum = 0;
     let j = i + 1;
-    
+
     while (j < lines.length) {
       const nextLine = lines[j];
       // Check if this line contains coordinates
@@ -1065,11 +1078,11 @@ function formatCompilerErrors(payload) {
       errorText += '\n' + nextLine.trim();
       j++;
     }
-    
+
     i = j - 1; // -1 because loop will increment
     blocks.push(`Строка: ${lineNum}, Колонка: ${colNum}\n  ${errorText}`);
   }
-  
+
   // If we detected any error lines, return the formatted blocks joined by newlines;
   // otherwise, keep the original payload.
   return blocks.length ? blocks.join('\n') : payload;
@@ -1095,8 +1108,21 @@ function parseCompilerErrors(payload) {
       continue;
     }
     
-    // Collect all lines until we find coordinates or next error
-    let errorText = lines[i].replace(/^Error:\s*/, '').trim();
+    const firstLine = lines[i];
+    // Check if coordinates are on the same line (single-line error)
+    const inlineCoord = /^Error:\s*(.+?)\s*@\s*Line:\s*(\d+),\s*Byte:\s*\d+,\s*Column:\s*(\d+)/.exec(firstLine);
+    
+    if (inlineCoord) {
+      // Single-line error format
+      const errorText = inlineCoord[1].trim();
+      const lineNum = Number(inlineCoord[2]) || 0;
+      const colNum = Number(inlineCoord[3]) || 0;
+      errs.push({ line: lineNum, col: colNum, text: errorText });
+      continue;
+    }
+    
+    // Multi-line error: collect all lines until we find coordinates
+    let errorText = firstLine.replace(/^Error:\s*/, '').trim();
     let lineNum = 0, colNum = 0;
     let j = i + 1;
     
@@ -1129,9 +1155,7 @@ function parseCompilerErrors(payload) {
   }
   
   return errs;
-}
-
-let __errorMarks = [];
+}let __errorMarks = [];
 function clearErrorHighlights() {
   if (editor && __errorMarks && __errorMarks.length) {
     for (const mk of __errorMarks) {
