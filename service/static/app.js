@@ -911,6 +911,8 @@ function setErrorsPaneContent(text) {
   if (viewer) {
     viewer.textContent = text || '';
   }
+  // Switch to Errors pane to show the content
+  setActiveIoPane('errors');
 }
 
 function initProjectsUI() {
@@ -2095,7 +2097,11 @@ function loadState() {
   const o = readPersistedValue('q_opt');
   if (o !== null && o !== undefined) $('#opt').value = o;
   const pane = getCookie(IO_PANE_COOKIE);
-  if (pane) __currentIoPane = pane;
+  if (pane) {
+    __currentIoPane = pane;
+    // Re-apply active pane after loading from cookie to ensure DOM is synced
+    setActiveIoPane(pane, { persistCookie: false });
+  }
   // Load successful runs counter
   const runsCount = getCookie('q_runs_count');
   if (runsCount !== null) {
