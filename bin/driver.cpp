@@ -114,7 +114,8 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     auto ast = std::move(expected.value());
 
     NSemantics::TNameResolver r;
-    NRegistry::SystemModule().Register(r);
+    NRegistry::SystemModule sys;
+    r.RegisterModule(&sys);
     NRegistry::TurtleModule turtle;
     r.RegisterModule(&turtle);
     NRegistry::RobotModule robot;
@@ -170,7 +171,8 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     auto ast = std::move(expected.value());
 
     NSemantics::TNameResolver r;
-    NRegistry::SystemModule().Register(r);
+    NRegistry::SystemModule sys;
+    r.RegisterModule(&sys);
     NRegistry::TurtleModule turtle;
     r.RegisterModule(&turtle);
     NRegistry::RobotModule robot;
@@ -341,7 +343,8 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     auto ast = std::move(expected.value());
 
     NSemantics::TNameResolver r;
-    NRegistry::SystemModule().Register(r);
+    NRegistry::SystemModule sys;
+    r.RegisterModule(&sys);
     NRegistry::TurtleModule turtle;
     r.RegisterModule(&turtle);
     NRegistry::RobotModule robot;
