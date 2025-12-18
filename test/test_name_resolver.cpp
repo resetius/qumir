@@ -142,6 +142,110 @@ b := 10
     }
 }
 
+TEST(EditDistance, StringIdentical) {
+    TEditDistance ed;
+    std::string a = "hello";
+    std::string b = "hello";
+    EXPECT_EQ(ed.Calc<char>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 0);
+}
+
+TEST(EditDistance, StringOneInsertion) {
+    TEditDistance ed;
+    std::string a = "hello";
+    std::string b = "helo";
+    EXPECT_EQ(ed.Calc<char>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 1);
+}
+
+TEST(EditDistance, StringOneDeletion) {
+    TEditDistance ed;
+    std::string a = "helo";
+    std::string b = "hello";
+    EXPECT_EQ(ed.Calc<char>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 1);
+}
+
+TEST(EditDistance, StringOneSubstitution) {
+    TEditDistance ed;
+    std::string a = "hello";
+    std::string b = "hallo";
+    EXPECT_EQ(ed.Calc<char>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 1);
+}
+
+TEST(EditDistance, StringMultipleOperations) {
+    TEditDistance ed;
+    std::string a = "kitten";
+    std::string b = "sitting";
+    // kitten -> sitten (substitute k->s)
+    // sitten -> sittin (substitute e->i)
+    // sittin -> sitting (insert g)
+    EXPECT_EQ(ed.Calc<char>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 3);
+}
+
+TEST(EditDistance, StringEmpty) {
+    TEditDistance ed;
+    std::string a = "hello";
+    std::string b = "";
+    EXPECT_EQ(ed.Calc<char>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 5);
+    EXPECT_EQ(ed.Calc<char>(std::span(b.data(), b.size()), std::span(a.data(), a.size())), 5);
+}
+
+TEST(EditDistance, StringBothEmpty) {
+    TEditDistance ed;
+    std::string a = "";
+    std::string b = "";
+    EXPECT_EQ(ed.Calc<char>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 0);
+}
+
+TEST(EditDistance, IntArrayIdentical) {
+    TEditDistance ed;
+    std::vector<int> a = {1, 2, 3, 4, 5};
+    std::vector<int> b = {1, 2, 3, 4, 5};
+    EXPECT_EQ(ed.Calc<int>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 0);
+}
+
+TEST(EditDistance, IntArrayOneInsertion) {
+    TEditDistance ed;
+    std::vector<int> a = {1, 2, 3, 4, 5};
+    std::vector<int> b = {1, 2, 4, 5};
+    EXPECT_EQ(ed.Calc<int>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 1);
+}
+
+TEST(EditDistance, IntArrayOneDeletion) {
+    TEditDistance ed;
+    std::vector<int> a = {1, 2, 4, 5};
+    std::vector<int> b = {1, 2, 3, 4, 5};
+    EXPECT_EQ(ed.Calc<int>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 1);
+}
+
+TEST(EditDistance, IntArrayOneSubstitution) {
+    TEditDistance ed;
+    std::vector<int> a = {1, 2, 3, 4, 5};
+    std::vector<int> b = {1, 2, 9, 4, 5};
+    EXPECT_EQ(ed.Calc<int>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 1);
+}
+
+TEST(EditDistance, IntArrayMultipleOperations) {
+    TEditDistance ed;
+    std::vector<int> a = {1, 2, 3};
+    std::vector<int> b = {4, 5, 6, 7};
+    // All elements need to be changed plus one insertion
+    EXPECT_EQ(ed.Calc<int>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 4);
+}
+
+TEST(EditDistance, IntArrayEmpty) {
+    TEditDistance ed;
+    std::vector<int> a = {1, 2, 3, 4, 5};
+    std::vector<int> b = {};
+    EXPECT_EQ(ed.Calc<int>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 5);
+    EXPECT_EQ(ed.Calc<int>(std::span(b.data(), b.size()), std::span(a.data(), a.size())), 5);
+}
+
+TEST(EditDistance, IntArrayBothEmpty) {
+    TEditDistance ed;
+    std::vector<int> a = {};
+    std::vector<int> b = {};
+    EXPECT_EQ(ed.Calc<int>(std::span(a.data(), a.size()), std::span(b.data(), b.size())), 0);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
