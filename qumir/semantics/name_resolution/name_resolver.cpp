@@ -238,6 +238,9 @@ std::optional<TSuggestion> TNameResolver::Suggest(const std::string& name, TScop
     // search in modules
     if (includeFunctions && bestSuggestion.Distance == INT32_MAX) {
         for (const auto& [moduleName, module] : Modules) {
+            if (!module) {
+                continue; // skip null module pointer
+            }
             for (const auto& extFunc : module->ExternalFunctions()) {
                 const auto& symbolName = extFunc.Name;
                 if (checkedNames.find(symbolName) != checkedNames.end()) {
@@ -374,6 +377,9 @@ void TNameResolver::PrintSymbols(std::ostream& os) const {
 }
 
 void TNameResolver::RegisterModule(NRegistry::IModule* module) {
+    if (!module) {
+        throw std::runtime_error("Cannot register null module");
+    }
     auto [it, flag] = Modules.insert({module->Name(), module});
     if (flag == false && it->second != module) {
         throw std::runtime_error("Module with conflicting name: " + module->Name());
