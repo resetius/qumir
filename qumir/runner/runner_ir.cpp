@@ -31,7 +31,8 @@ TIRRunner::TIRRunner(
     AvailableModules.push_back(std::make_shared<NRegistry::RobotModule>());
 
     for (const auto& mod : RegisteredModules) {
-        mod->Register(Resolver);
+        Resolver.RegisterModule(mod.get());
+        Resolver.ImportModule(mod->Name());
     }
     for (const auto& mod : AvailableModules) {
         Resolver.RegisterModule(mod.get());

@@ -20,7 +20,9 @@ namespace {
 // TODO: move to utils
 std::string BuildIR(NAst::TTokenStream& ts, NIR::TModule& module) {
     NSemantics::TNameResolver resolver;
-    NRegistry::SystemModule().Register(resolver);
+    NRegistry::SystemModule sys;
+    resolver.RegisterModule(&sys);
+    resolver.ImportModule(sys.Name());
 
     NAst::TParser p;
     auto parsed = p.parse(ts);

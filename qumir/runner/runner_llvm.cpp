@@ -21,7 +21,8 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     // TODO: register other modules
 
     for (const auto& mod : RegisteredModules) {
-        mod->Register(Resolver);
+        Resolver.RegisterModule(mod.get());
+        Resolver.ImportModule(mod->Name());
     }
 }
 

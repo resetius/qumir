@@ -22,7 +22,6 @@ class IModule {
 public:
     virtual ~IModule() = default;
     virtual const std::string& Name() const = 0;
-    virtual void Register(NSemantics::TNameResolver& ctx);
     virtual const std::vector<TExternalFunction>& ExternalFunctions() const = 0;
 };
 

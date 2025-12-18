@@ -80,7 +80,9 @@ std::string BuildAst(NAst::TTokenStream& ts) {
         return "Error: " + parsed.error().ToString() + "\n";
     }
     NSemantics::TNameResolver nr;
-    NRegistry::SystemModule().Register(nr);
+    NRegistry::SystemModule sys;
+    nr.RegisterModule(&sys);
+    nr.ImportModule(sys.Name());
 
     auto expr = parsed.value();
     auto error = NTransform::Pipeline(expr, nr);
@@ -96,7 +98,9 @@ std::string BuildAst(NAst::TTokenStream& ts) {
 // TODO: move to utils
 std::string BuildIR(NAst::TTokenStream& ts) {
     NSemantics::TNameResolver resolver;
-    NRegistry::SystemModule().Register(resolver);
+    NRegistry::SystemModule sys;
+    resolver.RegisterModule(&sys);
+    resolver.ImportModule(sys.Name());
 
     NAst::TParser p;
     auto parsed = p.parse(ts);
