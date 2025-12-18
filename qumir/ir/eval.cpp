@@ -84,7 +84,7 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
         .Name = function.Name,
     });
 
-    static constexpr size_t MaxStackSize = 1024 * 1024 * 1024; // 1 GB
+    static constexpr size_t MaxStackSize = 128 * 1024 * 1024; // 128M
 
     Runtime.Regs.resize(execFunc->MaxTmpIdx + 1, 0);
     Runtime.Stack.reserve(MaxStackSize);
