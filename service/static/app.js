@@ -1031,18 +1031,45 @@ function collectErrorText(lines, startIdx, initialText = '') {
 function formatCompilerErrors(payload) {
   if (typeof payload !== 'string') return payload;
   const lines = payload.split(/\r?\n/);
-  const re = /^Error:\s*(.+?)\s*@\s*Line:\s*(\d+),\s*Byte:\s*\d+,\s*Column:\s*(\d+)/;
   const blocks = [];
+  
   for (let i = 0; i < lines.length; i++) {
-    const m = re.exec(lines[i]);
-    if (!m) continue;
-    const lineNum = Number(m[2]) || 0;
-    const colNum = Number(m[3]) || 0;
-    // Collect subsequent lines until next error or end
-    const { text, nextIdx } = collectErrorText(lines, i + 1, m[1]);
-    i = nextIdx - 1; // -1 because loop will increment
-    blocks.push(`Строка: ${lineNum}, Колонка: ${colNum}\n  ${text}`);
+    // Check if line starts with "Error:"
+    if (!/^Error:\s*/.test(lines[i])) continue;
+    
+    // Collect all lines until we find coordinates or next error
+    let errorText = lines[i].replace(/^Error:\s*/, '').trim();
+    let lineNum = 0, colNum = 0;
+    let j = i + 1;
+    
+    while (j < lines.length) {
+      const nextLine = lines[j];
+      // Check if this line contains coordinates
+      const coordMatch = /\s*@\s*Line:\s*(\d+),\s*Byte:\s*\d+,\s*Column:\s*(\d+)/.exec(nextLine);
+      if (coordMatch) {
+        lineNum = Number(coordMatch[1]) || 0;
+        colNum = Number(coordMatch[2]) || 0;
+        // Extract text before @ if any
+        const textBefore = nextLine.substring(0, coordMatch.index).trim();
+        if (textBefore) {
+          errorText += '\n' + textBefore;
+        }
+        j++;
+        break;
+      }
+      // Stop if we hit another error line
+      if (/^Error:\s*/.test(nextLine) || /^Строка:\s*\d+/.test(nextLine)) {
+        break;
+      }
+      // Append continuation line
+      errorText += '\n' + nextLine.trim();
+      j++;
+    }
+    
+    i = j - 1; // -1 because loop will increment
+    blocks.push(`Строка: ${lineNum}, Колонка: ${colNum}\n  ${errorText}`);
   }
+  
   // If we detected any error lines, return the formatted blocks joined by newlines;
   // otherwise, keep the original payload.
   return blocks.length ? blocks.join('\n') : payload;
@@ -1053,26 +1080,54 @@ function parseCompilerErrors(payload) {
   if (typeof payload !== 'string') return [];
   const lines = payload.split(/\r?\n/);
   const errs = [];
-  const reA = /^Error:\s*(.+?)\s*@\s*Line:\s*(\d+),\s*Byte:\s*\d+,\s*Column:\s*(\d+)/;
+  
   for (let i = 0; i < lines.length; i++) {
-    const a = reA.exec(lines[i]);
-    if (a) {
-      const lineNum = Number(a[2]) || 0;
-      const colNum = Number(a[3]) || 0;
-      // Collect subsequent lines until next error
-      const { text, nextIdx } = collectErrorText(lines, i + 1, a[1]);
-      i = nextIdx - 1;
-      errs.push({ line: lineNum, col: colNum, text });
+    // Check if line starts with "Error:"
+    if (!/^Error:\s*/.test(lines[i])) {
+      // Also check for already formatted errors
+      const head = /^Строка:\s*(\d+)\s*,\s*Колонка:\s*(\d+)/.exec(lines[i]);
+      if (head && i + 1 < lines.length) {
+        const bodyLine = lines[i + 1] || '';
+        const text = bodyLine.replace(/^\s+/, '');
+        errs.push({ line: Number(head[1]) || 0, col: Number(head[2]) || 0, text });
+        i++; // Skip the body line
+      }
       continue;
     }
-    const head = /^Строка:\s*(\d+)\s*,\s*Колонка:\s*(\d+)/.exec(lines[i]);
-    if (head && i + 1 < lines.length) {
-      const bodyLine = lines[i + 1] || '';
-      const text = bodyLine.replace(/^\s+/, '');
-      errs.push({ line: Number(head[1]) || 0, col: Number(head[2]) || 0, text });
-      i++; // Skip the body line
+    
+    // Collect all lines until we find coordinates or next error
+    let errorText = lines[i].replace(/^Error:\s*/, '').trim();
+    let lineNum = 0, colNum = 0;
+    let j = i + 1;
+    
+    while (j < lines.length) {
+      const nextLine = lines[j];
+      // Check if this line contains coordinates
+      const coordMatch = /\s*@\s*Line:\s*(\d+),\s*Byte:\s*\d+,\s*Column:\s*(\d+)/.exec(nextLine);
+      if (coordMatch) {
+        lineNum = Number(coordMatch[1]) || 0;
+        colNum = Number(coordMatch[2]) || 0;
+        // Extract text before @ if any
+        const textBefore = nextLine.substring(0, coordMatch.index).trim();
+        if (textBefore) {
+          errorText += '\n' + textBefore;
+        }
+        j++;
+        break;
+      }
+      // Stop if we hit another error line
+      if (/^Error:\s*/.test(nextLine) || /^Строка:\s*\d+/.test(nextLine)) {
+        break;
+      }
+      // Append continuation line
+      errorText += '\n' + nextLine.trim();
+      j++;
     }
+    
+    i = j - 1;
+    errs.push({ line: lineNum, col: colNum, text: errorText });
   }
+  
   return errs;
 }
 
