@@ -5,14 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Документация — Qumir</title>
   <link rel="stylesheet" href="styles.css?v=20251106">
+  <!-- KaTeX for LaTeX math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
   <style>
     /* Reset some styles from styles.css that break docs layout */
-    html { overflow-y: scroll; height: 100vh; }
+    html { overflow: hidden; height: 100vh; }
     body {
       display: flex;
       flex-direction: column;
       min-height: 100vh;
       height: 100vh;
+      overflow: hidden;
     }
     .docs-page-header {
       display: flex;
@@ -21,6 +27,7 @@
       padding: 12px 20px;
       background: #1e1e1e;
       border-bottom: 1px solid #333;
+      flex-shrink: 0;
     }
     .docs-page-header h1 {
       margin: 0;
@@ -39,14 +46,16 @@
       display: flex;
       flex: 1 1 0%;
       min-height: 0;
+      overflow: hidden;
     }
     .docs-page-sidebar {
       width: 220px;
       min-width: 180px;
       background: #1b1b1b;
       border-right: 1px solid #333;
-      /* overflow-y: auto; */
+      overflow-y: auto;
       padding: 16px 0;
+      flex-shrink: 0;
     }
     .docs-page-sidebar a {
       display: block;
@@ -82,6 +91,7 @@
       text-align: center;
       color: #888;
       font-size: 12px;
+      flex-shrink: 0;
     }
     .docs-page-footer a {
       color: #6cb6ff;
@@ -174,6 +184,7 @@
       <a href="#" data-doc="turtle.md">Исполнитель Черепаха</a>
       <a href="#" data-doc="robot.md">Исполнитель Робот</a>
       <a href="#" data-doc="examples.md">Примеры программ</a>
+      <a href="#" data-doc="advanced_examples.md">Продвинутые примеры</a>
     </nav>
     <main class="docs-page-main" id="docs-main">
       <div class="docs-loading">Загрузка...</div>
@@ -234,6 +245,15 @@
         if (typeof marked !== 'undefined') {
           marked.setOptions({ breaks: false, gfm: true, headerIds: true, mangle: false });
           main.innerHTML = marked.parse(md);
+          // Render LaTeX formulas with KaTeX after markdown is loaded
+          if (window.renderMathInElement) {
+            renderMathInElement(main, {
+              delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+              ]
+            });
+          }
         } else {
           main.innerHTML = '<pre>' + md.replace(/</g, '&lt;') + '</pre>';
         }
@@ -245,6 +265,21 @@
             link.addEventListener('click', e => {
               e.preventDefault();
               loadDoc(href);
+            });
+          }
+          // Handle anchor links (#...) inside loaded markdown
+          if (href && href.startsWith('#')) {
+            link.addEventListener('click', e => {
+              e.preventDefault();
+              const anchor = href.slice(1);
+              const el = main.querySelector(`[id='${anchor}']`);
+              if (el) {
+                // Scroll within main container, not the whole page
+                const mainRect = main.getBoundingClientRect();
+                const elRect = el.getBoundingClientRect();
+                const scrollTop = main.scrollTop + (elRect.top - mainRect.top);
+                main.scrollTo({ top: scrollTop, behavior: 'smooth' });
+              }
             });
           }
         });
