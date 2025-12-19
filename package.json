@@ -3,5 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Qumir language compiler and runtime",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "marked": "^17.0.1"
+  }
 }
