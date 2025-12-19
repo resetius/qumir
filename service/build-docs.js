@@ -51,8 +51,22 @@ function buildOne(mdFile) {
   const markdown = fs.readFileSync(mdPath, 'utf8');
   const content = marked.parse(markdown);
 
+  // Заголовки для страниц
+  const titles = {
+    'index.md': 'Документация — Qumir',
+    'syntax.md': 'Документация — Qumir (Синтаксис языка)',
+    'interpreter.md': 'Документация — Qumir (Интерпретатор)',
+    'compiler.md': 'Документация — Qumir (Компилятор)',
+    'turtle.md': 'Документация — Qumir (Исполнитель Черепаха)',
+    'robot.md': 'Документация — Qumir (Исполнитель Робот)',
+    'examples.md': 'Документация — Qumir (Примеры программ)'
+  };
+  const pageTitle = titles[mdFile] || `Документация — Qumir (${mdFile.replace(/\.md$/, '')})`;
+
   // Remove all sidebars and SPA JS from template, then insert one sidebar
   let outHtml = TEMPLATE
+    // Set per-page <title>
+    .replace(/<title>.*?<\/title>/, `<title>${pageTitle}</title>`)
     // Remove all nav.docs-page-sidebar blocks
     .replace(/<nav class="docs-page-sidebar"[^>]*>[\s\S]*?<\/nav>/g, '')
     // Remove SPA JS block
