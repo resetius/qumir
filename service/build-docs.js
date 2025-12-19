@@ -77,6 +77,10 @@ function buildOne(mdFile) {
   outHtml = outHtml.replace(/(<div class="docs-page-layout">\s*)/, `$1${renderSidebar(mdFile)}\n`);
   // Insert main content
   outHtml = outHtml.replace(MAIN_RE, `<main class="docs-page-main" id="docs-main">${content}</main>`);
+  // Ensure metrika.local.js is present after </footer>
+  if (!outHtml.includes('metrika.local.js')) {
+    outHtml = outHtml.replace(/(<\/footer>)/, `$1\n  <script src="metrika.local.js"></script>`);
+  }
   fs.writeFileSync(htmlPath, outHtml, 'utf8');
   console.log('Built:', htmlPath);
 }
