@@ -95,7 +95,7 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
         return res;
     } catch (const std::exception& e) {
         // TODO: free resources?
-        return std::unexpected(TError({}, std::string("runtime error: ") + e.what()));
+        return std::unexpected(TError(std::string("runtime error: ") + e.what()));
     }
 }
 

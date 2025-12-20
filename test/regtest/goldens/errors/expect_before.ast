@@ -1,0 +1,18 @@
+(Block:<Void>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Call:<Void>
+        ($ф:<Fun (Int) -> Void>)
+        (10:<Int>))))
+  (FunDecl $ф ($й):<Fun (Int) -> Void>
+    (Block:<Void>
+      (Call:<Void>
+        ($__ensure:<Fun (Bool, String) -> Void>)
+        (<:<Bool>
+          ($й:<Int>)
+          (10:<Int>))
+        ("(<\n  ($й\n)  (10:<Int>)) @ Line: 7, Byte: 4, Column: 4":<String>))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("ok":<String>))))))

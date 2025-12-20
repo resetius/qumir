@@ -560,6 +560,8 @@ TAstTask fun_decl(TWrappedTokenStream& stream) {
             std::move(maybeBlock.Cast()),
             returnType);
 
+        funDecl->LastAssert = assertAfter;
+
         std::vector<TTypePtr> paramTypes;
         for (auto& a : funDecl->Params) {
             paramTypes.push_back(a->Type);
