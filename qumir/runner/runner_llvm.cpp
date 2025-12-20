@@ -100,12 +100,17 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
 
     // Run via LLVM JIT
     NCodeGen::TLlvmRunner runner;
-    std::string runErr;
-    auto res = runner.Run(std::move(artifacts), mainFun->Name, &runErr, mainFun->ReturnTypeIsString);
-    if (!runErr.empty()) {
-        return std::unexpected(TError({}, std::string("llvm run error: ") + runErr));
+    try {
+        std::string runErr;
+        auto res = runner.Run(std::move(artifacts), mainFun->Name, &runErr, mainFun->ReturnTypeIsString);
+        if (!runErr.empty()) {
+            return std::unexpected(TError({}, std::string("llvm run error: ") + runErr));
+        }
+        return res;
+    } catch (const std::exception& e) {
+        // TODO: free resources?
+        return std::unexpected(TError({}, std::string("runtime error: ") + e.what()));
     }
-    return res;
 }
 
 } // namespace NQumir
