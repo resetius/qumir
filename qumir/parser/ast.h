@@ -468,6 +468,7 @@ struct TFunDecl : TExpr {
     std::string MangledName;
     std::vector<TParam> Params;
     std::shared_ptr<TBlockExpr> Body;
+    std::shared_ptr<TExpr> LastAssert = nullptr; // last assert in function body, executed before return
     void* Ptr = nullptr; // function pointer for built-in functions
     using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
     TPacked Packed = nullptr; // packed thunk for built-in functions
@@ -487,11 +488,19 @@ struct TFunDecl : TExpr {
     }
 
     std::vector<TExprPtr> Children() const override {
-        return { Body };
+        if (LastAssert == nullptr) {
+            return { Body };
+        } else {
+            return { Body, LastAssert };
+        }
     }
 
     std::vector<TExprPtr*> MutableChildren() override {
-        return { reinterpret_cast<TExprPtr*>(&Body) };
+        if (LastAssert == nullptr) {
+            return { reinterpret_cast<TExprPtr*>(&Body) };
+        } else {
+            return { reinterpret_cast<TExprPtr*>(&Body), reinterpret_cast<TExprPtr*>(&LastAssert) };
+        }
     }
 
     const std::string_view NodeName() const override {

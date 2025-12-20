@@ -52,6 +52,7 @@ std::expected<bool, TError> PreNameResolutionTransform(NAst::TExprPtr& expr)
                 } else {
                     oss << "<empty>";
                 }
+                oss << " @ " << assertStmt->Location.ToString();
                 std::vector<NAst::TExprPtr> args;
                 args.push_back(assertStmt->Expr);
                 args.push_back(std::make_shared<NAst::TStringLiteralExpr>(assertStmt->Location, oss.str()));

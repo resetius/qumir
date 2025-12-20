@@ -109,7 +109,7 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
         return res;
     } catch (const std::exception& e) {
         // TODO: free resources?
-        return std::unexpected(TError({}, std::string("runtime error: ") + e.what()));
+        return std::unexpected(TError(std::string("runtime error: ") + e.what()));
     }
 }
 

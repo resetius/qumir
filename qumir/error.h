@@ -131,6 +131,10 @@ private:
 
 class TError : public std::exception {
 public:
+    TError(const std::string& message)
+        : Msg(message)
+    { }
+
     TError(TLocation loc, const std::string& message)
         : Location(loc)
         , Msg(message)
@@ -142,7 +146,7 @@ public:
         if (auto e = dynamic_cast<const TError*>(&ex)) {
             // If wrapping an existing parser error at the same location with no message,
             // flatten to avoid duplicate empty frames.
-            if (e->Location.Line == Location.Line && e->Location.Column == Location.Column && e->Msg.empty()) {
+            if (e->Location && e->Location->Line == Location->Line && e->Location->Column == Location->Column && e->Msg.empty()) {
                 Msg = e->Msg; // likely empty
                 Children = e->Children;
             } else {
@@ -175,7 +179,7 @@ private:
     std::string ToString(int indent) const;
 
     std::string Msg;
-    TLocation Location;
+    std::optional<TLocation> Location;
     std::list<TError> Children;
 };
 

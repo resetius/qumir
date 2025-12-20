@@ -829,6 +829,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         // Materialize final return block and emit single ret there.
         Builder.NewBlock(endLabel);
+        if (fun->LastAssert) {
+            co_await Lower(fun->LastAssert, TBlockScope {
+                .FuncIdx = funcIdx,
+                .Id = NSemantics::TScopeId{funScope},
+                .BreakLabel = std::nullopt,
+                .ContinueLabel = std::nullopt
+            });
+        }
         if (!NAst::TMaybeType<NAst::TVoidType>(fun->RetType)) {
             // return value = lowered IdentExpr named '$$return' in function scope
             auto returnVar = co_await LoadVar("$$return", TBlockScope {

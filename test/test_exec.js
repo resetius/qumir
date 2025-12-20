@@ -588,6 +588,10 @@ async function runAll() {
       if (printOutput) log('[SKIP]', caseBase, '(disable_exec)');
       continue;
     }
+    if (firstLine.includes('disable_jsexec')) {
+      if (printOutput) log('[SKIP]', caseBase, '(disable_jsexec)');
+      continue;
+    }
     const wasmPath = compileCase(compiler, caseBase);
     const code = readAll(srcPath);
     const { type: algType, name: algName } = parseAlgHeader(code);
@@ -607,7 +611,7 @@ async function runAll() {
       returnType: exec.returnType,
       algType
     });
-    let gotStdOut = exec.stdout || '';
+    let gotStdOut = exec.stdout || exec.message || '';
 
     // Read expected return early so we can use it for type-specific normalization
     let expRet = fs.existsSync(goldenResultPath) ? readAll(goldenResultPath) : null;
