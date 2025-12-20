@@ -532,16 +532,15 @@ TAstTask fun_decl(TWrappedTokenStream& stream) {
         // optional EOL after 'алг' or after return type
         next = stream.Next();
     }
-    if (isOp(next, EOperator::Eol)) {
-        // optional EOL after 'алг' or after return type
-        next = stream.Next();
-    }
 
     if (!isKeyword(next, EKeyword::Begin)) {
         co_return TError(next.Location, "ожидалось 'нач' после заголовка функции");
     }
 
     std::vector<TExprPtr> bodyStmts;
+    if (assertBefore) {
+        bodyStmts.push_back(assertBefore);
+    }
 
     if (!TMaybeType<TVoidType>(returnType)) {
         bodyStmts.push_back(std::make_shared<TVarStmt>(next.Location, "$$return", returnType));

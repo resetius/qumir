@@ -1,5 +1,6 @@
 #include "runner_ir.h"
 
+#include <exception>
 #include <qumir/parser/lexer.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
@@ -89,9 +90,13 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     }
 
     // Interpret
-    auto res = Interpreter.Eval(*mainFun, {}, TInterpreter::TOptions{.PrintByteCode = Options.PrintByteCode});
-
-    return res;
+    try {
+        auto res = Interpreter.Eval(*mainFun, {}, TInterpreter::TOptions{.PrintByteCode = Options.PrintByteCode});
+        return res;
+    } catch (const std::exception& e) {
+        // TODO: free resources?
+        return std::unexpected(TError({}, std::string("runtime error: ") + e.what()));
+    }
 }
 
 } // namespace NQumir
