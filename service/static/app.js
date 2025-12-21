@@ -1249,7 +1249,10 @@ async function show(mode) {
     const data = await api(endpoint, { code, O }, bin, signal);
     if (bin) {
       $('#output').textContent = hexdump(data);
-      clearErrorHighlights();
+      // Don't clear runtime errors (they were set by runWasm)
+      if (!window.__hasRuntimeErrors) {
+        clearErrorHighlights();
+      }
       // Don't set errors pane here - will be set in runWasm after execution
       if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(false);
     } else {
@@ -1259,7 +1262,10 @@ async function show(mode) {
       if (errs.length) {
         addErrorHighlights(errs);
       } else {
-        clearErrorHighlights();
+        // Don't clear runtime errors
+        if (!window.__hasRuntimeErrors) {
+          clearErrorHighlights();
+        }
       }
       // Only show compilation errors, success will be shown after execution in runWasm
       if (errs.length) {
@@ -1876,6 +1882,7 @@ async function runWasm() {
   const code = getCode();
   const { type: algType } = parseAlgHeader(code);
   const O = $('#opt').value;
+  window.__hasRuntimeErrors = false;
   try {
     const bytes = await api('/api/compile-wasm', { code, O }, true);
     const mathEnv = await import('./runtime/math.js');
@@ -2088,39 +2095,48 @@ async function runWasm() {
     }
     // ========================================
   } catch (e) {
-    // For robot errors, don't show immediately - let animation play first
+    const errMsg = e.message || String(e);
+
+    // Parse error for line number: "@ Line: 8, Byte: 4, Column: 4"
+    const lineMatch = errMsg.match(/@\s*Line:\s*(\d+)/i);
+    let lineNum = null;
+    if (lineMatch) {
+      lineNum = parseInt(lineMatch[1], 10);
+    }
+
+    // Show error in errors pane (not stdout)
+    setErrorsPaneContent(errMsg);
+    setActiveIoPane('errors');
+
+    // If we have a line number, highlight it like compilation errors
+    if (lineNum !== null && lineNum > 0) {
+      const errors = [{
+        line: lineNum,
+        col: 0,
+        text: errMsg
+      }];
+      addErrorHighlights(errors);
+      window.__hasRuntimeErrors = true;
+    }    // For robot errors, handle animation
     if (__compilerOutputMode === 'robot' && __robotModule) {
-      // Check animation settings
       const animEnabled = getCookie('q_robot_anim') !== '0';
       const hasHistory = typeof __robotModule.__hasHistory === 'function' && __robotModule.__hasHistory();
       const historyLen = typeof __robotModule.__getHistoryLength === 'function' ? __robotModule.__getHistoryLength() : 0;
 
       if (animEnabled && hasHistory && historyLen > 1) {
-        // Set render callback and replay with animation
         if (typeof __robotModule.__setRenderCallback === 'function') {
           __robotModule.__setRenderCallback(renderRobotField);
         }
-        // Apply animation speed
         const speedVal = getCookie('q_robot_speed');
         if (typeof __robotModule.__setAnimationDelay === 'function') {
           __robotModule.__setAnimationDelay(300 - parseInt(speedVal || '150', 10));
         }
-        const stdoutEl = $('#stdout');
-        stdoutEl.textContent = ''; // Clear while animating
-        __robotModule.__replayHistory((deferredError) => {
-          // Animation complete - show the error
-          stdoutEl.textContent = deferredError || e.message;
-          stdoutEl.classList.add('error');
+        __robotModule.__replayHistory(() => {
+          // Animation complete - error already shown in errors pane
         });
       } else {
-        // No animation - show error immediately and render final state
-        $('#stdout').textContent = e.message;
-        $('#stdout').classList.add('error');
         renderRobotField();
       }
-    } else {
-      $('#stdout').textContent = e.message;
-      $('#stdout').classList.add('error');
     }
   }
 }
