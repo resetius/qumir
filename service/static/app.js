@@ -1231,7 +1231,7 @@ function addErrorHighlights(errors) {
   }
 }
 
-async function show(mode) {
+async function show(mode, { clearErrorsOnSuccess = true } = {}) {
   const code = getCode();
   const O = $('#opt').value;
   const map = {
@@ -1261,15 +1261,17 @@ async function show(mode) {
       const errs = parseCompilerErrors(data);
       if (errs.length) {
         addErrorHighlights(errs);
+        // Show compilation errors
+        setErrorsPaneContent(formatted);
       } else {
         // Don't clear runtime errors
         if (!window.__hasRuntimeErrors) {
           clearErrorHighlights();
         }
-      }
-      // Only show compilation errors, success will be shown after execution in runWasm
-      if (errs.length) {
-        setErrorsPaneContent(formatted);
+        // Clear errors pane on successful compilation only if explicitly requested
+        if (clearErrorsOnSuccess) {
+          setErrorsPaneContent('Успешно');
+        }
       }
       if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(errs.length > 0);
     }
@@ -2999,7 +3001,7 @@ $('#btn-run').addEventListener('click', async () => {
   }
 
   await runWasm();
-  show($('#view').value);
+  show($('#view').value, { clearErrorsOnSuccess: false });
 });
 
 // Fullscreen viewer for outputs (stdout/output)
