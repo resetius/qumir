@@ -70,10 +70,25 @@ function buildOne(mdFile) {
   };
   const pageTitle = titles[mdFile] || `Документация — Qumir (${mdFile.replace(/\.md$/, '')})`;
 
+  // Описания для страниц (meta description)
+  const descriptions = {
+    'index.md': 'Полная документация по языку программирования КуМир: синтаксис, компилятор, интерпретатор, исполнители Черепаха и Робот. Примеры программ и руководства.',
+    'syntax.md': 'Подробное описание синтаксиса языка КуМир: переменные, типы данных, операторы, функции и алгоритмы. Руководство по программированию на КуМир.',
+    'interpreter.md': 'Интерпретатор КуМир: установка, использование, режимы работы. Запуск программ на КуМир через интерпретатор.',
+    'compiler.md': 'Компилятор КуМир: компиляция в WebAssembly, оптимизация, генерация кода. Использование компилятора для создания исполняемых программ.',
+    'turtle.md': 'Исполнитель Черепаха в КуМир: команды управления, рисование графики, создание фракталов и геометрических фигур.',
+    'robot.md': 'Исполнитель Робот в КуМир: команды управления, решение задач на лабиринты, алгоритмы обхода и поиска путей.',
+    'examples.md': 'Примеры программ на КуМир: алгоритмы сортировки, математические вычисления, работа с черепахой и роботом.',
+    'advanced_examples.md': 'Продвинутые примеры программирования на КуМир: сложные алгоритмы, численные методы, машинное обучение, фрактальная графика.'
+  };
+  const pageDescription = descriptions[mdFile] || `Документация по ${mdFile.replace(/\.md$/, '')} — язык программирования КуМир.`;
+
   // Remove all sidebars and SPA JS from template, then insert one sidebar
   let outHtml = TEMPLATE
     // Set per-page <title>
     .replace(/<title>.*?<\/title>/, `<title>${pageTitle}</title>`)
+    // Set per-page <meta name="description">
+    .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${pageDescription}">`)
     // Remove all nav.docs-page-sidebar blocks
     .replace(/<nav class="docs-page-sidebar"[^>]*>[\s\S]*?<\/nav>/g, '')
     // Remove only the inline SPA JS block (not external scripts)
