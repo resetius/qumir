@@ -57,6 +57,9 @@ function buildOne(mdFile) {
   });
   const content = marked.parse(markdown);
 
+  // Replace .md links with .html links in the generated content
+  const contentWithFixedLinks = content.replace(/href="([^"]+)\.md"/g, 'href="$1.html"');
+
   // Заголовки для страниц
   const titles = {
     'index.md': 'Документация — Qumir',
@@ -98,7 +101,7 @@ function buildOne(mdFile) {
   // Insert sidebar before <main>
   outHtml = outHtml.replace(/(<div class="docs-page-layout">\s*)/, `$1${renderSidebar(mdFile)}\n`);
   // Insert main content
-  outHtml = outHtml.replace(MAIN_RE, `<main class="docs-page-main" id="docs-main">${content}</main>`);
+  outHtml = outHtml.replace(MAIN_RE, `<main class="docs-page-main" id="docs-main">${contentWithFixedLinks}</main>`);
   // Ensure metrika.local.js is present after </footer>
   if (!outHtml.includes('metrika.local.js')) {
     outHtml = outHtml.replace(/(<\/footer>)/, `$1\n  <script src="/metrika.local.js"></script>`);
