@@ -18,6 +18,17 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Парсинг аргументов командной строки
+const args = process.argv.slice(2);
+let canonicalPrefix = null;
+
+for (const arg of args) {
+  if (arg.startsWith('--canonical_prefix=')) {
+    canonicalPrefix = arg.split('=')[1];
+    break;
+  }
+}
+
 // Папка с markdown-файлами
 const DOCS_SRC = path.join(__dirname, '../docs/ru');
 // Папка для готовых html
@@ -105,6 +116,11 @@ function buildOne(mdFile) {
   // Ensure metrika.local.js is present after </footer>
   if (!outHtml.includes('metrika.local.js')) {
     outHtml = outHtml.replace(/(<\/footer>)/, `$1\n  <script src="/metrika.local.js"></script>`);
+  }
+  // Add canonical link if canonicalPrefix is provided
+  if (canonicalPrefix) {
+    const canonicalUrl = `${canonicalPrefix}/docs-static/${htmlFile}`;
+    outHtml = outHtml.replace(/<\/head>/, `  <link rel="canonical" href="${canonicalUrl}">\n</head>`);
   }
   // Add KaTeX auto-render script for static pages (after body content)
   const scriptBlock = '  <script>\n' +
