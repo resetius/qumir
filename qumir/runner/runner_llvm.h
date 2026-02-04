@@ -46,6 +46,7 @@ private:
     std::unordered_set<int> PrintedLLVMChunks;
 
     std::vector<std::shared_ptr<NRegistry::IModule>> RegisteredModules;
+    std::vector<std::shared_ptr<NRegistry::IModule>> AvailableModules;
 };
 
 } // namespace NQumir

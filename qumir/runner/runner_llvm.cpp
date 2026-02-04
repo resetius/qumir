@@ -3,6 +3,9 @@
 #include <qumir/parser/lexer.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
+#include <qumir/modules/turtle/turtle.h>
+#include <qumir/modules/robot/robot.h>
+#include <qumir/modules/drawer/drawer.h>
 #include <qumir/ir/passes/transforms/pipeline.h>
 
 #include <iostream>
@@ -20,9 +23,16 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     RegisteredModules.push_back(std::make_shared<NRegistry::SystemModule>());
     // TODO: register other modules
 
+    AvailableModules.push_back(std::make_shared<NRegistry::TurtleModule>());
+    AvailableModules.push_back(std::make_shared<NRegistry::RobotModule>());
+    AvailableModules.push_back(std::make_shared<NRegistry::DrawerModule>());
+
     for (const auto& mod : RegisteredModules) {
         Resolver.RegisterModule(mod.get());
         Resolver.ImportModule(mod->Name());
+    }
+    for (const auto& mod : AvailableModules) {
+        Resolver.RegisterModule(mod.get());
     }
 }
 

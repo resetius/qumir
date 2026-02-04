@@ -5,6 +5,8 @@ add_library(qumir
     modules/robot/robot.cpp
     modules/turtle/turtle.h
     modules/turtle/turtle.cpp
+    modules/drawer/drawer.h
+    modules/drawer/drawer.cpp
     modules/module.h
     modules/module.cpp
     parser/ast.h
