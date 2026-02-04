@@ -14,6 +14,8 @@ let __turtleToggle = null;
 let __turtleModule = null;
 let __robotModule = null;
 let __robotCanvas = null;
+let __drawerModule = null;
+let __drawerCanvas = null;
 let __ioBound = false;
 const IO_PANE_COOKIE = 'q_io_pane';
 let __ioFiles = [];
@@ -1624,6 +1626,78 @@ function hideRobotUI() {
   hideOutputPane();
 }
 
+// Drawer UI functions
+function ensureDrawerUI() {
+  showOutputPane();
+  const out = document.getElementById('output');
+  if (!out) return;
+
+  // In non-dev mode, automatically switch to drawer view
+  const isDevMode = document.body.classList.contains('dev-mode');
+  if (!isDevMode) {
+    setCompilerOutputMode('drawer');
+  }
+
+  // Toggle UI (radio buttons)
+  if (!__turtleToggle) {
+    const ctr = document.createElement('div');
+    ctr.id = 'output-mode';
+    ctr.className = 'output-mode';
+    ctr.style.margin = '6px 0';
+    ctr.style.display = 'flex';
+    ctr.style.gap = '12px';
+    out.parentNode.insertBefore(ctr, out);
+    __turtleToggle = ctr;
+  }
+
+  // Rebuild options for drawer mode
+  __turtleToggle.innerHTML = '';
+  const makeOpt = (label, value) => {
+    const lab = document.createElement('label');
+    lab.style.cursor = 'pointer';
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'q-out-mode';
+    input.value = value;
+    input.style.marginRight = '6px';
+    input.addEventListener('change', () => { if (input.checked) setCompilerOutputMode(value); });
+    lab.appendChild(input);
+    lab.appendChild(document.createTextNode(label));
+    return lab;
+  };
+  __turtleToggle.appendChild(makeOpt('Текст', 'text'));
+  __turtleToggle.appendChild(makeOpt('Чертежник', 'drawer'));
+
+  __turtleToggle.style.display = '';
+  // Sync radios with current mode or saved cookie
+  const saved = getCookie('q_out_mode');
+  const targetMode = (saved === 'drawer') ? 'drawer' : __compilerOutputMode;
+  const radios = __turtleToggle.querySelectorAll('input[name="q-out-mode"]');
+  radios.forEach(r => { r.checked = (r.value === targetMode); });
+
+  if (!__drawerCanvas) {
+    const cnv = document.createElement('canvas');
+    cnv.id = 'drawer-canvas';
+    cnv.style.display = 'none';
+    cnv.style.width = '100%';
+    cnv.style.height = '100%';
+    cnv.style.background = '#fff';
+    cnv.style.border = '1px solid #2b2b2b44';
+    cnv.style.borderRadius = '4px';
+    out.parentNode.insertBefore(cnv, out.nextSibling);
+    __drawerCanvas = cnv;
+  }
+}
+
+function hideDrawerUI() {
+  if (__drawerCanvas) __drawerCanvas.style.display = 'none';
+  // Also hide toggle and restore text output
+  if (__turtleToggle) __turtleToggle.style.display = 'none';
+  const out = document.getElementById('output');
+  if (out) out.style.display = '';
+  hideOutputPane();
+}
+
 function renderRobotField() {
   if (!__robotCanvas || !__robotModule || !__robotModule.field) return;
 
@@ -1778,13 +1852,14 @@ function renderRobotField() {
 }
 
 function setCompilerOutputMode(mode) {
-  __compilerOutputMode = (mode === 'turtle' || mode === 'robot') ? mode : 'text';
+  __compilerOutputMode = (mode === 'turtle' || mode === 'robot' || mode === 'drawer') ? mode : 'text';
   setCookie('q_out_mode', __compilerOutputMode);
   const out = document.getElementById('output');
 
   // Hide all special canvases first
   if (__turtleCanvas) __turtleCanvas.style.display = 'none';
   if (__robotCanvas) __robotCanvas.style.display = 'none';
+  if (__drawerCanvas) __drawerCanvas.style.display = 'none';
 
   if (__compilerOutputMode === 'turtle') {
     if (out) out.style.display = 'none';
@@ -1794,6 +1869,10 @@ function setCompilerOutputMode(mode) {
     if (out) out.style.display = 'none';
     if (__robotCanvas) __robotCanvas.style.display = '';
     renderRobotField();
+  } else if (__compilerOutputMode === 'drawer') {
+    if (out) out.style.display = 'none';
+    if (__drawerCanvas) __drawerCanvas.style.display = '';
+    try { if (__drawerModule && typeof __drawerModule.__onCanvasShown === 'function') __drawerModule.__onCanvasShown(); } catch {}
   } else {
     if (out) out.style.display = '';
   }
@@ -1806,6 +1885,7 @@ function setCompilerOutputMode(mode) {
 function getCurrentCompilerOutputNode() {
   if (__compilerOutputMode === 'turtle' && __turtleCanvas) return __turtleCanvas;
   if (__compilerOutputMode === 'robot' && __robotCanvas) return __robotCanvas;
+  if (__compilerOutputMode === 'drawer' && __drawerCanvas) return __drawerCanvas;
   return document.getElementById('output');
 }
 
@@ -1899,7 +1979,8 @@ async function runWasm() {
     const arrayEnv = await import('./runtime/array.js');
     if (!__turtleModule) { try { __turtleModule = await import('./runtime/turtle.js'); } catch {} }
     if (!__robotModule) { try { __robotModule = await import('./runtime/robot.js'); } catch {} }
-    const env = { ...mathEnv, ...ioEnv, ...stringEnv, ...arrayEnv, ...(__turtleModule || {}), ...(__robotModule || {}) };
+    if (!__drawerModule) { try { __drawerModule = await import('./runtime/drawer.js'); } catch {} }
+    const env = { ...mathEnv, ...ioEnv, ...stringEnv, ...arrayEnv, ...(__turtleModule || {}), ...(__robotModule || {}), ...(__drawerModule || {}) };
     const imports = { env };
     const { instance, module } = await WebAssembly.instantiate(bytes, imports);
     const mem = instance.exports && instance.exports.memory;
@@ -1912,16 +1993,23 @@ async function runWasm() {
     if (mem && typeof arrayEnv.__bindMemory === 'function') {
       arrayEnv.__bindMemory(mem);
     }
+    // Bind string runtime to drawer module for text handling
+    if (__drawerModule && typeof __drawerModule.__bindStringRuntime === 'function') {
+      __drawerModule.__bindStringRuntime(stringEnv);
+    }
     // Turtle integration: detect if wasm imports turtle_* and prepare canvas/toggle
     let usesTurtle = false;
     let usesRobot = false;
+    let usesDrawer = false;
     try {
       const imps = module ? WebAssembly.Module.imports(module) : [];
       usesTurtle = Array.isArray(imps) && imps.some(imp => imp && imp.module === 'env' && typeof imp.name === 'string' && imp.name.startsWith('turtle_'));
       usesRobot = Array.isArray(imps) && imps.some(imp => imp && imp.module === 'env' && typeof imp.name === 'string' && imp.name.startsWith('robot_'));
+      usesDrawer = Array.isArray(imps) && imps.some(imp => imp && imp.module === 'env' && typeof imp.name === 'string' && imp.name.startsWith('drawer_'));
     } catch {}
     if (usesTurtle && __turtleModule) {
       hideRobotUI();  // скрыть робота при переключении на черепаху
+      hideDrawerUI();  // скрыть чертежника при переключении на черепаху
       ensureTurtleUI();
       if (__turtleCanvas && typeof __turtleModule.__bindTurtleCanvas === 'function') {
         __turtleModule.__bindTurtleCanvas(__turtleCanvas);
@@ -1933,12 +2021,26 @@ async function runWasm() {
       setCompilerOutputMode(saved === 'turtle' ? 'turtle' : 'turtle');
     } else if (usesRobot && __robotModule) {
       hideTurtleUI();  // скрыть черепаху при переключении на робота
+      hideDrawerUI();  // скрыть чертежника при переключении на робота
       ensureRobotUI();
       const saved = getCookie('q_out_mode');
       setCompilerOutputMode(saved === 'robot' ? 'robot' : 'robot');
+    } else if (usesDrawer && __drawerModule) {
+      hideTurtleUI();  // скрыть черепаху при переключении на чертежника
+      hideRobotUI();  // скрыть робота при переключении на чертежника
+      ensureDrawerUI();
+      if (__drawerCanvas && typeof __drawerModule.__bindDrawerCanvas === 'function') {
+        __drawerModule.__bindDrawerCanvas(__drawerCanvas);
+      }
+      if (typeof __drawerModule.__resetDrawer === 'function') {
+        __drawerModule.__resetDrawer(true);
+      }
+      const saved = getCookie('q_out_mode');
+      setCompilerOutputMode(saved === 'drawer' ? 'drawer' : 'drawer');
     } else {
       hideTurtleUI();
       hideRobotUI();
+      hideDrawerUI();
       setCompilerOutputMode('text');
     }
     if (typeof ioEnv.__resetIO === 'function') {
@@ -2264,6 +2366,10 @@ function initEditor() {
     if (__turtleCanvas) {
       delete __turtleCanvas.__cachedWidth;
       delete __turtleCanvas.__cachedHeight;
+    }
+    if (__drawerCanvas) {
+      delete __drawerCanvas.__cachedWidth;
+      delete __drawerCanvas.__cachedHeight;
     }
   });
   // Set initial text explicitly (getCode would query editor and return empty on first init)
