@@ -102,7 +102,7 @@
 Проект полностью открыт и доступен на GitHub:
 
 - **Репозиторий:** [github.com/resetius/qumir](https://github.com/resetius/qumir)
-- **Лицензия:** MIT
+- **Лицензия:** BSD-2-Clause
 - **Разработка:** публичная, все коммиты видны в истории
 
 Вы можете:
@@ -121,11 +121,3 @@
 - Дополнительные исполнители
 - Улучшение сообщений об ошибках
 - Интеграция с образовательными платформами
-
----
-
-**Автор:** Алексей Озерицкий ([aozeritsky@gmail.com](mailto:aozeritsky@gmail.com))
-
-**Связь:**
-- GitHub Discussions: [обсуждения и вопросы](https://github.com/resetius/qumir/discussions)
-- Issues: [сообщить об ошибке](https://github.com/resetius/qumir/issues)
