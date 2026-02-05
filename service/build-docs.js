@@ -52,6 +52,7 @@ function renderSidebar(active) {
       <a href="robot.html" class="${active === 'robot.md' ? 'active' : ''}">Исполнитель Робот</a>
       <a href="examples.html" class="${active === 'examples.md' ? 'active' : ''}">Примеры программ</a>
       <a href="advanced_examples.html" class="${active === 'advanced_examples.md' ? 'active' : ''}">Продвинутые примеры</a>
+      <a href="about.html" class="${active === 'about.md' ? 'active' : ''}">О проекте</a>
     </nav>
   `;
 }
@@ -82,7 +83,8 @@ function buildOne(mdFile) {
     'drawer.md': 'Документация — Qumir (Исполнитель Чертежник)',
     'robot.md': 'Документация — Qumir (Исполнитель Робот)',
     'examples.md': 'Документация — Qumir (Примеры программ)',
-    'advanced_examples.md': 'Документация — Qumir (Продвинутые примеры)'
+    'advanced_examples.md': 'Документация — Qumir (Продвинутые примеры)',
+    'about.md': 'О проекте Qumir'
   };
   const pageTitle = titles[mdFile] || `Документация — Qumir (${mdFile.replace(/\.md$/, '')})`;
 
@@ -96,7 +98,8 @@ function buildOne(mdFile) {
     'drawer.md': 'Исполнитель Чертежник в КуМир: рисование по координатам, графики функций, геометрические фигуры и диаграммы.',
     'robot.md': 'Исполнитель Робот в КуМир: команды управления, решение задач на лабиринты, алгоритмы обхода и поиска путей.',
     'examples.md': 'Примеры программ на КуМир: алгоритмы сортировки, математические вычисления, работа с черепахой, чертежником и роботом.',
-    'advanced_examples.md': 'Продвинутые примеры программирования на КуМир: сложные алгоритмы, численные методы, машинное обучение, фрактальная графика.'
+    'advanced_examples.md': 'Продвинутые примеры программирования на КуМир: сложные алгоритмы, численные методы, машинное обучение, фрактальная графика.',
+    'about.md': 'О проекте Qumir: история создания, архитектура компилятора на C++ и LLVM, исполнение в браузере через WebAssembly. Единственная онлайн реализация КуМир.'
   };
   const pageDescription = descriptions[mdFile] || `Документация по ${mdFile.replace(/\.md$/, '')} — язык программирования КуМир.`;
 
