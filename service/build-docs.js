@@ -7,8 +7,8 @@
  *
  * Place this script in service/ if desired.
  *
- * Source markdown: docs/ru/*.md
- * Output HTML: service/static/docs-static/*.html
+ * Source markdown: docs/ru/ (recursive .md files)
+ * Output HTML: service/static/docs-static/ (recursive .html files)
  * Template: service/static/docs.html
  */
 import fs from 'fs';
@@ -40,28 +40,46 @@ const TEMPLATE = fs.readFileSync(path.join(__dirname, '../service/static/docs.ht
 // Вырезаем <main>...</main> из шаблона
 const MAIN_RE = /<main[^>]*id="docs-main"[^>]*>[\s\S]*?<\/main>/i;
 
-function renderSidebar(active) {
+function renderSidebar(active, prefix) {
+  // prefix: '' для корневых страниц, '../' для страниц в подпапках
+  const isExamplesSection = active === 'examples.md' || active.startsWith('examples/');
   return `
     <nav class="docs-page-sidebar" id="docs-sidebar">
-      <a href="index.html" class="${active === 'index.md' ? 'active' : ''}">Введение</a>
-      <a href="syntax.html" class="${active === 'syntax.md' ? 'active' : ''}">Синтаксис языка</a>
-      <a href="interpreter.html" class="${active === 'interpreter.md' ? 'active' : ''}">Интерпретатор</a>
-      <a href="compiler.html" class="${active === 'compiler.md' ? 'active' : ''}">Компилятор</a>
-      <a href="turtle.html" class="${active === 'turtle.md' ? 'active' : ''}">Исполнитель Черепаха</a>
-      <a href="drawer.html" class="${active === 'drawer.md' ? 'active' : ''}">Исполнитель Чертежник</a>
-      <a href="robot.html" class="${active === 'robot.md' ? 'active' : ''}">Исполнитель Робот</a>
-      <a href="files.html" class="${active === 'files.md' ? 'active' : ''}">Работа с файлами</a>
-      <a href="examples.html" class="${active === 'examples.md' ? 'active' : ''}">Примеры программ</a>
-      <a href="advanced_examples.html" class="${active === 'advanced_examples.md' ? 'active' : ''}">Продвинутые примеры</a>
-      <a href="about.html" class="${active === 'about.md' ? 'active' : ''}">О проекте</a>
+      <a href="${prefix}index.html" class="${active === 'index.md' ? 'active' : ''}">Введение</a>
+      <a href="${prefix}syntax.html" class="${active === 'syntax.md' ? 'active' : ''}">Синтаксис языка</a>
+      <a href="${prefix}interpreter.html" class="${active === 'interpreter.md' ? 'active' : ''}">Интерпретатор</a>
+      <a href="${prefix}compiler.html" class="${active === 'compiler.md' ? 'active' : ''}">Компилятор</a>
+      <a href="${prefix}turtle.html" class="${active === 'turtle.md' ? 'active' : ''}">Исполнитель Черепаха</a>
+      <a href="${prefix}drawer.html" class="${active === 'drawer.md' ? 'active' : ''}">Исполнитель Чертежник</a>
+      <a href="${prefix}robot.html" class="${active === 'robot.md' ? 'active' : ''}">Исполнитель Робот</a>
+      <a href="${prefix}files.html" class="${active === 'files.md' ? 'active' : ''}">Работа с файлами</a>
+      <a href="${prefix}examples.html" class="${isExamplesSection ? 'active' : ''}">Библиотека примеров</a>
+      <a href="${prefix}about.html" class="${active === 'about.md' ? 'active' : ''}">О проекте</a>
     </nav>
   `;
+}
+
+// Рекурсивный сбор .md файлов
+function collectMdFiles(dir, base) {
+  const results = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      results.push(...collectMdFiles(path.join(dir, entry.name), path.join(base, entry.name)));
+    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      results.push(path.join(base, entry.name));
+    }
+  }
+  return results;
 }
 
 function buildOne(mdFile) {
   const mdPath = path.join(DOCS_SRC, mdFile);
   const htmlFile = mdFile.replace(/\.md$/, '.html');
   const htmlPath = path.join(DOCS_OUT, htmlFile);
+
+  // Определяем глубину вложенности для relative paths
+  const depth = mdFile.split('/').length - 1;
+  const prefix = depth > 0 ? '../'.repeat(depth) : '';
 
   const markdown = fs.readFileSync(mdPath, 'utf8');
   // Use default marked heading rendering (no custom id generation)
@@ -84,11 +102,19 @@ function buildOne(mdFile) {
     'drawer.md': 'Документация — Qumir (Исполнитель Чертежник)',
     'robot.md': 'Документация — Qumir (Исполнитель Робот)',
     'files.md': 'Документация — Qumir (Работа с файлами)',
-    'examples.md': 'Документация — Qumir (Примеры программ)',
-    'advanced_examples.md': 'Документация — Qumir (Продвинутые примеры)',
+    'examples.md': 'Документация — Qumir (Библиотека примеров)',
     'about.md': 'О проекте Qumir'
   };
-  const pageTitle = titles[mdFile] || `Документация — Qumir (${mdFile.replace(/\.md$/, '')})`;
+  // Для страниц в подпапках — извлекаем заголовок из первого # в markdown
+  let pageTitle = titles[mdFile];
+  if (!pageTitle) {
+    const headingMatch = markdown.match(/^#\s+(.+)$/m);
+    if (headingMatch) {
+      pageTitle = `Документация — Qumir (${headingMatch[1]})`;
+    } else {
+      pageTitle = `Документация — Qumir (${path.basename(mdFile, '.md')})`;
+    }
+  }
 
   // Описания для страниц (meta description)
   const descriptions = {
@@ -100,11 +126,15 @@ function buildOne(mdFile) {
     'drawer.md': 'Исполнитель Чертежник в КуМир: рисование по координатам, графики функций, геометрические фигуры и диаграммы.',
     'robot.md': 'Исполнитель Робот в КуМир: команды управления, решение задач на лабиринты, алгоритмы обхода и поиска путей.',
     'files.md': 'Работа с файлами в КуМир: чтение и запись файлов, файловый ввод-вывод в браузере. Единственная онлайн реализация с поддержкой файлов.',
-    'examples.md': 'Примеры программ на КуМир: алгоритмы сортировки, математические вычисления, работа с черепахой, чертежником и роботом.',
-    'advanced_examples.md': 'Продвинутые примеры программирования на КуМир: сложные алгоритмы, численные методы, машинное обучение, фрактальная графика.',
+    'examples.md': 'Библиотека примеров программ на КуМир: алгоритмы сортировки, математические вычисления, работа с черепахой, чертежником и роботом.',
     'about.md': 'О проекте Qumir: история создания, архитектура компилятора на C++ и LLVM, исполнение в браузере через WebAssembly. Единственная онлайн реализация КуМир.'
   };
-  const pageDescription = descriptions[mdFile] || `Документация по ${mdFile.replace(/\.md$/, '')} — язык программирования КуМир.`;
+  let pageDescription = descriptions[mdFile];
+  if (!pageDescription) {
+    const headingMatch = markdown.match(/^#\s+(.+)$/m);
+    const topic = headingMatch ? headingMatch[1] : path.basename(mdFile, '.md');
+    pageDescription = `${topic} — пример программы на языке КуМир с пояснениями и разбором кода.`;
+  }
 
   // Remove all sidebars and SPA JS from template, then insert one sidebar
   let outHtml = TEMPLATE
@@ -119,7 +149,7 @@ function buildOne(mdFile) {
     // Fix styles.css path to root
     .replace(/<link rel="stylesheet" href="[^"]*styles\.css[^"]*">/, '<link rel="stylesheet" href="/styles.css">');
   // Insert sidebar before <main>
-  outHtml = outHtml.replace(/(<div class="docs-page-layout">\s*)/, `$1${renderSidebar(mdFile)}\n`);
+  outHtml = outHtml.replace(/(<div class="docs-page-layout">\s*)/, `$1${renderSidebar(mdFile, prefix)}\n`);
   // Insert main content
   outHtml = outHtml.replace(MAIN_RE, `<main class="docs-page-main" id="docs-main">${contentWithFixedLinks}</main>`);
   // Ensure metrika.local.js is present after </footer>
@@ -183,13 +213,17 @@ function buildOne(mdFile) {
     '    });\n' +
     '  </script>\n';
   outHtml = outHtml.replace(/(<\/body>)/, function(match) { return scriptBlock + match; });
+
+  // Создаём директорию для вложенных файлов
+  fs.mkdirSync(path.dirname(htmlPath), { recursive: true });
+
   fs.writeFileSync(htmlPath, outHtml, 'utf8');
   console.log('Built:', htmlPath);
 }
 
 fs.mkdirSync(DOCS_OUT, { recursive: true });
 
-const files = fs.readdirSync(DOCS_SRC).filter(f => f.endsWith('.md'));
+const files = collectMdFiles(DOCS_SRC, '');
 if (files.length === 0) {
   console.error('No markdown files found in', DOCS_SRC);
 } else {
