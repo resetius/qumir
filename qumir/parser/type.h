@@ -200,6 +200,9 @@ struct TNamedType : TType {
     {}
 
     std::string ToString() const override {
+        if (UnderlyingType) {
+            return Name + " (" + UnderlyingType->ToString() + ")";
+        }
         return Name;
     }
 
