@@ -29,7 +29,7 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
 
     for (const auto& mod : RegisteredModules) {
         Resolver.RegisterModule(mod.get());
-        Resolver.ImportModule(mod->Name());
+        (void)Resolver.ImportModule(mod->Name());
     }
     for (const auto& mod : AvailableModules) {
         Resolver.RegisterModule(mod.get());

@@ -401,7 +401,7 @@ std::string TNameResolver::ModulesList() const
     return oss.str().substr(0, oss.str().size() - 1); // remove last comma
 }
 
-bool TNameResolver::ImportModule(const std::string& name) {
+std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& name) {
     if (implicitImports.find(name) != implicitImports.end()) {
         return true;
     }
@@ -412,6 +412,16 @@ bool TNameResolver::ImportModule(const std::string& name) {
     auto* module = it->second;
 
     for (const auto& fn : module->ExternalFunctions()) {
+        auto conflict = ImportedModuleSymbols.find(fn.Name);
+        if (conflict != ImportedModuleSymbols.end()) {
+            return std::unexpected(
+                "Конфликт имён при импорте модуля '" + name + "': символ '" + fn.Name +
+                "' уже импортирован из модуля '" + conflict->second + "'");
+        }
+    }
+
+    for (const auto& fn : module->ExternalFunctions()) {
+        ImportedModuleSymbols[fn.Name] = name;
         auto funType = std::make_shared<NAst::TFunctionType>(fn.ArgTypes, fn.ReturnType);
         std::vector<NAst::TParam> params;
         for (size_t i = 0; i < fn.ArgTypes.size(); ++i) {

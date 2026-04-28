@@ -613,22 +613,26 @@ std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics:
 {
     static constexpr int MaxIterations = 10;
 
-    // 1. extract using directives
+    // extract all leading `использовать` directives
     if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
-        // 2. using must be the first statements in the block
-        // 3. we don't support > 1 using directives
         auto block = maybeBlock.Cast();
         auto& stmts = block->Stmts;
-        if (!stmts.empty()) {
-            auto first = stmts.front();
-            if (auto maybeUse = NAst::TMaybeNode<NAst::TUseExpr>(first)) {
-                auto use = maybeUse.Cast();
-                if (!r.ImportModule(use->ModuleName)) {
-                    return std::unexpected(TError(use->Location,
-                        "Неизвестный модуль: " + use->ModuleName + ", доступные модули: " + r.ModulesList()));
-                }
-                stmts.erase(stmts.begin());
+        while (!stmts.empty()) {
+            auto front = stmts.front();
+            auto maybeUse = NAst::TMaybeNode<NAst::TUseExpr>(front);
+            if (!maybeUse) {
+                break;
             }
+            auto use = maybeUse.Cast();
+            auto result = r.ImportModule(use->ModuleName);
+            if (!result) {
+                return std::unexpected(TError(use->Location, result.error()));
+            }
+            if (!result.value()) {
+                return std::unexpected(TError(use->Location,
+                    "Неизвестный модуль: " + use->ModuleName + ", доступные модули: " + r.ModulesList()));
+            }
+            stmts.erase(stmts.begin());
         }
     }
 

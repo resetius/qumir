@@ -5,7 +5,9 @@
 #include <qumir/error.h>
 #include <qumir/optional.h>
 
+#include <expected>
 #include <span>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -135,7 +137,8 @@ public:
     // just adds module to dict of modules
     void RegisterModule(NRegistry::IModule* module);
     // adds modules symbols to list of symbols
-    bool ImportModule(const std::string& name);
+    // returns false if module not found, unexpected(msg) if name conflict
+    std::expected<bool, std::string> ImportModule(const std::string& name);
     std::string ModulesList() const;
 
     // For testing/debugging
@@ -178,6 +181,8 @@ private:
     std::vector<TScopePtr> Scopes;
 
     std::unordered_map<std::string, NRegistry::IModule*> Modules;
+    // tracks which module each imported symbol came from, for conflict detection
+    std::unordered_map<std::string, std::string> ImportedModuleSymbols;
 
     TEditDistance EditDistanceCalculator;
 };
