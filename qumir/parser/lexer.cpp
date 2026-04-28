@@ -341,7 +341,16 @@ void TTokenStream::Read() {
                 }
                 auto maybeKw = KeywordMapRu.find(word);
                 auto maybeOp = OperatorMap.find(word);
-                if (maybeKw != KeywordMapRu.end()) {
+                auto maybeNamedType = Context.TypeNames.count(word);
+                if (maybeNamedType) {
+                    if (!logIdentifier.empty()) {
+                        tokenLocation = identLocation;
+                        emitIdentifier(logIdentifier);
+                        logIdentifier.clear();
+                    }
+                    tokenLocation = wordLocation;
+                    emitIdentifier(word);
+                } else if (maybeKw != KeywordMapRu.end()) {
                     if (!logIdentifier.empty()) {
                         tokenLocation = identLocation;
                         emitIdentifier(logIdentifier);
