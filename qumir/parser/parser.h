@@ -12,7 +12,8 @@ namespace NAst {
 
 class TParser {
 public:
-    // moduleManager: if non-null, `использовать X` imports X immediately at parse time
+    // moduleManager: if non-null, `использовать X` imports X at parse time;
+    // type names from imported modules are registered in the stream's TLexerContext
     std::expected<TExprPtr, TError> parse(TTokenStream& stream, IModuleManager* moduleManager = nullptr);
 };
 

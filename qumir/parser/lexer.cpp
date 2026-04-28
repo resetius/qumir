@@ -281,12 +281,22 @@ void TTokenStream::Read() {
         if (name.substr(0, 2) == "$$") {
             throw std::runtime_error("identifiers starting with '$$' are reserved");
         }
-        Tokens.emplace_back(TToken {
-            .Name = name,
-            .RawValue = name,
-            .Type = TToken::Identifier,
-            .Location = tokenLocation
-        });
+        if (Context.TypeNames.count(name)) {
+            Tokens.emplace_back(TToken {
+                .Value = {.i64 = static_cast<int64_t>(EKeyword::NamedType)},
+                .Name = name,
+                .RawValue = name,
+                .Type = TToken::Keyword,
+                .Location = tokenLocation
+            });
+        } else {
+            Tokens.emplace_back(TToken {
+                .Name = name,
+                .RawValue = name,
+                .Type = TToken::Identifier,
+                .Location = tokenLocation
+            });
+        }
     };
 
     auto flush =[&]() {

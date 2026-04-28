@@ -23,6 +23,7 @@ public:
     virtual ~IModule() = default;
     virtual const std::string& Name() const = 0;
     virtual const std::vector<TExternalFunction>& ExternalFunctions() const = 0;
+    virtual std::vector<std::string> ExportedTypeNames() const { return {}; }
 };
 
 } // namespace NRegistry

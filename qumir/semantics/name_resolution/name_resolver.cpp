@@ -401,9 +401,10 @@ std::string TNameResolver::ModulesList() const
     return oss.str().substr(0, oss.str().size() - 1); // remove last comma
 }
 
-std::expected<void, std::string> TNameResolver::ImportModule(const std::string& name) {
+std::expected<NRegistry::IModule*, std::string> TNameResolver::ImportModule(const std::string& name) {
     if (implicitImports.count(name) || ImportedModules.count(name)) {
-        return {};  // already imported — idempotent
+        auto it = Modules.find(name);
+        return it != Modules.end() ? it->second : nullptr;  // already imported — idempotent
     }
     auto it = Modules.find(name);
     if (it == Modules.end()) {
@@ -415,8 +416,16 @@ std::expected<void, std::string> TNameResolver::ImportModule(const std::string& 
         auto conflict = ImportedModuleSymbols.find(fn.Name);
         if (conflict != ImportedModuleSymbols.end()) {
             return std::unexpected(
-                "Конфликт имён при импорте модуля '" + name + "': символ '" + fn.Name +
-                "' уже импортирован из модуля '" + conflict->second + "'");
+                "Конфликт имён при импорте модуля " + name + ": символ " + fn.Name +
+                " уже импортирован из модуля " + conflict->second);
+        }
+    }
+    for (const auto& typeName : module->ExportedTypeNames()) {
+        auto conflict = ImportedModuleSymbols.find(typeName);
+        if (conflict != ImportedModuleSymbols.end()) {
+            return std::unexpected(
+                "Конфликт имён при импорте модуля " + name + ": тип " + typeName +
+                " уже импортирован из модуля " + conflict->second);
         }
     }
 
@@ -436,8 +445,11 @@ std::expected<void, std::string> TNameResolver::ImportModule(const std::string& 
         funDecl->RequireArgsMaterialization = fn.RequireArgsMaterialization;
         DeclareFunction(fn.Name, funDecl);
     }
+    for (const auto& typeName : module->ExportedTypeNames()) {
+        ImportedModuleSymbols[typeName] = name;
+    }
 
-    return {};
+    return module;
 }
 
 

@@ -7,8 +7,11 @@
 #include <optional>
 #include <istream>
 #include <cstdint>
+#include <unordered_set>
+#include <vector>
 
 namespace NQumir {
+
 namespace NAst {
 
 // алг, нач, кон, если, то, иначе, все, нц, кц, кц_при,
@@ -63,7 +66,9 @@ enum class EKeyword : uint8_t {
     Use,
     Assert,
     AssertBefore,
-    AssertAfter
+    AssertAfter,
+
+    NamedType, // for built-in types imported from modules
 };
 
 enum class EOperator : uint8_t {
@@ -114,10 +119,25 @@ struct TToken {
         double f64;
     };
     UPrimitive Value; // valid for Integer, Float, Operator, Keyword
-    std::string Name; // valid for Identifier, String
+    std::string Name; // valid for Identifier, String, NamedType
     std::string RawValue; // original raw value from source code (for error messages)
     EType Type;
     TLocation Location;
+};
+
+class ILexerContext {
+public:
+    virtual ~ILexerContext() = default;
+    virtual void ImportTypeNames(const std::vector<std::string>& names) = 0;
+};
+
+struct TLexerContext : public ILexerContext {
+    void ImportTypeNames(const std::vector<std::string>& names) override {
+        for (const auto& name : names) {
+            TypeNames.insert(name);
+        }
+    }
+    std::unordered_set<std::string> TypeNames;
 };
 
 class TTokenStream
@@ -128,6 +148,7 @@ public:
     void Unget(TToken token);
     const TLocation& operator()() const;
     const TLocation& GetLocation() const;
+    ILexerContext* GetContext() { return &Context; }
 
 private:
     void Read();
@@ -135,6 +156,7 @@ private:
     std::istream& In;
     std::deque<TToken> Tokens;
     TLocation CurrentLocation;
+    TLexerContext Context;
 };
 
 class TWrappedTokenStream {
@@ -146,6 +168,7 @@ public:
     const TLocation& operator()() const;
     const TLocation& GetLocation() const;
     const std::deque<TToken>& GetWindow() const { return Window; }
+    ILexerContext* GetContext() { return BaseStream.GetContext(); }
 
 private:
     TTokenStream& BaseStream;

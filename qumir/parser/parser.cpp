@@ -6,6 +6,7 @@
 #include <qumir/parser/lexer.h>
 #include <qumir/parser/ast.h>
 #include <qumir/parser/operator.h>
+#include <qumir/modules/module.h>
 
 #include <set>
 #include <iostream>
@@ -1646,6 +1647,9 @@ TAstTask stmt(TWrappedTokenStream& stream, IModuleManager* mm) {
             auto result = mm->ImportModule(moduleName);
             if (!result) {
                 co_return TError(first.Location, result.error());
+            }
+            if (auto* mod = result.value(); mod && stream.GetContext()) {
+                stream.GetContext()->ImportTypeNames(mod->ExportedTypeNames());
             }
         }
         co_return std::make_shared<TUseExpr>(first.Location, moduleName);

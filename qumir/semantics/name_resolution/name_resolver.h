@@ -137,8 +137,9 @@ public:
 
     // just adds module to dict of modules
     void RegisterModule(NRegistry::IModule* module);
-    // IModuleManager: imports module symbols; error if unknown or name conflict with another module
-    std::expected<void, std::string> ImportModule(const std::string& name) override;
+    // IModuleManager: imports module symbols; returns module pointer on success,
+    // error message on failure (unknown module or name conflict between modules).
+    std::expected<NRegistry::IModule*, std::string> ImportModule(const std::string& name) override;
     std::string ModulesList() const;
 
     // For testing/debugging
