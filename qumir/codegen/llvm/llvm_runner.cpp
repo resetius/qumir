@@ -11,8 +11,11 @@
 
 #include <sstream>
 #include <iomanip>
+#include <setjmp.h>
+#include <stdexcept>
 
 #include <qumir/runtime/string.h> // for str_release
+#include <qumir/runtime/runtime.h> // for __ensure and longjmp escape hatch
 
 namespace NQumir::NCodeGen {
 
@@ -25,6 +28,29 @@ extern "C" {
     void* __dso_handle = (void*)&__dso_handle;
 } // extern "C"
 #endif
+
+// Wraps a single runFunction call with a setjmp guard so that if the JIT
+// program calls __ensure which triggers longjmp, we rethrow as a normal
+// C++ exception (through host frames) rather than trying to unwind through
+// JIT frames that lack DWARF unwind info (fatal on macOS).
+//
+// Must be noinline: inlining into Run() would put C++ objects with dtors
+// between the setjmp and the potential longjmp.
+[[gnu::noinline]] static llvm::GenericValue SafeRunFunction(
+    llvm::ExecutionEngine* ee,
+    llvm::Function* func,
+    const std::vector<llvm::GenericValue>& args)
+{
+    jmp_buf jb;
+    __set_jmp_target(&jb);
+    if (setjmp(jb) != 0) {
+        __clear_jmp_target();
+        throw std::runtime_error(__get_runtime_error());
+    }
+    auto result = ee->runFunction(func, args);
+    __clear_jmp_target();
+    return result;
+}
 
 TLlvmRunner::TLlvmRunner()
 {}
@@ -94,11 +120,11 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
 
     std::vector<llvm::GenericValue> noargs;
     if (constructorFunc) {
-        ee->runFunction(constructorFunc, noargs);
+        SafeRunFunction(ee.get(), constructorFunc, noargs);
     }
-    auto gv = ee->runFunction(target, noargs);
+    auto gv = SafeRunFunction(ee.get(), target, noargs);
     if (destructorFunc) {
-        ee->runFunction(destructorFunc, noargs);
+        SafeRunFunction(ee.get(), destructorFunc, noargs);
     }
     auto* retTy = ty->getReturnType();
     if (retTy->isVoidTy()) {
