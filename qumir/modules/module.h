@@ -18,12 +18,18 @@ struct TExternalFunction {
     mutable std::vector<uint32_t> NameCodePoints;
 };
 
+struct TExternalType {
+    std::string Name;
+    NAst::TTypePtr Type; // must be unwrapped type, not named type
+    bool IsAlias = false;
+};
+
 class IModule {
 public:
     virtual ~IModule() = default;
     virtual const std::string& Name() const = 0;
     virtual const std::vector<TExternalFunction>& ExternalFunctions() const = 0;
-    virtual std::vector<std::string> ExportedTypeNames() const { return {}; }
+    virtual const std::vector<TExternalType>& ExternalTypes() const = 0;
 };
 
 } // namespace NRegistry

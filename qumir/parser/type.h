@@ -190,6 +190,24 @@ struct TReferenceType : TType {
     }
 };
 
+struct TNamedType : TType {
+    static constexpr const char* TypeId = "Named";
+    std::string Name;
+    TTypePtr UnderlyingType; // Resolved on name resolution phase, exported by modules
+
+    explicit TNamedType(std::string name)
+        : Name(std::move(name))
+    {}
+
+    std::string ToString() const override {
+        return Name;
+    }
+
+    const std::string_view TypeName() const override {
+        return TNamedType::TypeId;
+    }
+};
+
 std::ostream& operator<<(std::ostream& os, const TType& expr);
 
 inline TTypePtr UnwrapReferenceType(TTypePtr type) {

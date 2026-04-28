@@ -1653,7 +1653,11 @@ TAstTask stmt(TWrappedTokenStream& stream, IModuleManager* mm) {
                 co_return TError(first.Location, result.error());
             }
             if (auto* mod = result.value(); mod && stream.GetContext()) {
-                stream.GetContext()->ImportTypeNames(mod->ExportedTypeNames());
+                std::vector<std::string> typeNames;
+                for (const auto& t : mod->ExternalTypes()) {
+                    typeNames.push_back(t.Name);
+                }
+                stream.GetContext()->ImportTypeNames(typeNames);
             }
         }
         co_return std::make_shared<TUseExpr>(first.Location, moduleName);

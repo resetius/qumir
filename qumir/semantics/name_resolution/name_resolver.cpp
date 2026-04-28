@@ -60,11 +60,33 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         return suggestion ? suggestion->ToString() : "";
     };
 
+    // Resolve TNamedType: fill in UnderlyingType from imported module types.
+    auto resolveTypeRef = [&](NAst::TTypePtr& type, const TLocation& loc) -> std::optional<TError> {
+        if (!type) return {};
+        if (auto maybeNamed = TMaybeType<TNamedType>(type)) {
+            auto named = maybeNamed.Cast();
+            auto it = ImportedTypes.find(named->Name);
+            if (it == ImportedTypes.end()) {
+                return TError(loc, "Неизвестный тип: " + named->Name);
+            }
+            named->UnderlyingType = it->second;
+        }
+        return {};
+    };
+
     if (auto maybeFdecl = TMaybeNode<TFunDecl>(node)) {
         auto fdecl = maybeFdecl.Cast();
         auto scopeId = TScopeId{fdecl->Scope};
         if (scopeId.Id < 0 || static_cast<size_t>(scopeId.Id) >= Scopes.size())  {
             co_return TError(fdecl->Location, "function has invalid scope id: " + std::to_string(scopeId.Id));
+        }
+        if (auto err = resolveTypeRef(fdecl->RetType, fdecl->Location)) {
+            co_return *err;
+        }
+        for (auto& param : fdecl->Params) {
+            if (auto err = resolveTypeRef(param->Type, param->Location)) {
+                co_return *err;
+            }
         }
         auto newScope = Scopes[scopeId.Id];
         co_return co_await Resolve(fdecl->Body, newScope, newScope);
@@ -92,6 +114,9 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         }
     } else if (auto maybeVarStmt = TMaybeNode<TVarStmt>(node)) {
         auto varStmt = maybeVarStmt.Cast();
+        if (auto err = resolveTypeRef(varStmt->Type, varStmt->Location)) {
+            co_return *err;
+        }
         auto res = Declare(varStmt->Name, node, scope, funcScope);
         if (!res) {
             co_return res.error();
@@ -420,11 +445,11 @@ std::expected<NRegistry::IModule*, std::string> TNameResolver::ImportModule(cons
                 " уже импортирован из модуля " + conflict->second);
         }
     }
-    for (const auto& typeName : module->ExportedTypeNames()) {
-        auto conflict = ImportedModuleSymbols.find(typeName);
+    for (const auto& type : module->ExternalTypes()) {
+        auto conflict = ImportedModuleSymbols.find(type.Name);
         if (conflict != ImportedModuleSymbols.end()) {
             return std::unexpected(
-                "Конфликт имён при импорте модуля " + name + ": тип " + typeName +
+                "Конфликт имён при импорте модуля " + name + ": тип " + type.Name +
                 " уже импортирован из модуля " + conflict->second);
         }
     }
@@ -445,8 +470,9 @@ std::expected<NRegistry::IModule*, std::string> TNameResolver::ImportModule(cons
         funDecl->RequireArgsMaterialization = fn.RequireArgsMaterialization;
         DeclareFunction(fn.Name, funDecl);
     }
-    for (const auto& typeName : module->ExportedTypeNames()) {
-        ImportedModuleSymbols[typeName] = name;
+    for (const auto& type : module->ExternalTypes()) {
+        ImportedModuleSymbols[type.Name] = name;
+        ImportedTypes[type.Name] = type.Type;
     }
 
     return module;

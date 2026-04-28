@@ -183,7 +183,8 @@ private:
 
     std::unordered_map<std::string, NRegistry::IModule*> Modules;
     std::unordered_set<std::string> ImportedModules;        // modules already imported (for idempotency)
-    std::unordered_map<std::string, std::string> ImportedModuleSymbols; // symbol -> source module
+    std::unordered_map<std::string, std::string> ImportedModuleSymbols; // symbol/type name -> source module
+    std::unordered_map<std::string, NAst::TTypePtr> ImportedTypes; // type name -> resolved type
 
     TEditDistance EditDistanceCalculator;
 };

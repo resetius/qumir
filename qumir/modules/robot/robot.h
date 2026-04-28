@@ -18,8 +18,13 @@ public:
         return ExternalFunctions_;
     }
 
+    const std::vector<TExternalType>& ExternalTypes() const override {
+        return ExternalTypes_;
+    }
+
 private:
     std::vector<TExternalFunction> ExternalFunctions_;
+    std::vector<TExternalType> ExternalTypes_;
 };
 
 } // namespace NRegistry
