@@ -108,13 +108,6 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
 
     NAst::TTokenStream ts(*in);
     NAst::TParser p;
-    auto&& expected = p.parse(ts);
-    if (!expected.has_value()) {
-        std::cerr << expected.error().ToString() << std::endl;
-        return 1;
-    }
-    auto ast = std::move(expected.value());
-
     NSemantics::TNameResolver r;
     NRegistry::SystemModule sys;
     r.RegisterModule(&sys);
@@ -127,6 +120,13 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     r.RegisterModule(&drawer);
     NRegistry::PainterModule painter;
     r.RegisterModule(&painter);
+
+    auto&& expected = p.parse(ts, &r);
+    if (!expected.has_value()) {
+        std::cerr << expected.error().ToString() << std::endl;
+        return 1;
+    }
+    auto ast = std::move(expected.value());
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
@@ -170,13 +170,6 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
 
     NAst::TTokenStream ts(*in);
     NAst::TParser p;
-    auto&& expected = p.parse(ts);
-    if (!expected.has_value()) {
-        std::cerr << expected.error().ToString() << std::endl;
-        return 1;
-    }
-    auto ast = std::move(expected.value());
-
     NSemantics::TNameResolver r;
     NRegistry::SystemModule sys;
     r.RegisterModule(&sys);
@@ -189,6 +182,13 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     r.RegisterModule(&drawer);
     NRegistry::PainterModule painter;
     r.RegisterModule(&painter);
+
+    auto&& expected = p.parse(ts, &r);
+    if (!expected.has_value()) {
+        std::cerr << expected.error().ToString() << std::endl;
+        return 1;
+    }
+    auto ast = std::move(expected.value());
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
@@ -347,13 +347,6 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
 
     NAst::TTokenStream ts(*in);
     NAst::TParser p;
-    auto&& expected = p.parse(ts);
-    if (!expected.has_value()) {
-        std::cerr << expected.error().ToString() << std::endl;
-        return 1;
-    }
-    auto ast = std::move(expected.value());
-
     NSemantics::TNameResolver r;
     NRegistry::SystemModule sys;
     r.RegisterModule(&sys);
@@ -366,6 +359,13 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     r.RegisterModule(&drawer);
     NRegistry::PainterModule painter;
     r.RegisterModule(&painter);
+
+    auto&& expected = p.parse(ts, &r);
+    if (!expected.has_value()) {
+        std::cerr << expected.error().ToString() << std::endl;
+        return 1;
+    }
+    auto ast = std::move(expected.value());
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {

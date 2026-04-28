@@ -25,7 +25,7 @@ std::string BuildIR(NAst::TTokenStream& ts, NIR::TModule& module) {
     resolver.ImportModule(sys.Name());
 
     NAst::TParser p;
-    auto parsed = p.parse(ts);
+    auto parsed = p.parse(ts, &resolver);
     if (!parsed) {
         return "Error: " + parsed.error().ToString() + "\n";
     }

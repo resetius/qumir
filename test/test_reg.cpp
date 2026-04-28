@@ -75,14 +75,15 @@ std::string NameFromPath(const fs::path& p) {
 // TODO: move to utils
 std::string BuildAst(NAst::TTokenStream& ts) {
     NAst::TParser p;
-    auto parsed = p.parse(ts);
-    if (!parsed) {
-        return "Error: " + parsed.error().ToString() + "\n";
-    }
     NSemantics::TNameResolver nr;
     NRegistry::SystemModule sys;
     nr.RegisterModule(&sys);
     nr.ImportModule(sys.Name());
+
+    auto parsed = p.parse(ts, &nr);
+    if (!parsed) {
+        return "Error: " + parsed.error().ToString() + "\n";
+    }
 
     auto expr = parsed.value();
     auto error = NTransform::Pipeline(expr, nr);
@@ -103,7 +104,7 @@ std::string BuildIR(NAst::TTokenStream& ts) {
     resolver.ImportModule(sys.Name());
 
     NAst::TParser p;
-    auto parsed = p.parse(ts);
+    auto parsed = p.parse(ts, &resolver);
     if (!parsed) {
         return "Error: " + parsed.error().ToString() + "\n";
     }
