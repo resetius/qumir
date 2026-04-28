@@ -57,6 +57,14 @@ PainterModule::PainterModule() {
             .ReturnType = colorType,
         },
         {
+            .Name = "черный",
+            .MangledName = "painter_black",
+            .Ptr = nullptr,
+            .Packed = nullptr,
+            .ArgTypes = {},
+            .ReturnType = colorType,
+        },
+        {
             .Name = "серый",
             .MangledName = "painter_gray",
             .Ptr = nullptr,
@@ -97,7 +105,23 @@ PainterModule::PainterModule() {
             .ReturnType = colorType,
         },
         {
+            .Name = "зеленый",
+            .MangledName = "painter_green",
+            .Ptr = nullptr,
+            .Packed = nullptr,
+            .ArgTypes = {},
+            .ReturnType = colorType,
+        },
+        {
             .Name = "жёлтый",
+            .MangledName = "painter_yellow",
+            .Ptr = nullptr,
+            .Packed = nullptr,
+            .ArgTypes = {},
+            .ReturnType = colorType,
+        },
+        {
+            .Name = "желтый",
             .MangledName = "painter_yellow",
             .Ptr = nullptr,
             .Packed = nullptr,
