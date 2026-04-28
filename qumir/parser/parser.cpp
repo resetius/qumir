@@ -161,6 +161,8 @@ inline bool IsTypeKeyword(EKeyword kw) {
         || kw == EKeyword::InArg // for function parameter declarations
         || kw == EKeyword::OutArg // for function parameter declarations
         || kw == EKeyword::InOutArg // for function parameter declarations
+
+        || kw == EKeyword::NamedType; // for built-in types imported from modules
         ;
 }
 
@@ -290,7 +292,7 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TWrappedTok
     co_return var;
 }
 
-TTypePtr getScalarType(EKeyword kw, bool& isArray) {
+TTypePtr getScalarType(EKeyword kw, bool& isArray, const std::string& typeName = {}) {
     isArray = false;
     switch (kw) {
         case EKeyword::Int:
@@ -322,6 +324,8 @@ TTypePtr getScalarType(EKeyword kw, bool& isArray) {
 
         case EKeyword::File:
             return std::make_shared<TFileType>();
+        case EKeyword::NamedType:
+            return std::make_shared<TNamedType>(typeName);
         default:
             return nullptr;
     }
@@ -366,7 +370,7 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TWrappedTo
     std::vector<TExprPtr> decls;
     bool isArray = false;
 
-    TTypePtr scalarType = getScalarType(static_cast<EKeyword>(first.Value.i64), isArray);
+    TTypePtr scalarType = getScalarType(static_cast<EKeyword>(first.Value.i64), isArray, first.Name);
     if (!scalarType) {
         co_return TError(first.Location, "неизвестный тип переменной");
     }
@@ -468,7 +472,7 @@ TAstTask fun_decl(TWrappedTokenStream& stream, IModuleManager* mm) {
     if (next.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(next.Value.i64))) {
         // function return type
         bool isArray = false;
-        returnType = getScalarType(static_cast<EKeyword>(next.Value.i64), isArray);
+        returnType = getScalarType(static_cast<EKeyword>(next.Value.i64), isArray, next.Name);
         if (isArray) {
             co_return TError(next.Location, "функция не может возвращать табличный тип");
         }
