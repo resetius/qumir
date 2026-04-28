@@ -40,7 +40,7 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
     // Parse source into AST
     NAst::TTokenStream ts(input);
     NAst::TParser p;
-    auto parsed = p.parse(ts);
+    auto parsed = p.parse(ts, &Resolver);
     if (!parsed) {
         return std::unexpected(parsed.error());
     }

@@ -613,24 +613,16 @@ std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics:
 {
     static constexpr int MaxIterations = 10;
 
-    // extract all leading `использовать` directives
+    // Strip TUseExpr nodes from the AST — imports were already processed by the parser
+    // (or by calling ImportModule directly). ImportModule is idempotent per module name.
     if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
         auto block = maybeBlock.Cast();
         auto& stmts = block->Stmts;
-        while (!stmts.empty()) {
-            auto front = stmts.front();
-            auto maybeUse = NAst::TMaybeNode<NAst::TUseExpr>(front);
-            if (!maybeUse) {
-                break;
-            }
-            auto use = maybeUse.Cast();
+        while (!stmts.empty() && NAst::TMaybeNode<NAst::TUseExpr>(stmts.front())) {
+            auto use = NAst::TMaybeNode<NAst::TUseExpr>(stmts.front()).Cast();
             auto result = r.ImportModule(use->ModuleName);
             if (!result) {
                 return std::unexpected(TError(use->Location, result.error()));
-            }
-            if (!result.value()) {
-                return std::unexpected(TError(use->Location,
-                    "Неизвестный модуль: " + use->ModuleName + ", доступные модули: " + r.ModulesList()));
             }
             stmts.erase(stmts.begin());
         }

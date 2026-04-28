@@ -3,6 +3,7 @@
 #include <qumir/error.h>
 #include <qumir/parser/ast.h>
 #include <qumir/parser/lexer.h>
+#include <qumir/module_manager.h>
 
 #include <expected>
 
@@ -11,7 +12,8 @@ namespace NAst {
 
 class TParser {
 public:
-    std::expected<TExprPtr, TError> parse(TTokenStream& stream);
+    // moduleManager: if non-null, `использовать X` imports X immediately at parse time
+    std::expected<TExprPtr, TError> parse(TTokenStream& stream, IModuleManager* moduleManager = nullptr);
 };
 
 } // namespace NAst

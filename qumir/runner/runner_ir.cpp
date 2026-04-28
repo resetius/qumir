@@ -45,7 +45,7 @@ TIRRunner::TIRRunner(
 std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& input) {
     TTokenStream ts(input);
     TParser p;
-    auto parsed = p.parse(ts);
+    auto parsed = p.parse(ts, &Resolver);
     if (!parsed) {
         return std::unexpected(parsed.error());
     }

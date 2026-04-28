@@ -401,13 +401,13 @@ std::string TNameResolver::ModulesList() const
     return oss.str().substr(0, oss.str().size() - 1); // remove last comma
 }
 
-std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& name) {
-    if (implicitImports.find(name) != implicitImports.end()) {
-        return true;
+std::expected<void, std::string> TNameResolver::ImportModule(const std::string& name) {
+    if (implicitImports.count(name) || ImportedModules.count(name)) {
+        return {};  // already imported — idempotent
     }
     auto it = Modules.find(name);
     if (it == Modules.end()) {
-        return false;
+        return std::unexpected("Неизвестный модуль: " + name + ", доступные модули: " + ModulesList());
     }
     auto* module = it->second;
 
@@ -420,6 +420,7 @@ std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& 
         }
     }
 
+    ImportedModules.insert(name);
     for (const auto& fn : module->ExternalFunctions()) {
         ImportedModuleSymbols[fn.Name] = name;
         auto funType = std::make_shared<NAst::TFunctionType>(fn.ArgTypes, fn.ReturnType);
@@ -436,7 +437,7 @@ std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& 
         DeclareFunction(fn.Name, funDecl);
     }
 
-    return true;
+    return {};
 }
 
 

@@ -4,6 +4,7 @@
 #include <qumir/location.h>
 #include <qumir/error.h>
 #include <qumir/optional.h>
+#include <qumir/module_manager.h>
 
 #include <expected>
 #include <span>
@@ -118,7 +119,7 @@ private:
     std::vector<int> DP;
 };
 
-class TNameResolver {
+class TNameResolver : public IModuleManager {
 public:
     TNameResolver(const TNameResolverOptions& options = {});
 
@@ -136,9 +137,8 @@ public:
 
     // just adds module to dict of modules
     void RegisterModule(NRegistry::IModule* module);
-    // adds modules symbols to list of symbols
-    // returns false if module not found, unexpected(msg) if name conflict
-    std::expected<bool, std::string> ImportModule(const std::string& name);
+    // IModuleManager: imports module symbols; error if unknown or name conflict with another module
+    std::expected<void, std::string> ImportModule(const std::string& name) override;
     std::string ModulesList() const;
 
     // For testing/debugging
@@ -181,8 +181,8 @@ private:
     std::vector<TScopePtr> Scopes;
 
     std::unordered_map<std::string, NRegistry::IModule*> Modules;
-    // tracks which module each imported symbol came from, for conflict detection
-    std::unordered_map<std::string, std::string> ImportedModuleSymbols;
+    std::unordered_set<std::string> ImportedModules;        // modules already imported (for idempotency)
+    std::unordered_map<std::string, std::string> ImportedModuleSymbols; // symbol -> source module
 
     TEditDistance EditDistanceCalculator;
 };

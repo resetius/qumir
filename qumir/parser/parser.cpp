@@ -64,12 +64,12 @@ inline bool isKeyword(const TToken& tok, EKeyword kw) {
 }
 
 using TAstTask = TExpectedTask<TExprPtr, TError, TLocation>;
-TAstTask stmt(TWrappedTokenStream& stream);
-TAstTask stmt_list(TWrappedTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts = {});
+TAstTask stmt(TWrappedTokenStream& stream, IModuleManager* mm);
+TAstTask stmt_list(TWrappedTokenStream& stream, std::set<EKeyword> terminators, IModuleManager* mm, std::vector<TExprPtr> stmts = {});
 TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TWrappedTokenStream& stream, bool parseAttributes = false);
 TAstTask expr(TWrappedTokenStream& stream);
-TAstTask for_loop(TWrappedTokenStream& stream);
-TAstTask for_times(TWrappedTokenStream& stream, TExprPtr countExpr, TLocation loopLoc);
+TAstTask for_loop(TWrappedTokenStream& stream, IModuleManager* mm);
+TAstTask for_times(TWrappedTokenStream& stream, TExprPtr countExpr, TLocation loopLoc, IModuleManager* mm);
 TError unexpectedOperator(TWrappedTokenStream& stream);
 
 void SkipEols(TWrappedTokenStream& stream) {
@@ -166,7 +166,7 @@ inline bool IsTypeKeyword(EKeyword kw) {
 /*
 StmtList ::= Stmt*
 */
-TAstTask stmt_list(TWrappedTokenStream& stream, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts) {
+TAstTask stmt_list(TWrappedTokenStream& stream, std::set<EKeyword> terminators, IModuleManager* mm, std::vector<TExprPtr> stmts) {
     auto loc = stream.GetLocation();
     while (true) {
         // Skip standalone EOLs between statements
@@ -193,7 +193,7 @@ TAstTask stmt_list(TWrappedTokenStream& stream, std::set<EKeyword> terminators, 
             break;
         }
         stream.Unget(t);
-        auto s = co_await stmt(stream);
+        auto s = co_await stmt(stream, mm);
         // Flatten if stmt returned a Block of multiple declarations
         if (auto blk = TMaybeNode<TVarsBlockExpr>(s)) {
             auto be = blk.Cast();
@@ -458,7 +458,7 @@ TypeKw ::= 'цел' | 'вещ' | 'лог' | 'лит'
 ArrayMark ::= 'таб'  [массивные параметры, если используются]
 IdentList ::= Ident (',' Ident)*
 */
-TAstTask fun_decl(TWrappedTokenStream& stream) {
+TAstTask fun_decl(TWrappedTokenStream& stream, IModuleManager* mm) {
     auto next = stream.Next();
     TTypePtr returnType = std::make_shared<TVoidType>();
     std::vector<std::shared_ptr<TVarStmt>> args;
@@ -546,7 +546,7 @@ TAstTask fun_decl(TWrappedTokenStream& stream) {
         bodyStmts.push_back(std::make_shared<TVarStmt>(next.Location, "$$return", returnType));
     }
 
-    auto body = co_await stmt_list(stream, { EKeyword::End }, std::move(bodyStmts));
+    auto body = co_await stmt_list(stream, { EKeyword::End }, mm, std::move(bodyStmts));
 
     next = stream.Next();
     if (!isKeyword(next, EKeyword::End)) {
@@ -577,7 +577,7 @@ TAstTask fun_decl(TWrappedTokenStream& stream) {
 /*
     ForLoop ::= identifier 'от' expr 'до' expr ('шаг' expr)?
 */
-TAstTask for_loop(TWrappedTokenStream& stream) {
+TAstTask for_loop(TWrappedTokenStream& stream, IModuleManager* mm) {
     auto location = stream.GetLocation();
 
     auto varTok = stream.Next();
@@ -608,7 +608,7 @@ TAstTask for_loop(TWrappedTokenStream& stream) {
         stream.Unget(stepTok);
     }
 
-    auto body = co_await stmt_list(stream, { EKeyword::LoopEnd });
+    auto body = co_await stmt_list(stream, { EKeyword::LoopEnd }, mm);
 
     auto block = std::make_shared<TBlockExpr>(location, std::vector<TExprPtr>{});
 
@@ -649,10 +649,10 @@ TAstTask for_loop(TWrappedTokenStream& stream) {
 
     sugar for: for i from 1 to expr
 */
-TAstTask for_times(TWrappedTokenStream& stream, TExprPtr countExpr, TLocation loopLoc) {
+TAstTask for_times(TWrappedTokenStream& stream, TExprPtr countExpr, TLocation loopLoc, IModuleManager* mm) {
     auto location = loopLoc;
 
-    auto body = co_await stmt_list(stream, { EKeyword::LoopEnd });
+    auto body = co_await stmt_list(stream, { EKeyword::LoopEnd }, mm);
 
     auto endTok = stream.Next();
     if (!isKeyword(endTok, EKeyword::LoopEnd)) {
@@ -696,12 +696,12 @@ TAstTask for_times(TWrappedTokenStream& stream, TExprPtr countExpr, TLocation lo
     body
   кц
  */
-TAstTask while_loop(TWrappedTokenStream& stream) {
+TAstTask while_loop(TWrappedTokenStream& stream, IModuleManager* mm) {
     auto location = stream.GetLocation();
 
     auto cond = co_await expr(stream);
 
-    auto body = co_await stmt_list(stream, { EKeyword::LoopEnd });
+    auto body = co_await stmt_list(stream, { EKeyword::LoopEnd }, mm);
 
     auto endTok = stream.Next();
     if (!isKeyword(endTok, EKeyword::LoopEnd)) {
@@ -720,10 +720,10 @@ TAstTask while_loop(TWrappedTokenStream& stream) {
     body
   кц при условие
 */
-TAstTask repeat_until_loop(TWrappedTokenStream& stream) {
+TAstTask repeat_until_loop(TWrappedTokenStream& stream, IModuleManager* mm) {
     auto location = stream.GetLocation();
 
-    auto body = co_await stmt_list(stream, { EKeyword::LoopEndWhen, EKeyword::LoopEnd });
+    auto body = co_await stmt_list(stream, { EKeyword::LoopEndWhen, EKeyword::LoopEnd }, mm);
 
     auto untilTok = stream.Next();
     // кц при or кц_при
@@ -775,7 +775,7 @@ or
 все
 
 */
-TAstTask switch_expr(TWrappedTokenStream& stream) {
+TAstTask switch_expr(TWrappedTokenStream& stream, IModuleManager* mm) {
     SkipEols(stream);
     auto location = stream.GetLocation();
     // collect cases
@@ -788,7 +788,7 @@ TAstTask switch_expr(TWrappedTokenStream& stream) {
             break;
         }
         if (isKeyword(caseTok, EKeyword::Else)) {
-            elseBranch = co_await stmt_list(stream, { EKeyword::EndIf });
+            elseBranch = co_await stmt_list(stream, { EKeyword::EndIf }, mm);
 
             auto endTok = stream.Next();
             if (!isKeyword(endTok, EKeyword::EndIf)) {
@@ -807,7 +807,7 @@ TAstTask switch_expr(TWrappedTokenStream& stream) {
             co_return TError(colonTok.Location, "ожидался ':' после условия в операторе 'выбор'");
         }
 
-        auto body = co_await stmt_list(stream, { EKeyword::Case, EKeyword::Else, EKeyword::EndIf });
+        auto body = co_await stmt_list(stream, { EKeyword::Case, EKeyword::Else, EKeyword::EndIf }, mm);
         cases.emplace_back(std::move(cond), std::move(body));
     }
 
@@ -842,7 +842,7 @@ OptElse ::= EOL* 'иначе' EOL* StmtList | ε
 // - EOL* означает, что между элементами могут быть пустые строки/переводы строк.
 // - Примеры допускают как серию на той же строке после 'то'/'иначе', так и на следующих строках.
 */
-TAstTask if_expr(TWrappedTokenStream& stream) {
+TAstTask if_expr(TWrappedTokenStream& stream, IModuleManager* mm) {
     auto location = stream.GetLocation();
     auto cond = co_await expr(stream);
     SkipEols(stream);
@@ -852,7 +852,7 @@ TAstTask if_expr(TWrappedTokenStream& stream) {
         co_return TError(thenTok.Location, "ожидалось 'то' после условия в операторе 'если'");
     }
 
-    auto thenBranch = co_await stmt_list(stream, { EKeyword::Else, EKeyword::EndIf });
+    auto thenBranch = co_await stmt_list(stream, { EKeyword::Else, EKeyword::EndIf }, mm);
 
     SkipEols(stream);
     auto elseTok = stream.Next();
@@ -865,7 +865,7 @@ TAstTask if_expr(TWrappedTokenStream& stream) {
         co_return TError(elseTok.Location, "ожидалось 'иначе' или 'все' после ветки 'то' в операторе 'если'");
     }
 
-    auto elseBranch = co_await stmt_list(stream, { EKeyword::EndIf });
+    auto elseBranch = co_await stmt_list(stream, { EKeyword::EndIf }, mm);
 
     auto endTok = stream.Next();
     if (!isKeyword(endTok, EKeyword::EndIf)) {
@@ -1532,7 +1532,7 @@ Stmt ::= VarDecl
     | FunDecl
     | Use
 */
-TAstTask stmt(TWrappedTokenStream& stream) {
+TAstTask stmt(TWrappedTokenStream& stream, IModuleManager* mm) {
     // Variable declarations:
     //   (цел|вещ|лог|лит|таб) Name (',' Name)* EOL
     // Names may consist of identifiers and/or keywords (multi-word), e.g. "не готов", "если число"
@@ -1549,9 +1549,9 @@ TAstTask stmt(TWrappedTokenStream& stream) {
         auto decls = co_await var_decl_list(stream);
         co_return std::make_shared<TVarsBlockExpr>(first.Location, decls);
     } else if (isKeyword(first, EKeyword::Alg)) {
-        co_return co_await fun_decl(stream);
+        co_return co_await fun_decl(stream, mm);
     } else if (isKeyword(first, EKeyword::If)) {
-        co_return co_await if_expr(stream);
+        co_return co_await if_expr(stream, mm);
     } else if (isKeyword(first, EKeyword::Return)) {
         // skip ':='
         auto next = stream.Next();
@@ -1564,11 +1564,11 @@ TAstTask stmt(TWrappedTokenStream& stream) {
     } else if (isKeyword(first, EKeyword::LoopStart)) {
         auto next = stream.Next();
         if (isKeyword(next, EKeyword::For)) {
-            co_return co_await for_loop(stream);
+            co_return co_await for_loop(stream, mm);
         } else if (isKeyword(next, EKeyword::While)) {
-            co_return co_await while_loop(stream);
+            co_return co_await while_loop(stream, mm);
         } else if (isOp(next, EOperator::Eol)) {
-            co_return co_await repeat_until_loop(stream);
+            co_return co_await repeat_until_loop(stream, mm);
         } else {
             stream.Unget(next);
             auto countExpr = co_await expr(stream);
@@ -1577,10 +1577,10 @@ TAstTask stmt(TWrappedTokenStream& stream) {
                 co_return TError(timesTok.Location, "ожидалось 'раз' после выражения в операторе 'нц'");
             }
 
-            co_return co_await for_times(stream, std::move(countExpr), first.Location);
+            co_return co_await for_times(stream, std::move(countExpr), first.Location, mm);
         }
     } else if (isKeyword(first, EKeyword::Switch)) {
-        co_return co_await switch_expr(stream);
+        co_return co_await switch_expr(stream, mm);
     } else if (isKeyword(first, EKeyword::Input)) {
         auto args = co_await parse_io_arg_list_opt<TExprPtr>(stream);
         co_return std::make_shared<TInputExpr>(first.Location, std::move(args));
@@ -1642,6 +1642,12 @@ TAstTask stmt(TWrappedTokenStream& stream) {
         if (!isOp(next, EOperator::Eol)) {
             co_return TError(next.Location, "ожидается новая строка после имени модуля");
         }
+        if (mm) {
+            auto result = mm->ImportModule(moduleName);
+            if (!result) {
+                co_return TError(first.Location, result.error());
+            }
+        }
         co_return std::make_shared<TUseExpr>(first.Location, moduleName);
     } else {
         co_return unexpected(stream);
@@ -1650,10 +1656,10 @@ TAstTask stmt(TWrappedTokenStream& stream) {
 
 } // namespace
 
-std::expected<TExprPtr, TError> TParser::parse(TTokenStream& stream)
+std::expected<TExprPtr, TError> TParser::parse(TTokenStream& stream, IModuleManager* mm)
 {
     TWrappedTokenStream wrappedStream(stream, /*windowSize = */ 10);
-    auto task = stmt_list(wrappedStream, {});
+    auto task = stmt_list(wrappedStream, {}, mm);
     return task.result();
 }
 
