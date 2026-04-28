@@ -725,7 +725,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             TDestructor dtor = TDestructor {
                 .Args = std::move(args),
                 .TypeIds = std::move(types),
-                .FunctionId = dtorId
+                .FunctionId = { dtorId }
             };
             PendingDestructors.emplace_back(std::move(dtor));
         }
@@ -769,7 +769,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             TDestructor dtor = TDestructor {
                 .Args = std::move(args),
                 .TypeIds = std::move(types),
-                .FunctionId = dtorId
+                .FunctionId = { dtorId }
             };
             PendingDestructors.emplace_back(std::move(dtor));
         }
