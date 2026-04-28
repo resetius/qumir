@@ -7,6 +7,8 @@ add_library(qumir
     modules/turtle/turtle.cpp
     modules/drawer/drawer.h
     modules/drawer/drawer.cpp
+    modules/painter/painter.h
+    modules/painter/painter.cpp
     modules/module.h
     modules/module.cpp
     parser/ast.h

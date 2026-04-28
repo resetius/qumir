@@ -15,6 +15,7 @@
 #include <qumir/modules/turtle/turtle.h>
 #include <qumir/modules/robot/robot.h>
 #include <qumir/modules/drawer/drawer.h>
+#include <qumir/modules/painter/painter.h>
 #include <sstream>
 #include <string>
 
@@ -124,6 +125,8 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     r.RegisterModule(&robot);
     NRegistry::DrawerModule drawer;
     r.RegisterModule(&drawer);
+    NRegistry::PainterModule painter;
+    r.RegisterModule(&painter);
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
@@ -184,6 +187,8 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     r.RegisterModule(&robot);
     NRegistry::DrawerModule drawer;
     r.RegisterModule(&drawer);
+    NRegistry::PainterModule painter;
+    r.RegisterModule(&painter);
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
@@ -359,6 +364,8 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     r.RegisterModule(&robot);
     NRegistry::DrawerModule drawer;
     r.RegisterModule(&drawer);
+    NRegistry::PainterModule painter;
+    r.RegisterModule(&painter);
 
     auto error = NTransform::Pipeline(ast, r);
     if (!error) {
