@@ -69,6 +69,12 @@ bool EqualTypes(TTypePtr a, TTypePtr b) {
         return true;
     }
 
+    auto maybeANamed = TMaybeType<TNamedType>(a);
+    auto maybeBNamed = TMaybeType<TNamedType>(b);
+    if (maybeANamed && maybeBNamed) {
+        return maybeANamed.Cast()->Name == maybeBNamed.Cast()->Name;
+    }
+
     return true;
 }
 
