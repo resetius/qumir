@@ -93,6 +93,9 @@ int TTypeTable::Unify(int leftId, int rightId) {
 }
 
 int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
+    if (auto named = NAst::TMaybeType<NAst::TNamedType>(t)) {
+        return FromAstType(named.Cast()->UnderlyingType, tt);
+    }
     if (auto i = NAst::TMaybeType<NAst::TIntegerType>(t)) {
         return tt.I(EKind::I64);
     }
