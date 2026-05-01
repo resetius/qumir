@@ -12,7 +12,7 @@ namespace NIR {
 
 struct TRuntime {
     std::vector<int64_t> Globals;
-    std::vector<int64_t> Stack;
+    std::vector<char> Stack;   // byte array; each variable slot is 8 bytes (64-bit aligned)
     std::vector<int64_t> Args; // call arguments, will be copied on stack on call, TODO: remove
     std::vector<int64_t> Regs;
     std::vector<int64_t> SavedRegs;

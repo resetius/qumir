@@ -88,7 +88,7 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
 
     Runtime.Regs.resize(execFunc->MaxTmpIdx + 1, 0);
     Runtime.Stack.reserve(MaxStackSize);
-    Runtime.Stack.resize(execFunc->NumLocals, 0);
+    Runtime.Stack.resize(execFunc->NumLocals * 8, 0);
     if (args.size() != function.ArgLocals.size()) {
         std::cerr << "Function " << function.Name << " expects " << function.ArgLocals.size() << " arguments, got " << args.size() << "\n";
         return std::nullopt;
@@ -96,7 +96,7 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
 
     for (size_t i = 0; i < args.size(); ++i) {
         const int64_t sid = function.ArgLocals[i].Idx;
-        Runtime.Stack[i] = args[i];
+        std::memcpy(Runtime.Stack.data() + sid * 8, &args[i], 8);
     }
 
     std::optional<std::string> result;
@@ -136,9 +136,9 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
                 Runtime.Regs[instr.Operands[0].Tmp.Idx] = addr;
             } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[1].Local;
-                assert(l.Idx >= 0 && l.Idx < Runtime.Stack.size() - frame.StackBase);
-                int64_t addr = reinterpret_cast<int64_t>(&Runtime.Stack[frame.StackBase + l.Idx]);
-                //std::cerr << "set addr of local " << frame.StackBase + l.Idx << " to " << std::hex << addr << std::dec << "\n";
+                const size_t byteOffset = frame.StackBase + l.Idx * 8;
+                assert(l.Idx >= 0 && byteOffset < Runtime.Stack.size());
+                int64_t addr = reinterpret_cast<int64_t>(Runtime.Stack.data() + byteOffset);
                 Runtime.Regs[instr.Operands[0].Tmp.Idx] = addr;
             } else {
                 assert(false && "Invalid operand for lea");
@@ -153,10 +153,11 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
                 Runtime.Regs[instr.Operands[0].Tmp.Idx] = Runtime.Globals[s.Idx];
             } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[1].Local;
-                assert(l.Idx >= 0 && l.Idx < Runtime.Stack.size() - frame.StackBase);
-                //std::cerr << "load local " << frame.StackBase + l.Idx << " value " << Runtime.Stack[frame.StackBase + l.Idx] << "\n";
-                //std::cerr << "addr of local " << frame.StackBase + l.Idx << " is " << std::hex << &Runtime.Stack[frame.StackBase + l.Idx] << std::dec << "\n";
-                Runtime.Regs[instr.Operands[0].Tmp.Idx] = Runtime.Stack[frame.StackBase + l.Idx];
+                const size_t byteOffset = frame.StackBase + l.Idx * 8;
+                assert(l.Idx >= 0 && byteOffset + 8 <= Runtime.Stack.size());
+                int64_t value;
+                std::memcpy(&value, Runtime.Stack.data() + byteOffset, 8);
+                Runtime.Regs[instr.Operands[0].Tmp.Idx] = value;
             } else {
                 assert(false && "Invalid operand for load");
             }
@@ -173,8 +174,9 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
                 Runtime.Globals[s.Idx] = val;
             } else if (instr.Operands[0].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[0].Local;
-                assert(l.Idx >= 0 && l.Idx < Runtime.Stack.size() - frame.StackBase);
-                Runtime.Stack[frame.StackBase + l.Idx] = val;
+                const size_t byteOffset = frame.StackBase + l.Idx * 8;
+                assert(l.Idx >= 0 && byteOffset + 8 <= Runtime.Stack.size());
+                std::memcpy(Runtime.Stack.data() + byteOffset, &val, 8);
             } else {
                 assert(false && "Invalid operand for store");
             }
@@ -390,21 +392,21 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
             const int argCount = (int)Runtime.Args.size();
             assert(argCount <= (int)localArgs.size() && "too many arguments for callee");
 
-            for (int i = 0; i < frame.UsedRegs; ++i) {
-                Runtime.Stack.push_back(Runtime.Regs[i]);
-            }
+            const size_t savedRegsBytes = frame.UsedRegs * 8;
+            const size_t oldSize = Runtime.Stack.size();
+            Runtime.Stack.resize(oldSize + savedRegsBytes);
+            std::memcpy(Runtime.Stack.data() + oldSize, Runtime.Regs.data(), savedRegsBytes);
             auto base = Runtime.Stack.size();
 
             Runtime.Regs.resize(calleeExec->MaxTmpIdx + 1, 0);
-            Runtime.Stack.resize(Runtime.Stack.size() + calleeExec->NumLocals, 0);
+            Runtime.Stack.resize(Runtime.Stack.size() + calleeExec->NumLocals * 8, 0);
             if (Runtime.Stack.size() > MaxStackSize) {
                 throw std::runtime_error("Stack overflow in interpreter");
             }
 
-            // save slots that will be overwritten by parameters
             for (int i = 0; i < argCount; ++i) {
                 const int64_t sid = localArgs[i].Idx;
-                Runtime.Stack[base + sid] = Runtime.Args[i];
+                std::memcpy(Runtime.Stack.data() + base + sid * 8, &Runtime.Args[i], 8);
             }
 
             ReturnLinks.emplace_back(TReturnLink {
@@ -437,16 +439,15 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
 
                 auto& linkFrame = callStack[link.FrameIdx];
                 Runtime.Stack.resize(base);
-                // restore used regs
+                // restore saved caller regs
                 Runtime.Regs.resize(callerFrame.UsedRegs);
-                for (int i = 0; i < callerFrame.UsedRegs; ++i) {
-                    // TODO: test this
-                    Runtime.Regs[callerFrame.UsedRegs - i - 1] = Runtime.Stack[base - i - 1];
-                }
+                const size_t savedRegsBytes = callerFrame.UsedRegs * 8;
+                const size_t savedRegsStart = base - savedRegsBytes;
+                std::memcpy(Runtime.Regs.data(), Runtime.Stack.data() + savedRegsStart, savedRegsBytes);
                 if (retVal.has_value()) {
                     Runtime.Regs[link.CallerDst] = *retVal;
                 }
-                Runtime.Stack.resize(base - callerFrame.UsedRegs);
+                Runtime.Stack.resize(savedRegsStart);
                 retVal = std::nullopt;
             }
             break;
