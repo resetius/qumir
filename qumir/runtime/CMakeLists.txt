@@ -16,5 +16,7 @@ add_library(qumir_runtime
     turtle.h
     drawer.cpp
     drawer.h
+    painter.cpp
+    painter.h
     )
 target_compile_features(qumir_runtime PUBLIC cxx_std_23)
