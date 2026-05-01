@@ -131,8 +131,9 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
             assert(instr.Operands[0].Tmp.Idx >= 0);
             if (instr.Operands[1].Type == TVMOperand::EType::Slot) {
                 const auto& s = instr.Operands[1].Slot;
-                assert(s.Idx >= 0 && s.Idx < Runtime.Globals.size());
-                int64_t addr = reinterpret_cast<int64_t>(&Runtime.Globals[s.Idx]);
+                const size_t byteOffset = s.Idx * 8;
+                assert(s.Idx >= 0 && byteOffset < Runtime.Globals.size());
+                int64_t addr = reinterpret_cast<int64_t>(Runtime.Globals.data() + byteOffset);
                 Runtime.Regs[instr.Operands[0].Tmp.Idx] = addr;
             } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[1].Local;
@@ -149,8 +150,11 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
             assert(instr.Operands[0].Tmp.Idx >= 0);
             if (instr.Operands[1].Type == TVMOperand::EType::Slot) {
                 const auto& s = instr.Operands[1].Slot;
-                assert(s.Idx >= 0 && s.Idx < Runtime.Globals.size());
-                Runtime.Regs[instr.Operands[0].Tmp.Idx] = Runtime.Globals[s.Idx];
+                const size_t byteOffset = s.Idx * 8;
+                assert(s.Idx >= 0 && byteOffset + 8 <= Runtime.Globals.size());
+                int64_t value;
+                std::memcpy(&value, Runtime.Globals.data() + byteOffset, 8);
+                Runtime.Regs[instr.Operands[0].Tmp.Idx] = value;
             } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[1].Local;
                 const size_t byteOffset = frame.StackBase + l.Idx * 8;
@@ -168,10 +172,11 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
             if (instr.Operands[0].Type == TVMOperand::EType::Slot) {
                 // TODO:
                 const auto& s = instr.Operands[0].Slot;
-                if (s.Idx >= (int64_t)Runtime.Globals.size()) {
-                    Runtime.Globals.resize(s.Idx + 1, 0);
+                const size_t byteOffset = s.Idx * 8;
+                if (byteOffset + 8 > Runtime.Globals.size()) {
+                    Runtime.Globals.resize(byteOffset + 8, 0);
                 }
-                Runtime.Globals[s.Idx] = val;
+                std::memcpy(Runtime.Globals.data() + byteOffset, &val, 8);
             } else if (instr.Operands[0].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[0].Local;
                 const size_t byteOffset = frame.StackBase + l.Idx * 8;
