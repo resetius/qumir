@@ -51,6 +51,14 @@
 - [Координатная сетка](examples/drawer_grid.md) — оси и сетка
 - [Столбчатая диаграмма](examples/drawer_chart.md) — визуализация данных
 
+## Рисователь
+
+- [Радуга](examples/painter_rainbow.md) — спектр HSL из вертикальных полос
+- [Концентрические окружности](examples/painter_circles.md) — окружности с цветом по радиусу
+- [Шахматная доска](examples/painter_checkerboard.md) — чередование клеток через toggle
+- [HSV-градиент](examples/painter_gradient.md) — двумерный градиент оттенок × яркость
+- [Мандельброт](examples/painter_mandelbrot.md) — цветное множество Мандельброта
+
 ## Робот
 
 - [Закрашивание квадрата](examples/robot_simple.md) — первая программа для робота
