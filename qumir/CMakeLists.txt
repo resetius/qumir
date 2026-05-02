@@ -9,6 +9,8 @@ add_library(qumir
     modules/drawer/drawer.cpp
     modules/painter/painter.h
     modules/painter/painter.cpp
+    modules/complex/complex.h
+    modules/complex/complex.cpp
     modules/module.h
     modules/module.cpp
     parser/ast.h

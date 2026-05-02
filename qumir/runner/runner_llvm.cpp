@@ -7,6 +7,7 @@
 #include <qumir/modules/robot/robot.h>
 #include <qumir/modules/drawer/drawer.h>
 #include <qumir/modules/painter/painter.h>
+#include <qumir/modules/complex/complex.h>
 #include <qumir/ir/passes/transforms/pipeline.h>
 
 #include <iostream>
@@ -28,6 +29,7 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     AvailableModules.push_back(std::make_shared<NRegistry::RobotModule>());
     AvailableModules.push_back(std::make_shared<NRegistry::DrawerModule>());
     AvailableModules.push_back(std::make_shared<NRegistry::PainterModule>());
+    AvailableModules.push_back(std::make_shared<NRegistry::ComplexModule>());
 
     for (const auto& mod : RegisteredModules) {
         Resolver.RegisterModule(mod.get());

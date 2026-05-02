@@ -7,8 +7,9 @@
 23. add support: дано, надо, утв
 24. support array cells as ref arguments (not supported by kumir)
 25. debug symbols
-26. polyakov examples
 27. int(-1.5) -> -2
 28. multiline expressions
 29. complete file api
 30. add robot api and js ui
+31. function overloading: нужно для "мод" (модуль комплексного числа из модуля Комплексные числа) — сейчас system.cpp регистрирует "mod" (latin), но при добавлении русского "мод" для цел/вещ и компл потребуется разрешение перегрузок по типу аргумента
+32. operator overloading for named/struct types: +, -, *, / для компл (Комплексные числа) — делегация части типизации на уровень модулей

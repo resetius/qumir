@@ -16,6 +16,7 @@
 #include <qumir/modules/robot/robot.h>
 #include <qumir/modules/drawer/drawer.h>
 #include <qumir/modules/painter/painter.h>
+#include <qumir/modules/complex/complex.h>
 #include <sstream>
 #include <string>
 
@@ -120,6 +121,8 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     r.RegisterModule(&drawer);
     NRegistry::PainterModule painter;
     r.RegisterModule(&painter);
+    NRegistry::ComplexModule complex;
+    r.RegisterModule(&complex);
 
     auto&& expected = p.parse(ts, &r);
     if (!expected.has_value()) {
@@ -182,6 +185,8 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     r.RegisterModule(&drawer);
     NRegistry::PainterModule painter;
     r.RegisterModule(&painter);
+    NRegistry::ComplexModule complex;
+    r.RegisterModule(&complex);
 
     auto&& expected = p.parse(ts, &r);
     if (!expected.has_value()) {
@@ -359,6 +364,8 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     r.RegisterModule(&drawer);
     NRegistry::PainterModule painter;
     r.RegisterModule(&painter);
+    NRegistry::ComplexModule complex;
+    r.RegisterModule(&complex);
 
     auto&& expected = p.parse(ts, &r);
     if (!expected.has_value()) {
