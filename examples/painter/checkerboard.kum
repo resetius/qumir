@@ -2,18 +2,21 @@
 
 алг
 нач
-    цел x, y, cellSize
+    цел x, y, cellSize, toggle
     cellSize := 80
+    toggle := 0
     новый лист(640, 640, белый)
     перо(1, прозрачный)
     нц для y от 0 до 7
         нц для x от 0 до 7
-            если (x + y) / 2 * 2 = x + y то
+            если toggle = 0 то
                 кисть(белый)
             иначе
                 кисть(чёрный)
             все
             прямоугольник(x * cellSize, y * cellSize, cellSize, cellSize)
+            toggle := 1 - toggle
         кц
+        toggle := 1 - toggle  | строка из 8 клеток (чётное число) вернула toggle на старт — компенсируем
     кц
 кон
