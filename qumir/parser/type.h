@@ -207,7 +207,30 @@ struct TNamedType : TType {
     }
 
     const std::string_view TypeName() const override {
-        return TNamedType::TypeId;
+        return Name;
+    }
+};
+
+struct TStructType : TType {
+    static constexpr const char* TypeId = "Struct";
+
+    std::vector<std::pair<std::string, TTypePtr>> Fields;
+
+    explicit TStructType(std::vector<std::pair<std::string, TTypePtr>> fields)
+        : Fields(std::move(fields))
+    {}
+
+    std::string ToString() const override {
+        std::string s = "struct { ";
+        for (const auto& [name, type] : Fields) {
+            s += name + ": " + (type ? std::string(type->TypeName()) : "unknown") + "; ";
+        }
+        s += "}";
+        return s;
+    }
+
+    const std::string_view TypeName() const override {
+        return TStructType::TypeId;
     }
 };
 
