@@ -94,7 +94,7 @@ struct PainterState {
     bool    fontItalic  = false;
     int64_t curX        = 0;
     int64_t curY        = 0;
-    std::vector<int64_t> pixels; // sheetWidth * sheetHeight, ARGB
+    std::vector<uint32_t> pixels; // sheetWidth * sheetHeight, ARGB packed
 };
 
 PainterState g_state;
@@ -228,7 +228,7 @@ int64_t painter_get_pixel(int64_t x, int64_t y) {
         return 0;
     }
     if (g_state.pixels.empty()) return 0;
-    return g_state.pixels[y * g_state.sheetWidth + x];
+    return static_cast<int64_t>(g_state.pixels[y * g_state.sheetWidth + x]);
 }
 
 void painter_pen(int64_t width, int64_t color) {
@@ -286,7 +286,7 @@ void painter_polygon(int64_t n, int64_t* xs, int64_t* ys) {
 void painter_pixel(int64_t x, int64_t y, int64_t color) {
     std::cerr << "painter_pixel (" << x << "," << y << ") color=" << std::hex << color << std::dec << "\n";
     if (x >= 0 && y >= 0 && x < g_state.sheetWidth && y < g_state.sheetHeight && !g_state.pixels.empty()) {
-        g_state.pixels[y * g_state.sheetWidth + x] = color;
+        g_state.pixels[y * g_state.sheetWidth + x] = static_cast<uint32_t>(color);
     }
 }
 
@@ -312,9 +312,12 @@ void painter_fill(int64_t x, int64_t y) {
 
 void painter_new_sheet(int64_t w, int64_t h, int64_t color) {
     std::cerr << "painter_new_sheet " << w << "x" << h << " color=" << std::hex << color << std::dec << "\n";
+    if (w <= 0 || h <= 0 || w > 32767 || h > 32767) {
+        throw std::runtime_error("Invalid sheet dimensions");
+    }
     g_state.sheetWidth  = w;
     g_state.sheetHeight = h;
-    g_state.pixels.assign(w * h, color);
+    g_state.pixels.assign(static_cast<size_t>(w * h), static_cast<uint32_t>(color));
 }
 
 void painter_load_sheet(const char* filename) {

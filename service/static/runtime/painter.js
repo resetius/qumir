@@ -430,7 +430,6 @@ export function painter_line(x1, y1, x2, y2) {
   offCtx.lineTo(Number(x2), Number(y2));
   offCtx.stroke();
   offCtx.restore();
-  scheduleDraw();
 }
 
 export function painter_line_to(x, y) {
@@ -445,7 +444,6 @@ export function painter_line_to(x, y) {
   offCtx.stroke();
   offCtx.restore();
   state.curX = nx; state.curY = ny;
-  scheduleDraw();
 }
 
 export function painter_polygon(n, xsPtr, ysPtr) {
@@ -464,14 +462,12 @@ export function painter_polygon(n, xsPtr, ysPtr) {
   if (state.hasBrush) offCtx.fill();
   offCtx.stroke();
   offCtx.restore();
-  scheduleDraw();
 }
 
 export function painter_pixel(x, y, color) {
   if (!offCtx) return;
   offCtx.fillStyle = argbToStyle(color);
   offCtx.fillRect(Number(x), Number(y), 1, 1);
-  scheduleDraw();
 }
 
 export function painter_rect(x, y, w, h) {
@@ -482,7 +478,6 @@ export function painter_rect(x, y, w, h) {
   if (state.hasBrush) offCtx.fillRect(Number(x), Number(y), Number(w), Number(h));
   offCtx.strokeRect(Number(x), Number(y), Number(w), Number(h));
   offCtx.restore();
-  scheduleDraw();
 }
 
 export function painter_ellipse(x, y, w, h) {
@@ -497,7 +492,6 @@ export function painter_ellipse(x, y, w, h) {
   if (state.hasBrush) offCtx.fill();
   offCtx.stroke();
   offCtx.restore();
-  scheduleDraw();
 }
 
 export function painter_circle(x, y, r) {
@@ -511,20 +505,17 @@ export function painter_circle(x, y, r) {
   if (state.hasBrush) offCtx.fill();
   offCtx.stroke();
   offCtx.restore();
-  scheduleDraw();
 }
 
 export function painter_text(x, y, charPtr) {
   if (!offCtx) return;
   const text = readCString(charPtr);
   offCtx.save();
-  applyStroke();
   offCtx.globalAlpha = state.density / 100;
   offCtx.font = makeFont();
   offCtx.fillStyle = argbToStyle(state.penColor);
   offCtx.fillText(text, Number(x), Number(y));
   offCtx.restore();
-  scheduleDraw();
 }
 
 export function painter_fill(x, y) {
@@ -541,7 +532,6 @@ export function painter_fill(x, y) {
   const imageData = offCtx.getImageData(0, 0, state.sheetW, state.sheetH);
   floodFill(imageData, px, py, fr, fg, fb, fa);
   offCtx.putImageData(imageData, 0, 0);
-  scheduleDraw();
 }
 
 // ── Sheet management ──────────────────────────────────────────────────────────
@@ -556,6 +546,9 @@ export function painter_new_sheet(w, h, color) {
     offCtx.fillStyle = argbToStyle(color);
     offCtx.fillRect(0, 0, sw, sh);
   }
+}
+
+export function __flushPainter() {
   scheduleDraw();
 }
 

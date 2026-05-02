@@ -2227,6 +2227,9 @@ async function runWasm() {
       if (typeof instance.exports.__wasm_call_dtors === 'function') {
         instance.exports.__wasm_call_dtors();
       }
+      if (__painterModule && typeof __painterModule.__flushPainter === 'function') {
+        __painterModule.__flushPainter();
+      }
   // Debug: list of WebAssembly exports (disabled)
   // out += '\nexports:\n';
   // for (const [k, v] of Object.entries(instance.exports)) {
