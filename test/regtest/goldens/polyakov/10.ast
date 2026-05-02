@@ -15,13 +15,15 @@
         ($$$next =:<Void>
           ($n:<Int>))
         ($$$to =:<Void>
-          (+:<Int>
-            (1000:<Int>)
-            ($$$step:<Int>)))
+          (1000:<Int>))
         (Loop:<Void>
-          (!=:<Bool>
-            ($$$next:<Int>)
-            ($$$to:<Int>))
+          (>=:<Bool>
+            (*:<Int>
+              (-:<Int>
+                ($$$to:<Int>)
+                ($$$next:<Int>))
+              ($$$step:<Int>))
+            (0:<Int>))
           nil
           ($n =:<Void>
             ($$$next:<Int>))

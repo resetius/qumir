@@ -3,10 +3,10 @@ function функция () { ; f64
     label: label(0)
     stre local(2,f64) imm(0,f64) 
     stre local(1,i64) imm(0,i64) 
-    stre local(4,i64) imm(1,i64) 
+    stre local(4,i64) imm(6,i64) 
     load tmp(0,i64) = local(1,i64) 
     stre local(5,i64) tmp(0,i64) 
-    stre local(3,i64) imm(10,i64) 
+    stre local(3,i64) imm(70,i64) 
     jmp label(2) 
   }
   block {
@@ -27,42 +27,28 @@ function функция () { ; f64
   }
   block {
     label: label(4)
-    load tmp(8,i64) = local(1,i64) 
-    > tmp(9,i1) = tmp(8,i64) imm(5,i64) 
-    cmp tmp(9,i1) label(7) label(8) 
-  }
-  block {
-    label: label(5)
-    load tmp(12,i64) = local(5,i64) 
-    load tmp(13,i64) = local(4,i64) 
-    + tmp(14,i64) = tmp(12,i64) tmp(13,i64) 
-    stre local(5,i64) tmp(14,i64) 
-    jmp label(2) 
-  }
-  block {
-    label: label(7)
-    jmp label(6) 
-  }
-  block {
-    label: label(8)
-    jmp label(9) 
-  }
-  block {
-    label: label(9)
-    load tmp(10,f64) = local(2,f64) 
-    + tmp(11,f64) = tmp(10,f64) imm(4607182418800017408,f64) 
-    stre local(2,f64) tmp(11,f64) 
+    load tmp(8,f64) = local(2,f64) 
+    + tmp(9,f64) = tmp(8,f64) imm(4607182418800017408,f64) 
+    stre local(2,f64) tmp(9,f64) 
     jmp label(5) 
   }
   block {
+    label: label(5)
+    load tmp(10,i64) = local(5,i64) 
+    load tmp(11,i64) = local(4,i64) 
+    + tmp(12,i64) = tmp(10,i64) tmp(11,i64) 
+    stre local(5,i64) tmp(12,i64) 
+    jmp label(2) 
+  }
+  block {
     label: label(6)
-    load tmp(15,f64) = local(2,f64) 
-    stre local(0,f64) tmp(15,f64) 
+    load tmp(13,f64) = local(2,f64) 
+    stre local(0,f64) tmp(13,f64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(16,f64) = local(0,f64) 
-    ret tmp(16,f64) 
+    load tmp(14,f64) = local(0,f64) 
+    ret tmp(14,f64) 
   }
 }

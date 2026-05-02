@@ -17,13 +17,15 @@
         ($$$next =:<Void>
           ($i:<Int>))
         ($$$to =:<Void>
-          (+:<Int>
-            (1000:<Int>)
-            ($$$step:<Int>)))
+          (1000:<Int>))
         (Loop:<Void>
-          (!=:<Bool>
-            ($$$next:<Int>)
-            ($$$to:<Int>))
+          (>=:<Bool>
+            (*:<Int>
+              (-:<Int>
+                ($$$to:<Int>)
+                ($$$next:<Int>))
+              ($$$step:<Int>))
+            (0:<Int>))
           nil
           ($i =:<Void>
             ($$$next:<Int>))
@@ -55,13 +57,15 @@
         ($$$next =:<Void>
           ($i:<Int>))
         ($$$to =:<Void>
-          (+:<Int>
-            ($число:<Int>)
-            ($$$step:<Int>)))
+          ($число:<Int>))
         (Loop:<Void>
-          (!=:<Bool>
-            ($$$next:<Int>)
-            ($$$to:<Int>))
+          (>=:<Bool>
+            (*:<Int>
+              (-:<Int>
+                ($$$to:<Int>)
+                ($$$next:<Int>))
+              ($$$step:<Int>))
+            (0:<Int>))
           nil
           ($i =:<Void>
             ($$$next:<Int>))

@@ -629,11 +629,15 @@ TAstTask for_loop(TWrappedTokenStream& stream, IModuleManager* mm) {
     block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "$$step", stepExpr)); // $$step = step
     block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "$$next", ident(location, varTok.Name))); // $$next = var
 
-    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "$$to",
-        binary(location, TOperator("+"), toExpr, ident(location, "$$step"))
-    )); // $$to = (to + step)
-    // pre-condition: $$next <> ($$to + $$step)
-    auto preCond = binary(location, TOperator("!="), ident(location, "$$next"), ident(location, "$$to"));
+    block->Stmts.push_back(std::make_shared<TAssignExpr>(location, "$$to", toExpr)); // $$to = to
+
+    // ($$to - $$next) * $$step >= 0
+    // works for any step sign: product is negative only when $$next has overshot $$to
+    auto preCond = binary(location, TOperator(">="),
+        binary(location, TOperator("*"),
+            binary(location, TOperator("-"), ident(location, "$$to"), ident(location, "$$next")),
+            ident(location, "$$step")),
+        num(location, (int64_t)0));
 
     // pre-body: var = $$next
     auto preBody = std::make_shared<TAssignExpr>(location, varTok.Name, ident(location, "$$next"));

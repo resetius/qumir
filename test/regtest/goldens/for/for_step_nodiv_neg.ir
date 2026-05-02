@@ -2,8 +2,8 @@ function функция () { ; f64
   block {
     label: label(0)
     stre local(2,f64) imm(0,f64) 
-    stre local(1,i64) imm(10,i64) 
-    neg tmp(0,i64) = imm(1,i64) 
+    stre local(1,i64) imm(70,i64) 
+    neg tmp(0,i64) = imm(6,i64) 
     stre local(4,i64) tmp(0,i64) 
     load tmp(1,i64) = local(1,i64) 
     stre local(5,i64) tmp(1,i64) 

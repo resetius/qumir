@@ -11,13 +11,14 @@
         (Var $$$step:<Int>)
         (Var $$$next:<Int>)
         ($i =:<Void>
-          (0:<Int>))
+          (70:<Int>))
         ($$$step =:<Void>
-          (1:<Int>))
+          (-:<Int>
+            (6:<Int>)))
         ($$$next =:<Void>
           ($i:<Int>))
         ($$$to =:<Void>
-          (10:<Int>))
+          (0:<Int>))
         (Loop:<Void>
           (>=:<Bool>
             (*:<Int>
@@ -30,13 +31,6 @@
           ($i =:<Void>
             ($$$next:<Int>))
           (Block:<Void>
-            (If:<Void>
-              (>:<Bool>
-                ($i:<Int>)
-                (5:<Int>))
-              (Block:<Void>
-                (Break:<Void>))
-              nil)
             ($j =:<Void>
               (+:<Float>
                 ($j:<Float>)
