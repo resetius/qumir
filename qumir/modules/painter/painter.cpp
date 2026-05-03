@@ -14,8 +14,7 @@ PainterModule::PainterModule() {
     auto stringType   = std::make_shared<NAst::TStringType>();
     auto intArrayType = std::make_shared<NAst::TArrayType>(integerType, 1);
 
-    auto colorType = std::make_shared<NAst::TNamedType>("цвет");
-    colorType->UnderlyingType = integerType;
+    auto colorType = std::make_shared<NAst::TNamedType>("цвет", integerType);
 
     auto makeOutInt = [&]() -> NAst::TTypePtr {
         auto t = std::make_shared<NAst::TIntegerType>();

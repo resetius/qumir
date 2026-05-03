@@ -3,6 +3,8 @@
 #include <expected>
 #include <string>
 
+#include <qumir/parser/type.h>
+
 namespace NQumir {
 
 namespace NRegistry {
@@ -17,6 +19,7 @@ public:
     // Returns the module pointer on success, or a fully-formatted error message on failure
     // (unknown module or name conflict between modules).
     virtual std::expected<NRegistry::IModule*, std::string> ImportModule(const std::string& name) = 0;
+    virtual NAst::TTypePtr LookupType(const std::string& name) const = 0;
 };
 
 } // namespace NQumir

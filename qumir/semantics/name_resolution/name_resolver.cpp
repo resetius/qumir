@@ -62,7 +62,8 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
     };
 
     // Resolve TNamedType: fill in UnderlyingType from imported module types.
-    auto resolveTypeRef = [&](NAst::TTypePtr& type, const TLocation& loc) -> std::optional<TError> {
+    // Also recurses into TReferenceType and TPointerType wrappers.
+    auto resolveTypeRef = [&](auto& self, NAst::TTypePtr& type, const TLocation& loc) -> std::optional<TError> {
         if (!type) return {};
         if (auto maybeNamed = TMaybeType<TNamedType>(type)) {
             auto named = maybeNamed.Cast();
@@ -71,8 +72,15 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
                 return TError(loc, "Неизвестный тип: " + named->Name);
             }
             named->UnderlyingType = it->second;
+        } else if (auto maybeRef = TMaybeType<TReferenceType>(type)) {
+            return self(self, maybeRef.Cast()->ReferencedType, loc);
+        } else if (auto maybePtr = TMaybeType<TPointerType>(type)) {
+            return self(self, maybePtr.Cast()->PointeeType, loc);
         }
         return {};
+    };
+    auto resolveTypeRefOuter = [&](NAst::TTypePtr& type, const TLocation& loc) -> std::optional<TError> {
+        return resolveTypeRef(resolveTypeRef, type, loc);
     };
 
     if (auto maybeFdecl = TMaybeNode<TFunDecl>(node)) {
@@ -81,11 +89,11 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         if (scopeId.Id < 0 || static_cast<size_t>(scopeId.Id) >= Scopes.size())  {
             co_return TError(fdecl->Location, "function has invalid scope id: " + std::to_string(scopeId.Id));
         }
-        if (auto err = resolveTypeRef(fdecl->RetType, fdecl->Location)) {
+        if (auto err = resolveTypeRefOuter(fdecl->RetType, fdecl->Location)) {
             co_return *err;
         }
         for (auto& param : fdecl->Params) {
-            if (auto err = resolveTypeRef(param->Type, param->Location)) {
+            if (auto err = resolveTypeRefOuter(param->Type, param->Location)) {
                 co_return *err;
             }
         }
@@ -115,7 +123,7 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         }
     } else if (auto maybeVarStmt = TMaybeNode<TVarStmt>(node)) {
         auto varStmt = maybeVarStmt.Cast();
-        if (auto err = resolveTypeRef(varStmt->Type, varStmt->Location)) {
+        if (auto err = resolveTypeRefOuter(varStmt->Type, varStmt->Location)) {
             co_return *err;
         }
         auto res = Declare(varStmt->Name, node, scope, funcScope);
@@ -410,6 +418,12 @@ std::optional<TNameResolver::TRegisteredOp> TNameResolver::GetUnaryOp(
     auto it = ImportedUnaryOps.find({op, TypeKey(operand)});
     if (it != ImportedUnaryOps.end()) return it->second;
     return std::nullopt;
+}
+
+NAst::TTypePtr TNameResolver::LookupType(const std::string& name) const {
+    auto it = ImportedTypes.find(name);
+    if (it != ImportedTypes.end()) return it->second;
+    return nullptr;
 }
 
 std::optional<std::string> TNameResolver::GetCast(const NAst::TTypePtr& from, const NAst::TTypePtr& to) const {

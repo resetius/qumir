@@ -20,8 +20,7 @@ ComplexModule::ComplexModule() {
             {"im", floatType},
         }
     );
-    auto complexType = std::make_shared<NAst::TNamedType>("компл");
-    complexType->UnderlyingType = complexUnderlying;
+    auto complexType = std::make_shared<NAst::TNamedType>("компл", complexUnderlying);
 
     ExternalTypes_ = {
         {

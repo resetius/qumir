@@ -38,7 +38,7 @@ int TTypeTable::Func(std::vector<int> args, int ret) {
 
     int id = (int)FuncSigs.size();
     FuncSigs.push_back({
-        .Params = std::move(args),
+        .Params = args,
         .Result = ret
     });
     Types.push_back({
@@ -46,7 +46,7 @@ int TTypeTable::Func(std::vector<int> args, int ret) {
         .Aux = id
     });
 
-    return FuncCache[{std::move(args), ret}] = (int)Types.size()-1;
+    return FuncCache[{args, ret}] = (int)Types.size()-1;
 }
 
 int TTypeTable::Struct(std::vector<int> fields) {
@@ -55,14 +55,14 @@ int TTypeTable::Struct(std::vector<int> fields) {
 
     int id = (int)Structs.size();
     Structs.push_back({
-        .FieldTypes = std::move(fields)
+        .FieldTypes = fields
     });
     Types.push_back({
         .Kind = EKind::Struct,
         .Aux = id
     });
 
-    return StructCache[std::move(fields)] = (int)Types.size()-1;
+    return StructCache[fields] = (int)Types.size()-1;
 }
 
 int TTypeTable::Unify(int leftId, int rightId) {

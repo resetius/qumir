@@ -184,6 +184,8 @@ public:
     std::optional<TRegisteredOp> GetUnaryOp(const std::string& op,
         const NAst::TTypePtr& operand) const;
 
+    NAst::TTypePtr LookupType(const std::string& name) const override;
+
 private:
     using TTask = TExpectedTask<std::monostate, TError, TLocation>;
     TTask Resolve(NAst::TExprPtr node, TScopePtr parentScope, TScopePtr funcScope);

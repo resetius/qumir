@@ -67,7 +67,7 @@ inline bool isKeyword(const TToken& tok, EKeyword kw) {
 using TAstTask = TExpectedTask<TExprPtr, TError, TLocation>;
 TAstTask stmt(TWrappedTokenStream& stream, IModuleManager* mm);
 TAstTask stmt_list(TWrappedTokenStream& stream, std::set<EKeyword> terminators, IModuleManager* mm, std::vector<TExprPtr> stmts = {});
-TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TWrappedTokenStream& stream, bool parseAttributes = false);
+TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TWrappedTokenStream& stream, bool parseAttributes, IModuleManager* nameResolver);
 TAstTask expr(TWrappedTokenStream& stream);
 TAstTask for_loop(TWrappedTokenStream& stream, IModuleManager* mm);
 TAstTask for_times(TWrappedTokenStream& stream, TExprPtr countExpr, TLocation loopLoc, IModuleManager* mm);
@@ -292,7 +292,7 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TWrappedTok
     co_return var;
 }
 
-TTypePtr getScalarType(EKeyword kw, bool& isArray, const std::string& typeName = {}) {
+TTypePtr getScalarType(EKeyword kw, bool& isArray, const std::string& typeName, IModuleManager* nameResolver) {
     isArray = false;
     switch (kw) {
         case EKeyword::Int:
@@ -325,13 +325,13 @@ TTypePtr getScalarType(EKeyword kw, bool& isArray, const std::string& typeName =
         case EKeyword::File:
             return std::make_shared<TFileType>();
         case EKeyword::NamedType:
-            return std::make_shared<TNamedType>(typeName);
+            return nameResolver->LookupType(typeName);
         default:
             return nullptr;
     }
 }
 
-TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TWrappedTokenStream& stream, bool parseAttributes) {
+TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TWrappedTokenStream& stream, bool parseAttributes, IModuleManager* nameResolver) {
     auto first = stream.Next();
 
     bool isPointer = false;
@@ -370,7 +370,7 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TWrappedTo
     std::vector<TExprPtr> decls;
     bool isArray = false;
 
-    TTypePtr scalarType = getScalarType(static_cast<EKeyword>(first.Value.i64), isArray, first.Name);
+    TTypePtr scalarType = getScalarType(static_cast<EKeyword>(first.Value.i64), isArray, first.Name, nameResolver);
     if (!scalarType) {
         co_return TError(first.Location, "неизвестный тип переменной");
     }
@@ -472,7 +472,7 @@ TAstTask fun_decl(TWrappedTokenStream& stream, IModuleManager* mm) {
     if (next.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(next.Value.i64))) {
         // function return type
         bool isArray = false;
-        returnType = getScalarType(static_cast<EKeyword>(next.Value.i64), isArray, next.Name);
+        returnType = getScalarType(static_cast<EKeyword>(next.Value.i64), isArray, next.Name, mm);
         if (isArray) {
             co_return TError(next.Location, "функция не может возвращать табличный тип");
         }
@@ -490,7 +490,7 @@ TAstTask fun_decl(TWrappedTokenStream& stream, IModuleManager* mm) {
                 next = stream.Next();
                 if (next.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(next.Value.i64))) {
                     stream.Unget(next);
-                    auto tmpArgs = co_await var_decl_list(stream, true);
+                    auto tmpArgs = co_await var_decl_list(stream, true, mm);
                     for (auto& arg : tmpArgs) {
                         if (auto varArg = TMaybeNode<TVarStmt>(arg)) {
                             args.push_back(varArg.Cast());
@@ -1555,7 +1555,7 @@ TAstTask stmt(TWrappedTokenStream& stream, IModuleManager* mm) {
 
     if (first.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(first.Value.i64))) {
         stream.Unget(first);
-        auto decls = co_await var_decl_list(stream);
+        auto decls = co_await var_decl_list(stream, false, mm);
         co_return std::make_shared<TVarsBlockExpr>(first.Location, decls);
     } else if (isKeyword(first, EKeyword::Alg)) {
         co_return co_await fun_decl(stream, mm);

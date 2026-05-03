@@ -195,8 +195,9 @@ struct TNamedType : TType {
     std::string Name;
     TTypePtr UnderlyingType; // Resolved on name resolution phase, exported by modules
 
-    explicit TNamedType(std::string name)
+    explicit TNamedType(std::string name, TTypePtr underlying)
         : Name(std::move(name))
+        , UnderlyingType(std::move(underlying))
     {}
 
     std::string ToString() const override {
