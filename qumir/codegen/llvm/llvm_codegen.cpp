@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <iostream>
+#include <sstream>
 #include <unordered_set>
 
 #include <llvm/IR/LLVMContext.h>
@@ -18,6 +19,7 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/Alignment.h>
 #include <llvm/Config/llvm-config.h>
 
 // For optimization
@@ -502,6 +504,80 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
     }
 
     auto opcode = instr.Op;
+    auto llvmTypeName = [](llvm::Type* type) {
+        if (!type) {
+            return std::string("<null>");
+        }
+        std::string out;
+        llvm::raw_string_ostream os(out);
+        type->print(os);
+        os.flush();
+        return out;
+    };
+    auto typeId = [](auto idx, const auto& cache) -> int {
+        if (idx < 0 || idx >= (int)cache.size()) {
+            return -1;
+        }
+        return cache[idx];
+    };
+    auto printType = [&](std::ostream& out, int tid) {
+        if (tid >= 0) {
+            out << ",";
+            module.Types.Print(out, tid);
+        }
+    };
+    auto formatOperand = [&](const TOperand& op, bool isCall) {
+        std::ostringstream out;
+        switch (op.Type) {
+            case TOperand::EType::Tmp:
+                out << "tmp(" << op.Tmp.Idx;
+                printType(out, typeId(op.Tmp.Idx, CurFun->Fun->TmpTypes));
+                out << ")";
+                break;
+            case TOperand::EType::Slot:
+                out << "slot(" << op.Slot.Idx;
+                printType(out, typeId(op.Slot.Idx, module.GlobalTypes));
+                out << ")";
+                break;
+            case TOperand::EType::Local:
+                out << "local(" << op.Local.Idx;
+                printType(out, typeId(op.Local.Idx, CurFun->Fun->LocalTypes));
+                out << ")";
+                break;
+            case TOperand::EType::Label:
+                out << "label(" << op.Label.Idx << ")";
+                break;
+            case TOperand::EType::Imm:
+                if (isCall && module.SymIdToFuncIdx.find(op.Imm.Value) != module.SymIdToFuncIdx.end()) {
+                    out << module.Functions[module.SymIdToFuncIdx.at(op.Imm.Value)].Name;
+                } else if (isCall && module.SymIdToExtFuncIdx.find(op.Imm.Value) != module.SymIdToExtFuncIdx.end()) {
+                    out << module.ExternalFunctions[module.SymIdToExtFuncIdx.at(op.Imm.Value)].Name;
+                } else {
+                    out << "imm(" << op.Imm.Value;
+                    printType(out, op.Imm.TypeId);
+                    out << ")";
+                }
+                break;
+        }
+        return out.str();
+    };
+    auto formatInstr = [&]() {
+        std::ostringstream out;
+        out << opcode.ToString() << " ";
+        if (instr.Dest.Idx >= 0) {
+            out << "tmp(" << instr.Dest.Idx;
+            printType(out, outputTypeId);
+            out << ") = ";
+        }
+        bool isCall = opcode == "call"_op;
+        for (int i = 0; i < instr.Size(); ++i) {
+            if (i > 0) {
+                out << " ";
+            }
+            out << formatOperand(instr.Operands[i], isCall);
+        }
+        return out.str();
+    };
     auto storeTmp = [&](llvm::Value* v){
         if (instr.Dest.Idx >= 0) {
             if (instr.Dest.Idx >= CurFun->TmpValues.size()) {
@@ -531,7 +607,11 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             return irb->CreateIntToPtr(val, expectedType, "cast");
         }
 
-        throw std::runtime_error("unexpected cast request; insert explicit cast earlier");
+        throw std::runtime_error(
+            "unexpected cast request while lowering IR instruction: " + formatInstr()
+            + "; actual LLVM type: " + llvmTypeName(actualTy)
+            + "; expected LLVM type: " + llvmTypeName(expectedType)
+            + "; insert explicit cast earlier");
     };
 
     auto cmpInsr = [&](llvm::CmpInst::Predicate pred, llvm::Value* lhs, llvm::Value* rhs) -> llvm::Value* {
@@ -644,6 +724,21 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             irb->CreateStore(value, ptr);
             return nullptr;
             break;
+        }
+        case "memcpy"_op: {
+            if (operandCount != 3) {
+                throw std::runtime_error("memcpy needs dst, src and size operands");
+            }
+            auto dst = GetOp(instr.Operands[0], module);
+            auto src = GetOp(instr.Operands[1], module);
+            llvm::Value* size = nullptr;
+            if (instr.Operands[2].Type == TOperand::EType::Imm && instr.Operands[2].Imm.TypeId < 0) {
+                size = llvm::ConstantInt::get(i64, instr.Operands[2].Imm.Value, false);
+            } else {
+                size = cast(GetOp(instr.Operands[2], module), i64);
+            }
+            irb->CreateMemCpy(dst, llvm::MaybeAlign(1), src, llvm::MaybeAlign(1), size);
+            return nullptr;
         }
         case "load"_op: {
             if (operandCount != 1 || instr.Dest.Idx < 0) throw std::runtime_error("load needs 1 operand and a dest");
@@ -771,10 +866,22 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                     // external function
                     auto& extFun = module.ExternalFunctions[jt->second];
 
-                    auto* retType = GetTypeById(extFun.ReturnTypeId, module.Types, ctx);
+                    auto isStructType = [&](int typeId) {
+                        return typeId >= 0 && module.Types.GetKind(typeId) == EKind::Struct;
+                    };
+                    auto* retType = isStructType(extFun.ReturnTypeId)
+                        ? llvm::Type::getVoidTy(ctx)
+                        : GetTypeById(extFun.ReturnTypeId, module.Types, ctx);
                     std::vector<llvm::Type*> paramTys;
+                    if (isStructType(extFun.ReturnTypeId)) {
+                        paramTys.push_back(llvm::PointerType::get(ctx, 0));
+                    }
                     for (const auto& pid : extFun.ArgTypes) {
-                        paramTys.push_back(GetTypeById(pid, module.Types, ctx));
+                        if (isStructType(pid)) {
+                            paramTys.push_back(llvm::PointerType::get(ctx, 0));
+                        } else {
+                            paramTys.push_back(GetTypeById(pid, module.Types, ctx));
+                        }
                     }
                     auto* fty   = llvm::FunctionType::get(retType, paramTys, /*isVarArg=*/false);
                     callee = LModule->getOrInsertFunction(extFun.MangledName, fty);
@@ -790,8 +897,14 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
             std::vector<llvm::Value*> args;
             for (int i = 0; i < CurFun->PendingArgs.size(); ++i) {
+                if (i >= callee.getFunctionType()->getNumParams()) {
+                    throw std::runtime_error("too many call arguments while lowering IR instruction: " + formatInstr());
+                }
                 auto* paramTy = callee.getFunctionType()->getParamType(i);
                 args.push_back(cast(CurFun->PendingArgs[i], paramTy));
+            }
+            if (args.size() != callee.getFunctionType()->getNumParams()) {
+                throw std::runtime_error("wrong call argument count while lowering IR instruction: " + formatInstr());
             }
             CurFun->PendingArgs.clear();
             if (retTy->isVoidTy()) {

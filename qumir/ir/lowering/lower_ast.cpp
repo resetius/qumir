@@ -912,13 +912,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         // For external functions returning struct: hidden first arg = pointer to result local.
         // Internal (user-defined) functions handle struct return separately via $$return variable.
-        bool isExternalCall = Module.SymIdToExtFuncIdx.contains(calleeSymId);
+        bool isExternalCall = funDecl->IsExternal();
+        if (isExternalCall && !Module.SymIdToExtFuncIdx.contains(calleeSymId)) {
+            // Synthetic imported operators/casts can be introduced by type annotation
+            // after module import; import their external ABI entry on first use.
+            ImportExternalFunction(calleeSymId, *funDecl);
+        }
         std::optional<TLocal> structRetLocal;
         if (isStructArgType(returnType) && isExternalCall) {
             structRetLocal = Builder.AllocLocal(FromAstType(returnType, Module.Types));
-            auto ptrTmp = Builder.Emit1("lea"_op, {*structRetLocal});
-            Builder.SetType(ptrTmp, Module.Types.Ptr(Module.Types.I(EKind::I8)));
-            Builder.Emit0("arg"_op, {ptrTmp});
         }
 
         std::vector<std::pair<TOperand, EOwnership>> argv;
@@ -962,6 +964,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 }
             }
             argv.emplace_back(*av.Value, av.Ownership);
+        }
+        if (structRetLocal) {
+            auto ptrTmp = Builder.Emit1("lea"_op, {*structRetLocal});
+            Builder.SetType(ptrTmp, Module.Types.Ptr(Module.Types.I(EKind::I8)));
+            Builder.Emit0("arg"_op, {ptrTmp});
         }
         for (auto [arg, _] : argv) {
             Builder.Emit0("arg"_op, {arg});

@@ -31,6 +31,19 @@ ComplexModule::ComplexModule() {
 
     ExternalFunctions_ = {
 
+        // ── Constants ────────────────────────────────────────────────────────
+        {
+            .Name = "i",
+            .MangledName = "complex_i",
+            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(komplex*)>(complex_i)),
+            .Packed = +[](const uint64_t* args, size_t) -> uint64_t {
+                complex_i(reinterpret_cast<komplex*>(args[0]));
+                return 0;
+            },
+            .ArgTypes = {},
+            .ReturnType = complexType,
+        },
+
         // ── Scalar accessors ──────────────────────────────────────────────────
         {
             .Name = "Re",

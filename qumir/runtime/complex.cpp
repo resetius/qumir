@@ -12,6 +12,11 @@ double complex_im(const komplex* a)  { return a->im; }
 double complex_abs(const komplex* a) { return std::sqrt(a->re * a->re + a->im * a->im); }
 double complex_arg(const komplex* a) { return std::atan2(a->im, a->re); }
 
+void complex_i(komplex* r) {
+    r->re = 0.0;
+    r->im = 1.0;
+}
+
 void complex_conj(komplex* r, const komplex* a) {
     r->re =  a->re;
     r->im = -a->im;

@@ -20,6 +20,7 @@ double  complex_abs(const komplex* a);
 double  complex_arg(const komplex* a);
 
 // ── Struct-returning functions (C ABI: hidden first arg = out pointer) ────────
+void complex_i(komplex* r);
 void complex_conj(komplex* r, const komplex* a);
 void complex_add(komplex* r, const komplex* a, const komplex* b);
 void complex_sub(komplex* r, const komplex* a, const komplex* b);
