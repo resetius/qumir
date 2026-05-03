@@ -12,6 +12,7 @@
 #include <qumir/semantics/type_annotation/type_annotation.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
+#include <qumir/modules/complex/complex.h>
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/ir/builder.h>
 
@@ -77,7 +78,9 @@ std::string BuildAst(NAst::TTokenStream& ts) {
     NAst::TParser p;
     NSemantics::TNameResolver nr;
     NRegistry::SystemModule sys;
+    NRegistry::ComplexModule complex;
     nr.RegisterModule(&sys);
+    nr.RegisterModule(&complex);
     nr.ImportModule(sys.Name());
 
     auto parsed = p.parse(ts, &nr);
@@ -100,7 +103,9 @@ std::string BuildAst(NAst::TTokenStream& ts) {
 std::string BuildIR(NAst::TTokenStream& ts) {
     NSemantics::TNameResolver resolver;
     NRegistry::SystemModule sys;
+    NRegistry::ComplexModule complex;
     resolver.RegisterModule(&sys);
+    resolver.RegisterModule(&complex);
     resolver.ImportModule(sys.Name());
 
     NAst::TParser p;

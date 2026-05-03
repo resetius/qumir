@@ -1,0 +1,99 @@
+(Block:<Void>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $x:<Float>)
+      (Var $y:<Float>)
+      (Var $n:<Int>)
+      (Var $a:<Named компл (struct { re: Float; im: Float; })>)
+      (Var $b:<Named компл (struct { re: Float; im: Float; })>)
+      ($x =:<Void>
+        (3.500000:<Float>))
+      ($a =:<Void>
+        (Call:<Named компл (struct { re: Float; im: Float; })>
+          ($__cast_Float_Named::компл:<Fun (Float) -> Named>)
+          ($x:<Float>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("float_to_complex Re=":<String>))
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          (Call:<Float>
+            ($Re:<Fun (Named) -> Float>)
+            ($a:<Named компл (struct { re: Float; im: Float; })>))
+          (0:<Int>)
+          (-1:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          (" Im=":<String>))
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          (Call:<Float>
+            ($Im:<Fun (Named) -> Float>)
+            ($a:<Named компл (struct { re: Float; im: Float; })>))
+          (0:<Int>)
+          (-1:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($n =:<Void>
+        (7:<Int>))
+      ($b =:<Void>
+        (Call:<Named компл (struct { re: Float; im: Float; })>
+          ($__cast_Int_Named::компл:<Fun (Int) -> Named>)
+          ($n:<Int>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("int_to_complex Re=":<String>))
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          (Call:<Float>
+            ($Re:<Fun (Named) -> Float>)
+            ($b:<Named компл (struct { re: Float; im: Float; })>))
+          (0:<Int>)
+          (-1:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          (" Im=":<String>))
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          (Call:<Float>
+            ($Im:<Fun (Named) -> Float>)
+            ($b:<Named компл (struct { re: Float; im: Float; })>))
+          (0:<Int>)
+          (-1:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($y =:<Void>
+        (Call:<Float>
+          ($__cast_Named::компл_Float:<Fun (Named) -> Float>)
+          ($a:<Named компл (struct { re: Float; im: Float; })>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("complex_to_float=":<String>))
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          ($y:<Float>)
+          (0:<Int>)
+          (-1:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      ($n =:<Void>
+        (Call:<Int>
+          ($__cast_Named::компл_Int:<Fun (Named) -> Int>)
+          ($a:<Named компл (struct { re: Float; im: Float; })>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("complex_to_int=":<String>))
+        (Call:<Void>
+          ($output_int64:<Fun (Int, Int) -> Void>)
+          ($n:<Int>)
+          (0:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>))))))

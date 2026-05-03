@@ -1,0 +1,97 @@
+(Block:<Void>
+  (FunDecl $split ($z, $re, $im):<Fun (Named, Ref, Ref) -> Void>
+    (Block:<Void>
+      ($re =:<Void>
+        (Call:<Float>
+          ($Re:<Fun (Named) -> Float>)
+          ($z:<Named компл (struct { re: Float; im: Float; })>)))
+      ($im =:<Void>
+        (Call:<Float>
+          ($Im:<Fun (Named) -> Float>)
+          ($z:<Named компл (struct { re: Float; im: Float; })>)))))
+  (FunDecl $make_by_ref ($re, $im, $z):<Fun (Float, Float, Ref) -> Void>
+    (Block:<Void>
+      ($z =:<Void>
+        (Call:<Named компл (struct { re: Float; im: Float; })>
+          ($__binop_+_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
+          (Call:<Named компл (struct { re: Float; im: Float; })>
+            ($__cast_Float_Named::компл:<Fun (Float) -> Named>)
+            ($re:<Float>))
+          (Call:<Named компл (struct { re: Float; im: Float; })>
+            ($__binop_*_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
+            (Call:<Named компл (struct { re: Float; im: Float; })>
+              ($__cast_Float_Named::компл:<Fun (Float) -> Named>)
+              ($im:<Float>))
+            (Call:<Named компл (struct { re: Float; im: Float; })>
+              ($i:<Fun () -> Named>)))))))
+  (FunDecl $add_in_place ($z, $delta):<Fun (Ref, Named) -> Void>
+    (Block:<Void>
+      ($z =:<Void>
+        (Call:<Named компл (struct { re: Float; im: Float; })>
+          ($__binop_+_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
+          ($z:<Ref &Named>)
+          ($delta:<Named компл (struct { re: Float; im: Float; })>)))))
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $z:<Named компл (struct { re: Float; im: Float; })>)
+      (Var $re:<Float>)
+      (Var $im:<Float>)
+      (Call:<Void>
+        ($make_by_ref:<Fun (Float, Float, Ref) -> Void>)
+        (4.000000:<Float>)
+        (6.000000:<Float>)
+        ($z:<Named компл (struct { re: Float; im: Float; })>))
+      (Call:<Void>
+        ($split:<Fun (Named, Ref, Ref) -> Void>)
+        ($z:<Named компл (struct { re: Float; im: Float; })>)
+        ($re:<Float>)
+        ($im:<Float>))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("made Re=":<String>))
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          ($re:<Float>)
+          (0:<Int>)
+          (-1:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          (" Im=":<String>))
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          ($im:<Float>)
+          (0:<Int>)
+          (-1:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>)))
+      (Call:<Void>
+        ($add_in_place:<Fun (Ref, Named) -> Void>)
+        ($z:<Named компл (struct { re: Float; im: Float; })>)
+        (Call:<Named компл (struct { re: Float; im: Float; })>
+          ($i:<Fun () -> Named>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("updated Re=":<String>))
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          (Call:<Float>
+            ($Re:<Fun (Named) -> Float>)
+            ($z:<Named компл (struct { re: Float; im: Float; })>))
+          (0:<Int>)
+          (-1:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          (" Im=":<String>))
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          (Call:<Float>
+            ($Im:<Fun (Named) -> Float>)
+            ($z:<Named компл (struct { re: Float; im: Float; })>))
+          (0:<Int>)
+          (-1:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>))))))

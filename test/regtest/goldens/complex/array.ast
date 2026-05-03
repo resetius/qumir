@@ -1,0 +1,121 @@
+(Block:<Void>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Block:<Void>
+        (Var $$$arr_lbound0:<Int>)
+        (Var $$$arr_dimsize0:<Int>)
+        (Var $$$arr_mulacc0:<Int>)
+        ($$$arr_lbound0 =:<Void>
+          (0:<Int>))
+        ($$$arr_dimsize0 =:<Void>
+          (+:<Int>
+            (-:<Int>
+              (2:<Int>)
+              (0:<Int>))
+            (1:<Int>)))
+        ($$$arr_mulacc0 =:<Void>
+          (*:<Int>
+            (1:<Int>)
+            ($$$arr_dimsize0:<Int>)))
+        (Var $arr:<Array [Named; 1]>))
+      (Var $j:<Int>)
+      (Block:<Void>
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
+        ($j =:<Void>
+          (0:<Int>))
+        ($$$step =:<Void>
+          (1:<Int>))
+        ($$$next =:<Void>
+          ($j:<Int>))
+        ($$$to =:<Void>
+          (2:<Int>))
+        (Loop:<Void>
+          (>=:<Bool>
+            (*:<Int>
+              (-:<Int>
+                ($$$to:<Int>)
+                ($$$next:<Int>))
+              ($$$step:<Int>))
+            (0:<Int>))
+          nil
+          ($j =:<Void>
+            ($$$next:<Int>))
+          (Block:<Void>
+            ($arr[...] =:<Void>
+              ($j:<Int>)
+              (Call:<Named компл (struct { re: Float; im: Float; })>
+                ($__binop_+_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
+                (Call:<Named компл (struct { re: Float; im: Float; })>
+                  ($__cast_Int_Named::компл:<Fun (Int) -> Named>)
+                  ($j:<Int>))
+                (Call:<Named компл (struct { re: Float; im: Float; })>
+                  ($i:<Fun () -> Named>)))))
+          ($$$next =:<Void>
+            (+:<Int>
+              ($$$next:<Int>)
+              ($$$step:<Int>)))))
+      (Block:<Void>
+        (Var $$$to:<Int>)
+        (Var $$$step:<Int>)
+        (Var $$$next:<Int>)
+        ($j =:<Void>
+          (0:<Int>))
+        ($$$step =:<Void>
+          (1:<Int>))
+        ($$$next =:<Void>
+          ($j:<Int>))
+        ($$$to =:<Void>
+          (2:<Int>))
+        (Loop:<Void>
+          (>=:<Bool>
+            (*:<Int>
+              (-:<Int>
+                ($$$to:<Int>)
+                ($$$next:<Int>))
+              ($$$step:<Int>))
+            (0:<Int>))
+          nil
+          ($j =:<Void>
+            ($$$next:<Int>))
+          (Block:<Void>
+            (Block:<Void>
+              (Call:<Void>
+                ($output_string:<Fun (String) -> Void>)
+                ("arr[":<String>))
+              (Call:<Void>
+                ($output_int64:<Fun (Int, Int) -> Void>)
+                ($j:<Int>)
+                (0:<Int>))
+              (Call:<Void>
+                ($output_string:<Fun (String) -> Void>)
+                ("] Re=":<String>))
+              (Call:<Void>
+                ($output_double:<Fun (Float, Int, Int) -> Void>)
+                (Call:<Float>
+                  ($Re:<Fun (Named) -> Float>)
+                  (Index:<Named компл (struct { re: Float; im: Float; })>
+                    ($arr:<Array [Named; 1]>)
+                    ($j:<Int>)))
+                (0:<Int>)
+                (-1:<Int>))
+              (Call:<Void>
+                ($output_string:<Fun (String) -> Void>)
+                (" Im=":<String>))
+              (Call:<Void>
+                ($output_double:<Fun (Float, Int, Int) -> Void>)
+                (Call:<Float>
+                  ($Im:<Fun (Named) -> Float>)
+                  (Index:<Named компл (struct { re: Float; im: Float; })>
+                    ($arr:<Array [Named; 1]>)
+                    ($j:<Int>)))
+                (0:<Int>)
+                (-1:<Int>))
+              (Call:<Void>
+                ($output_string:<Fun (String) -> Void>)
+                ("\n":<String>))))
+          ($$$next =:<Void>
+            (+:<Int>
+              ($$$next:<Int>)
+              ($$$step:<Int>))))))))

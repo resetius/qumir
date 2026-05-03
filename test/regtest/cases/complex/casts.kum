@@ -1,0 +1,22 @@
+использовать Комплексные числа
+
+алг
+нач
+    вещ x, y
+    цел n
+    компл a, b
+
+    x := 3.5
+    a := x
+    вывод "float_to_complex Re=", Re(a), " Im=", Im(a), нс
+
+    n := 7
+    b := n
+    вывод "int_to_complex Re=", Re(b), " Im=", Im(b), нс
+
+    y := a
+    вывод "complex_to_float=", y, нс
+
+    n := a
+    вывод "complex_to_int=", n, нс
+кон

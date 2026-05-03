@@ -1,0 +1,31 @@
+(Block:<Void>
+  (FunDecl $<main> ():<Fun () -> Void>
+    (Block:<Void>
+      (Var $z:<Named компл (struct { re: Float; im: Float; })>)
+      ($z =:<Void>
+        (Call:<Named компл (struct { re: Float; im: Float; })>
+          ($i:<Fun () -> Named>)))
+      (Block:<Void>
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("i Re=":<String>))
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          (Call:<Float>
+            ($Re:<Fun (Named) -> Float>)
+            ($z:<Named компл (struct { re: Float; im: Float; })>))
+          (0:<Int>)
+          (-1:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          (" Im=":<String>))
+        (Call:<Void>
+          ($output_double:<Fun (Float, Int, Int) -> Void>)
+          (Call:<Float>
+            ($Im:<Fun (Named) -> Float>)
+            ($z:<Named компл (struct { re: Float; im: Float; })>))
+          (0:<Int>)
+          (-1:<Int>))
+        (Call:<Void>
+          ($output_string:<Fun (String) -> Void>)
+          ("\n":<String>))))))

@@ -1,0 +1,31 @@
+| disable_exec
+использовать Комплексные числа
+
+алг split(компл z, рез вещ re, рез вещ im)
+нач
+    re := Re(z)
+    im := Im(z)
+кон
+
+алг make_by_ref(вещ re, вещ im, рез компл z)
+нач
+    z := re + im*i
+кон
+
+алг add_in_place(арг рез компл z, компл delta)
+нач
+    z := z + delta
+кон
+
+алг
+нач
+    компл z
+    вещ re, im
+
+    make_by_ref(4.0, 6.0, z)
+    split(z, re, im)
+    вывод "made Re=", re, " Im=", im, нс
+
+    add_in_place(z, i)
+    вывод "updated Re=", Re(z), " Im=", Im(z), нс
+кон
