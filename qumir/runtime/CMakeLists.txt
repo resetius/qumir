@@ -18,5 +18,7 @@ add_library(qumir_runtime
     drawer.h
     painter.cpp
     painter.h
+    complex.cpp
+    complex.h
     )
 target_compile_features(qumir_runtime PUBLIC cxx_std_23)

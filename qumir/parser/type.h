@@ -243,6 +243,13 @@ inline TTypePtr UnwrapReferenceType(TTypePtr type) {
     return type;
 }
 
+inline TTypePtr UnwrapNamedType(TTypePtr type) {
+    if (auto named = TMaybeType<TNamedType>(type)) {
+        return named.Cast()->UnderlyingType;
+    }
+    return type;
+}
+
 // Stable string key for a type, used in cast/operator maps.
 // Named types include their name to distinguish компл from цвет.
 inline std::string TypeKey(const TTypePtr& t) {

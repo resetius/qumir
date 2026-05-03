@@ -132,15 +132,13 @@ int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
         return tt.Ptr(to);
     }
 
-    /*
     if (auto s = NAst::TMaybeType<NAst::TStructType>(t)) {
         std::vector<int> fs;
-        for (auto& fld : s.Cast()->Fields) {
-            fs.push_back(FromAstType(fld.Type, tt));
+        for (auto& [name, type] : s.Cast()->Fields) {
+            fs.push_back(FromAstType(type, tt));
         }
         return tt.Struct(std::move(fs));
     }
-    */
 
     if (auto fn = NAst::TMaybeType<NAst::TFunctionType>(t)) {
         std::vector<int> ps;
@@ -297,6 +295,14 @@ int TTypeTable::UnderlyingType(int typeId) const {
         return type.Aux;
     }
     throw std::runtime_error("Type is not Ptr, Func, or Struct in UnderlyingType");
+}
+
+const std::vector<int>& TTypeTable::GetStructFields(int typeId) const {
+    auto& type = Types[typeId];
+    if (type.Kind != EKind::Struct) {
+        throw std::runtime_error("Type is not a Struct in GetStructFields");
+    }
+    return Structs[type.Aux].FieldTypes;
 }
 
 } // namespace NIR

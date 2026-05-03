@@ -280,6 +280,7 @@ public:
     void SetType(TTmp tmp, int typeId);
     int GetType(TTmp tmp) const;
     void SetType(TLocal local, int typeId);
+    TLocal AllocLocal(int typeId); // allocates a new unnamed local and returns its index
     void UnifyTypes(TTmp left, TTmp right);
     void SetReturnType(int typeId);
     void Emit0(TOp op, std::initializer_list<TOperand> operands);

@@ -876,6 +876,19 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             argTypes = &maybeFuncType.Cast()->ParamTypes;
         }
 
+        auto isStructArgType = [](const NAst::TTypePtr& t) -> bool {
+            return NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(t)).Cast() != nullptr;
+        };
+
+        // If return type is struct: allocate hidden local, pass its address as first arg
+        std::optional<TLocal> structRetLocal;
+        if (isStructArgType(returnType)) {
+            structRetLocal = Builder.AllocLocal(FromAstType(returnType, Module.Types));
+            auto ptrTmp = Builder.Emit1("lea"_op, {*structRetLocal});
+            Builder.SetType(ptrTmp, Module.Types.Ptr(Module.Types.I(EKind::I8)));
+            Builder.Emit0("arg"_op, {ptrTmp});
+        }
+
         std::vector<std::pair<TOperand, EOwnership>> argv;
         argv.reserve(call->Args.size());
         int i = 0;
@@ -891,6 +904,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 }
                 av.Value = co_await LoadVar(maybeIdent.Cast()->Name, scope, a->Location, true /*address*/);
                 Builder.SetType(av.Value->Tmp, FromAstType(argType, Module.Types));
+            } else if (isStructArgType(argType)) {
+                // pass struct by pointer (lea)
+                auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(a);
+                if (!maybeIdent) {
+                    co_return TError(a->Location, "struct arguments must be identifiers (pass by pointer)");
+                }
+                av.Value = co_await LoadVar(maybeIdent.Cast()->Name, scope, a->Location, /*address=*/true);
+                int ptrType = Module.Types.Ptr(Module.Types.I(EKind::I8));
+                Builder.SetType(av.Value->Tmp, ptrType);
             } else {
                 av = co_await Lower(a, scope);
             }
@@ -922,7 +944,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
 
         std::optional<TOperand> tmp = std::nullopt;
-        if (returnsValue) {
+        if (structRetLocal) {
+            // struct return: call is void, result is in the hidden local
+            Builder.Emit0("call"_op, {TImm{calleeSymId}});
+            // expose the hidden local as the result (pointer to struct)
+            auto ptrTmp = Builder.Emit1("lea"_op, {*structRetLocal});
+            Builder.SetType(ptrTmp, Module.Types.Ptr(Module.Types.I(EKind::I8)));
+            tmp = TOperand{ptrTmp};
+        } else if (returnsValue) {
             tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
             Builder.SetType(tmp->Tmp, FromAstType(returnType, Module.Types));
         } else {

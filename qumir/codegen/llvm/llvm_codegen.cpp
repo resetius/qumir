@@ -49,6 +49,13 @@ llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx
         case EKind::Void: return llvm::Type::getVoidTy(ctx);
         case EKind::Ptr: return llvm::PointerType::get(ctx, 0); // use pointer type (i8*) across targets
         case EKind::Func: return llvm::Type::getInt64Ty(ctx); // Function Id so far, TODO
+        case EKind::Struct: {
+            std::vector<llvm::Type*> fields;
+            for (int f : tt.GetStructFields(typeId)) {
+                fields.push_back(GetTypeById(f, tt, ctx));
+            }
+            return llvm::StructType::get(ctx, fields);
+        }
         default:
             throw std::runtime_error("unsupported primitive type");
     }

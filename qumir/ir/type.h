@@ -64,6 +64,7 @@ public:
     bool IsPointer(int typeId) const;
     EKind GetKind(int typeId) const;
     int UnderlyingType(int typeId) const; // for Ptr, Func, Struct
+    const std::vector<int>& GetStructFields(int typeId) const;
 
 private:
     std::vector<TType> Types;
