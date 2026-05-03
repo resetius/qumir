@@ -1,0 +1,18 @@
+использовать Комплексные числа
+
+алг
+нач
+    компл z, w
+    цел asInt
+    вещ asFloat
+
+    z := 3.0 + 4.0*i
+    вывод "z: Re=", Re(z), " Im=", Im(z), " mod=", мод(z), нс
+
+    w := сопряженное(z)
+    вывод "conj: Re=", Re(w), " Im=", Im(w), нс
+
+    asInt := z
+    asFloat := z
+    вывод "as int=", asInt, " as float=", asFloat, нс
+кон

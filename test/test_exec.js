@@ -49,11 +49,13 @@ const defaultIoRuntimePath = path.join(__dirname, '..', 'service', 'static', 'ru
 const defaultResultRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'result.js');
 const defaultStringRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'string.js');
 const defaultArrayRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'array.js');
+const defaultComplexRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'complex.js');
 
 let cachedIoRuntime = null;
 let cachedResultRuntime = null;
 let cachedStringRuntime = null;
 let cachedArrayRuntime = null;
+let cachedComplexRuntime = null;
 
 class TestInputStream {
   constructor(stdinContent) {
@@ -195,6 +197,18 @@ async function loadArrayRuntimeModule() {
   const url = pathToFileURL(arrayPath).href;
   cachedArrayRuntime = await import(url);
   return cachedArrayRuntime;
+}
+
+async function loadComplexRuntimeModule() {
+  if (cachedComplexRuntime) return cachedComplexRuntime;
+  let complexPath = defaultComplexRuntimePath;
+  if (runtimeDir) {
+    const candidate = path.join(runtimeDir, 'complex.js');
+    if (fs.existsSync(candidate)) complexPath = candidate;
+  }
+  const url = pathToFileURL(complexPath).href;
+  cachedComplexRuntime = await import(url);
+  return cachedComplexRuntime;
 }
 
 function bindIoStreams(ioRuntime, inputStream, outputStream) {
@@ -403,11 +417,12 @@ async function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
   }
   // Common import names guesses; adjust if actual wasm expects different.
   const runtimeFns = await loadRuntimeFunctions(runtimeDir, memory);
-  // Load built-in array runtime (if present) and merge into runtime functions so
-  // __bindMemory from array.js will be available and called below.
+  const runtimeModulesForBinding = [];
+  // Load built-in runtimes that are always available in the browser/service.
   try {
     const arrayRuntime = await loadArrayRuntimeModule();
     if (arrayRuntime) {
+      runtimeModulesForBinding.push(arrayRuntime);
       for (const [name, val] of Object.entries(arrayRuntime)) {
         if (typeof val === 'function') runtimeFns[name] = val;
       }
@@ -415,10 +430,26 @@ async function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
   } catch (e) {
     if (printOutput) log('[WARN] failed to load array runtime', e.message);
   }
+  try {
+    const complexRuntime = await loadComplexRuntimeModule();
+    if (complexRuntime) {
+      runtimeModulesForBinding.push(complexRuntime);
+      for (const [name, val] of Object.entries(complexRuntime)) {
+        if (typeof val === 'function') runtimeFns[name] = val;
+      }
+    }
+  } catch (e) {
+    if (printOutput) log('[WARN] failed to load complex runtime', e.message);
+  }
   const ioEnvFns = extractIoEnv(ioRuntime);
   const bindIoMemory = (mem) => {
     if (ioRuntime && typeof ioRuntime.__bindMemory === 'function') {
       try { ioRuntime.__bindMemory(mem); } catch (e) { if (printOutput) log('[WARN] ioRuntime.__bindMemory failed', e.message); }
+    }
+    for (const mod of runtimeModulesForBinding) {
+      if (mod && typeof mod.__bindMemory === 'function') {
+        try { mod.__bindMemory(mem); } catch (e) { if (printOutput) log('[WARN] runtime.__bindMemory failed', e.message); }
+      }
     }
   };
   bindIoMemory(memory);
