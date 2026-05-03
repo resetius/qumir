@@ -7,6 +7,7 @@
 #include <qumir/module_manager.h>
 
 #include <expected>
+#include <map>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -169,6 +170,9 @@ public:
 
     void PrintSymbols(std::ostream& os) const;
 
+    // Returns synthetic function name for cast from->to if registered by an imported module, nullopt otherwise
+    std::optional<std::string> GetCast(const NAst::TTypePtr& from, const NAst::TTypePtr& to) const;
+
 private:
     using TTask = TExpectedTask<std::monostate, TError, TLocation>;
     TTask Resolve(NAst::TExprPtr node, TScopePtr parentScope, TScopePtr funcScope);
@@ -186,6 +190,10 @@ private:
     std::unordered_map<std::string, std::string> ImportedModuleSymbols; // symbol/type name -> source module
     std::unordered_map<std::string, NAst::TTypePtr> ImportedTypes; // type name -> resolved type
     std::vector<std::shared_ptr<NAst::TFunDecl>> ImportedOperators; // operator overloads (IsOp=true), may have duplicates
+
+    // cast operator map: {TypeKey(from), TypeKey(to)} -> synthetic name registered via DeclareFunction
+    std::map<std::pair<std::string,std::string>, std::string> ImportedCasts;
+
 
     TEditDistance EditDistanceCalculator;
 };

@@ -4,6 +4,8 @@
 #include <qumir/parser/ast.h>
 #include <qumir/parser/parser.h>
 #include <qumir/parser/lexer.h>
+#include <qumir/parser/type.h>
+#include <qumir/semantics/name_resolution/name_resolver.h>
 
 #include <iostream>
 #include <sstream>
@@ -78,7 +80,7 @@ bool EqualTypes(TTypePtr a, TTypePtr b) {
     return true;
 }
 
-bool CanImplicit(TTypePtr S, TTypePtr D) {
+bool CanImplicit(TTypePtr S, TTypePtr D, NSemantics::TNameResolver* ctx) {
     if (EqualTypes(S, D)) {
         return true;
     }
@@ -114,17 +116,18 @@ bool CanImplicit(TTypePtr S, TTypePtr D) {
             maybePointerS.Cast()->PointeeType);
     }
 
+    if (ctx->GetCast(S, D)) return true;
     return false;
 }
 
-TExprPtr InsertImplicitCastIfNeeded(TExprPtr expr, TTypePtr toType) {
+TExprPtr InsertImplicitCastIfNeeded(TExprPtr expr, TTypePtr toType, NSemantics::TNameResolver* ctx) {
     if (!expr->Type || !toType) {
         return expr;
     }
     if (EqualTypes(expr->Type, toType)) {
         return expr;
     }
-    if (!CanImplicit(expr->Type, toType)) {
+    if (!CanImplicit(expr->Type, toType, ctx)) {
         return expr;
     }
 
@@ -156,6 +159,16 @@ TExprPtr InsertImplicitCastIfNeeded(TExprPtr expr, TTypePtr toType) {
                 return newNum;
             }
         }
+    }
+
+    if (auto synthName = ctx->GetCast(expr->Type, toType)) {
+        auto callee = std::make_shared<TIdentExpr>(expr->Location, *synthName);
+        callee->Type = std::make_shared<TFunctionType>(
+            std::vector<TTypePtr>{expr->Type}, toType);
+        auto call = std::make_shared<TCallExpr>(expr->Location, callee,
+            std::vector<TExprPtr>{expr});
+        call->Type = toType;
+        return call;
     }
 
     return MakeCast(std::move(expr), std::move(toType));
@@ -276,21 +289,21 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 }
                 // string + symbol
                 if (maybeStrLeft && maybeSymRight) {
-                    binary->Right = InsertImplicitCastIfNeeded(binary->Right, maybeStrLeft.Cast());
+                    binary->Right = InsertImplicitCastIfNeeded(binary->Right, maybeStrLeft.Cast(), &context);
                     binary->Type = maybeStrLeft.Cast();
                     break;
                 }
                 // symbol + string
                 if (maybeSymLeft && maybeStrRight) {
-                    binary->Left = InsertImplicitCastIfNeeded(binary->Left, maybeStrRight.Cast());
+                    binary->Left = InsertImplicitCastIfNeeded(binary->Left, maybeStrRight.Cast(), &context);
                     binary->Type = maybeStrRight.Cast();
                     break;
                 }
                 // symbol + symbol => string
                 if (maybeSymLeft && maybeSymRight) {
                     auto strT = std::make_shared<TStringType>();
-                    binary->Left = InsertImplicitCastIfNeeded(binary->Left, strT);
-                    binary->Right = InsertImplicitCastIfNeeded(binary->Right, strT);
+                    binary->Left = InsertImplicitCastIfNeeded(binary->Left, strT, &context);
+                    binary->Right = InsertImplicitCastIfNeeded(binary->Right, strT, &context);
                     binary->Type = strT;
                     break;
                 }
@@ -305,8 +318,8 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 common = std::make_shared<TFloatType>();
             }
 
-            binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common);
-            binary->Right = InsertImplicitCastIfNeeded(binary->Right, common);
+            binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common, &context);
+            binary->Right = InsertImplicitCastIfNeeded(binary->Right, common, &context);
             binary->Type  = common;
             break;
         }
@@ -341,15 +354,15 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 if (!common) {
                     co_return TError(binary->Location, "Операции сравнения применимы только к числам");
                 }
-                binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common);
-                binary->Right = InsertImplicitCastIfNeeded(binary->Right, common);
+                binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common, &context);
+                binary->Right = InsertImplicitCastIfNeeded(binary->Right, common, &context);
             }
             binary->Type = std::make_shared<TBoolType>();
             break;
         case TOperator("&&"):
         case TOperator("||"):
-            binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  std::make_shared<TBoolType>());
-            binary->Right = InsertImplicitCastIfNeeded(binary->Right, std::make_shared<TBoolType>());
+            binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  std::make_shared<TBoolType>(), &context);
+            binary->Right = InsertImplicitCastIfNeeded(binary->Right, std::make_shared<TBoolType>(), &context);
             binary->Type  = std::make_shared<TBoolType>();
             break;
         default:
@@ -392,10 +405,10 @@ TTask AnnotateAssign(std::shared_ptr<TAssignExpr> assign, NSemantics::TNameResol
 
     auto valueType = UnwrapReferenceType(assign->Value->Type);
     if (!EqualTypes(valueType, symbolType)) {
-        if (!CanImplicit(valueType, symbolType)) {
+        if (!CanImplicit(valueType, symbolType, &context)) {
             co_return TError(assign->Location, "Нельзя неявно преобразовать тип '" + std::string(valueType->TypeName()) + "' к типу '" + std::string(symbolType->TypeName()) + "' при присваивании переменной '" + assign->Name + "'.");
         }
-        assign->Value = InsertImplicitCastIfNeeded(assign->Value, sym->Type);
+        assign->Value = InsertImplicitCastIfNeeded(assign->Value, sym->Type, &context);
     }
 
     assign->Type = std::make_shared<NAst::TVoidType>();
@@ -422,11 +435,11 @@ TTask AnnotateArrayAssign(std::shared_ptr<TArrayAssignExpr> arrayAssign, NSemant
         auto arrayType = maybeArrayType.Cast();
         auto valueType = UnwrapReferenceType(arrayAssign->Value->Type);
         if (!EqualTypes(valueType, arrayType->ElementType)) {
-            if (!CanImplicit(valueType, arrayType->ElementType)) {
+            if (!CanImplicit(valueType, arrayType->ElementType, &context)) {
                 co_return TError(arrayAssign->Location, "Нельзя неявно преобразовать тип '" +
                     std::string(valueType->TypeName()) + "' к типу '" + std::string(arrayType->ElementType->TypeName()) + "' при присваивании элементу массива '" + arrayAssign->Name + "'.");
             }
-            arrayAssign->Value = InsertImplicitCastIfNeeded(arrayAssign->Value, arrayType->ElementType);
+            arrayAssign->Value = InsertImplicitCastIfNeeded(arrayAssign->Value, arrayType->ElementType, &context);
         }
         for (auto& indexExpr : arrayAssign->Indices) {
             indexExpr = co_await DoAnnotate(indexExpr, context, scopeId);
@@ -557,10 +570,10 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
                 continue;
             }
             if (!EqualTypes(arg->Type, paramT)) {
-                if (!CanImplicit(UnwrapReferenceType(arg->Type), paramT)) {
+                if (!CanImplicit(UnwrapReferenceType(arg->Type), paramT, &context)) {
                     co_return TError(arg->Location, "Аргумент #" + std::to_string(i+1) + ": нельзя неявно преобразовать тип '" + std::string(arg->Type->TypeName()) + "' к типу параметра '" + std::string(paramT->TypeName()) + "'.");
                 }
-                arg = InsertImplicitCastIfNeeded(arg, paramT);
+                arg = InsertImplicitCastIfNeeded(arg, paramT, &context);
             }
         }
         call->Type = maybeFunType.Cast()->ReturnType;
@@ -578,8 +591,8 @@ TTask AnnotateIf(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver& con
     {
         auto boolT = std::make_shared<TBoolType>();
         auto condType = UnwrapReferenceType(ifExpr->Cond->Type);
-        if (!EqualTypes(condType, boolT) && CanImplicit(condType, boolT)) {
-            ifExpr->Cond = InsertImplicitCastIfNeeded(ifExpr->Cond, boolT);
+        if (!EqualTypes(condType, boolT) && CanImplicit(condType, boolT, &context)) {
+            ifExpr->Cond = InsertImplicitCastIfNeeded(ifExpr->Cond, boolT, &context);
         }
     }
     ifExpr->Then = co_await DoAnnotate(ifExpr->Then, context, scopeId);
@@ -628,10 +641,10 @@ TTask AnnotateMultiIndex(std::shared_ptr<TMultiIndexExpr> indexExpr, NSemantics:
             co_return TError(index->Location, "Индекс #" + std::to_string(i+1) + " в многомерном обращении к массиву не имеет типа. Проверьте выражение индекса.");
         }
         if (!EqualTypes(index->Type, intType)) {
-            if (!CanImplicit(index->Type, intType)) {
+            if (!CanImplicit(index->Type, intType, &context)) {
                 co_return TError(index->Location, "Индекс #" + std::to_string(i+1) + " в многомерном обращении к массиву должен быть целым числом.");
             }
-            index = InsertImplicitCastIfNeeded(index, intType);
+            index = InsertImplicitCastIfNeeded(index, intType, &context);
         }
     }
     auto arrayType = maybeArrayType.Cast();
@@ -651,10 +664,10 @@ TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameReso
     }
     auto intType = std::make_shared<TIntegerType>();
     if (!EqualTypes(indexExpr->Index->Type, intType)) {
-        if (!CanImplicit(indexExpr->Index->Type, intType)) {
+        if (!CanImplicit(indexExpr->Index->Type, intType, &context)) {
             co_return TError(indexExpr->Location, "Индекс в выражении индексации должен быть целым числом. Например: a[2], s[1].");
         }
-        indexExpr->Index = InsertImplicitCastIfNeeded(indexExpr->Index, intType);
+        indexExpr->Index = InsertImplicitCastIfNeeded(indexExpr->Index, intType, &context);
     }
     auto collectionType = UnwrapReferenceType(indexExpr->Collection->Type);
     if (TMaybeType<TStringType>(collectionType)) {
@@ -693,16 +706,16 @@ TTask AnnotateSlice(std::shared_ptr<TSliceExpr> sliceExpr, NSemantics::TNameReso
     }
     auto intType = std::make_shared<TIntegerType>();
     if (!EqualTypes(sliceExpr->Start->Type, intType)) {
-        if (!CanImplicit(sliceExpr->Start->Type, intType)) {
+        if (!CanImplicit(sliceExpr->Start->Type, intType, &context)) {
             co_return TError(sliceExpr->Location, "Начальный индекс в срезе должен быть целым числом. Пример: s[1:3].");
         }
-        sliceExpr->Start = InsertImplicitCastIfNeeded(sliceExpr->Start, intType);
+        sliceExpr->Start = InsertImplicitCastIfNeeded(sliceExpr->Start, intType, &context);
     }
     if (!EqualTypes(sliceExpr->End->Type, intType)) {
-        if (!CanImplicit(sliceExpr->End->Type, intType)) {
+        if (!CanImplicit(sliceExpr->End->Type, intType, &context)) {
             co_return TError(sliceExpr->Location, "Конечный индекс в срезе должен быть целым числом. Пример: s[1:3].");
         }
-        sliceExpr->End = InsertImplicitCastIfNeeded(sliceExpr->End, intType);
+        sliceExpr->End = InsertImplicitCastIfNeeded(sliceExpr->End, intType, &context);
     }
     // Срез строки возвращает строку
     sliceExpr->Type = collectionType;

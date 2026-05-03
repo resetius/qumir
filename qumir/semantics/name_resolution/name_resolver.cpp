@@ -1,6 +1,7 @@
 #include "name_resolver.h"
 
 #include <qumir/modules/module.h>
+#include <qumir/parser/type.h>
 
 #include <iostream>
 
@@ -395,6 +396,12 @@ TExprPtr TNameResolver::GetSymbolNode(TSymbolId id) const {
     return Symbols[id.Id].Node;
 }
 
+std::optional<std::string> TNameResolver::GetCast(const NAst::TTypePtr& from, const NAst::TTypePtr& to) const {
+    auto it = ImportedCasts.find({TypeKey(from), TypeKey(to)});
+    if (it == ImportedCasts.end()) return std::nullopt;
+    return it->second;
+}
+
 void TNameResolver::PrintSymbols(std::ostream& os) const {
     for (const auto& symbol : Symbols) {
         os << "Symbol: " << symbol.Name << ", Scope: " << symbol.ScopeId.Id << "\n";
@@ -471,6 +478,11 @@ std::expected<NRegistry::IModule*, std::string> TNameResolver::ImportModule(cons
 
         if (fn.IsOp) {
             ImportedOperators.push_back(funDecl);
+            if (fn.Name == "cast" && fn.ArgTypes.size() == 1) {
+                std::string synthName = "__cast_" + TypeKey(fn.ArgTypes[0]) + "_" + TypeKey(fn.ReturnType);
+                DeclareFunction(synthName, funDecl);
+                ImportedCasts[{TypeKey(fn.ArgTypes[0]), TypeKey(fn.ReturnType)}] = synthName;
+            }
         } else {
             ImportedModuleSymbols[fn.Name] = name;
             DeclareFunction(fn.Name, funDecl);
