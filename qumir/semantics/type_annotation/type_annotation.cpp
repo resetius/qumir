@@ -403,6 +403,10 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 }
                 binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common, &context);
                 binary->Right = InsertImplicitCastIfNeeded(binary->Right, common, &context);
+            } else if (!(TMaybeType<TBoolType>(left) && TMaybeType<TBoolType>(right))) {
+                if (auto call = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                    co_return call;
+                }
             }
             binary->Type = std::make_shared<TBoolType>();
             break;

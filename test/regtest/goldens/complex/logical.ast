@@ -3,25 +3,14 @@
     (Block:<Void>
       (Var $a:<Named компл (struct { re: Float; im: Float; })>)
       (Var $b:<Named компл (struct { re: Float; im: Float; })>)
+      (Var $same:<Bool>)
+      (Var $different:<Bool>)
       ($a =:<Void>
         (Call:<Named компл (struct { re: Float; im: Float; })>
           ($__binop_+_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
           (Call:<Named компл (struct { re: Float; im: Float; })>
             ($__cast_Float_Named::компл:<Fun (Float) -> Named>)
-            (1.000000:<Float>))
-          (Call:<Named компл (struct { re: Float; im: Float; })>
-            ($__binop_*_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
-            (Call:<Named компл (struct { re: Float; im: Float; })>
-              ($__cast_Float_Named::компл:<Fun (Float) -> Named>)
-              (2.000000:<Float>))
-            (Call:<Named компл (struct { re: Float; im: Float; })>
-              ($i:<Fun () -> Named>)))))
-      ($b =:<Void>
-        (Call:<Named компл (struct { re: Float; im: Float; })>
-          ($__binop_+_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
-          (Call:<Named компл (struct { re: Float; im: Float; })>
-            ($__cast_Float_Named::компл:<Fun (Float) -> Named>)
-            (1.000000:<Float>))
+            (2.000000:<Float>))
           (Call:<Named компл (struct { re: Float; im: Float; })>
             ($__binop_*_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
             (Call:<Named компл (struct { re: Float; im: Float; })>
@@ -29,42 +18,67 @@
               (3.000000:<Float>))
             (Call:<Named компл (struct { re: Float; im: Float; })>
               ($i:<Fun () -> Named>)))))
+      ($b =:<Void>
+        (Call:<Named компл (struct { re: Float; im: Float; })>
+          ($__binop_+_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
+          (Call:<Named компл (struct { re: Float; im: Float; })>
+            ($__cast_Float_Named::компл:<Fun (Float) -> Named>)
+            (2.000000:<Float>))
+          (Call:<Named компл (struct { re: Float; im: Float; })>
+            ($__binop_*_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
+            (Call:<Named компл (struct { re: Float; im: Float; })>
+              ($__cast_Float_Named::компл:<Fun (Float) -> Named>)
+              (4.000000:<Float>))
+            (Call:<Named компл (struct { re: Float; im: Float; })>
+              ($i:<Fun () -> Named>)))))
+      ($same =:<Void>
+        (Call:<Bool>
+          ($__binop_==_Named::компл_Named::компл:<Fun (Named, Named) -> Bool>)
+          ($a:<Named компл (struct { re: Float; im: Float; })>)
+          ($a:<Named компл (struct { re: Float; im: Float; })>)))
+      ($different =:<Void>
+        (Call:<Bool>
+          ($__binop_!=_Named::компл_Named::компл:<Fun (Named, Named) -> Bool>)
+          ($a:<Named компл (struct { re: Float; im: Float; })>)
+          ($b:<Named компл (struct { re: Float; im: Float; })>)))
       (Block:<Void>
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
-          ("eq_same=":<String>))
+          ("and=":<String>))
         (Call:<Void>
           ($output_bool:<Fun (Bool) -> Void>)
-          (Call:<Bool>
-            ($__binop_==_Named::компл_Named::компл:<Fun (Named, Named) -> Bool>)
-            ($a:<Named компл (struct { re: Float; im: Float; })>)
-            ($a:<Named компл (struct { re: Float; im: Float; })>)))
+          (&&:<Bool>
+            ($same:<Bool>)
+            ($different:<Bool>)))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           ("\n":<String>)))
       (Block:<Void>
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
-          ("eq_other=":<String>))
+          ("or=":<String>))
         (Call:<Void>
           ($output_bool:<Fun (Bool) -> Void>)
-          (Call:<Bool>
-            ($__binop_==_Named::компл_Named::компл:<Fun (Named, Named) -> Bool>)
-            ($a:<Named компл (struct { re: Float; im: Float; })>)
-            ($b:<Named компл (struct { re: Float; im: Float; })>)))
+          (||:<Bool>
+            ($same:<Bool>)
+            (Call:<Bool>
+              ($__binop_==_Named::компл_Named::компл:<Fun (Named, Named) -> Bool>)
+              ($a:<Named компл (struct { re: Float; im: Float; })>)
+              ($b:<Named компл (struct { re: Float; im: Float; })>))))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           ("\n":<String>)))
       (Block:<Void>
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
-          ("ne_other=":<String>))
+          ("not=":<String>))
         (Call:<Void>
           ($output_bool:<Fun (Bool) -> Void>)
-          (Call:<Bool>
-            ($__binop_!=_Named::компл_Named::компл:<Fun (Named, Named) -> Bool>)
-            ($a:<Named компл (struct { re: Float; im: Float; })>)
-            ($b:<Named компл (struct { re: Float; im: Float; })>)))
+          (!:<Bool>
+            (Call:<Bool>
+              ($__binop_==_Named::компл_Named::компл:<Fun (Named, Named) -> Bool>)
+              ($a:<Named компл (struct { re: Float; im: Float; })>)
+              ($b:<Named компл (struct { re: Float; im: Float; })>))))
         (Call:<Void>
           ($output_string:<Fun (String) -> Void>)
           ("\n":<String>))))))

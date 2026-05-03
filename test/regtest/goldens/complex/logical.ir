@@ -1,0 +1,128 @@
+function <main> () { ; void
+  block {
+    label: label(0)
+    lea tmp(0,ptr to i8) = local(5,struct { f64; f64}) 
+    arg tmp(0,ptr to i8) 
+    arg imm(4611686018427387904,f64) 
+    call cast 
+    lea tmp(1,ptr to i8) = local(5,struct { f64; f64}) 
+    lea tmp(2,ptr to i8) = local(7,struct { f64; f64}) 
+    arg tmp(2,ptr to i8) 
+    arg imm(4613937818241073152,f64) 
+    call cast 
+    lea tmp(3,ptr to i8) = local(7,struct { f64; f64}) 
+    lea tmp(4,ptr to i8) = local(8,struct { f64; f64}) 
+    arg tmp(4,ptr to i8) 
+    call i 
+    lea tmp(5,ptr to i8) = local(8,struct { f64; f64}) 
+    lea tmp(6,ptr to i8) = local(6,struct { f64; f64}) 
+    arg tmp(6,ptr to i8) 
+    arg tmp(3,ptr to i8) 
+    arg tmp(5,ptr to i8) 
+    call * 
+    lea tmp(7,ptr to i8) = local(6,struct { f64; f64}) 
+    lea tmp(8,ptr to i8) = local(4,struct { f64; f64}) 
+    arg tmp(8,ptr to i8) 
+    arg tmp(1,ptr to i8) 
+    arg tmp(7,ptr to i8) 
+    call + 
+    lea tmp(9,ptr to i8) = local(4,struct { f64; f64}) 
+    lea tmp(10,ptr to i8) = local(0,struct { f64; f64}) 
+    memcpy tmp(10,ptr to i8) tmp(9,ptr to i8) lg 
+    lea tmp(11,ptr to i8) = local(10,struct { f64; f64}) 
+    arg tmp(11,ptr to i8) 
+    arg imm(4611686018427387904,f64) 
+    call cast 
+    lea tmp(12,ptr to i8) = local(10,struct { f64; f64}) 
+    lea tmp(13,ptr to i8) = local(12,struct { f64; f64}) 
+    arg tmp(13,ptr to i8) 
+    arg imm(4616189618054758400,f64) 
+    call cast 
+    lea tmp(14,ptr to i8) = local(12,struct { f64; f64}) 
+    lea tmp(15,ptr to i8) = local(13,struct { f64; f64}) 
+    arg tmp(15,ptr to i8) 
+    call i 
+    lea tmp(16,ptr to i8) = local(13,struct { f64; f64}) 
+    lea tmp(17,ptr to i8) = local(11,struct { f64; f64}) 
+    arg tmp(17,ptr to i8) 
+    arg tmp(14,ptr to i8) 
+    arg tmp(16,ptr to i8) 
+    call * 
+    lea tmp(18,ptr to i8) = local(11,struct { f64; f64}) 
+    lea tmp(19,ptr to i8) = local(9,struct { f64; f64}) 
+    arg tmp(19,ptr to i8) 
+    arg tmp(12,ptr to i8) 
+    arg tmp(18,ptr to i8) 
+    call + 
+    lea tmp(20,ptr to i8) = local(9,struct { f64; f64}) 
+    lea tmp(21,ptr to i8) = local(1,struct { f64; f64}) 
+    memcpy tmp(21,ptr to i8) tmp(20,ptr to i8) lg 
+    lea tmp(22,ptr to i8) = local(0,struct { f64; f64}) 
+    lea tmp(23,ptr to i8) = local(0,struct { f64; f64}) 
+    arg tmp(22,ptr to i8) 
+    arg tmp(23,ptr to i8) 
+    call tmp(24,i1) = == 
+    stre local(2,i1) tmp(24,i1) 
+    lea tmp(25,ptr to i8) = local(0,struct { f64; f64}) 
+    lea tmp(26,ptr to i8) = local(1,struct { f64; f64}) 
+    arg tmp(25,ptr to i8) 
+    arg tmp(26,ptr to i8) 
+    call tmp(27,i1) = != 
+    stre local(3,i1) tmp(27,i1) 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    load tmp(28,i1) = local(2,i1) 
+    cmp tmp(28,i1) label(2) label(3) 
+  }
+  block {
+    label: label(2)
+    load tmp(29,i1) = local(3,i1) 
+    jmp label(3) 
+  }
+  block {
+    label: label(3)
+    phi tmp(30,i1) = tmp(28,i1) label(0) tmp(29,i1) label(2) 
+    arg tmp(30,i1) 
+    call output_bool 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    arg imm(3,ptr to i8) 
+    call output_string 
+    load tmp(31,i1) = local(2,i1) 
+    cmp tmp(31,i1) label(5) label(4) 
+  }
+  block {
+    label: label(4)
+    lea tmp(32,ptr to i8) = local(0,struct { f64; f64}) 
+    lea tmp(33,ptr to i8) = local(1,struct { f64; f64}) 
+    arg tmp(32,ptr to i8) 
+    arg tmp(33,ptr to i8) 
+    call tmp(34,i1) = == 
+    jmp label(5) 
+  }
+  block {
+    label: label(5)
+    phi tmp(35,i1) = tmp(31,i1) label(3) tmp(34,i1) label(4) 
+    arg tmp(35,i1) 
+    call output_bool 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    arg imm(4,ptr to i8) 
+    call output_string 
+    lea tmp(36,ptr to i8) = local(0,struct { f64; f64}) 
+    lea tmp(37,ptr to i8) = local(1,struct { f64; f64}) 
+    arg tmp(36,ptr to i8) 
+    arg tmp(37,ptr to i8) 
+    call tmp(38,i1) = == 
+    ! tmp(39,i1) = tmp(38,i1) 
+    arg tmp(39,i1) 
+    call output_bool 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

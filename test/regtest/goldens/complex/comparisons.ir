@@ -61,7 +61,9 @@ function <main> () { ; void
     call output_string 
     lea tmp(22,ptr to i8) = local(0,struct { f64; f64}) 
     lea tmp(23,ptr to i8) = local(0,struct { f64; f64}) 
-    == tmp(24,i1) = tmp(22,ptr to i8) tmp(23,ptr to i8) 
+    arg tmp(22,ptr to i8) 
+    arg tmp(23,ptr to i8) 
+    call tmp(24,i1) = == 
     arg tmp(24,i1) 
     call output_bool 
     arg imm(2,ptr to i8) 
@@ -70,7 +72,9 @@ function <main> () { ; void
     call output_string 
     lea tmp(25,ptr to i8) = local(0,struct { f64; f64}) 
     lea tmp(26,ptr to i8) = local(1,struct { f64; f64}) 
-    == tmp(27,i1) = tmp(25,ptr to i8) tmp(26,ptr to i8) 
+    arg tmp(25,ptr to i8) 
+    arg tmp(26,ptr to i8) 
+    call tmp(27,i1) = == 
     arg tmp(27,i1) 
     call output_bool 
     arg imm(2,ptr to i8) 
@@ -79,7 +83,9 @@ function <main> () { ; void
     call output_string 
     lea tmp(28,ptr to i8) = local(0,struct { f64; f64}) 
     lea tmp(29,ptr to i8) = local(1,struct { f64; f64}) 
-    != tmp(30,i1) = tmp(28,ptr to i8) tmp(29,ptr to i8) 
+    arg tmp(28,ptr to i8) 
+    arg tmp(29,ptr to i8) 
+    call tmp(30,i1) = != 
     arg tmp(30,i1) 
     call output_bool 
     arg imm(2,ptr to i8) 
