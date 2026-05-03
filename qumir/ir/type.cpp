@@ -297,6 +297,19 @@ int TTypeTable::UnderlyingType(int typeId) const {
     throw std::runtime_error("Type is not Ptr, Func, or Struct in UnderlyingType");
 }
 
+int TTypeTable::SizeInBytes(int typeId) const {
+    if (typeId < 0 || typeId >= (int)Types.size()) return 8;
+    if (Types[typeId].Kind == EKind::Struct) {
+        int total = 0;
+        for (int f : Structs[Types[typeId].Aux].FieldTypes) {
+            total += SizeInBytes(f);
+        }
+        // round up to 8-byte alignment
+        return (total + 7) & ~7;
+    }
+    return 8; // all primitives and pointers occupy one 8-byte slot
+}
+
 const std::vector<int>& TTypeTable::GetStructFields(int typeId) const {
     auto& type = Types[typeId];
     if (type.Kind != EKind::Struct) {

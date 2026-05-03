@@ -56,7 +56,9 @@ struct TSlot {
     int32_t Idx;
 };
 
-// Local variable (function parameter or local variable)
+// Local variable (function parameter or local variable).
+// In IR (builder/lower_ast/passes): Idx is the variable ordinal (FunctionLevelIdx).
+// In VM bytecode (TVMInstr): Idx is the byte offset in the stack frame, computed by vmcompiler.
 struct TLocal {
     int32_t Idx;
 };

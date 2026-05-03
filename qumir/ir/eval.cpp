@@ -88,15 +88,16 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
 
     Runtime.Regs.resize(execFunc->MaxTmpIdx + 1, 0);
     Runtime.Stack.reserve(MaxStackSize);
-    Runtime.Stack.resize(execFunc->NumLocals * 8, 0);
+    Runtime.Stack.resize(execFunc->NumLocals, 0); // NumLocals is frame size in bytes
     if (args.size() != function.ArgLocals.size()) {
         std::cerr << "Function " << function.Name << " expects " << function.ArgLocals.size() << " arguments, got " << args.size() << "\n";
         return std::nullopt;
     }
 
     for (size_t i = 0; i < args.size(); ++i) {
-        const int64_t sid = function.ArgLocals[i].Idx;
-        std::memcpy(Runtime.Stack.data() + sid * 8, &args[i], 8);
+        const int byteOff = (i < execFunc->ArgByteOffsets.size())
+            ? execFunc->ArgByteOffsets[i] : static_cast<int>(i) * 8;
+        std::memcpy(Runtime.Stack.data() + byteOff, &args[i], 8);
     }
 
     std::optional<std::string> result;
@@ -109,6 +110,13 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
         const auto& instr = *frame.PC++;
 
         switch (instr.Op) {
+        case EVMOp::MemCopy: {
+            void* dst = reinterpret_cast<void*>(ReadOperand<int64_t>(Runtime.Regs, instr.Operands[0]));
+            void* src = reinterpret_cast<void*>(ReadOperand<int64_t>(Runtime.Regs, instr.Operands[1]));
+            int64_t size = instr.Operands[2].Imm.Value;
+            std::memcpy(dst, src, static_cast<size_t>(size));
+            break;
+        }
         case EVMOp::Ste: {
             int64_t intAddr = ReadOperand<int64_t>(Runtime.Regs, instr.Operands[0]);
             void* addr = reinterpret_cast<void*>(intAddr);
@@ -137,7 +145,7 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
                 Runtime.Regs[instr.Operands[0].Tmp.Idx] = addr;
             } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[1].Local;
-                const size_t byteOffset = frame.StackBase + l.Idx * 8;
+                const size_t byteOffset = frame.StackBase + l.Idx; // l.Idx is byte offset from vmcompiler
                 assert(l.Idx >= 0 && byteOffset < Runtime.Stack.size());
                 int64_t addr = reinterpret_cast<int64_t>(Runtime.Stack.data() + byteOffset);
                 Runtime.Regs[instr.Operands[0].Tmp.Idx] = addr;
@@ -157,7 +165,7 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
                 Runtime.Regs[instr.Operands[0].Tmp.Idx] = value;
             } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[1].Local;
-                const size_t byteOffset = frame.StackBase + l.Idx * 8;
+                const size_t byteOffset = frame.StackBase + l.Idx; // l.Idx is byte offset
                 assert(l.Idx >= 0 && byteOffset + 8 <= Runtime.Stack.size());
                 int64_t value;
                 std::memcpy(&value, Runtime.Stack.data() + byteOffset, 8);
@@ -179,7 +187,7 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
                 std::memcpy(Runtime.Globals.data() + byteOffset, &val, 8);
             } else if (instr.Operands[0].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[0].Local;
-                const size_t byteOffset = frame.StackBase + l.Idx * 8;
+                const size_t byteOffset = frame.StackBase + l.Idx; // l.Idx is byte offset
                 assert(l.Idx >= 0 && byteOffset + 8 <= Runtime.Stack.size());
                 std::memcpy(Runtime.Stack.data() + byteOffset, &val, 8);
             } else {
@@ -404,14 +412,15 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
             auto base = Runtime.Stack.size();
 
             Runtime.Regs.resize(calleeExec->MaxTmpIdx + 1, 0);
-            Runtime.Stack.resize(Runtime.Stack.size() + calleeExec->NumLocals * 8, 0);
+            Runtime.Stack.resize(Runtime.Stack.size() + calleeExec->NumLocals, 0); // NumLocals is bytes
             if (Runtime.Stack.size() > MaxStackSize) {
                 throw std::runtime_error("Stack overflow in interpreter");
             }
 
             for (int i = 0; i < argCount; ++i) {
-                const int64_t sid = localArgs[i].Idx;
-                std::memcpy(Runtime.Stack.data() + base + sid * 8, &Runtime.Args[i], 8);
+                const int byteOff = (i < (int)calleeExec->ArgByteOffsets.size())
+                    ? calleeExec->ArgByteOffsets[i] : i * 8;
+                std::memcpy(Runtime.Stack.data() + base + byteOff, &Runtime.Args[i], 8);
             }
 
             ReturnLinks.emplace_back(TReturnLink {

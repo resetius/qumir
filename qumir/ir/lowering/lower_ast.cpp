@@ -630,19 +630,18 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
         }
 
+        auto nodeType = NAst::UnwrapNamedType(node->Type);
+
         // TODO: copy-paste
-        // For string destinations: retain borrowed RHS before releasing dest (safe for s := s)
-        if (NAst::TMaybeType<NAst::TStringType>(node->Type)) {
+        if (NAst::TMaybeType<NAst::TStringType>(nodeType)) {
             if (rhs.Ownership == EOwnership::Borrowed) {
-                // Borrowed RHS: retain before touching destination
                 auto retainId = co_await GlobalSymbolId("str_retain");
                 Builder.Emit0("arg"_op, {*rhs.Value});
                 Builder.Emit0("call"_op, { TImm{retainId} });
             }
         }
         {
-            // delete previous string value if any (only for direct slots/locals, not references)
-            if (NAst::TMaybeType<NAst::TStringType>(node->Type) && !NAst::TMaybeType<NAst::TReferenceType>(node->Type)) {
+            if (NAst::TMaybeType<NAst::TStringType>(nodeType) && !NAst::TMaybeType<NAst::TReferenceType>(nodeType)) {
                 auto dtorId = co_await GlobalSymbolId("str_release");
                 TTmp currentVal = Builder.Emit1("load"_op, {storeOperand});
                 Builder.SetType(currentVal, slotType);
@@ -651,21 +650,17 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
         }
 
-        if (auto maybeRef = NAst::TMaybeType<NAst::TReferenceType>(node->Type)) {
+        if (auto maybeRef = NAst::TMaybeType<NAst::TReferenceType>(nodeType)) {
             auto ref = maybeRef.Cast();
             auto addrTmp = Builder.Emit1("load"_op, {storeOperand});
             Builder.SetType(addrTmp, FromAstType(node->Type, Module.Types));
 
-            // Reference assignment semantics for strings: retain RHS and release previous dest
             // see cases/ref/index_ref
             if (NAst::TMaybeType<NAst::TStringType>(ref->ReferencedType)) {
-                // Ensure destination gets its own ref. Retain regardless of RHS ownership,
-                // so any subsequent release of a temporary won't drop the value stored at dest.
                 auto retainId = co_await GlobalSymbolId("str_retain");
                 Builder.Emit0("arg"_op, {*rhs.Value});
                 Builder.Emit0("call"_op, { TImm{retainId} });
 
-                // Release previously stored value (if any)
                 auto prevVal = Builder.Emit1("lde"_op, { addrTmp });
                 Builder.SetType(prevVal, FromAstType(ref->ReferencedType, Module.Types));
                 auto dtorId = co_await GlobalSymbolId("str_release");
@@ -674,6 +669,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
 
             Builder.Emit0("ste"_op, {addrTmp, *rhs.Value});
+        } else if (NAst::TMaybeType<NAst::TStructType>(nodeType)) {
+            // rhs is a pointer to the struct result — memcpy into destination
+            int sizeBytes = Module.Types.SizeInBytes(FromAstType(nodeType, Module.Types));
+            auto dstPtr = Builder.Emit1("lea"_op, {storeOperand});
+            Builder.SetType(dstPtr, Module.Types.Ptr(Module.Types.I(EKind::I8)));
+            Builder.Emit0("memcpy"_op, {dstPtr, *rhs.Value, TImm{(int64_t)sizeBytes}});
         } else {
             Builder.Emit0("stre"_op, {storeOperand, *rhs.Value});
         }

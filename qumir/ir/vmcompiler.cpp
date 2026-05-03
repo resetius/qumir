@@ -52,7 +52,23 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
         labelToLastPC[block.Label.Idx] = code.size() - 1;
     }
 
-    funcOut.NumLocals = function.LocalTypes.size();
+    // Compute byte offset for each local variable (IR var index → byte offset in frame)
+    std::vector<int> localByteOffsets;
+    {
+        int offset = 0;
+        for (int typeId : function.LocalTypes) {
+            localByteOffsets.push_back(offset);
+            offset += Module.Types.SizeInBytes(typeId);
+        }
+        funcOut.NumLocals = offset; // frame size in bytes
+    }
+
+    // Populate ArgByteOffsets for use by eval when passing arguments
+    for (const auto& argLocal : function.ArgLocals) {
+        if (argLocal.Idx >= 0 && argLocal.Idx < (int)localByteOffsets.size()) {
+            funcOut.ArgByteOffsets.push_back(localByteOffsets[argLocal.Idx]);
+        }
+    }
 
     auto require = [&](const TInstr& ins, int requireDest, size_t requireOperands) {
         // requireDest = -1/0/1 = no, optional, required
@@ -118,9 +134,14 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 case TOperand::EType::Slot:
                     out.Operands[i + offset] = ins.Operands[i].Slot;
                     break;
-                case TOperand::EType::Local:
-                    out.Operands[i + offset] = ins.Operands[i].Local;
+                case TOperand::EType::Local: {
+                    // Translate var index → byte offset in frame
+                    int varIdx = ins.Operands[i].Local.Idx;
+                    int byteOffset = (varIdx >= 0 && varIdx < (int)localByteOffsets.size())
+                        ? localByteOffsets[varIdx] : varIdx * 8;
+                    out.Operands[i + offset] = TLocal{byteOffset};
                     break;
+                }
                 case TOperand::EType::Imm:
                     out.Operands[i + offset] = ins.Operands[i].Imm;
                     break;
@@ -368,6 +389,11 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case "stre"_op: {
                 require(ins, 0, 2);
                 out.Op = EVMOp::Store64;
+                break;
+            }
+            case "memcpy"_op: {
+                require(ins, -1, 3); // no dest, args: dst_ptr, src_ptr, size_imm
+                out.Op = EVMOp::MemCopy;
                 break;
             }
             default:
