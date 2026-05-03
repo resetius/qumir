@@ -18,7 +18,7 @@ namespace NQumir {
 namespace NIR {
 
 struct TOp {
-    constexpr TOp(uint32_t code): Code(code) {}
+    constexpr TOp(uint64_t code): Code(code) {}
     // +,-,*,/
     constexpr TOp(char code): Code(code) {}
     // <=, >=, ==, !=
@@ -29,7 +29,7 @@ struct TOp {
         }
     }
 
-    constexpr operator uint32_t() const {
+    constexpr operator uint64_t() const {
         return Code;
     }
 

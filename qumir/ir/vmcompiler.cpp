@@ -63,10 +63,13 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
         funcOut.NumLocals = offset; // frame size in bytes
     }
 
-    // Populate ArgByteOffsets for use by eval when passing arguments
+    // Populate ArgByteOffsets and ArgSizes for use by eval when passing arguments
     for (const auto& argLocal : function.ArgLocals) {
         if (argLocal.Idx >= 0 && argLocal.Idx < (int)localByteOffsets.size()) {
             funcOut.ArgByteOffsets.push_back(localByteOffsets[argLocal.Idx]);
+            int typeId = (argLocal.Idx < (int)function.LocalTypes.size())
+                ? function.LocalTypes[argLocal.Idx] : -1;
+            funcOut.ArgSizes.push_back(Module.Types.SizeInBytes(typeId));
         }
     }
 

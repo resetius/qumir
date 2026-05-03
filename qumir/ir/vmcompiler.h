@@ -13,6 +13,7 @@ struct TExecFunc {
     int32_t MaxTmpIdx{0};
     int32_t NumLocals{0};      // frame size in bytes (not variable count)
     std::vector<int> ArgByteOffsets; // byte offset of each argument local in the frame
+    std::vector<int> ArgSizes;       // size in bytes of each argument (8 for scalar, >8 for struct)
 };
 
 class TVMCompiler {

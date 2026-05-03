@@ -210,13 +210,17 @@ TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& n
         ? TOperand{ TLocal{ var->FunctionLevelIdx } }
         : TOperand{ TSlot{ var->Id } };
 
-    TOp opcode = takeRefOfNotRef ? "lea"_op : "load"_op;
+    auto nodeType = NAst::UnwrapNamedType(node->Type);
+    // Struct-typed variables are always passed by pointer (lea), never loaded as a scalar value
+    bool isStruct = NAst::TMaybeType<NAst::TStructType>(nodeType);
+    TOp opcode = (takeRefOfNotRef || isStruct) ? "lea"_op : "load"_op;
     auto tmp = Builder.Emit1(opcode, { op });
-    Builder.SetType(tmp, FromAstType(node->Type, Module.Types));
+    int ptrType = Module.Types.Ptr(Module.Types.I(EKind::I8));
+    Builder.SetType(tmp, isStruct ? ptrType : FromAstType(nodeType, Module.Types));
     co_return tmp;
 }
 
-TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerIndices(const std::string& name, const std::vector<NAst::TExprPtr>& indices, TBlockScope scope)
+TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerIndices(const std::string& name, const std::vector<NAst::TExprPtr>& indices, TBlockScope scope, int elemSize)
 {
     int n = indices.size() - 1;
     int i = n;
@@ -249,7 +253,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         prev = tmp;
     }
-    *prev = Builder.Emit1("*"_op, {*prev, TImm{8, i64}}); // TODO: element size
+    *prev = Builder.Emit1("*"_op, {*prev, TImm{elemSize, i64}}); // byte offset
     Builder.SetType(*prev, i64);
     co_return TValueWithBlock{ *prev, Builder.CurrentBlockLabel() };
 }
@@ -435,7 +439,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
             default:
                 {
-                    auto tmp = Builder.Emit1((uint32_t)binary->Operator.Value /* ast op to ir op mapping */, {*leftNum, *rightNum});
+                    auto tmp = Builder.Emit1((uint64_t)binary->Operator.Value /* ast op to ir op mapping */, {*leftNum, *rightNum});
                     Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
                     co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
                 }
@@ -495,21 +499,22 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TArrayAssignExpr>(expr)) {
         auto asg = maybeAsg.Cast();
 
-        auto indices = co_await LowerIndices(asg->Name, asg->Indices, scope);
+        auto arrayPtr = co_await LoadVar(asg->Name, scope, asg->Location);
+        auto arrayType = Builder.GetType(arrayPtr);
+        int arrayElemTypeId = Module.Types.UnderlyingType(arrayType);
+        assert(arrayElemTypeId >= 0);
+        int elemByteSize = Module.Types.SizeInBytes(arrayElemTypeId);
+        auto indices = co_await LowerIndices(asg->Name, asg->Indices, scope, elemByteSize);
         if (!indices.Value) {
             co_return TError(asg->Location, TErrorString::Get<EErrorId::FAILED_LOWER_ARRAY_INDICES>());
         }
         auto totalIndex = *indices.Value;
-
-        auto arrayPtr = co_await LoadVar(asg->Name, scope, asg->Location);
-        auto arrayType = Builder.GetType(arrayPtr);
         auto destPtr = Builder.Emit1("+"_op, {arrayPtr, totalIndex});
         Builder.SetType(destPtr, arrayType);
 
         auto rhs = co_await Lower(asg->Value, scope);
         if (!rhs.Value) co_return TError(asg->Value->Location, TErrorString::Get<EErrorId::RIGHT_HAND_SIDE_NOT_NUMBER>());
 
-        int arrayElemType = Module.Types.UnderlyingType(arrayType);
         // copy-paste
         if (rhs.Value->Type == TOperand::EType::Imm) {
             // Materialize immediate string literals into a tmp
@@ -518,29 +523,34 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 auto constructorId = co_await GlobalSymbolId("str_from_lit");
                 Builder.Emit0("arg"_op, {*rhs.Value});
                 auto materializedString = Builder.Emit1("call"_op, {TImm{constructorId}});
-                Builder.SetType(materializedString, arrayElemType);
+                Builder.SetType(materializedString, arrayElemTypeId);
                 *rhs.Value = materializedString;
                 rhs.Ownership = EOwnership::Owned;
             }
         }
 
         // copy-paste
-        if (arrayElemType == lowStringTypeId && rhs.Ownership == EOwnership::Borrowed) {
+        if (arrayElemTypeId == lowStringTypeId && rhs.Ownership == EOwnership::Borrowed) {
             auto retainId = co_await GlobalSymbolId("str_retain");
             Builder.Emit0("arg"_op, {*rhs.Value});
             Builder.Emit0("call"_op, { TImm{ retainId } });
         }
 
         // copy-paste
-        if (arrayElemType == lowStringTypeId) {
+        if (arrayElemTypeId == lowStringTypeId) {
             auto dtorId = co_await GlobalSymbolId("str_release");
             auto existingVal = Builder.Emit1("lde"_op, { destPtr });
-            Builder.SetType(existingVal, arrayElemType);
+            Builder.SetType(existingVal, arrayElemTypeId);
             Builder.Emit0("arg"_op, { existingVal });
             Builder.Emit0("call"_op, { TImm{ dtorId } });
         }
 
-        Builder.Emit0("ste"_op, {destPtr, *rhs.Value});
+        Module.Types.GetKind(arrayElemTypeId);
+        if (Module.Types.GetKind(arrayElemTypeId) == EKind::Struct) {
+            Builder.Emit0("memcpy"_op, {destPtr, *rhs.Value, TImm{(int64_t)elemByteSize}});
+        } else {
+            Builder.Emit0("ste"_op, {destPtr, *rhs.Value});
+        }
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeIndex = NAst::TMaybeNode<NAst::TIndexExpr>(expr)) {
         auto index = maybeIndex.Cast();
@@ -564,12 +574,21 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         Builder.SetType(zeroBasedIndex, i64);
 
         auto arrayType = Builder.GetType(arrayPtr.Tmp);
-        auto offset = Builder.Emit1("*"_op, {zeroBasedIndex, TImm{8, i64}}); // TODO: element size
+        int elemTypeId = FromAstType(expr->Type, Module.Types);
+        int elemByteSize = Module.Types.SizeInBytes(elemTypeId);
+        auto offset = Builder.Emit1("*"_op, {zeroBasedIndex, TImm{elemByteSize, i64}}); // byte offset
         Builder.SetType(offset, i64);
         auto destPtr = Builder.Emit1("+"_op, {arrayPtr, offset});
         Builder.SetType(destPtr, arrayType);
+        // For struct elements: return the pointer directly (caller uses memcpy/lea semantics)
+        bool isStructElem = NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(expr->Type));
+        if (isStructElem) {
+            int ptrType = Module.Types.Ptr(Module.Types.I(EKind::I8));
+            Builder.SetType(destPtr, ptrType);
+            co_return TValueWithBlock{ destPtr, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
+        }
         auto loaded = Builder.Emit1("lde"_op, { destPtr });
-        Builder.SetType(loaded, FromAstType(expr->Type, Module.Types));
+        Builder.SetType(loaded, elemTypeId);
         co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
     } else if (auto maybeMultiIndex = NAst::TMaybeNode<NAst::TMultiIndexExpr>(expr)) {
         auto multiIndex = maybeMultiIndex.Cast();
@@ -578,11 +597,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(multiIndex->Collection->Location, TErrorString::Get<EErrorId::MULTI_INDEX_COLLECTION_MUST_BE_IDENTIFIER>());
         }
         auto asg = maybeIdent.Cast();
-        auto indices = co_await LowerIndices(asg->Name, multiIndex->Indices, scope);
-        if (!indices.Value) {
-            co_return TError(asg->Location, TErrorString::Get<EErrorId::FAILED_LOWER_ARRAY_INDICES>());
-        }
-        auto totalIndex = *indices.Value;
         auto value = co_await Lower(multiIndex->Collection, scope);
         if (!value.Value) {
             co_return TError(multiIndex->Collection->Location, TErrorString::Get<EErrorId::FAILED_LOWER_COLLECTION>());
@@ -592,6 +606,13 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(multiIndex->Collection->Location, TErrorString::Get<EErrorId::COLLECTION_NOT_ARRAY>());
         }
         auto arrayType = Builder.GetType(arrayPtr.Tmp);
+        int multiElemTypeId = FromAstType(expr->Type, Module.Types);
+        int multiElemByteSize = Module.Types.SizeInBytes(multiElemTypeId);
+        auto indices = co_await LowerIndices(asg->Name, multiIndex->Indices, scope, multiElemByteSize);
+        if (!indices.Value) {
+            co_return TError(asg->Location, TErrorString::Get<EErrorId::FAILED_LOWER_ARRAY_INDICES>());
+        }
+        auto totalIndex = *indices.Value;
         auto destPtr = Builder.Emit1("+"_op, {arrayPtr, totalIndex});
         Builder.SetType(destPtr, arrayType);
         auto loaded = Builder.Emit1("lde"_op, { destPtr });
@@ -655,20 +676,26 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto addrTmp = Builder.Emit1("load"_op, {storeOperand});
             Builder.SetType(addrTmp, FromAstType(node->Type, Module.Types));
 
-            // see cases/ref/index_ref
-            if (NAst::TMaybeType<NAst::TStringType>(ref->ReferencedType)) {
-                auto retainId = co_await GlobalSymbolId("str_retain");
-                Builder.Emit0("arg"_op, {*rhs.Value});
-                Builder.Emit0("call"_op, { TImm{retainId} });
+            auto refType = NAst::UnwrapNamedType(ref->ReferencedType);
+            if (NAst::TMaybeType<NAst::TStructType>(refType).Cast() != nullptr) {
+                // рез компл: addrTmp is pointer to destination struct, rhs is pointer to source
+                int sizeBytes = Module.Types.SizeInBytes(FromAstType(refType, Module.Types));
+                Builder.Emit0("memcpy"_op, {addrTmp, *rhs.Value, TImm{(int64_t)sizeBytes}});
+            } else {
+                // see cases/ref/index_ref
+                if (NAst::TMaybeType<NAst::TStringType>(refType)) {
+                    auto retainId = co_await GlobalSymbolId("str_retain");
+                    Builder.Emit0("arg"_op, {*rhs.Value});
+                    Builder.Emit0("call"_op, { TImm{retainId} });
 
-                auto prevVal = Builder.Emit1("lde"_op, { addrTmp });
-                Builder.SetType(prevVal, FromAstType(ref->ReferencedType, Module.Types));
-                auto dtorId = co_await GlobalSymbolId("str_release");
-                Builder.Emit0("arg"_op, { prevVal });
-                Builder.Emit0("call"_op, { TImm{ dtorId } });
+                    auto prevVal = Builder.Emit1("lde"_op, { addrTmp });
+                    Builder.SetType(prevVal, FromAstType(ref->ReferencedType, Module.Types));
+                    auto dtorId = co_await GlobalSymbolId("str_release");
+                    Builder.Emit0("arg"_op, { prevVal });
+                    Builder.Emit0("call"_op, { TImm{ dtorId } });
+                }
+                Builder.Emit0("ste"_op, {addrTmp, *rhs.Value});
             }
-
-            Builder.Emit0("ste"_op, {addrTmp, *rhs.Value});
         } else if (NAst::TMaybeType<NAst::TStructType>(nodeType)) {
             // rhs is a pointer to the struct result — memcpy into destination
             int sizeBytes = Module.Types.SizeInBytes(FromAstType(nodeType, Module.Types));
@@ -732,6 +759,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         if (auto maybeArrayType = NAst::TMaybeType<NAst::TArrayType>(var->Type)) {
             auto arrayType = FromAstType(var->Type, Module.Types);
+            auto elemType = Module.Types.UnderlyingType(arrayType);
+            auto elemSize = Module.Types.SizeInBytes(elemType);
             auto ctorId = co_await GlobalSymbolId("array_create");
 
             auto totalElements = Context.Lookup("$$" + var->Name + "_mulacc0", scope.Id);
@@ -742,7 +771,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto tmp = Builder.Emit1("load"_op, {op});
             auto i64 = Module.Types.I(EKind::I64);
             Builder.SetType(tmp, i64);
-            auto arraySize = Builder.Emit1("*"_op, {tmp, TImm{8, i64}}); // TODO: constant depends on element type
+            auto arraySize = Builder.Emit1("*"_op, {tmp, TImm{elemSize, i64}});
             Builder.SetType(arraySize, i64);
 
             Builder.Emit0("arg"_op, {arraySize});
@@ -878,12 +907,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
 
         auto isStructArgType = [](const NAst::TTypePtr& t) -> bool {
-            return NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(t)).Cast() != nullptr;
+            return NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(t));
         };
 
-        // If return type is struct: allocate hidden local, pass its address as first arg
+        // For external functions returning struct: hidden first arg = pointer to result local.
+        // Internal (user-defined) functions handle struct return separately via $$return variable.
+        bool isExternalCall = Module.SymIdToExtFuncIdx.contains(calleeSymId);
         std::optional<TLocal> structRetLocal;
-        if (isStructArgType(returnType)) {
+        if (isStructArgType(returnType) && isExternalCall) {
             structRetLocal = Builder.AllocLocal(FromAstType(returnType, Module.Types));
             auto ptrTmp = Builder.Emit1("lea"_op, {*structRetLocal});
             Builder.SetType(ptrTmp, Module.Types.Ptr(Module.Types.I(EKind::I8)));
@@ -906,14 +937,13 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 av.Value = co_await LoadVar(maybeIdent.Cast()->Name, scope, a->Location, true /*address*/);
                 Builder.SetType(av.Value->Tmp, FromAstType(argType, Module.Types));
             } else if (isStructArgType(argType)) {
-                // pass struct by pointer (lea)
-                auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(a);
-                if (!maybeIdent) {
-                    co_return TError(a->Location, "struct arguments must be identifiers (pass by pointer)");
+                // pass struct by pointer — Lower() already returns a pointer for struct expressions
+                // (lea for idents, address arithmetic for array elements, etc.)
+                av = co_await Lower(a, scope);
+                if (av.Value) {
+                    int ptrType = Module.Types.Ptr(Module.Types.I(EKind::I8));
+                    Builder.SetType(av.Value->Tmp, ptrType);
                 }
-                av.Value = co_await LoadVar(maybeIdent.Cast()->Name, scope, a->Location, /*address=*/true);
-                int ptrType = Module.Types.Ptr(Module.Types.I(EKind::I8));
-                Builder.SetType(av.Value->Tmp, ptrType);
             } else {
                 av = co_await Lower(a, scope);
             }

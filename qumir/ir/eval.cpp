@@ -97,7 +97,13 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
     for (size_t i = 0; i < args.size(); ++i) {
         const int byteOff = (i < execFunc->ArgByteOffsets.size())
             ? execFunc->ArgByteOffsets[i] : static_cast<int>(i) * 8;
-        std::memcpy(Runtime.Stack.data() + byteOff, &args[i], 8);
+        const int argSize = (i < execFunc->ArgSizes.size()) ? execFunc->ArgSizes[i] : 8;
+        if (argSize > 8) {
+            void* src = reinterpret_cast<void*>(args[i]);
+            std::memcpy(Runtime.Stack.data() + byteOff, src, argSize);
+        } else {
+            std::memcpy(Runtime.Stack.data() + byteOff, &args[i], 8);
+        }
     }
 
     std::optional<std::string> result;
@@ -420,7 +426,15 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
             for (int i = 0; i < argCount; ++i) {
                 const int byteOff = (i < (int)calleeExec->ArgByteOffsets.size())
                     ? calleeExec->ArgByteOffsets[i] : i * 8;
-                std::memcpy(Runtime.Stack.data() + base + byteOff, &Runtime.Args[i], 8);
+                const int argSize = (i < (int)calleeExec->ArgSizes.size())
+                    ? calleeExec->ArgSizes[i] : 8;
+                if (argSize > 8) {
+                    // struct arg: Runtime.Args[i] is a pointer — copy the struct
+                    void* src = reinterpret_cast<void*>(Runtime.Args[i]);
+                    std::memcpy(Runtime.Stack.data() + base + byteOff, src, argSize);
+                } else {
+                    std::memcpy(Runtime.Stack.data() + base + byteOff, &Runtime.Args[i], 8);
+                }
             }
 
             ReturnLinks.emplace_back(TReturnLink {
