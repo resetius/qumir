@@ -162,6 +162,11 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
             const auto& s = f.ArgLocals[i];
             auto typeId = f.LocalTypes[s.Idx];
             auto type = GetTypeById(typeId, module.Types, ctx);
+            // TODO(struct-abi): switch internal struct calls to the same hidden-out ABI
+            // as external calls. For now IR passes structs by address, so LLVM formals do too.
+            if (typeId >= 0 && module.Types.GetKind(typeId) == EKind::Struct) {
+                type = llvm::PointerType::get(ctx, 0);
+            }
             argTys[i] = type;
         }
 
@@ -340,8 +345,15 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, NIR::TModule& 
         }
         auto* ptr = CurFun->Allocas[l.Idx];
         auto& arg = *lfun->getArg(i);
-        auto* dstTy = ptr->getAllocatedType();
-        irb->CreateStore(&arg, ptr);
+        auto typeId = fun.LocalTypes[l.Idx];
+        if (typeId >= 0 && module.Types.GetKind(typeId) == EKind::Struct) {
+            // TODO(struct-abi): remove this copy when internal struct arguments use
+            // a single settled ABI instead of pointer formals plus value locals.
+            auto size = llvm::ConstantInt::get(llvm::Type::getInt64Ty(ctx), module.Types.SizeInBytes(typeId), false);
+            irb->CreateMemCpy(ptr, llvm::MaybeAlign(1), &arg, llvm::MaybeAlign(1), size);
+        } else {
+            irb->CreateStore(&arg, ptr);
+        }
     }
 
     for (size_t i = 0; i < fun.Blocks.size(); ++i) {
@@ -687,6 +699,12 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                 auto it = icmpMap.find(opcode);
                 if (it == icmpMap.end()) throw std::runtime_error("unsupported icmp opcode");
                 return storeTmp(cmpInsr(it->second, lhs, rhs));
+            } else if (lhs->getType()->isPointerTy()) {
+                if (opcode != "=="_op && opcode != "!="_op) {
+                    throw std::runtime_error("only == and != supported for pointer comparison");
+                }
+                auto pred = opcode == "=="_op ? llvm::CmpInst::ICMP_EQ : llvm::CmpInst::ICMP_NE;
+                return storeTmp(cmpInsr(pred, lhs, cast(rhs, lhs->getType())));
             } else {
                 throw std::runtime_error("unsupported type for comparison");
             }
@@ -800,7 +818,13 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                 auto val = GetOp(instr.Operands[0], module);
                 auto* need = CurFun->LFun->getFunctionType()->getReturnType();
                 if (val->getType() != need) {
-                    throw std::runtime_error("return type mismatch; pre-cast required");
+                    if (need->isStructTy() && val->getType()->isPointerTy()) {
+                        // TODO(struct-abi): internal struct returns are still declared
+                        // as value returns; current IR returns an address, so bridge here.
+                        val = irb->CreateLoad(need, val, "retstruct");
+                    } else {
+                        throw std::runtime_error("return type mismatch; pre-cast required");
+                    }
                 }
                 irb->CreateRet(val);
             } else {
@@ -914,6 +938,14 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             } else {
                 if (instr.Dest.Idx < 0) throw std::runtime_error("call needs a destination tmp");
                 auto call = irb->CreateCall(callee, args, "calltmp");
+                if (retTy->isStructTy()) {
+                    // TODO(struct-abi): current IR consumers expect struct expression
+                    // results as addresses. Materialize direct internal struct returns
+                    // until internal calls are lowered with hidden out pointers.
+                    auto tmp = irb->CreateAlloca(retTy, nullptr, "callstruct");
+                    irb->CreateStore(call, tmp);
+                    return storeTmp(tmp);
+                }
                 return storeTmp(call);
             }
         }

@@ -61,17 +61,16 @@ function make_by_ref (local(0), local(1), local(2)) { ; void
 function add_in_place (local(0), local(1)) { ; void
   block {
     label: label(0)
-    load tmp(0,ptr to struct { f64; f64}) = local(0,ptr to struct { f64; f64}) 
-    lde tmp(1,ptr to i8) = tmp(0,ptr to struct { f64; f64}) 
-    lea tmp(2,ptr to i8) = local(1,struct { f64; f64}) 
-    lea tmp(3,ptr to i8) = local(2,struct { f64; f64}) 
-    arg tmp(3,ptr to i8) 
-    arg tmp(1,ptr to i8) 
+    load tmp(0,ptr to i8) = local(0,ptr to struct { f64; f64}) 
+    lea tmp(1,ptr to i8) = local(1,struct { f64; f64}) 
+    lea tmp(2,ptr to i8) = local(2,struct { f64; f64}) 
     arg tmp(2,ptr to i8) 
+    arg tmp(0,ptr to i8) 
+    arg tmp(1,ptr to i8) 
     call + 
-    lea tmp(4,ptr to i8) = local(2,struct { f64; f64}) 
-    load tmp(5,ptr to struct { f64; f64}) = local(0,ptr to struct { f64; f64}) 
-    memcpy tmp(5,ptr to struct { f64; f64}) tmp(4,ptr to i8) lg 
+    lea tmp(3,ptr to i8) = local(2,struct { f64; f64}) 
+    load tmp(4,ptr to struct { f64; f64}) = local(0,ptr to struct { f64; f64}) 
+    memcpy tmp(4,ptr to struct { f64; f64}) tmp(3,ptr to i8) lg 
     jmp label(1) 
   }
   block {

@@ -717,9 +717,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // tmp contains the address of the variable
         if (auto maybeRef = NAst::TMaybeType<NAst::TReferenceType>(node->Type)) {
             auto ref = maybeRef.Cast();
-            auto derefTmp = Builder.Emit1("lde"_op, { tmp });
-            Builder.SetType(derefTmp, FromAstType(ref->ReferencedType, Module.Types));
-            tmp = derefTmp;
+            auto refType = NAst::UnwrapNamedType(ref->ReferencedType);
+            if (NAst::TMaybeType<NAst::TStructType>(refType)) {
+                Builder.SetType(tmp, Module.Types.Ptr(Module.Types.I(EKind::I8)));
+            } else {
+                auto derefTmp = Builder.Emit1("lde"_op, { tmp });
+                Builder.SetType(derefTmp, FromAstType(ref->ReferencedType, Module.Types));
+                tmp = derefTmp;
+            }
         }
 
         // Borrowed for stack values ignored
