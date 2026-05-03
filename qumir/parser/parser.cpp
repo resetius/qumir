@@ -325,7 +325,7 @@ TTypePtr getScalarType(EKeyword kw, bool& isArray, const std::string& typeName, 
         case EKeyword::File:
             return std::make_shared<TFileType>();
         case EKeyword::NamedType:
-            return nameResolver->LookupType(typeName);
+            return std::make_shared<TNamedType>(typeName, nameResolver->LookupType(typeName));
         default:
             return nullptr;
     }
