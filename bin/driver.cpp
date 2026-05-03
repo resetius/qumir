@@ -80,7 +80,22 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
 
     NAst::TTokenStream ts(*in);
     NAst::TParser p;
-    auto&& expected = p.parse(ts);
+    NSemantics::TNameResolver r;
+    NRegistry::SystemModule sys;
+    r.RegisterModule(&sys);
+    r.ImportModule(sys.Name());
+    NRegistry::TurtleModule turtle;
+    r.RegisterModule(&turtle);
+    NRegistry::RobotModule robot;
+    r.RegisterModule(&robot);
+    NRegistry::DrawerModule drawer;
+    r.RegisterModule(&drawer);
+    NRegistry::PainterModule painter;
+    r.RegisterModule(&painter);
+    NRegistry::ComplexModule complex;
+    r.RegisterModule(&complex);
+
+    auto&& expected = p.parse(ts, &r);
     if (!expected.has_value()) {
         std::cerr << expected.error().ToString() << std::endl;
         return 1;
