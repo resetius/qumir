@@ -396,6 +396,22 @@ TExprPtr TNameResolver::GetSymbolNode(TSymbolId id) const {
     return Symbols[id.Id].Node;
 }
 
+std::optional<TNameResolver::TRegisteredOp> TNameResolver::GetBinaryOp(
+    const std::string& op, const NAst::TTypePtr& left, const NAst::TTypePtr& right) const
+{
+    auto it = ImportedBinaryOps.find({op, TypeKey(left), TypeKey(right)});
+    if (it != ImportedBinaryOps.end()) return it->second;
+    return std::nullopt;
+}
+
+std::optional<TNameResolver::TRegisteredOp> TNameResolver::GetUnaryOp(
+    const std::string& op, const NAst::TTypePtr& operand) const
+{
+    auto it = ImportedUnaryOps.find({op, TypeKey(operand)});
+    if (it != ImportedUnaryOps.end()) return it->second;
+    return std::nullopt;
+}
+
 std::optional<std::string> TNameResolver::GetCast(const NAst::TTypePtr& from, const NAst::TTypePtr& to) const {
     auto it = ImportedCasts.find({TypeKey(from), TypeKey(to)});
     if (it == ImportedCasts.end()) return std::nullopt;
@@ -482,6 +498,17 @@ std::expected<NRegistry::IModule*, std::string> TNameResolver::ImportModule(cons
                 std::string synthName = "__cast_" + TypeKey(fn.ArgTypes[0]) + "_" + TypeKey(fn.ReturnType);
                 DeclareFunction(synthName, funDecl);
                 ImportedCasts[{TypeKey(fn.ArgTypes[0]), TypeKey(fn.ReturnType)}] = synthName;
+            } else if (fn.ArgTypes.size() == 2) {
+                std::string synthName = "__binop_" + fn.Name + "_"
+                    + TypeKey(fn.ArgTypes[0]) + "_" + TypeKey(fn.ArgTypes[1]);
+                DeclareFunction(synthName, funDecl);
+                ImportedBinaryOps[{fn.Name, TypeKey(fn.ArgTypes[0]), TypeKey(fn.ArgTypes[1])}]
+                    = {synthName, fn.ReturnType};
+            } else if (fn.ArgTypes.size() == 1) {
+                std::string synthName = "__unop_" + fn.Name + "_" + TypeKey(fn.ArgTypes[0]);
+                DeclareFunction(synthName, funDecl);
+                ImportedUnaryOps[{fn.Name, TypeKey(fn.ArgTypes[0])}]
+                    = {synthName, fn.ReturnType};
             }
         } else {
             ImportedModuleSymbols[fn.Name] = name;

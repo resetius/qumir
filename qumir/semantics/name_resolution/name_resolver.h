@@ -9,6 +9,7 @@
 #include <expected>
 #include <map>
 #include <span>
+#include <tuple>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -173,6 +174,16 @@ public:
     // Returns synthetic function name for cast from->to if registered by an imported module, nullopt otherwise
     std::optional<std::string> GetCast(const NAst::TTypePtr& from, const NAst::TTypePtr& to) const;
 
+    struct TRegisteredOp {
+        std::string SynthName;
+        NAst::TTypePtr ReturnType;
+    };
+    // Exact match only; two-level (cast) logic lives in the type annotator
+    std::optional<TRegisteredOp> GetBinaryOp(const std::string& op,
+        const NAst::TTypePtr& left, const NAst::TTypePtr& right) const;
+    std::optional<TRegisteredOp> GetUnaryOp(const std::string& op,
+        const NAst::TTypePtr& operand) const;
+
 private:
     using TTask = TExpectedTask<std::monostate, TError, TLocation>;
     TTask Resolve(NAst::TExprPtr node, TScopePtr parentScope, TScopePtr funcScope);
@@ -193,6 +204,10 @@ private:
 
     // cast operator map: {TypeKey(from), TypeKey(to)} -> synthetic name registered via DeclareFunction
     std::map<std::pair<std::string,std::string>, std::string> ImportedCasts;
+    // {op, TypeKey(left), TypeKey(right)} -> registered op
+    std::map<std::tuple<std::string,std::string,std::string>, TRegisteredOp> ImportedBinaryOps;
+    // {op, TypeKey(operand)} -> registered op
+    std::map<std::pair<std::string,std::string>, TRegisteredOp> ImportedUnaryOps;
 
 
     TEditDistance EditDistanceCalculator;

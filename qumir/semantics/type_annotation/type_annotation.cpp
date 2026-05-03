@@ -174,6 +174,18 @@ TExprPtr InsertImplicitCastIfNeeded(TExprPtr expr, TTypePtr toType, NSemantics::
     return MakeCast(std::move(expr), std::move(toType));
 }
 
+TExprPtr MakeModuleOpCall(const std::string& synthName, std::vector<TExprPtr> args,
+    TTypePtr returnType, TLocation loc, NSemantics::TNameResolver& ctx)
+{
+    auto callee = std::make_shared<TIdentExpr>(loc, synthName);
+    std::vector<TTypePtr> argTypes;
+    for (auto& a : args) argTypes.push_back(a->Type);
+    callee->Type = std::make_shared<TFunctionType>(std::move(argTypes), returnType);
+    auto call = std::make_shared<TCallExpr>(loc, callee, std::move(args));
+    call->Type = returnType;
+    return call;
+}
+
 TTypePtr CommonNumericType(TTypePtr a, TTypePtr b) {
     if (TMaybeType<TFloatType>(a) && TMaybeType<TFloatType>(b)) {
         return a;
@@ -214,6 +226,9 @@ TTask AnnotateUnary(std::shared_ptr<TUnaryExpr> unary, NSemantics::TNameResolver
         auto maybeFloat = TMaybeType<TFloatType>(unary->Type);
         if (maybeFloat) {
             co_return unary;
+        }
+        if (auto m = context.GetUnaryOp("neg", UnwrapReferenceType(unary->Type))) {
+            co_return MakeModuleOpCall(m->SynthName, {unary->Operand}, m->ReturnType, unary->Location, context);
         }
         co_return TError(unary->Location, "Нельзя применять унарный минус к нечисловому типу");
     }
@@ -259,6 +274,35 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
     }
 
     co_return funDecl;
+}
+
+// Tries exact match, then cast-left, then cast-right. Returns TCallExpr or nullptr.
+TExprPtr TryModuleBinaryOp(TExprPtr left, TExprPtr right,
+    const TOperator& op, NSemantics::TNameResolver& ctx)
+{
+    const std::string opStr = op.ToString();
+    auto lt = UnwrapReferenceType(left->Type);
+    auto rt = UnwrapReferenceType(right->Type);
+
+    if (auto m = ctx.GetBinaryOp(opStr, lt, rt)) {
+        return MakeModuleOpCall(m->SynthName, {left, right}, m->ReturnType, left->Location, ctx);
+    }
+
+    auto castedLeft = InsertImplicitCastIfNeeded(left, rt, &ctx);
+    if (castedLeft != left) {
+        if (auto m = ctx.GetBinaryOp(opStr, rt, rt)) {
+            return MakeModuleOpCall(m->SynthName, {castedLeft, right}, m->ReturnType, left->Location, ctx);
+        }
+    }
+
+    auto castedRight = InsertImplicitCastIfNeeded(right, lt, &ctx);
+    if (castedRight != right) {
+        if (auto m = ctx.GetBinaryOp(opStr, lt, lt)) {
+            return MakeModuleOpCall(m->SynthName, {left, castedRight}, m->ReturnType, left->Location, ctx);
+        }
+    }
+
+    return nullptr;
 }
 
 TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
@@ -311,6 +355,9 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
 
             auto common = CommonNumericType(left, right);
             if (!common) {
+                if (auto call = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                    co_return call;
+                }
                 co_return TError(binary->Location, "+, -, *, / применимы только к числам (оператор + также работает для строк)");
             }
             if (binary->Operator == TOperator("/")) {
@@ -366,6 +413,9 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
             binary->Type  = std::make_shared<TBoolType>();
             break;
         default:
+            if (auto call = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                co_return call;
+            }
             co_return TError(binary->Location, "Неизвестный бинарный оператор: '" + binary->Operator.ToString() + "'");
             break;
     }
