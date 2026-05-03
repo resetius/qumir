@@ -4,7 +4,9 @@ namespace NQumir {
 namespace NRegistry {
 
 ComplexModule::ComplexModule() {
-    auto floatType = std::make_shared<NAst::TFloatType>();
+    auto floatType   = std::make_shared<NAst::TFloatType>();
+    auto intType     = std::make_shared<NAst::TIntegerType>();
+    auto boolType    = std::make_shared<NAst::TBoolType>();
 
     // компл — struct { double re; double im; }
     auto complexUnderlying = std::make_shared<NAst::TStructType>(
@@ -29,16 +31,12 @@ ComplexModule::ComplexModule() {
         {
             .Name = "Re",
             .MangledName = "complex_re",
-            .Ptr = nullptr,
-            .Packed = nullptr,
             .ArgTypes = { complexType },
             .ReturnType = floatType,
         },
         {
             .Name = "Im",
             .MangledName = "complex_im",
-            .Ptr = nullptr,
-            .Packed = nullptr,
             .ArgTypes = { complexType },
             .ReturnType = floatType,
         },
@@ -47,16 +45,12 @@ ComplexModule::ComplexModule() {
         {
             .Name = "мод",
             .MangledName = "complex_abs",
-            .Ptr = nullptr,
-            .Packed = nullptr,
             .ArgTypes = { complexType },
             .ReturnType = floatType,
         },
         {
             .Name = "аргумент",
             .MangledName = "complex_arg",
-            .Ptr = nullptr,
-            .Packed = nullptr,
             .ArgTypes = { complexType },
             .ReturnType = floatType,
         },
@@ -65,18 +59,109 @@ ComplexModule::ComplexModule() {
         {
             .Name = "сопряжённое",
             .MangledName = "complex_conj",
-            .Ptr = nullptr,
-            .Packed = nullptr,
             .ArgTypes = { complexType },
             .ReturnType = complexType,
         },
         {
             .Name = "сопряженное",
             .MangledName = "complex_conj",
-            .Ptr = nullptr,
-            .Packed = nullptr,
             .ArgTypes = { complexType },
             .ReturnType = complexType,
+        },
+
+        // ── Арифметические операторы ─────────────────────────────────────────
+        {
+            .Name = "+",
+            .MangledName = "complex_add",
+            .ArgTypes = { complexType, complexType },
+            .ReturnType = complexType,
+            .IsOp = true,
+        },
+        {
+            .Name = "-",
+            .MangledName = "complex_sub",
+            .ArgTypes = { complexType, complexType },
+            .ReturnType = complexType,
+            .IsOp = true,
+        },
+        {
+            .Name = "*",
+            .MangledName = "complex_mul",
+            .ArgTypes = { complexType, complexType },
+            .ReturnType = complexType,
+            .IsOp = true,
+        },
+        {
+            .Name = "/",
+            .MangledName = "complex_div",
+            .ArgTypes = { complexType, complexType },
+            .ReturnType = complexType,
+            .IsOp = true,
+        },
+        // унарный минус
+        {
+            .Name = "neg",
+            .MangledName = "complex_neg",
+            .ArgTypes = { complexType },
+            .ReturnType = complexType,
+            .IsOp = true,
+        },
+
+        // ── Операторы сравнения ──────────────────────────────────────────────
+        {
+            .Name = "==",
+            .MangledName = "complex_eq",
+            .ArgTypes = { complexType, complexType },
+            .ReturnType = boolType,
+            .IsOp = true,
+        },
+        {
+            .Name = "!=",
+            .MangledName = "complex_ne",
+            .ArgTypes = { complexType, complexType },
+            .ReturnType = boolType,
+            .IsOp = true,
+        },
+
+        // ── Присваивание ─────────────────────────────────────────────────────
+        {
+            .Name = ":=",
+            .MangledName = "complex_assign",
+            .ArgTypes = { complexType, complexType },
+            .ReturnType = complexType,
+            .IsOp = true,
+        },
+
+        // ── Прямые касты: вещ/цел → компл ───────────────────────────────────
+        {
+            .Name = "cast",
+            .MangledName = "complex_from_float",
+            .ArgTypes = { floatType },
+            .ReturnType = complexType,
+            .IsOp = true,
+        },
+        {
+            .Name = "cast",
+            .MangledName = "complex_from_int",
+            .ArgTypes = { intType },
+            .ReturnType = complexType,
+            .IsOp = true,
+        },
+
+        // ── Обратные касты: компл → вещ/цел ─────────────────────────────────
+        {
+            .Name = "cast",
+            .MangledName = "complex_to_float",
+            .ArgTypes = { complexType },
+            .ReturnType = floatType,
+            .IsOp = true,
+        },
+        {
+            .Name = "cast",
+            .MangledName = "complex_to_int",
+            .ArgTypes = { complexType },
+            .ReturnType = intType,
+            .IsOp = true,
         },
     };
 }

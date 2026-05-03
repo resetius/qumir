@@ -438,6 +438,7 @@ std::expected<NRegistry::IModule*, std::string> TNameResolver::ImportModule(cons
     auto* module = it->second;
 
     for (const auto& fn : module->ExternalFunctions()) {
+        if (fn.IsOp) continue; // operators allow overloading — no conflict check
         auto conflict = ImportedModuleSymbols.find(fn.Name);
         if (conflict != ImportedModuleSymbols.end()) {
             return std::unexpected(
@@ -456,7 +457,6 @@ std::expected<NRegistry::IModule*, std::string> TNameResolver::ImportModule(cons
 
     ImportedModules.insert(name);
     for (const auto& fn : module->ExternalFunctions()) {
-        ImportedModuleSymbols[fn.Name] = name;
         auto funType = std::make_shared<NAst::TFunctionType>(fn.ArgTypes, fn.ReturnType);
         std::vector<NAst::TParam> params;
         for (size_t i = 0; i < fn.ArgTypes.size(); ++i) {
@@ -468,7 +468,13 @@ std::expected<NRegistry::IModule*, std::string> TNameResolver::ImportModule(cons
         funDecl->Ptr = fn.Ptr;
         funDecl->Packed = fn.Packed;
         funDecl->RequireArgsMaterialization = fn.RequireArgsMaterialization;
-        DeclareFunction(fn.Name, funDecl);
+
+        if (fn.IsOp) {
+            ImportedOperators.push_back(funDecl);
+        } else {
+            ImportedModuleSymbols[fn.Name] = name;
+            DeclareFunction(fn.Name, funDecl);
+        }
     }
     for (const auto& type : module->ExternalTypes()) {
         ImportedModuleSymbols[type.Name] = name;

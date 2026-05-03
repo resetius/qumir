@@ -185,6 +185,7 @@ private:
     std::unordered_set<std::string> ImportedModules;        // modules already imported (for idempotency)
     std::unordered_map<std::string, std::string> ImportedModuleSymbols; // symbol/type name -> source module
     std::unordered_map<std::string, NAst::TTypePtr> ImportedTypes; // type name -> resolved type
+    std::vector<std::shared_ptr<NAst::TFunDecl>> ImportedOperators; // operator overloads (IsOp=true), may have duplicates
 
     TEditDistance EditDistanceCalculator;
 };

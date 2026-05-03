@@ -8,12 +8,13 @@ namespace NRegistry {
 struct TExternalFunction {
     std::string Name;
     std::string MangledName;
-    void* Ptr;
+    void* Ptr = nullptr;
     using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
     TPacked Packed = nullptr; // packed thunk
     std::vector<NAst::TTypePtr> ArgTypes;
     NAst::TTypePtr ReturnType;
     bool RequireArgsMaterialization = false; // if true, arguments must be materialized before calling, used for strings
+    bool IsOp = false; // if true, Name is an operator symbol; no name conflict check on import
 
     mutable std::vector<uint32_t> NameCodePoints;
 };
