@@ -1,3 +1,68 @@
+function main () { ; void
+  block {
+    label: label(0)
+    arg imm(4611686018427387904,f64) 
+    arg imm(4617315517961601024,f64) 
+    call tmp(0,struct { f64; f64}) = make_complex 
+    lea tmp(1,ptr to i8) = local(0,struct { f64; f64}) 
+    memcpy tmp(1,ptr to i8) tmp(0,struct { f64; f64}) lg 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    lea tmp(2,ptr to i8) = local(0,struct { f64; f64}) 
+    arg tmp(2,ptr to i8) 
+    call tmp(3,f64) = real_part 
+    arg tmp(3,f64) 
+    arg imm(0,i64) 
+    arg imm(-1,i64) 
+    call output_double 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    lea tmp(4,ptr to i8) = local(0,struct { f64; f64}) 
+    arg tmp(4,ptr to i8) 
+    call tmp(5,f64) = imag_part 
+    arg tmp(5,f64) 
+    arg imm(0,i64) 
+    arg imm(-1,i64) 
+    call output_double 
+    arg imm(3,ptr to i8) 
+    call output_string 
+    lea tmp(6,ptr to i8) = local(0,struct { f64; f64}) 
+    lea tmp(7,ptr to i8) = local(2,struct { f64; f64}) 
+    arg tmp(7,ptr to i8) 
+    call i 
+    lea tmp(8,ptr to i8) = local(2,struct { f64; f64}) 
+    arg tmp(6,ptr to i8) 
+    arg tmp(8,ptr to i8) 
+    call tmp(9,struct { f64; f64}) = add_twice 
+    lea tmp(10,ptr to i8) = local(1,struct { f64; f64}) 
+    memcpy tmp(10,ptr to i8) tmp(9,struct { f64; f64}) lg 
+    arg imm(4,ptr to i8) 
+    call output_string 
+    lea tmp(11,ptr to i8) = local(1,struct { f64; f64}) 
+    arg tmp(11,ptr to i8) 
+    call tmp(12,f64) = Re 
+    arg tmp(12,f64) 
+    arg imm(0,i64) 
+    arg imm(-1,i64) 
+    call output_double 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    lea tmp(13,ptr to i8) = local(1,struct { f64; f64}) 
+    arg tmp(13,ptr to i8) 
+    call tmp(14,f64) = Im 
+    arg tmp(14,f64) 
+    arg imm(0,i64) 
+    arg imm(-1,i64) 
+    call output_double 
+    arg imm(3,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}
 function real_part (local(0)) { ; f64
   block {
     label: label(0)
@@ -95,70 +160,5 @@ function add_twice (local(0), local(1)) { ; struct { f64; f64}
     label: label(1)
     lea tmp(8,ptr to i8) = local(2,struct { f64; f64}) 
     ret tmp(8,ptr to i8) 
-  }
-}
-function <main> () { ; void
-  block {
-    label: label(0)
-    arg imm(4611686018427387904,f64) 
-    arg imm(4617315517961601024,f64) 
-    call tmp(0,struct { f64; f64}) = make_complex 
-    lea tmp(1,ptr to i8) = local(0,struct { f64; f64}) 
-    memcpy tmp(1,ptr to i8) tmp(0,struct { f64; f64}) lg 
-    arg imm(1,ptr to i8) 
-    call output_string 
-    lea tmp(2,ptr to i8) = local(0,struct { f64; f64}) 
-    arg tmp(2,ptr to i8) 
-    call tmp(3,f64) = real_part 
-    arg tmp(3,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
-    call output_double 
-    arg imm(2,ptr to i8) 
-    call output_string 
-    lea tmp(4,ptr to i8) = local(0,struct { f64; f64}) 
-    arg tmp(4,ptr to i8) 
-    call tmp(5,f64) = imag_part 
-    arg tmp(5,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
-    call output_double 
-    arg imm(3,ptr to i8) 
-    call output_string 
-    lea tmp(6,ptr to i8) = local(0,struct { f64; f64}) 
-    lea tmp(7,ptr to i8) = local(2,struct { f64; f64}) 
-    arg tmp(7,ptr to i8) 
-    call i 
-    lea tmp(8,ptr to i8) = local(2,struct { f64; f64}) 
-    arg tmp(6,ptr to i8) 
-    arg tmp(8,ptr to i8) 
-    call tmp(9,struct { f64; f64}) = add_twice 
-    lea tmp(10,ptr to i8) = local(1,struct { f64; f64}) 
-    memcpy tmp(10,ptr to i8) tmp(9,struct { f64; f64}) lg 
-    arg imm(4,ptr to i8) 
-    call output_string 
-    lea tmp(11,ptr to i8) = local(1,struct { f64; f64}) 
-    arg tmp(11,ptr to i8) 
-    call tmp(12,f64) = Re 
-    arg tmp(12,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
-    call output_double 
-    arg imm(2,ptr to i8) 
-    call output_string 
-    lea tmp(13,ptr to i8) = local(1,struct { f64; f64}) 
-    arg tmp(13,ptr to i8) 
-    call tmp(14,f64) = Im 
-    arg tmp(14,f64) 
-    arg imm(0,i64) 
-    arg imm(-1,i64) 
-    call output_double 
-    arg imm(3,ptr to i8) 
-    call output_string 
-    jmp label(1) 
-  }
-  block {
-    label: label(1)
-    ret 
   }
 }

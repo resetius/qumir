@@ -1,5 +1,16 @@
 использовать Комплексные числа
 
+алг main
+нач
+    компл a, b
+
+    a := make_complex(2.0, 5.0)
+    вывод "arg Re=", real_part(a), " Im=", imag_part(a), нс
+
+    b := add_twice(a, i)
+    вывод "return Re=", Re(b), " Im=", Im(b), нс
+кон
+
 алг вещ real_part(компл z)
 нач
     знач := Re(z)
@@ -18,15 +29,4 @@
 алг компл add_twice(компл a, компл b)
 нач
     знач := a + b + b
-кон
-
-алг
-нач
-    компл a, b
-
-    a := make_complex(2.0, 5.0)
-    вывод "arg Re=", real_part(a), " Im=", imag_part(a), нс
-
-    b := add_twice(a, i)
-    вывод "return Re=", Re(b), " Im=", Im(b), нс
 кон
