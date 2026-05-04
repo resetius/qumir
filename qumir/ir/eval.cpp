@@ -94,20 +94,44 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
         return std::nullopt;
     }
 
-    for (size_t i = 0; i < args.size(); ++i) {
-        const int byteOff = (i < execFunc->ArgByteOffsets.size())
-            ? execFunc->ArgByteOffsets[i] : static_cast<int>(i) * 8;
-        const int argSize = (i < execFunc->ArgSizes.size()) ? execFunc->ArgSizes[i] : 8;
-        if (argSize > 8) {
-            void* src = reinterpret_cast<void*>(args[i]);
-            std::memcpy(Runtime.Stack.data() + byteOff, src, argSize);
-        } else {
-            std::memcpy(Runtime.Stack.data() + byteOff, &args[i], 8);
+    auto copyArgsToFrame = [&](char* frameBase, const TExecFunc* exec,
+                                const int64_t* srcArgs, int srcCount) {
+        for (int i = 0; i < srcCount; ++i) {
+            const int byteOff = (i < (int)exec->ArgByteOffsets.size())
+                ? exec->ArgByteOffsets[i] : i * 8;
+            const int typeId = (i < (int)exec->ArgTypeIds.size()) ? exec->ArgTypeIds[i] : -1;
+            const int argSize = Module.Types.SizeInBytes(typeId);
+            if (argSize > 8) {
+                // struct arg: value is a pointer — copy the struct into the frame
+                std::memcpy(frameBase + byteOff, reinterpret_cast<const void*>(srcArgs[i]), argSize);
+            } else {
+                std::memcpy(frameBase + byteOff, &srcArgs[i], 8);
+            }
         }
-    }
+    };
+
+    copyArgsToFrame(Runtime.Stack.data(), execFunc, args.data(), (int)args.size());
 
     std::optional<std::string> result;
     std::optional<int64_t> retVal;
+    auto materializeStructTmp = [&](const TExecFunc* exec, int32_t tmpIdx, const void* src) -> std::optional<int64_t> {
+        if (!exec || tmpIdx < 0 || tmpIdx >= (int32_t)exec->TmpTypeIds.size()) {
+            return std::nullopt;
+        }
+        const int typeId = exec->TmpTypeIds[tmpIdx];
+        if (typeId < 0 || Module.Types.GetKind(typeId) != EKind::Struct) {
+            return std::nullopt;
+        }
+        const size_t size = static_cast<size_t>(Module.Types.SizeInBytes(typeId));
+        Runtime.StructTemps.emplace_back(size);
+        auto& temp = Runtime.StructTemps.back();
+        if (src) {
+            std::memcpy(temp.data(), src, size);
+        } else {
+            std::memset(temp.data(), 0, size);
+        }
+        return reinterpret_cast<int64_t>(temp.data());
+    };
 
     while (!callStack.empty()) {
         auto& frame = callStack.back();
@@ -116,7 +140,7 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
         const auto& instr = *frame.PC++;
 
         switch (instr.Op) {
-        case EVMOp::MemCopy: {
+        case EVMOp::Copy: { // dst/src are Tmp (pointers), size is Imm
             void* dst = reinterpret_cast<void*>(ReadOperand<int64_t>(Runtime.Regs, instr.Operands[0]));
             void* src = reinterpret_cast<void*>(ReadOperand<int64_t>(Runtime.Regs, instr.Operands[1]));
             int64_t size = instr.Operands[2].Imm.Value;
@@ -385,9 +409,15 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
             using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
             void* addr = reinterpret_cast<void*>(instr.Operands[1].Imm.Value);
             TPacked func = reinterpret_cast<TPacked>(addr);
+            const int32_t dstTmp = instr.Operands[0].Tmp.Idx;
+            auto structDst = materializeStructTmp(frame.Exec, dstTmp, nullptr);
+            if (structDst) {
+                Runtime.Args.insert(Runtime.Args.begin(), *structDst);
+            }
 
-            if (instr.Operands[0].Tmp.Idx >= 0) {
-                Runtime.Regs[instr.Operands[0].Tmp.Idx] = func(reinterpret_cast<const uint64_t*>(Runtime.Args.data()), Runtime.Args.size());
+            if (dstTmp >= 0) {
+                auto ret = func(reinterpret_cast<const uint64_t*>(Runtime.Args.data()), Runtime.Args.size());
+                Runtime.Regs[dstTmp] = structDst.value_or(static_cast<int64_t>(ret));
             } else {
                 func(reinterpret_cast<const uint64_t*>(Runtime.Args.data()), Runtime.Args.size());
             }
@@ -423,19 +453,8 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
                 throw std::runtime_error("Stack overflow in interpreter");
             }
 
-            for (int i = 0; i < argCount; ++i) {
-                const int byteOff = (i < (int)calleeExec->ArgByteOffsets.size())
-                    ? calleeExec->ArgByteOffsets[i] : i * 8;
-                const int argSize = (i < (int)calleeExec->ArgSizes.size())
-                    ? calleeExec->ArgSizes[i] : 8;
-                if (argSize > 8) {
-                    // struct arg: Runtime.Args[i] is a pointer — copy the struct
-                    void* src = reinterpret_cast<void*>(Runtime.Args[i]);
-                    std::memcpy(Runtime.Stack.data() + base + byteOff, src, argSize);
-                } else {
-                    std::memcpy(Runtime.Stack.data() + base + byteOff, &Runtime.Args[i], 8);
-                }
-            }
+            copyArgsToFrame(Runtime.Stack.data() + base, calleeExec,
+                            Runtime.Args.data(), argCount);
 
             ReturnLinks.emplace_back(TReturnLink {
                 .FrameIdx = (int64_t) callStack.size() - 1,
@@ -465,7 +484,12 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
                 auto link = std::move(ReturnLinks.back());
                 ReturnLinks.pop_back();
 
-                auto& linkFrame = callStack[link.FrameIdx];
+                std::optional<int64_t> materializedRet;
+                if (retVal.has_value()) {
+                    materializedRet = materializeStructTmp(
+                        callerFrame.Exec, link.CallerDst, reinterpret_cast<const void*>(*retVal));
+                }
+
                 Runtime.Stack.resize(base);
                 // restore saved caller regs
                 Runtime.Regs.resize(callerFrame.UsedRegs);
@@ -473,7 +497,7 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
                 const size_t savedRegsStart = base - savedRegsBytes;
                 std::memcpy(Runtime.Regs.data(), Runtime.Stack.data() + savedRegsStart, savedRegsBytes);
                 if (retVal.has_value()) {
-                    Runtime.Regs[link.CallerDst] = *retVal;
+                    Runtime.Regs[link.CallerDst] = materializedRet.value_or(*retVal);
                 }
                 Runtime.Stack.resize(savedRegsStart);
                 retVal = std::nullopt;

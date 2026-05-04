@@ -43,6 +43,7 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
     std::unordered_map<int64_t, int64_t> labelToLastPC;
 
     auto& code = funcOut.VMCode;
+    funcOut.TmpTypeIds = function.TmpTypes;
     for (const auto& block : function.Blocks) {
         labelToPC[block.Label.Idx] = code.size();
         for (const auto& instr : block.Instrs) {
@@ -63,13 +64,13 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
         funcOut.NumLocals = offset; // frame size in bytes
     }
 
-    // Populate ArgByteOffsets and ArgSizes for use by eval when passing arguments
+    // Populate ArgByteOffsets and ArgTypeIds for eval
     for (const auto& argLocal : function.ArgLocals) {
         if (argLocal.Idx >= 0 && argLocal.Idx < (int)localByteOffsets.size()) {
             funcOut.ArgByteOffsets.push_back(localByteOffsets[argLocal.Idx]);
             int typeId = (argLocal.Idx < (int)function.LocalTypes.size())
                 ? function.LocalTypes[argLocal.Idx] : -1;
-            funcOut.ArgSizes.push_back(Module.Types.SizeInBytes(typeId));
+            funcOut.ArgTypeIds.push_back(typeId);
         }
     }
 
@@ -386,7 +387,13 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             }
             case "load"_op: {
                 require(ins, 1, 1);
-                out.Op = EVMOp::Load64;
+                int destType = typeId(ins.Dest);
+                if (destType >= 0 && Module.Types.GetKind(destType) == EKind::Struct) {
+                    // IR load is a struct value; VM represents struct values as 64-bit addresses.
+                    out.Op = EVMOp::Lea;
+                } else {
+                    out.Op = EVMOp::Load64;
+                }
                 break;
             }
             case "stre"_op: {
@@ -394,9 +401,9 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 out.Op = EVMOp::Store64;
                 break;
             }
-            case "memcpy"_op: {
-                require(ins, -1, 3); // no dest, args: dst_ptr, src_ptr, size_imm
-                out.Op = EVMOp::MemCopy;
+            case "copy"_op: {
+                require(ins, -1, 3); // no dest, args: dst_ptr(Tmp), src_ptr(Tmp), size_imm
+                out.Op = EVMOp::Copy;
                 break;
             }
             default:

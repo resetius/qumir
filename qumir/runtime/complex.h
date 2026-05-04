@@ -14,29 +14,29 @@ struct komplex {
 extern "C" {
 
 // ── Scalar accessors (return by value) ───────────────────────────────────────
-double  complex_re(const komplex* a);
-double  complex_im(const komplex* a);
-double  complex_abs(const komplex* a);
-double  complex_arg(const komplex* a);
+double  complex_re(komplex a);
+double  complex_im(komplex a);
+double  complex_abs(komplex a);
+double  complex_arg(komplex a);
 
-// ── Struct-returning functions (C ABI: hidden first arg = out pointer) ────────
-void complex_i(komplex* r);
-void complex_conj(komplex* r, const komplex* a);
-void complex_add(komplex* r, const komplex* a, const komplex* b);
-void complex_sub(komplex* r, const komplex* a, const komplex* b);
-void complex_mul(komplex* r, const komplex* a, const komplex* b);
-void complex_div(komplex* r, const komplex* a, const komplex* b);
-void complex_neg(komplex* r, const komplex* a);
+// ── Struct-returning functions ───────────────────────────────────────────────
+komplex complex_i();
+komplex complex_conj(komplex a);
+komplex complex_add(komplex a, komplex b);
+komplex complex_sub(komplex a, komplex b);
+komplex complex_mul(komplex a, komplex b);
+komplex complex_div(komplex a, komplex b);
+komplex complex_neg(komplex a);
 
 // ── Comparison (return bool as int64) ────────────────────────────────────────
-int64_t complex_eq(const komplex* a, const komplex* b);
-int64_t complex_ne(const komplex* a, const komplex* b);
+int64_t complex_eq(komplex a, komplex b);
+int64_t complex_ne(komplex a, komplex b);
 
 // ── Casts ─────────────────────────────────────────────────────────────────────
-void    complex_from_float(komplex* r, double x);
-void    complex_from_int(komplex* r, int64_t n);
-double  complex_to_float(const komplex* a);  // returns Re
-int64_t complex_to_int(const komplex* a);    // returns (int64_t)Re
+komplex complex_from_float(double x);
+komplex complex_from_int(int64_t n);
+double  complex_to_float(komplex a);  // returns Re
+int64_t complex_to_int(komplex a);    // returns (int64_t)Re
 
 } // extern "C"
 

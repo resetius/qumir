@@ -211,12 +211,10 @@ TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& n
         : TOperand{ TSlot{ var->Id } };
 
     auto nodeType = NAst::UnwrapNamedType(node->Type);
-    // Struct-typed variables are always passed by pointer (lea), never loaded as a scalar value
-    bool isStruct = NAst::TMaybeType<NAst::TStructType>(nodeType);
-    TOp opcode = (takeRefOfNotRef || isStruct) ? "lea"_op : "load"_op;
+    // "load" returns a value; "lea" returns an address for ref arguments.
+    TOp opcode = takeRefOfNotRef ? "lea"_op : "load"_op;
     auto tmp = Builder.Emit1(opcode, { op });
-    int ptrType = Module.Types.Ptr(Module.Types.I(EKind::I8));
-    Builder.SetType(tmp, isStruct ? ptrType : FromAstType(nodeType, Module.Types));
+    Builder.SetType(tmp, FromAstType(node->Type, Module.Types));
     co_return tmp;
 }
 
@@ -547,7 +545,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         Module.Types.GetKind(arrayElemTypeId);
         if (Module.Types.GetKind(arrayElemTypeId) == EKind::Struct) {
-            Builder.Emit0("memcpy"_op, {destPtr, *rhs.Value, TImm{(int64_t)elemByteSize}});
+            Builder.Emit0("copy"_op, {destPtr, *rhs.Value, TImm{(int64_t)elemByteSize}});
         } else {
             Builder.Emit0("ste"_op, {destPtr, *rhs.Value});
         }
@@ -678,9 +676,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
             auto refType = NAst::UnwrapNamedType(ref->ReferencedType);
             if (NAst::TMaybeType<NAst::TStructType>(refType).Cast() != nullptr) {
-                // рез компл: addrTmp is pointer to destination struct, rhs is pointer to source
+                // рез компл: addrTmp is Tmp pointer to destination, rhs is Tmp pointer to source
                 int sizeBytes = Module.Types.SizeInBytes(FromAstType(refType, Module.Types));
-                Builder.Emit0("memcpy"_op, {addrTmp, *rhs.Value, TImm{(int64_t)sizeBytes}});
+                Builder.Emit0("copy"_op, {addrTmp, *rhs.Value, TImm{(int64_t)sizeBytes}});
             } else {
                 // see cases/ref/index_ref
                 if (NAst::TMaybeType<NAst::TStringType>(refType)) {
@@ -697,11 +695,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.Emit0("ste"_op, {addrTmp, *rhs.Value});
             }
         } else if (NAst::TMaybeType<NAst::TStructType>(nodeType)) {
-            // rhs is a pointer to the struct result — memcpy into destination
-            int sizeBytes = Module.Types.SizeInBytes(FromAstType(nodeType, Module.Types));
+            int structTypeId = FromAstType(nodeType, Module.Types);
             auto dstPtr = Builder.Emit1("lea"_op, {storeOperand});
-            Builder.SetType(dstPtr, Module.Types.Ptr(Module.Types.I(EKind::I8)));
-            Builder.Emit0("memcpy"_op, {dstPtr, *rhs.Value, TImm{(int64_t)sizeBytes}});
+            Builder.SetType(dstPtr, Module.Types.Ptr(structTypeId));
+            int sizeBytes = Module.Types.SizeInBytes(structTypeId);
+            Builder.Emit0("copy"_op, {dstPtr, *rhs.Value, TImm{(int64_t)sizeBytes}});
         } else {
             Builder.Emit0("stre"_op, {storeOperand, *rhs.Value});
         }
@@ -911,21 +909,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             argTypes = &maybeFuncType.Cast()->ParamTypes;
         }
 
-        auto isStructArgType = [](const NAst::TTypePtr& t) -> bool {
-            return NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(t));
-        };
-
-        // For external functions returning struct: hidden first arg = pointer to result local.
-        // Internal (user-defined) functions handle struct return separately via $$return variable.
         bool isExternalCall = funDecl->IsExternal();
         if (isExternalCall && !Module.SymIdToExtFuncIdx.contains(calleeSymId)) {
-            // Synthetic imported operators/casts can be introduced by type annotation
-            // after module import; import their external ABI entry on first use.
             ImportExternalFunction(calleeSymId, *funDecl);
-        }
-        std::optional<TLocal> structRetLocal;
-        if (isStructArgType(returnType) && isExternalCall) {
-            structRetLocal = Builder.AllocLocal(FromAstType(returnType, Module.Types));
         }
 
         std::vector<std::pair<TOperand, EOwnership>> argv;
@@ -943,15 +929,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 }
                 av.Value = co_await LoadVar(maybeIdent.Cast()->Name, scope, a->Location, true /*address*/);
                 Builder.SetType(av.Value->Tmp, FromAstType(argType, Module.Types));
-            } else if (isStructArgType(argType)) {
-                // pass struct by pointer — Lower() already returns a pointer for struct expressions
-                // (lea for idents, address arithmetic for array elements, etc.)
-                av = co_await Lower(a, scope);
-                if (av.Value) {
-                    int ptrType = Module.Types.Ptr(Module.Types.I(EKind::I8));
-                    Builder.SetType(av.Value->Tmp, ptrType);
-                }
             } else {
+                // struct args and scalar args are both lowered the same way —
+                // VMCompiler handles ABI (lea/pointer) for struct types
                 av = co_await Lower(a, scope);
             }
 
@@ -970,11 +950,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
             argv.emplace_back(*av.Value, av.Ownership);
         }
-        if (structRetLocal) {
-            auto ptrTmp = Builder.Emit1("lea"_op, {*structRetLocal});
-            Builder.SetType(ptrTmp, Module.Types.Ptr(Module.Types.I(EKind::I8)));
-            Builder.Emit0("arg"_op, {ptrTmp});
-        }
         for (auto [arg, _] : argv) {
             Builder.Emit0("arg"_op, {arg});
         }
@@ -987,14 +962,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
 
         std::optional<TOperand> tmp = std::nullopt;
-        if (structRetLocal) {
-            // struct return: call is void, result is in the hidden local
-            Builder.Emit0("call"_op, {TImm{calleeSymId}});
-            // expose the hidden local as the result (pointer to struct)
-            auto ptrTmp = Builder.Emit1("lea"_op, {*structRetLocal});
-            Builder.SetType(ptrTmp, Module.Types.Ptr(Module.Types.I(EKind::I8)));
-            tmp = TOperand{ptrTmp};
-        } else if (returnsValue) {
+        if (returnsValue) {
             tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
             Builder.SetType(tmp->Tmp, FromAstType(returnType, Module.Types));
         } else {

@@ -157,17 +157,12 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
         }
 
         auto& ctx = *Ctx;
-        std::vector<llvm::Type*> argTys(f.ArgLocals.size(), nullptr);
+        // Struct arguments and returns are modeled as ordinary LLVM values.
+        std::vector<llvm::Type*> argTys;
         for (size_t i = 0; i < f.ArgLocals.size(); ++i) {
             const auto& s = f.ArgLocals[i];
             auto typeId = f.LocalTypes[s.Idx];
-            auto type = GetTypeById(typeId, module.Types, ctx);
-            // TODO(struct-abi): switch internal struct calls to the same hidden-out ABI
-            // as external calls. For now IR passes structs by address, so LLVM formals do too.
-            if (typeId >= 0 && module.Types.GetKind(typeId) == EKind::Struct) {
-                type = llvm::PointerType::get(ctx, 0);
-            }
-            argTys[i] = type;
+            argTys.push_back(GetTypeById(typeId, module.Types, ctx));
         }
 
         llvm::Type* retTy = GetTypeById(f.ReturnTypeId, module.Types, ctx);
@@ -345,15 +340,7 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, NIR::TModule& 
         }
         auto* ptr = CurFun->Allocas[l.Idx];
         auto& arg = *lfun->getArg(i);
-        auto typeId = fun.LocalTypes[l.Idx];
-        if (typeId >= 0 && module.Types.GetKind(typeId) == EKind::Struct) {
-            // TODO(struct-abi): remove this copy when internal struct arguments use
-            // a single settled ABI instead of pointer formals plus value locals.
-            auto size = llvm::ConstantInt::get(llvm::Type::getInt64Ty(ctx), module.Types.SizeInBytes(typeId), false);
-            irb->CreateMemCpy(ptr, llvm::MaybeAlign(1), &arg, llvm::MaybeAlign(1), size);
-        } else {
-            irb->CreateStore(&arg, ptr);
-        }
+        irb->CreateStore(&arg, ptr);
     }
 
     for (size_t i = 0; i < fun.Blocks.size(); ++i) {
@@ -743,12 +730,16 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             return nullptr;
             break;
         }
-        case "memcpy"_op: {
+        case "copy"_op: {
             if (operandCount != 3) {
-                throw std::runtime_error("memcpy needs dst, src and size operands");
+                throw std::runtime_error("copy needs dst, src and size operands");
             }
             auto dst = GetOp(instr.Operands[0], module);
             auto src = GetOp(instr.Operands[1], module);
+            if (dst->getType()->isPointerTy() && src->getType()->isStructTy()) {
+                irb->CreateStore(src, dst);
+                return nullptr;
+            }
             llvm::Value* size = nullptr;
             if (instr.Operands[2].Type == TOperand::EType::Imm && instr.Operands[2].Imm.TypeId < 0) {
                 size = llvm::ConstantInt::get(i64, instr.Operands[2].Imm.Value, false);
@@ -806,8 +797,16 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                 auto lidx = instr.Operands[0].Local.Idx;
                 if (lidx < 0 || lidx >= CurFun->Allocas.size()) throw std::runtime_error("invalid local index");
                 auto ptr = CurFun->Allocas[lidx];
+                auto* localTy = ptr->getAllocatedType();
                 auto value = GetOp(instr.Operands[1], module);
-                irb->CreateStore(cast(value, ptr->getAllocatedType()), ptr);
+                if (localTy->isStructTy() && value->getType()->isPointerTy()) {
+                    // struct stre: value is a pointer to struct, copy into destination
+                    auto size = llvm::ConstantInt::get(i64,
+                        LModule->getDataLayout().getTypeAllocSize(localTy), false);
+                    irb->CreateMemCpy(ptr, llvm::MaybeAlign(8), value, llvm::MaybeAlign(8), size);
+                } else {
+                    irb->CreateStore(cast(value, localTy), ptr);
+                }
             } else {
                 throw std::runtime_error("store first operand must be slot or local");
             }
@@ -819,8 +818,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                 auto* need = CurFun->LFun->getFunctionType()->getReturnType();
                 if (val->getType() != need) {
                     if (need->isStructTy() && val->getType()->isPointerTy()) {
-                        // TODO(struct-abi): internal struct returns are still declared
-                        // as value returns; current IR returns an address, so bridge here.
+                        // Bridge address-backed struct values to the LLVM value ABI.
                         val = irb->CreateLoad(need, val, "retstruct");
                     } else {
                         throw std::runtime_error("return type mismatch; pre-cast required");
@@ -890,22 +888,10 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                     // external function
                     auto& extFun = module.ExternalFunctions[jt->second];
 
-                    auto isStructType = [&](int typeId) {
-                        return typeId >= 0 && module.Types.GetKind(typeId) == EKind::Struct;
-                    };
-                    auto* retType = isStructType(extFun.ReturnTypeId)
-                        ? llvm::Type::getVoidTy(ctx)
-                        : GetTypeById(extFun.ReturnTypeId, module.Types, ctx);
+                    auto* retType = GetTypeById(extFun.ReturnTypeId, module.Types, ctx);
                     std::vector<llvm::Type*> paramTys;
-                    if (isStructType(extFun.ReturnTypeId)) {
-                        paramTys.push_back(llvm::PointerType::get(ctx, 0));
-                    }
                     for (const auto& pid : extFun.ArgTypes) {
-                        if (isStructType(pid)) {
-                            paramTys.push_back(llvm::PointerType::get(ctx, 0));
-                        } else {
-                            paramTys.push_back(GetTypeById(pid, module.Types, ctx));
-                        }
+                        paramTys.push_back(GetTypeById(pid, module.Types, ctx));
                     }
                     auto* fty   = llvm::FunctionType::get(retType, paramTys, /*isVarArg=*/false);
                     callee = LModule->getOrInsertFunction(extFun.MangledName, fty);
@@ -920,32 +906,39 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             // Marshal arguments collected by 'arg'
             auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
             std::vector<llvm::Value*> args;
-            for (int i = 0; i < CurFun->PendingArgs.size(); ++i) {
-                if (i >= callee.getFunctionType()->getNumParams()) {
+            for (int i = 0; i < (int)CurFun->PendingArgs.size(); ++i) {
+                if (i >= (int)callee.getFunctionType()->getNumParams()) {
                     throw std::runtime_error("too many call arguments while lowering IR instruction: " + formatInstr());
                 }
                 auto* paramTy = callee.getFunctionType()->getParamType(i);
-                args.push_back(cast(CurFun->PendingArgs[i], paramTy));
+                auto* val = CurFun->PendingArgs[i];
+                if (paramTy->isStructTy() && val->getType()->isPointerTy()) {
+                    val = irb->CreateLoad(paramTy, val, "argstruct");
+                } else {
+                    val = cast(val, paramTy);
+                }
+                args.push_back(val);
             }
             if (args.size() != callee.getFunctionType()->getNumParams()) {
                 throw std::runtime_error("wrong call argument count while lowering IR instruction: " + formatInstr());
             }
             CurFun->PendingArgs.clear();
+            auto makeCallWithAttrs = [&](auto name) -> llvm::CallInst* {
+                llvm::CallInst* ci;
+                if constexpr (std::is_same_v<decltype(name), const char*>) {
+                    ci = irb->CreateCall(callee, args, name);
+                } else {
+                    ci = irb->CreateCall(callee, args);
+                }
+                return ci;
+            };
             if (retTy->isVoidTy()) {
                 // Void call: emit and produce no tmp
-                (void)irb->CreateCall(callee, args);
+                makeCallWithAttrs(nullptr);
                 return nullptr;
             } else {
                 if (instr.Dest.Idx < 0) throw std::runtime_error("call needs a destination tmp");
-                auto call = irb->CreateCall(callee, args, "calltmp");
-                if (retTy->isStructTy()) {
-                    // TODO(struct-abi): current IR consumers expect struct expression
-                    // results as addresses. Materialize direct internal struct returns
-                    // until internal calls are lowered with hidden out pointers.
-                    auto tmp = irb->CreateAlloca(retTy, nullptr, "callstruct");
-                    irb->CreateStore(call, tmp);
-                    return storeTmp(tmp);
-                }
+                auto call = makeCallWithAttrs("calltmp");
                 return storeTmp(call);
             }
         }

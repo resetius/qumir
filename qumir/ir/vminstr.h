@@ -71,7 +71,7 @@ enum class EVMOp : uint8_t {
     Ste, // store by address (*a = i)
     Lde, // load by address (a = *i)
     Lea, // load effective address (a = &i)
-    MemCopy, // memcpy(dst_ptr, src_ptr, size_bytes_imm)
+    Copy, // copy(dst_ptr, src, size_bytes_imm); src may be a pointer or packed value
 };
 
 std::ostream& operator<<(std::ostream& os, EVMOp op);

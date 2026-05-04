@@ -6,10 +6,10 @@ function main () { ; void
     arg imm(4618441417868443648,f64) 
     arg tmp(0,ptr to struct { f64; f64}) 
     call make_by_ref 
-    lea tmp(1,ptr to i8) = local(0,struct { f64; f64}) 
+    load tmp(1,struct { f64; f64}) = local(0,struct { f64; f64}) 
     lea tmp(2,ptr to f64) = local(1,f64) 
     lea tmp(3,ptr to f64) = local(2,f64) 
-    arg tmp(1,ptr to i8) 
+    arg tmp(1,struct { f64; f64}) 
     arg tmp(2,ptr to f64) 
     arg tmp(3,ptr to f64) 
     call split 
@@ -30,28 +30,25 @@ function main () { ; void
     arg imm(3,ptr to i8) 
     call output_string 
     lea tmp(6,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
-    lea tmp(7,ptr to i8) = local(3,struct { f64; f64}) 
-    arg tmp(7,ptr to i8) 
-    call i 
-    lea tmp(8,ptr to i8) = local(3,struct { f64; f64}) 
+    call tmp(7,struct { f64; f64}) = i 
     arg tmp(6,ptr to struct { f64; f64}) 
-    arg tmp(8,ptr to i8) 
+    arg tmp(7,struct { f64; f64}) 
     call add_in_place 
     arg imm(4,ptr to i8) 
     call output_string 
-    lea tmp(9,ptr to i8) = local(0,struct { f64; f64}) 
-    arg tmp(9,ptr to i8) 
-    call tmp(10,f64) = Re 
-    arg tmp(10,f64) 
+    load tmp(8,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(8,struct { f64; f64}) 
+    call tmp(9,f64) = Re 
+    arg tmp(9,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(11,ptr to i8) = local(0,struct { f64; f64}) 
-    arg tmp(11,ptr to i8) 
-    call tmp(12,f64) = Im 
-    arg tmp(12,f64) 
+    load tmp(10,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(10,struct { f64; f64}) 
+    call tmp(11,f64) = Im 
+    arg tmp(11,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
@@ -67,13 +64,13 @@ function main () { ; void
 function split (local(0), local(1), local(2)) { ; void
   block {
     label: label(0)
-    lea tmp(0,ptr to i8) = local(0,struct { f64; f64}) 
-    arg tmp(0,ptr to i8) 
+    load tmp(0,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(0,struct { f64; f64}) 
     call tmp(1,f64) = Re 
     load tmp(2,ptr to f64) = local(1,ptr to f64) 
     ste tmp(2,ptr to f64) tmp(1,f64) 
-    lea tmp(3,ptr to i8) = local(0,struct { f64; f64}) 
-    arg tmp(3,ptr to i8) 
+    load tmp(3,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(3,struct { f64; f64}) 
     call tmp(4,f64) = Im 
     load tmp(5,ptr to f64) = local(2,ptr to f64) 
     ste tmp(5,ptr to f64) tmp(4,f64) 
@@ -88,35 +85,20 @@ function make_by_ref (local(0), local(1), local(2)) { ; void
   block {
     label: label(0)
     load tmp(0,f64) = local(0,f64) 
-    lea tmp(1,ptr to i8) = local(4,struct { f64; f64}) 
-    arg tmp(1,ptr to i8) 
     arg tmp(0,f64) 
-    call cast 
-    lea tmp(2,ptr to i8) = local(4,struct { f64; f64}) 
-    load tmp(3,f64) = local(1,f64) 
-    lea tmp(4,ptr to i8) = local(6,struct { f64; f64}) 
-    arg tmp(4,ptr to i8) 
-    arg tmp(3,f64) 
-    call cast 
-    lea tmp(5,ptr to i8) = local(6,struct { f64; f64}) 
-    lea tmp(6,ptr to i8) = local(7,struct { f64; f64}) 
-    arg tmp(6,ptr to i8) 
-    call i 
-    lea tmp(7,ptr to i8) = local(7,struct { f64; f64}) 
-    lea tmp(8,ptr to i8) = local(5,struct { f64; f64}) 
-    arg tmp(8,ptr to i8) 
-    arg tmp(5,ptr to i8) 
-    arg tmp(7,ptr to i8) 
-    call * 
-    lea tmp(9,ptr to i8) = local(5,struct { f64; f64}) 
-    lea tmp(10,ptr to i8) = local(3,struct { f64; f64}) 
-    arg tmp(10,ptr to i8) 
-    arg tmp(2,ptr to i8) 
-    arg tmp(9,ptr to i8) 
-    call + 
-    lea tmp(11,ptr to i8) = local(3,struct { f64; f64}) 
-    load tmp(12,ptr to struct { f64; f64}) = local(2,ptr to struct { f64; f64}) 
-    memcpy tmp(12,ptr to struct { f64; f64}) tmp(11,ptr to i8) lg 
+    call tmp(1,struct { f64; f64}) = cast 
+    load tmp(2,f64) = local(1,f64) 
+    arg tmp(2,f64) 
+    call tmp(3,struct { f64; f64}) = cast 
+    call tmp(4,struct { f64; f64}) = i 
+    arg tmp(3,struct { f64; f64}) 
+    arg tmp(4,struct { f64; f64}) 
+    call tmp(5,struct { f64; f64}) = * 
+    arg tmp(1,struct { f64; f64}) 
+    arg tmp(5,struct { f64; f64}) 
+    call tmp(6,struct { f64; f64}) = + 
+    load tmp(7,ptr to struct { f64; f64}) = local(2,ptr to struct { f64; f64}) 
+    copy tmp(7,ptr to struct { f64; f64}) tmp(6,struct { f64; f64}) lg 
     jmp label(1) 
   }
   block {
@@ -128,15 +110,12 @@ function add_in_place (local(0), local(1)) { ; void
   block {
     label: label(0)
     load tmp(0,ptr to i8) = local(0,ptr to struct { f64; f64}) 
-    lea tmp(1,ptr to i8) = local(1,struct { f64; f64}) 
-    lea tmp(2,ptr to i8) = local(2,struct { f64; f64}) 
-    arg tmp(2,ptr to i8) 
+    load tmp(1,struct { f64; f64}) = local(1,struct { f64; f64}) 
     arg tmp(0,ptr to i8) 
-    arg tmp(1,ptr to i8) 
-    call + 
-    lea tmp(3,ptr to i8) = local(2,struct { f64; f64}) 
-    load tmp(4,ptr to struct { f64; f64}) = local(0,ptr to struct { f64; f64}) 
-    memcpy tmp(4,ptr to struct { f64; f64}) tmp(3,ptr to i8) lg 
+    arg tmp(1,struct { f64; f64}) 
+    call tmp(2,struct { f64; f64}) = + 
+    load tmp(3,ptr to struct { f64; f64}) = local(0,ptr to struct { f64; f64}) 
+    copy tmp(3,ptr to struct { f64; f64}) tmp(2,struct { f64; f64}) lg 
     jmp label(1) 
   }
   block {
