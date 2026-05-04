@@ -52,6 +52,7 @@ function renderSidebar(active, prefix) {
       <a href="${prefix}turtle.html" class="${active === 'turtle.md' ? 'active' : ''}">Исполнитель Черепаха</a>
       <a href="${prefix}drawer.html" class="${active === 'drawer.md' ? 'active' : ''}">Исполнитель Чертежник</a>
       <a href="${prefix}painter.html" class="${active === 'painter.md' ? 'active' : ''}">Исполнитель Рисователь</a>
+      <a href="${prefix}complex.html" class="${active === 'complex.md' ? 'active' : ''}">Комплексные числа</a>
       <a href="${prefix}robot.html" class="${active === 'robot.md' ? 'active' : ''}">Исполнитель Робот</a>
       <a href="${prefix}files.html" class="${active === 'files.md' ? 'active' : ''}">Работа с файлами</a>
       <a href="${prefix}examples.html" class="${isExamplesSection ? 'active' : ''}">Библиотека примеров</a>
