@@ -12,80 +12,78 @@ function <main> () { ; void
     arg tmp(0,struct { f64; f64}) 
     arg tmp(3,struct { f64; f64}) 
     call tmp(4,struct { f64; f64}) = + 
-    lea tmp(5,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
-    copy tmp(5,ptr to struct { f64; f64}) tmp(4,struct { f64; f64}) lg 
+    stre local(0,struct { f64; f64}) tmp(4,struct { f64; f64}) 
     arg imm(4611686018427387904,f64) 
-    call tmp(6,struct { f64; f64}) = cast 
+    call tmp(5,struct { f64; f64}) = cast 
     arg imm(4616189618054758400,f64) 
-    call tmp(7,struct { f64; f64}) = cast 
-    call tmp(8,struct { f64; f64}) = i 
-    arg tmp(7,struct { f64; f64}) 
-    arg tmp(8,struct { f64; f64}) 
-    call tmp(9,struct { f64; f64}) = * 
+    call tmp(6,struct { f64; f64}) = cast 
+    call tmp(7,struct { f64; f64}) = i 
     arg tmp(6,struct { f64; f64}) 
-    arg tmp(9,struct { f64; f64}) 
-    call tmp(10,struct { f64; f64}) = + 
-    lea tmp(11,ptr to struct { f64; f64}) = local(1,struct { f64; f64}) 
-    copy tmp(11,ptr to struct { f64; f64}) tmp(10,struct { f64; f64}) lg 
-    load tmp(12,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(7,struct { f64; f64}) 
+    call tmp(8,struct { f64; f64}) = * 
+    arg tmp(5,struct { f64; f64}) 
+    arg tmp(8,struct { f64; f64}) 
+    call tmp(9,struct { f64; f64}) = + 
+    stre local(1,struct { f64; f64}) tmp(9,struct { f64; f64}) 
+    load tmp(10,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    load tmp(11,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(10,struct { f64; f64}) 
+    arg tmp(11,struct { f64; f64}) 
+    call tmp(12,i1) = == 
+    stre local(2,i1) tmp(12,i1) 
     load tmp(13,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    arg tmp(12,struct { f64; f64}) 
+    load tmp(14,struct { f64; f64}) = local(1,struct { f64; f64}) 
     arg tmp(13,struct { f64; f64}) 
-    call tmp(14,i1) = == 
-    stre local(2,i1) tmp(14,i1) 
-    load tmp(15,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    load tmp(16,struct { f64; f64}) = local(1,struct { f64; f64}) 
-    arg tmp(15,struct { f64; f64}) 
-    arg tmp(16,struct { f64; f64}) 
-    call tmp(17,i1) = != 
-    stre local(3,i1) tmp(17,i1) 
+    arg tmp(14,struct { f64; f64}) 
+    call tmp(15,i1) = != 
+    stre local(3,i1) tmp(15,i1) 
     arg imm(1,ptr to i8) 
     call output_string 
-    load tmp(18,i1) = local(2,i1) 
-    cmp tmp(18,i1) label(2) label(3) 
+    load tmp(16,i1) = local(2,i1) 
+    cmp tmp(16,i1) label(2) label(3) 
   }
   block {
     label: label(2)
-    load tmp(19,i1) = local(3,i1) 
+    load tmp(17,i1) = local(3,i1) 
     jmp label(3) 
   }
   block {
     label: label(3)
-    phi tmp(20,i1) = tmp(18,i1) label(0) tmp(19,i1) label(2) 
-    arg tmp(20,i1) 
+    phi tmp(18,i1) = tmp(16,i1) label(0) tmp(17,i1) label(2) 
+    arg tmp(18,i1) 
     call output_bool 
     arg imm(2,ptr to i8) 
     call output_string 
     arg imm(3,ptr to i8) 
     call output_string 
-    load tmp(21,i1) = local(2,i1) 
-    cmp tmp(21,i1) label(5) label(4) 
+    load tmp(19,i1) = local(2,i1) 
+    cmp tmp(19,i1) label(5) label(4) 
   }
   block {
     label: label(4)
-    load tmp(22,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    load tmp(23,struct { f64; f64}) = local(1,struct { f64; f64}) 
-    arg tmp(22,struct { f64; f64}) 
-    arg tmp(23,struct { f64; f64}) 
-    call tmp(24,i1) = == 
+    load tmp(20,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    load tmp(21,struct { f64; f64}) = local(1,struct { f64; f64}) 
+    arg tmp(20,struct { f64; f64}) 
+    arg tmp(21,struct { f64; f64}) 
+    call tmp(22,i1) = == 
     jmp label(5) 
   }
   block {
     label: label(5)
-    phi tmp(25,i1) = tmp(21,i1) label(3) tmp(24,i1) label(4) 
-    arg tmp(25,i1) 
+    phi tmp(23,i1) = tmp(19,i1) label(3) tmp(22,i1) label(4) 
+    arg tmp(23,i1) 
     call output_bool 
     arg imm(2,ptr to i8) 
     call output_string 
     arg imm(4,ptr to i8) 
     call output_string 
-    load tmp(26,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    load tmp(27,struct { f64; f64}) = local(1,struct { f64; f64}) 
-    arg tmp(26,struct { f64; f64}) 
-    arg tmp(27,struct { f64; f64}) 
-    call tmp(28,i1) = == 
-    ! tmp(29,i1) = tmp(28,i1) 
-    arg tmp(29,i1) 
+    load tmp(24,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    load tmp(25,struct { f64; f64}) = local(1,struct { f64; f64}) 
+    arg tmp(24,struct { f64; f64}) 
+    arg tmp(25,struct { f64; f64}) 
+    call tmp(26,i1) = == 
+    ! tmp(27,i1) = tmp(26,i1) 
+    arg tmp(27,i1) 
     call output_bool 
     arg imm(2,ptr to i8) 
     call output_string 

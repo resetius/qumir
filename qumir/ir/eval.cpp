@@ -140,6 +140,14 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
         const auto& instr = *frame.PC++;
 
         switch (instr.Op) {
+        case EVMOp::StructStore: { // dst=Local (byte offset in frame), src=Tmp (pointer), size=Imm
+            const size_t byteOffset = frame.StackBase + instr.Operands[0].Local.Idx;
+            void* dst = Runtime.Stack.data() + byteOffset;
+            void* src = reinterpret_cast<void*>(ReadOperand<int64_t>(Runtime.Regs, instr.Operands[1]));
+            int64_t size = instr.Operands[2].Imm.Value;
+            std::memcpy(dst, src, static_cast<size_t>(size));
+            break;
+        }
         case EVMOp::Copy: { // dst/src are Tmp (pointers), size is Imm
             void* dst = reinterpret_cast<void*>(ReadOperand<int64_t>(Runtime.Regs, instr.Operands[0]));
             void* src = reinterpret_cast<void*>(ReadOperand<int64_t>(Runtime.Regs, instr.Operands[1]));

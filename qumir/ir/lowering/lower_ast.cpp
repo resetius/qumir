@@ -694,12 +694,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 }
                 Builder.Emit0("ste"_op, {addrTmp, *rhs.Value});
             }
-        } else if (NAst::TMaybeType<NAst::TStructType>(nodeType)) {
-            int structTypeId = FromAstType(nodeType, Module.Types);
-            auto dstPtr = Builder.Emit1("lea"_op, {storeOperand});
-            Builder.SetType(dstPtr, Module.Types.Ptr(structTypeId));
-            int sizeBytes = Module.Types.SizeInBytes(structTypeId);
-            Builder.Emit0("copy"_op, {dstPtr, *rhs.Value, TImm{(int64_t)sizeBytes}});
         } else {
             Builder.Emit0("stre"_op, {storeOperand, *rhs.Value});
         }

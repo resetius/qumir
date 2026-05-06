@@ -398,6 +398,17 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             }
             case "stre"_op: {
                 require(ins, 0, 2);
+                // If destination local has struct type, emit StructStore (dst=Local, src=Tmp ptr, size)
+                if (ins.Operands[0].Type == TOperand::EType::Local) {
+                    int varIdx = ins.Operands[0].Local.Idx;
+                    int dstTypeId = (varIdx >= 0 && varIdx < (int)function.LocalTypes.size())
+                        ? function.LocalTypes[varIdx] : -1;
+                    if (dstTypeId >= 0 && Module.Types.GetKind(dstTypeId) == EKind::Struct) {
+                        out.Op = EVMOp::StructStore;
+                        out.Operands[2] = TUntypedImm{Module.Types.SizeInBytes(dstTypeId)};
+                        break;
+                    }
+                }
                 out.Op = EVMOp::Store64;
                 break;
             }

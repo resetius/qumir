@@ -31,8 +31,7 @@ struct TSSABuilder {
     void ComputeLocalPromotable() {
         LocalPromotable.assign(Function.LocalTypes.size(), true);
         for (auto& block : Function.Blocks) {
-            for (size_t instrIdx = 0; instrIdx < block.Instrs.size(); ++instrIdx) {
-                auto& instr = block.Instrs[instrIdx];
+            for (auto& instr : block.Instrs) {
                 // If a local's address is taken (lea local), don't promote that local to SSA.
                 // Rationale: once the address escapes, the variable can be modified indirectly
                 // via that pointer (pass-by-reference arguments, stores through the pointer,
@@ -42,39 +41,20 @@ struct TSSABuilder {
                 if (instr.Op == "lea"_op) {
                     if (instr.OperandCount >= 1 && instr.Operands[0].Type == TOperand::EType::Local) {
                         int localIdx = instr.Operands[0].Local.Idx;
-                        if (IsStructLocal(localIdx) && instrIdx + 1 < block.Instrs.size()) {
-                            // Temporary bridge for current struct assignment lowering; remove after typed store.
-                            auto& nextInstr = block.Instrs[instrIdx + 1];
-                            if (nextInstr.Op == "copy"_op
-                                && nextInstr.OperandCount == 3
-                                && nextInstr.Operands[0] == TOperand{instr.Dest}
-                                && IsStructValueOperand(nextInstr.Operands[1]))
-                            {
-                                continue;
-                            }
-                        }
                         if (localIdx >= 0 && localIdx < (int)LocalPromotable.size()) {
                             LocalPromotable[localIdx] = false;
                         }
                     }
                 }
-                if (instr.Op == "load"_op
-                    && instr.OperandCount == 1
+                if (instr.Op == "stre"_op
+                    && instr.OperandCount == 2
                     && instr.Operands[0].Type == TOperand::EType::Local
                     && IsStructLocal(instr.Operands[0].Local.Idx)
-                    && instrIdx + 1 < block.Instrs.size())
+                    && !IsStructValueOperand(instr.Operands[1]))
                 {
-                    // Temporary bridge for current struct assignment lowering; remove after typed store.
-                    auto& nextInstr = block.Instrs[instrIdx + 1];
-                    if (nextInstr.Op == "copy"_op
-                        && nextInstr.OperandCount == 3
-                        && nextInstr.Operands[0] == TOperand{instr.Dest}
-                        && !IsStructValueOperand(nextInstr.Operands[1]))
-                    {
-                        int localIdx = instr.Operands[0].Local.Idx;
-                        if (localIdx >= 0 && localIdx < (int)LocalPromotable.size()) {
-                            LocalPromotable[localIdx] = false;
-                        }
+                    int localIdx = instr.Operands[0].Local.Idx;
+                    if (localIdx >= 0 && localIdx < (int)LocalPromotable.size()) {
+                        LocalPromotable[localIdx] = false;
                     }
                 }
             }
@@ -369,8 +349,7 @@ struct TSSABuilder {
         // SSA conversion
         for (auto blockLabel : rpo) {
             auto& block = Function.Blocks[Function.GetBlockIdx(blockLabel)];
-            for (size_t instrIdx = 0; instrIdx < block.Instrs.size(); ++instrIdx) {
-                auto& instr = block.Instrs[instrIdx];
+            for (auto& instr : block.Instrs) {
                 switch (instr.Op) {
                     case "stre"_op: {
                         if (instr.OperandCount != 2) {
@@ -382,8 +361,8 @@ struct TSSABuilder {
                         int localIdx = instr.Operands[0].Local.Idx;
                         if (localIdx >= Function.ArgLocals.size() &&
                             (localIdx < (int)LocalPromotable.size() && LocalPromotable[localIdx])) {
-                            if (IsStructLocal(localIdx)) {
-                                // Struct stores are handled via load+copy until typed store lands.
+                            if (IsStructLocal(localIdx) && !IsStructValueOperand(instr.Operands[1])) {
+                                // Pointer-backed struct stores stay in memory.
                                 break;
                             }
                             auto valueTmp = instr.Operands[1];
@@ -405,53 +384,11 @@ struct TSSABuilder {
                         int localIdx = instr.Operands[0].Local.Idx;
                         if (localIdx >= Function.ArgLocals.size() &&
                             (localIdx < (int)LocalPromotable.size() && LocalPromotable[localIdx])) {
-                            if (IsStructLocal(localIdx) && instrIdx + 1 < block.Instrs.size()) {
-                                // Temporary bridge for current struct assignment lowering; remove after typed store.
-                                auto& nextInstr = block.Instrs[instrIdx + 1];
-                                if (nextInstr.Op == "copy"_op
-                                    && nextInstr.OperandCount == 3
-                                    && nextInstr.Operands[0] == TOperand{instr.Dest}
-                                    && IsStructValueOperand(nextInstr.Operands[1]))
-                                {
-                                    auto valueTmp = nextInstr.Operands[1];
-                                    instr.Clear();
-                                    nextInstr.Clear();
-                                    WriteVariable(localIdx, blockLabel, valueTmp);
-                                    break;
-                                }
-                            }
                             auto valueTmp = ReadVariable(localIdx, blockLabel);
                             auto oldDest = instr.Dest;
                             instr.Clear();
                             ReplaceTmpEverywhere(TOperand{oldDest}, valueTmp); // TODO: check replace
                             CurrentDef[localIdx][blockLabel] = valueTmp;
-                        }
-                        break;
-                    }
-                    case "lea"_op: {
-                        if (instr.OperandCount != 1) {
-                            throw std::runtime_error("Lea instruction must have exactly one operand");
-                        }
-                        if (instr.Operands[0].Type != TOperand::EType::Local) {
-                            break;
-                        }
-                        int localIdx = instr.Operands[0].Local.Idx;
-                        if (localIdx >= Function.ArgLocals.size() &&
-                            (localIdx < (int)LocalPromotable.size() && LocalPromotable[localIdx]) &&
-                            IsStructLocal(localIdx) && instrIdx + 1 < block.Instrs.size())
-                        {
-                            // Temporary bridge for current struct assignment lowering; remove after typed store.
-                            auto& nextInstr = block.Instrs[instrIdx + 1];
-                            if (nextInstr.Op == "copy"_op
-                                && nextInstr.OperandCount == 3
-                                && nextInstr.Operands[0] == TOperand{instr.Dest}
-                                && IsStructValueOperand(nextInstr.Operands[1]))
-                            {
-                                auto valueTmp = nextInstr.Operands[1];
-                                instr.Clear();
-                                nextInstr.Clear();
-                                WriteVariable(localIdx, blockLabel, valueTmp);
-                            }
                         }
                         break;
                     }

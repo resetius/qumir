@@ -799,8 +799,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                 auto ptr = CurFun->Allocas[lidx];
                 auto* localTy = ptr->getAllocatedType();
                 auto value = GetOp(instr.Operands[1], module);
-                if (localTy->isStructTy() && value->getType()->isPointerTy()) {
-                    // struct stre: value is a pointer to struct, copy into destination
+                if (localTy->isStructTy() && !value->getType()->isStructTy()) {
                     auto size = llvm::ConstantInt::get(i64,
                         LModule->getDataLayout().getTypeAllocSize(localTy), false);
                     irb->CreateMemCpy(ptr, llvm::MaybeAlign(8), value, llvm::MaybeAlign(8), size);

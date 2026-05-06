@@ -2,23 +2,22 @@ function <main> () { ; void
   block {
     label: label(0)
     call tmp(0,struct { f64; f64}) = i 
-    lea tmp(1,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
-    copy tmp(1,ptr to struct { f64; f64}) tmp(0,struct { f64; f64}) lg 
+    stre local(0,struct { f64; f64}) tmp(0,struct { f64; f64}) 
     arg imm(1,ptr to i8) 
     call output_string 
-    load tmp(2,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    arg tmp(2,struct { f64; f64}) 
-    call tmp(3,f64) = Re 
-    arg tmp(3,f64) 
+    load tmp(1,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(1,struct { f64; f64}) 
+    call tmp(2,f64) = Re 
+    arg tmp(2,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(4,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    arg tmp(4,struct { f64; f64}) 
-    call tmp(5,f64) = Im 
-    arg tmp(5,f64) 
+    load tmp(3,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(3,struct { f64; f64}) 
+    call tmp(4,f64) = Im 
+    arg tmp(4,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
