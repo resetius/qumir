@@ -93,6 +93,10 @@ export function complex_from_int(r, n) {
   writeComplex(r, Number(n), 0.0);
 }
 
+export function complex_from_imag(r, im) {
+  writeComplex(r, 0.0, Number(im));
+}
+
 export function complex_to_float(re, im) {
   return Number(re);
 }
