@@ -29,7 +29,7 @@
             cx := minX + px * dx
             it := итерации(cx, cy, maxIter)
             если it < maxIter то
-                пиксель(px, py, HSL(it * 360 / maxIter, 100, 50))
+                пиксель(px, py, HSL(div(it * 360, maxIter), 100, 50))
             все
         кц
     кц

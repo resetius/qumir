@@ -32,10 +32,14 @@
             c := cx + cy*i
             it := итерации(c, maxIter)
             если it < maxIter то
-                пиксель(px, py, HSL(it * 360 / maxIter, 100, 50))
+                пиксель(px, py, HSL(div(it * 360, maxIter), 100, 50))
             все
         кц
     кц
+кон
+
+алг вещ длин(компл z) нач
+    знач := sqrt(Re(z)*Re(z)+Im(z)*Im(z))
 кон
 
 | Возвращает число итераций до |z|>2, не более maxIter.
@@ -46,7 +50,7 @@
 
     z := 0.0
     iter := 0
-    нц пока iter < maxIter и мод(z) <= 2.0
+    нц пока iter < maxIter и длин(z) <= 2.0
         z := z*z + c
         iter := iter + 1
     кц
