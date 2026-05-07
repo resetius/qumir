@@ -57,6 +57,10 @@ komplex complex_from_int(int64_t n) {
     return {static_cast<double>(n), 0.0};
 }
 
+komplex complex_from_imag(double im) {
+    return {0.0, im};
+}
+
 double  complex_to_float(komplex a) { return a.re; }
 int64_t complex_to_int(komplex a)   { return static_cast<int64_t>(a.re); }
 

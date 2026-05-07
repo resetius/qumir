@@ -22,9 +22,14 @@ public:
         return ExternalTypes_;
     }
 
+    const std::vector<TLiteralSuffix>& LiteralSuffixes() const override {
+        return LiteralSuffixes_;
+    }
+
 private:
     std::vector<TExternalFunction> ExternalFunctions_;
     std::vector<TExternalType> ExternalTypes_;
+    std::vector<TLiteralSuffix> LiteralSuffixes_;
 };
 
 } // namespace NRegistry

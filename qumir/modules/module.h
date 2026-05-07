@@ -25,12 +25,18 @@ struct TExternalType {
     bool IsAlias = false;
 };
 
+struct TLiteralSuffix {
+    std::string Suffix;       // suffix identifier, e.g. "i"
+    std::string CtorFunction; // internal function called on the literal, e.g. "__imag"
+};
+
 class IModule {
 public:
     virtual ~IModule() = default;
     virtual const std::string& Name() const = 0;
     virtual const std::vector<TExternalFunction>& ExternalFunctions() const = 0;
     virtual const std::vector<TExternalType>& ExternalTypes() const = 0;
+    virtual const std::vector<TLiteralSuffix>& LiteralSuffixes() const = 0;
 };
 
 } // namespace NRegistry

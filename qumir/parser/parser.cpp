@@ -968,10 +968,24 @@ Factor/Primary ::= Number | Ident | ( Expr ) | fun
 */
 TAstTask factor(TWrappedTokenStream& stream) {
     auto token = stream.Next();
+    auto withSuffix = [&](TExprPtr lit) -> TExprPtr {
+        auto peek = stream.Next();
+        if (peek.Type == TToken::Identifier && stream.GetContext()) {
+            const auto& suffixes = stream.GetContext()->GetLiteralSuffixes();
+            auto it = suffixes.find(peek.Name);
+            if (it != suffixes.end()) {
+                auto callee = std::make_shared<TIdentExpr>(peek.Location, it->second);
+                return std::make_shared<TCallExpr>(peek.Location, std::move(callee), std::vector<TExprPtr>{lit});
+            }
+        }
+        stream.Unget(peek);
+        return lit;
+    };
+
     if (token.Type == TToken::Integer) {
-        co_return num(token.Location, token.Value.i64);
+        co_return withSuffix(num(token.Location, token.Value.i64));
     } else if (token.Type == TToken::Float) {
-        co_return num(token.Location, token.Value.f64);
+        co_return withSuffix(num(token.Location, token.Value.f64));
     } else if (token.Type == TToken::Char) {
         co_return sym(token.Location, token.Value.i64);
     } else if (token.Type == TToken::Keyword && static_cast<EKeyword>(token.Value.i64) == EKeyword::NewLine) {
@@ -1662,6 +1676,9 @@ TAstTask stmt(TWrappedTokenStream& stream, IModuleManager* mm) {
                     typeNames.push_back(t.Name);
                 }
                 stream.GetContext()->ImportTypeNames(typeNames);
+                for (const auto& s : mod->LiteralSuffixes()) {
+                    stream.GetContext()->ImportLiteralSuffix(s.Suffix, s.CtorFunction);
+                }
             }
         }
         co_return std::make_shared<TUseExpr>(first.Location, moduleName);

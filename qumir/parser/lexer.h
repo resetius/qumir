@@ -7,6 +7,7 @@
 #include <optional>
 #include <istream>
 #include <cstdint>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -129,6 +130,8 @@ class ILexerContext {
 public:
     virtual ~ILexerContext() = default;
     virtual void ImportTypeNames(const std::vector<std::string>& names) = 0;
+    virtual void ImportLiteralSuffix(const std::string& suffix, const std::string& ctorFn) = 0;
+    virtual const std::unordered_map<std::string, std::string>& GetLiteralSuffixes() const = 0;
 };
 
 struct TLexerContext : public ILexerContext {
@@ -137,7 +140,17 @@ struct TLexerContext : public ILexerContext {
             TypeNames.insert(name);
         }
     }
+
+    void ImportLiteralSuffix(const std::string& suffix, const std::string& ctorFn) override {
+        LiteralSuffixMap[suffix] = ctorFn;
+    }
+
+    const std::unordered_map<std::string, std::string>& GetLiteralSuffixes() const override {
+        return LiteralSuffixMap;
+    }
+
     std::unordered_set<std::string> TypeNames;
+    std::unordered_map<std::string, std::string> LiteralSuffixMap;
 };
 
 class TTokenStream

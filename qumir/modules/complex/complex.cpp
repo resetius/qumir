@@ -219,6 +219,20 @@ ComplexModule::ComplexModule() {
             .IsOp = true,
         },
 
+        // ── Imaginary literal suffix: 2i → __imag(2) ────────────────────────
+        {
+            .Name = "__imag",
+            .MangledName = "complex_from_imag",
+            .Ptr = reinterpret_cast<void*>(static_cast<komplex(*)(double)>(complex_from_imag)),
+            .Packed = +[](const uint64_t* args, size_t) -> uint64_t {
+                *reinterpret_cast<komplex*>(args[0]) = complex_from_imag(
+                    std::bit_cast<double>(args[1]));
+                return 0;
+            },
+            .ArgTypes = { floatType },
+            .ReturnType = complexType,
+        },
+
         // ── Casts: вещ/цел → компл ────────────────────────────────────────────
         {
             .Name = "cast",
@@ -272,6 +286,10 @@ ComplexModule::ComplexModule() {
             .ReturnType = intType,
             .IsOp = true,
         },
+    };
+
+    LiteralSuffixes_ = {
+        { .Suffix = "i", .CtorFunction = "__imag" },
     };
 }
 
