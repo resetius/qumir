@@ -463,6 +463,27 @@ std::string TNameResolver::ModulesList() const
     return oss.str().substr(0, oss.str().size() - 1); // remove last comma
 }
 
+std::vector<std::string> TNameResolver::GetAllImportedTypeNames() const {
+    std::vector<std::string> names;
+    names.reserve(ImportedTypes.size());
+    for (const auto& [name, _] : ImportedTypes) {
+        names.push_back(name);
+    }
+    return names;
+}
+
+std::vector<NRegistry::TLiteralSuffix> TNameResolver::GetAllImportedLiteralSuffixes() const {
+    std::vector<NRegistry::TLiteralSuffix> result;
+    for (const auto& modName : ImportedModules) {
+        auto it = Modules.find(modName);
+        if (it == Modules.end() || !it->second) continue;
+        for (const auto& s : it->second->LiteralSuffixes()) {
+            result.push_back(s);
+        }
+    }
+    return result;
+}
+
 std::expected<NRegistry::IModule*, std::string> TNameResolver::ImportModule(const std::string& name) {
     if (implicitImports.count(name) || ImportedModules.count(name)) {
         auto it = Modules.find(name);

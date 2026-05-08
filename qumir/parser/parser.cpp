@@ -1670,13 +1670,9 @@ TAstTask stmt(TWrappedTokenStream& stream, IModuleManager* mm) {
             if (!result) {
                 co_return TError(first.Location, result.error());
             }
-            if (auto* mod = result.value(); mod && stream.GetContext()) {
-                std::vector<std::string> typeNames;
-                for (const auto& t : mod->ExternalTypes()) {
-                    typeNames.push_back(t.Name);
-                }
-                stream.GetContext()->ImportTypeNames(typeNames);
-                for (const auto& s : mod->LiteralSuffixes()) {
+            if (result.value() && stream.GetContext()) {
+                stream.GetContext()->ImportTypeNames(mm->GetAllImportedTypeNames());
+                for (const auto& s : mm->GetAllImportedLiteralSuffixes()) {
                     stream.GetContext()->ImportLiteralSuffix(s.Suffix, s.CtorFunction);
                 }
             }

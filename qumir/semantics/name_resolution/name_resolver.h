@@ -142,6 +142,8 @@ public:
     // IModuleManager: imports module symbols; returns module pointer on success,
     // error message on failure (unknown module or name conflict between modules).
     std::expected<NRegistry::IModule*, std::string> ImportModule(const std::string& name) override;
+    std::vector<std::string> GetAllImportedTypeNames() const override;
+    std::vector<NRegistry::TLiteralSuffix> GetAllImportedLiteralSuffixes() const override;
     std::string ModulesList() const;
 
     // For testing/debugging
