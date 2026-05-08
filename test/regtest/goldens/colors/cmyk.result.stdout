@@ -1,0 +1,5 @@
+cmyk red: r=255 g=0 b=0
+cmyk green: r=0 g=255 b=0
+cmyk blue: r=0 g=0 b=255
+cmyk black: r=0 g=0 b=0
+cmyk white: r=255 g=255 b=255

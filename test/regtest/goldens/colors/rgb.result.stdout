@@ -1,0 +1,4 @@
+rgb: r=255 g=128 b=0
+rgba: r=10 g=20 b=30
+min: r=0 g=0 b=0
+max: r=255 g=255 b=255

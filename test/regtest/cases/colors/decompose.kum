@@ -1,0 +1,33 @@
+использовать Цвета
+
+алг
+нач
+    цвет c
+    цел r, g, b
+    цел cc, m, y, k
+    цел h, s, l
+    цел hv, sv, v
+
+    | RGB decompose произвольного цвета
+    c := RGB(200, 100, 50)
+    разложить в RGB(c, r, g, b)
+    вывод "rgb: r=", r, " g=", g, " b=", b, нс
+
+    | CMYK decompose чистого красного
+    c := красный
+    разложить в CMYK(c, cc, m, y, k)
+    вывод "red cmyk: c=", cc, " m=", m, " y=", y, " k=", k, нс
+
+    | HSL decompose чистого красного
+    разложить в HSL(c, h, s, l)
+    вывод "red hsl: h=", h, " s=", s, " l=", l, нс
+
+    | HSV decompose чистого красного
+    разложить в HSV(c, hv, sv, v)
+    вывод "red hsv: h=", hv, " s=", sv, " v=", v, нс
+
+    | HSL decompose серого (s=0)
+    c := серый
+    разложить в HSL(c, h, s, l)
+    вывод "gray hsl: h=", h, " s=", s, нс
+кон

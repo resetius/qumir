@@ -2,6 +2,8 @@
 
 // Colors (Цвета) runtime — ARGB color values as BigInt (0xAARRGGBB)
 
+import { __appendStdout } from './io.js';
+
 let MEMORY = null;
 
 export function __bindMemory(mem) { MEMORY = mem; }
@@ -147,4 +149,13 @@ export function color_decompose_hsv(color, hPtr, sPtr, vPtr) {
   writeI64(hPtr, Math.round(hf*360));
   writeI64(sPtr, Math.round(sf*100));
   writeI64(vPtr, Math.round(mx*100));
+}
+
+export function color_print(color) {
+  const c = BigInt.asUintN(32, BigInt(color));
+  const r = Number((c >> 16n) & 0xFFn);
+  const g = Number((c >>  8n) & 0xFFn);
+  const b = Number( c         & 0xFFn);
+  const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0').toUpperCase()).join('');
+  __appendStdout(hex);
 }

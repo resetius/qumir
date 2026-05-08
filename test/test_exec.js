@@ -50,12 +50,14 @@ const defaultResultRuntimePath = path.join(__dirname, '..', 'service', 'static',
 const defaultStringRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'string.js');
 const defaultArrayRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'array.js');
 const defaultComplexRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'complex.js');
+const defaultColorsRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'colors.js');
 
 let cachedIoRuntime = null;
 let cachedResultRuntime = null;
 let cachedStringRuntime = null;
 let cachedArrayRuntime = null;
 let cachedComplexRuntime = null;
+let cachedColorsRuntime = null;
 
 class TestInputStream {
   constructor(stdinContent) {
@@ -209,6 +211,18 @@ async function loadComplexRuntimeModule() {
   const url = pathToFileURL(complexPath).href;
   cachedComplexRuntime = await import(url);
   return cachedComplexRuntime;
+}
+
+async function loadColorsRuntimeModule() {
+  if (cachedColorsRuntime) return cachedColorsRuntime;
+  let colorsPath = defaultColorsRuntimePath;
+  if (runtimeDir) {
+    const candidate = path.join(runtimeDir, 'colors.js');
+    if (fs.existsSync(candidate)) colorsPath = candidate;
+  }
+  const url = pathToFileURL(colorsPath).href;
+  cachedColorsRuntime = await import(url);
+  return cachedColorsRuntime;
 }
 
 function bindIoStreams(ioRuntime, inputStream, outputStream) {
@@ -440,6 +454,17 @@ async function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
     }
   } catch (e) {
     if (printOutput) log('[WARN] failed to load complex runtime', e.message);
+  }
+  try {
+    const colorsRuntime = await loadColorsRuntimeModule();
+    if (colorsRuntime) {
+      runtimeModulesForBinding.push(colorsRuntime);
+      for (const [name, val] of Object.entries(colorsRuntime)) {
+        if (typeof val === 'function') runtimeFns[name] = val;
+      }
+    }
+  } catch (e) {
+    if (printOutput) log('[WARN] failed to load colors runtime', e.message);
   }
   const ioEnvFns = extractIoEnv(ioRuntime);
   const bindIoMemory = (mem) => {

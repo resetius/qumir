@@ -1,0 +1,5 @@
+rgb: r=200 g=100 b=50
+red cmyk: c=0 m=100 y=100 k=0
+red hsl: h=0 s=100 l=50
+red hsv: h=0 s=100 v=100
+gray hsl: h=0 s=0

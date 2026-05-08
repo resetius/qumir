@@ -1,0 +1,4 @@
+hsv red: r=255 g=0 b=0
+hsv green: r=0 g=255 b=0
+hsv blue: r=0 g=0 b=255
+hsv black: r=0 g=0 b=0
