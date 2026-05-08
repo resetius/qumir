@@ -37,6 +37,7 @@ public:
     virtual const std::vector<TExternalFunction>& ExternalFunctions() const = 0;
     virtual const std::vector<TExternalType>& ExternalTypes() const = 0;
     virtual const std::vector<TLiteralSuffix>& LiteralSuffixes() const = 0;
+    virtual const std::vector<std::string>& Dependencies() const = 0;
 };
 
 } // namespace NRegistry

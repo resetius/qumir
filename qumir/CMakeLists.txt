@@ -3,6 +3,8 @@ add_library(qumir
     modules/system/system.cpp
     modules/robot/robot.h
     modules/robot/robot.cpp
+    modules/colors/colors.h
+    modules/colors/colors.cpp
     modules/turtle/turtle.h
     modules/turtle/turtle.cpp
     modules/drawer/drawer.h

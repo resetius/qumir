@@ -493,6 +493,16 @@ std::expected<NRegistry::IModule*, std::string> TNameResolver::ImportModule(cons
     }
 
     ImportedModules.insert(name);
+    for (const auto& dep : module->Dependencies()) {
+        if (!ImportedModules.count(dep)) {
+            auto res = ImportModule(dep);
+            if (!res) {
+                ImportedModules.erase(name); // rollback
+                return std::unexpected("Не удалось импортировать зависимость " + dep + " модуля " + name + ": " + res.error());
+            }
+        }
+    }
+
     for (const auto& fn : module->ExternalFunctions()) {
         auto funType = std::make_shared<NAst::TFunctionType>(fn.ArgTypes, fn.ReturnType);
         std::vector<NAst::TParam> params;

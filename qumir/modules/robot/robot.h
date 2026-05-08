@@ -26,10 +26,15 @@ public:
         return LiteralSuffixes_;
     }
 
+    const std::vector<std::string>& Dependencies() const override {
+        return Dependencies_;
+    }
+
 private:
     std::vector<TExternalFunction> ExternalFunctions_;
     std::vector<TExternalType> ExternalTypes_;
     std::vector<TLiteralSuffix> LiteralSuffixes_;
+    std::vector<std::string> Dependencies_ = {};
 };
 
 } // namespace NRegistry

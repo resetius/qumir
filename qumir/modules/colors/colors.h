@@ -5,12 +5,12 @@
 namespace NQumir {
 namespace NRegistry {
 
-class PainterModule : public IModule {
+class ColorsModule : public IModule {
 public:
-    PainterModule();
+    ColorsModule();
 
     const std::string& Name() const override {
-        static const std::string name = "Рисователь";
+        static const std::string name = "Цвета";
         return name;
     }
 
@@ -34,7 +34,7 @@ private:
     std::vector<TExternalFunction> ExternalFunctions_;
     std::vector<TExternalType> ExternalTypes_;
     std::vector<TLiteralSuffix> LiteralSuffixes_;
-    std::vector<std::string> Dependencies_ = {"Цвета"};
+    std::vector<std::string> Dependencies_ = {};
 };
 
 } // namespace NRegistry

@@ -2,6 +2,8 @@
 add_library(qumir_runtime
     array.cpp
     array.h
+    colors.cpp
+    colors.h
     math.cpp
     math.h
     io.cpp

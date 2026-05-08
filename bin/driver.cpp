@@ -17,6 +17,7 @@
 #include <qumir/modules/drawer/drawer.h>
 #include <qumir/modules/painter/painter.h>
 #include <qumir/modules/complex/complex.h>
+#include <qumir/modules/colors/colors.h>
 #include <sstream>
 #include <string>
 
@@ -94,6 +95,9 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     r.RegisterModule(&painter);
     NRegistry::ComplexModule complex;
     r.RegisterModule(&complex);
+    NRegistry::ColorsModule colors;
+    r.RegisterModule(&colors);
+
 
     auto&& expected = p.parse(ts, &r);
     if (!expected.has_value()) {
@@ -138,6 +142,8 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     r.RegisterModule(&painter);
     NRegistry::ComplexModule complex;
     r.RegisterModule(&complex);
+    NRegistry::ColorsModule colors;
+    r.RegisterModule(&colors);
 
     auto&& expected = p.parse(ts, &r);
     if (!expected.has_value()) {
@@ -202,6 +208,8 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     r.RegisterModule(&painter);
     NRegistry::ComplexModule complex;
     r.RegisterModule(&complex);
+    NRegistry::ColorsModule colors;
+    r.RegisterModule(&colors);
 
     auto&& expected = p.parse(ts, &r);
     if (!expected.has_value()) {
@@ -381,6 +389,8 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     r.RegisterModule(&painter);
     NRegistry::ComplexModule complex;
     r.RegisterModule(&complex);
+    NRegistry::ColorsModule colors;
+    r.RegisterModule(&colors);
 
     auto&& expected = p.parse(ts, &r);
     if (!expected.has_value()) {
