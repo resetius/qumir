@@ -1,11 +1,12 @@
 #include "colors.h"
+#include "io.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <iostream>
+#include <iomanip>
+#include <sstream>
 #include <string>
-#include <vector>
 
 namespace NQumir {
 namespace NRuntime {
@@ -120,6 +121,17 @@ void color_decompose_hsv(int64_t color, int64_t* h, int64_t* s, int64_t* v) {
     *h = static_cast<int64_t>(std::round(hf * 360));
     *s = static_cast<int64_t>(std::round(sf * 100));
     *v = static_cast<int64_t>(std::round(mx * 100));
+}
+
+void color_print(int64_t color) {
+    const uint32_t c = static_cast<uint32_t>(color);
+    const int r = (c >> 16) & 0xFF;
+    const int g = (c >>  8) & 0xFF;
+    const int b =  c        & 0xFF;
+    std::ostringstream oss;
+    oss << '#' << std::hex << std::uppercase << std::setfill('0')
+        << std::setw(2) << r << std::setw(2) << g << std::setw(2) << b;
+    *GetOutputStream() << oss.str();
 }
 
 } // extern "C"

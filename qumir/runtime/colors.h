@@ -105,6 +105,9 @@ void color_decompose_cmyk(int64_t color, int64_t* c, int64_t* m, int64_t* y, int
 void color_decompose_hsl(int64_t color, int64_t* h, int64_t* s, int64_t* l);
 void color_decompose_hsv(int64_t color, int64_t* h, int64_t* s, int64_t* v);
 
+// Output: prints "#RRGGBB" to current output stream
+void color_print(int64_t color);
+
 } // extern "C"
 
 } // namespace NRuntime
