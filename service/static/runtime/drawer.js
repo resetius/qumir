@@ -1,4 +1,5 @@
 // Drawer (Чертежник) graphics runtime for Qumir WebAssembly
+// Colors come from colors.js (цвет = ARGB BigInt, same as painter).
 // Provides C-style symbols:
 //   void drawer_pen_up();
 //   void drawer_pen_down();
@@ -9,6 +10,8 @@
 // Helpers:
 //   __bindDrawerCanvas(canvas)
 //   __resetDrawer(clear)
+
+import { argbToStyle } from './colors.js';
 
 let ctx = null;              // 2D context
 let canvas = null;           // canvas element (logical CSS pixels)
@@ -37,34 +40,6 @@ let rafScheduled = false;
 let autoFitPending = false;
 let autoFitTimer = null;
 let userInteracted = false;
-
-// Color palette (simple 16-color palette)
-const colorPalette = [
-  '#000000', // 0: black
-  '#0000FF', // 1: blue
-  '#00FF00', // 2: green
-  '#00FFFF', // 3: cyan
-  '#FF0000', // 4: red
-  '#FF00FF', // 5: magenta
-  '#FFFF00', // 6: yellow
-  '#FFFFFF', // 7: white
-  '#808080', // 8: gray
-  '#000080', // 9: dark blue
-  '#008000', // 10: dark green
-  '#008080', // 11: dark cyan
-  '#800000', // 12: dark red
-  '#800080', // 13: dark magenta
-  '#808000', // 14: dark yellow
-  '#C0C0C0', // 15: light gray
-];
-
-function getColor(colorIndex) {
-  const idx = Number(colorIndex) || 0;
-  if (idx >= 0 && idx < colorPalette.length) {
-    return colorPalette[idx];
-  }
-  return colorPalette[0]; // default to black
-}
 
 function scheduleDraw() {
   if (rafScheduled || !ctx) return;
@@ -425,8 +400,8 @@ export function drawer_pen_down() {
   scheduleDraw();
 }
 
-export function drawer_set_color(colorIndex) {
-  state.color = getColor(colorIndex);
+export function drawer_set_color(color) {
+  state.color = argbToStyle(color);
   scheduleDraw();
 }
 

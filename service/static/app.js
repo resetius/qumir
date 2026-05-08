@@ -16,6 +16,7 @@ let __robotModule = null;
 let __robotCanvas = null;
 let __drawerModule = null;
 let __drawerCanvas = null;
+let __colorsModule = null;
 let __painterModule = null;
 let __painterUI = null;
 let __painterRulerX = null;
@@ -2233,7 +2234,8 @@ async function runWasm() {
     if (!__robotModule)   { try { __robotModule   = await import('./runtime/robot.js');   } catch {} }
     if (!__drawerModule)  { try { __drawerModule  = await import('./runtime/drawer.js');  } catch {} }
     if (!__painterModule) { try { __painterModule = await import('./runtime/painter.js'); } catch {} }
-    const env = { ...mathEnv, ...ioEnv, ...stringEnv, ...arrayEnv, ...complexEnv, ...(__turtleModule || {}), ...(__robotModule || {}), ...(__drawerModule || {}), ...(__painterModule || {}) };
+    if (!__colorsModule)  { try { __colorsModule  = await import('./runtime/colors.js');  } catch {} }
+    const env = { ...mathEnv, ...ioEnv, ...stringEnv, ...arrayEnv, ...complexEnv, ...(__turtleModule || {}), ...(__robotModule || {}), ...(__drawerModule || {}), ...(__painterModule || {}), ...(__colorsModule || {}) };
     const imports = { env };
     const { instance, module } = await WebAssembly.instantiate(bytes, imports);
     const mem = instance.exports && instance.exports.memory;
@@ -2252,6 +2254,9 @@ async function runWasm() {
     // Bind string runtime to drawer module for text handling
     if (__drawerModule && typeof __drawerModule.__bindStringRuntime === 'function') {
       __drawerModule.__bindStringRuntime(stringEnv);
+    }
+    if (mem && __colorsModule && typeof __colorsModule.__bindMemory === 'function') {
+      __colorsModule.__bindMemory(mem);
     }
     if (mem && __painterModule && typeof __painterModule.__bindMemory === 'function') {
       __painterModule.__bindMemory(mem);
