@@ -280,6 +280,13 @@ TTask AnnotateUnary(std::shared_ptr<TUnaryExpr> unary, NSemantics::TNameResolver
         }
         co_return TError(unary->Location, "Оператор отрицания (не) применяется только к логическим выражениям");
     }
+    if (unary->Operator == TOperator("~")) {
+        if (TMaybeType<TIntegerType>(unary->Type)) {
+            unary->Type = std::make_shared<TIntegerType>();
+            co_return unary;
+        }
+        co_return TError(unary->Location, "Битовое отрицание применяется только к целым числам");
+    }
     co_return unary;
 }
 
@@ -416,6 +423,17 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 binary->Type = std::make_shared<TIntegerType>();
             } else {
                 co_return TError(binary->Location, "binary expression operands must be both numeric types (float^int or int^int)");
+            }
+            break;
+        case TOperator("&"):
+        case TOperator("|"):
+        case TOperator("xor"):
+        case TOperator("<<"):
+        case TOperator(">>"):
+            if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
+                binary->Type = std::make_shared<TIntegerType>();
+            } else {
+                co_return TError(binary->Location, "Битовые операции применимы только к целым числам");
             }
             break;
 
