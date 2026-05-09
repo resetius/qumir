@@ -64,10 +64,13 @@
     <div class="pane-title" id="title-io">Ввод/Вывод</div>
     <div class="io-toolbar">
       <label for="io-select">Просмотр:</label>
-      <select id="io-select" data-tooltip="Переключение между выводом, вводом и файлами">
-        <option value="stdout">Вывод</option>
-        <option value="stdin">Ввод</option>
-      </select>
+      <span class="io-select-wrapper">
+        <select id="io-select" data-tooltip="Переключение между выводом, вводом и файлами">
+          <option value="stdout">Вывод</option>
+          <option value="stdin">Ввод</option>
+        </select>
+        <span id="errors-badge" class="errors-badge" style="display:none" aria-label="Есть ошибки">!</span>
+      </span>
         <button id="io-add-file" class="io-icon" data-tooltip="Добавить файл">＋</button>
         <span class="io-toolbar-separator"></span>
         <label for="args">Аргументы:</label>

@@ -29,6 +29,7 @@ let __ioFiles = [];
 let __ioSelectEl = null;
 let __ioFilesRoot = null;
 let __currentIoPane = 'errors';
+let __errorsHasBadge = false;
 let __ioFileCounter = 0;
 let __browserFileManager = null;
 const PROJECTS_STORAGE_KEY = 'q_projects';
@@ -746,7 +747,7 @@ function refreshIoSelectOptions() {
   };
   addOption('stdout', 'Вывод');
   addOption('stdin', 'Ввод');
-  addOption('errors', 'Ошибки');
+  addOption('errors', __errorsHasBadge ? '⚠ Ошибки' : 'Ошибки');
   __ioFiles.forEach(file => {
     const label = file.name && file.name.trim() ? file.name.trim() : 'untitled';
     addOption(file.id, label);
@@ -757,10 +758,23 @@ function refreshIoSelectOptions() {
   __ioSelectEl.value = target;
 }
 
+function setErrorsBadge(show) {
+  __errorsHasBadge = show;
+  const badge = document.getElementById('errors-badge');
+  if (badge) badge.style.display = show ? '' : 'none';
+  if (__ioSelectEl) {
+    const opt = __ioSelectEl.querySelector('option[value="errors"]');
+    if (opt) opt.textContent = show ? '⚠ Ошибки' : 'Ошибки';
+    const wrapper = __ioSelectEl.closest('.io-select-wrapper');
+    if (wrapper) wrapper.classList.toggle('errors-active', show);
+  }
+}
+
 function setActiveIoPane(candidate, { persistCookie = true } = {}) {
   const knownIds = new Set(['stdout', 'stdin', 'errors', ...__ioFiles.map(f => f.id)]);
   const target = knownIds.has(candidate) ? candidate : 'errors';
   __currentIoPane = target;
+  if (target === 'errors') setErrorsBadge(false);
   if (__ioSelectEl && __ioSelectEl.value !== target) {
     __ioSelectEl.value = target;
   }
@@ -914,14 +928,15 @@ function ensureErrorsPane() {
   __ioFilesRoot.appendChild(pane);
 }
 
-function setErrorsPaneContent(text) {
+function setErrorsPaneContent(text, { isError = false } = {}) {
   ensureErrorsPane();
   const viewer = document.getElementById('errors');
   if (viewer) {
     viewer.textContent = text || '';
   }
-  // Switch to Errors pane to show the content
-  setActiveIoPane('errors');
+  if (isError && __currentIoPane !== 'errors') {
+    setErrorsBadge(true);
+  }
 }
 
 function initProjectsUI() {
@@ -1182,6 +1197,7 @@ function clearErrorHighlights() {
   if (editor && typeof editor.clearGutter === 'function') {
     try { editor.clearGutter('q-error-gutter'); } catch (_) {}
   }
+  setErrorsBadge(false);
 }
 
 function addErrorHighlights(errors) {
@@ -1271,7 +1287,7 @@ async function show(mode, { clearErrorsOnSuccess = true } = {}) {
       if (errs.length) {
         addErrorHighlights(errs);
         // Show compilation errors
-        setErrorsPaneContent(formatted);
+        setErrorsPaneContent(formatted, { isError: true });
       } else {
         // Don't clear runtime errors
         if (!window.__hasRuntimeErrors) {
@@ -1293,7 +1309,7 @@ async function show(mode, { clearErrorsOnSuccess = true } = {}) {
     if (errs.length) addErrorHighlights(errs); else clearErrorHighlights();
     $('#output').classList.add('error');
     // Show compilation errors
-    setErrorsPaneContent(formatted);
+    setErrorsPaneContent(formatted, { isError: true });
     if (window.__runHintOnCompilationResult) window.__runHintOnCompilationResult(true);
   }
 }
@@ -2474,8 +2490,6 @@ async function runWasm() {
       delete window.__lastRunInfo;
     }
     setErrorsPaneContent(successMsg);
-    // Switch to errors pane to show result
-    setActiveIoPane('errors');
 
     // Celebration for successful runs
     // ========================================
@@ -2496,8 +2510,7 @@ async function runWasm() {
     }
 
     // Show error in errors pane (not stdout)
-    setErrorsPaneContent(errMsg);
-    setActiveIoPane('errors');
+    setErrorsPaneContent(errMsg, { isError: true });
 
     // If we have a line number, highlight it like compilation errors
     if (lineNum !== null && lineNum > 0) {
@@ -3349,16 +3362,6 @@ show($('#view').value);
       hideArrow();
       if (hintTimer) clearTimeout(hintTimer);
 
-      // Auto-switch to stdout in non-dev mode on errors (but not if already on I/O views)
-      if (!document.body.classList.contains('dev-mode')) {
-        const ioSelect = document.getElementById('io-select');
-        const currentView = ioSelect ? ioSelect.value : '';
-        // Only switch if on files, not if on stdout/stdin/errors
-        if (ioSelect && currentView !== 'stdout' && currentView !== 'stdin' && currentView !== 'errors') {
-          ioSelect.value = 'stdout';
-          ioSelect.dispatchEvent(new Event('change'));
-        }
-      }
     } else {
       resetHintTimer();
     }
@@ -3381,17 +3384,6 @@ show($('#view').value);
 // Ensure Run also refreshes the right pane
 $('#btn-run').addEventListener('click', async () => {
   if (window.__runHintOnRun) window.__runHintOnRun();
-
-  // Auto-switch to stdout in non-dev mode (but not if already on I/O views)
-  if (!document.body.classList.contains('dev-mode')) {
-    const ioSelect = document.getElementById('io-select');
-    const currentView = ioSelect ? ioSelect.value : '';
-    // Only switch if on files, not if on stdout/stdin/errors
-    if (ioSelect && currentView !== 'stdout' && currentView !== 'stdin' && currentView !== 'errors') {
-      ioSelect.value = 'stdout';
-      ioSelect.dispatchEvent(new Event('change'));
-    }
-  }
 
   await runWasm();
   show($('#view').value, { clearErrorsOnSuccess: false });
