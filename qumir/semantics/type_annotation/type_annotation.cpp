@@ -230,6 +230,9 @@ TTypePtr CommonNumericType(TTypePtr a, TTypePtr b) {
 }
 
 TExprPtr AnnotateNumber(std::shared_ptr<TNumberExpr> num) {
+    if (num->Type && TMaybeType<TNamedType>(num->Type)) {
+        return num;
+    }
     if (num->IsFloat) {
         num->Type = std::make_shared<TFloatType>();
     } else {

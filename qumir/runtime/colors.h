@@ -76,19 +76,6 @@ inline RGB CMYKtoRGB(int64_t c, int64_t m, int64_t y, int64_t k) {
 
 extern "C" {
 
-// Color constants (ARGB, alpha in bits 31-24)
-int64_t color_transparent();
-int64_t color_white();
-int64_t color_black();
-int64_t color_gray();
-int64_t color_purple();
-int64_t color_blue();
-int64_t color_cyan();
-int64_t color_green();
-int64_t color_yellow();
-int64_t color_orange();
-int64_t color_red();
-
 // Color construction (components in [0,255] for RGB/A; [0,360]/[0,100] for HSL/HSV/CMYK)
 int64_t color_rgb(int64_t r, int64_t g, int64_t b);
 int64_t color_rgba(int64_t r, int64_t g, int64_t b, int64_t a);

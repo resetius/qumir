@@ -13,18 +13,6 @@ namespace NRuntime {
 
 extern "C" {
 
-int64_t color_transparent() { return PackARGB(0, 0, 0, 0); }
-int64_t color_white()       { return PackRGB(255, 255, 255); }
-int64_t color_black()       { return PackRGB(0, 0, 0); }
-int64_t color_gray()        { return PackRGB(128, 128, 128); }
-int64_t color_purple()      { return PackRGB(128, 0, 128); }
-int64_t color_blue()        { return PackRGB(0, 0, 255); }
-int64_t color_cyan()        { return PackRGB(0, 255, 255); }
-int64_t color_green()       { return PackRGB(0, 128, 0); }
-int64_t color_yellow()      { return PackRGB(255, 255, 0); }
-int64_t color_orange()      { return PackRGB(255, 165, 0); }
-int64_t color_red()         { return PackRGB(255, 0, 0); }
-
 int64_t color_rgb(int64_t r, int64_t g, int64_t b) {
     return PackRGB(r, g, b);
 }

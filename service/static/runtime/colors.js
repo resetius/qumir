@@ -63,20 +63,6 @@ export function argbToStyle(color) {
   return `rgba(${r},${g},${b},${(a / 255).toFixed(6)})`;
 }
 
-// ── Color constants ───────────────────────────────────────────────────────────
-
-export function color_transparent() { return 0x00000000n; }
-export function color_white()       { return 0xFFFFFFFFn; }
-export function color_black()       { return 0xFF000000n; }
-export function color_gray()        { return 0xFF808080n; }
-export function color_purple()      { return 0xFF800080n; }
-export function color_blue()        { return 0xFF0000FFn; }
-export function color_cyan()        { return 0xFF00FFFFn; }
-export function color_green()       { return 0xFF008000n; }
-export function color_yellow()      { return 0xFFFFFF00n; }
-export function color_orange()      { return 0xFFFFA500n; }
-export function color_red()         { return 0xFFFF0000n; }
-
 // ── Color constructors ────────────────────────────────────────────────────────
 
 export function color_rgb(r, g, b)       { return packARGB(255, Number(r), Number(g), Number(b)); }
