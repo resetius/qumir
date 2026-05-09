@@ -362,6 +362,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto tmp = Builder.Emit1("!"_op, {*operand.Value});
             Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
             co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
+        } else if (unary->Operator == '~'_op) {
+            auto tmp = Builder.Emit1("~"_op, {*operand.Value});
+            Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
+            co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
         }
         co_return TValueWithBlock{ operand.Value, operand.ProducingLabel };
     } else if (auto maybeBinary = NAst::TMaybeNode<NAst::TBinaryExpr>(expr)) {
