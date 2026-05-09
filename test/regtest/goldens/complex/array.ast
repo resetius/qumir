@@ -45,13 +45,27 @@
           (Block:<Void>
             ($arr[...] =:<Void>
               ($j:<Int>)
-              (Call:<Named компл (struct { re: Float; im: Float; })>
-                ($__binop_+_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
-                (Call:<Named компл (struct { re: Float; im: Float; })>
-                  ($__cast_Int_Named::компл:<Fun (Int) -> Named>)
-                  ($j:<Int>))
-                (Call:<Named компл (struct { re: Float; im: Float; })>
-                  ($i:<Fun () -> Named>)))))
+              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                (+:<Float>
+                  (FieldAccess:<Float>
+                    (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                      (Cast<Float>:<Float>
+                        ($j:<Int>))
+                      (0.000000:<Float>)))
+                  (FieldAccess:<Float>
+                    (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                      (0.000000:<Float>)
+                      (1.000000:<Float>))))
+                (+:<Float>
+                  (FieldAccess:<Float>
+                    (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                      (Cast<Float>:<Float>
+                        ($j:<Int>))
+                      (0.000000:<Float>)))
+                  (FieldAccess:<Float>
+                    (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                      (0.000000:<Float>)
+                      (1.000000:<Float>)))))))
           ($$$next =:<Void>
             (+:<Int>
               ($$$next:<Int>)
@@ -93,8 +107,7 @@
                 ("] Re=":<String>))
               (Call:<Void>
                 ($output_double:<Fun (Float, Int, Int) -> Void>)
-                (Call:<Float>
-                  ($Re:<Fun (Named) -> Float>)
+                (FieldAccess:<Float>
                   (Index:<Named компл (struct { re: Float; im: Float; })>
                     ($arr:<Array [Named; 1]>)
                     ($j:<Int>)))
@@ -105,8 +118,7 @@
                 (" Im=":<String>))
               (Call:<Void>
                 ($output_double:<Fun (Float, Int, Int) -> Void>)
-                (Call:<Float>
-                  ($Im:<Fun (Named) -> Float>)
+                (FieldAccess:<Float>
                   (Index:<Named компл (struct { re: Float; im: Float; })>
                     ($arr:<Array [Named; 1]>)
                     ($j:<Int>)))

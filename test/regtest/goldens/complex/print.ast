@@ -3,14 +3,25 @@
     (Block:<Void>
       (Var $z:<Named компл (struct { re: Float; im: Float; })>)
       ($z =:<Void>
-        (Call:<Named компл (struct { re: Float; im: Float; })>
-          ($__binop_+_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
-          (Call:<Named компл (struct { re: Float; im: Float; })>
-            ($__cast_Float_Named::компл:<Fun (Float) -> Named>)
-            (3.000000:<Float>))
-          (Call:<Named компл (struct { re: Float; im: Float; })>
-            ($__imag:<Fun (Float) -> Named>)
-            (4.000000:<Float>))))
+        (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+          (+:<Float>
+            (FieldAccess:<Float>
+              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                (3.000000:<Float>)
+                (0.000000:<Float>)))
+            (FieldAccess:<Float>
+              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                (0.000000:<Float>)
+                (4.000000:<Float>))))
+          (+:<Float>
+            (FieldAccess:<Float>
+              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                (3.000000:<Float>)
+                (0.000000:<Float>)))
+            (FieldAccess:<Float>
+              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                (0.000000:<Float>)
+                (4.000000:<Float>))))))
       (Block:<Void>
         (Call:<Void>
           ($__unop_вывод_Named::компл:<Fun (Named) -> Void>)
@@ -19,14 +30,25 @@
           ($output_string:<Fun (String) -> Void>)
           ("\n":<String>)))
       ($z =:<Void>
-        (Call:<Named компл (struct { re: Float; im: Float; })>
-          ($__binop_-_Named::компл_Named::компл:<Fun (Named, Named) -> Named>)
-          (Call:<Named компл (struct { re: Float; im: Float; })>
-            ($__cast_Float_Named::компл:<Fun (Float) -> Named>)
-            (3.000000:<Float>))
-          (Call:<Named компл (struct { re: Float; im: Float; })>
-            ($__imag:<Fun (Float) -> Named>)
-            (4.000000:<Float>))))
+        (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+          (-:<Float>
+            (FieldAccess:<Float>
+              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                (3.000000:<Float>)
+                (0.000000:<Float>)))
+            (FieldAccess:<Float>
+              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                (0.000000:<Float>)
+                (4.000000:<Float>))))
+          (-:<Float>
+            (FieldAccess:<Float>
+              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                (3.000000:<Float>)
+                (0.000000:<Float>)))
+            (FieldAccess:<Float>
+              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+                (0.000000:<Float>)
+                (4.000000:<Float>))))))
       (Block:<Void>
         (Call:<Void>
           ($__unop_вывод_Named::компл:<Fun (Named) -> Void>)
@@ -35,8 +57,8 @@
           ($output_string:<Fun (String) -> Void>)
           ("\n":<String>)))
       ($z =:<Void>
-        (Call:<Named компл (struct { re: Float; im: Float; })>
-          ($__imag:<Fun (Float) -> Named>)
+        (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
+          (0.000000:<Float>)
           (2.000000:<Float>)))
       (Block:<Void>
         (Call:<Void>
