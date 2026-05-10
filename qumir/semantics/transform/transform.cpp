@@ -494,10 +494,32 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
     // Need PreorderTransformAst for scope tracking: update scopeId when entering a block
     // TODO: implement scrope tracking in TransformAst and use it here
 
+    auto isCallCallee = [&](const NAst::TExprPtr& target) {
+        bool result = false;
+        auto visit = [&](auto&& self, const NAst::TExprPtr& node) -> void {
+            if (!node || result) {
+                return;
+            }
+            if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(node)) {
+                auto call = maybeCall.Cast();
+                if (call->Callee == target) {
+                    result = true;
+                    return;
+                }
+            }
+            for (const auto& child : node->Children()) {
+                self(self, child);
+            }
+        };
+        visit(visit, expr);
+        return result;
+    };
+
     auto generateBounds = [&](std::shared_ptr<NAst::TVarStmt> var, const NSemantics::TSymbolInfo& symbolInfo) -> auto {
         auto block = std::make_shared<NAst::TBlockExpr>(var->Location, std::vector<NAst::TExprPtr>{});
         auto boundaries = std::move(var->Bounds);
-        block->Scope = scopeId;
+        var->Bounds.clear();
+        block->Scope = symbolInfo.DeclScopeId;
         block->SkipDestructors = true;
         int i = boundaries.size() - 1;
 
@@ -578,7 +600,7 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
                 }
                 if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(sym)) {
                     auto fun = maybeFun.Cast();
-                    if (fun->Params.empty()) {
+                    if (fun->Params.empty() && !isCallCallee(node)) {
                         // function call without brackets
                         auto call = std::make_shared<NAst::TCallExpr>(ident->Location, ident, std::vector<NAst::TExprPtr>{});
                         call->Type = fun->RetType;
@@ -620,6 +642,9 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
 
                     auto block = generateBounds(param, *symbolId);
                     preBlocks.emplace_back(std::move(block));
+                }
+                if (preBlocks.empty()) {
+                    return node;
                 }
                 auto functionBody = std::move(funDecl->Body);
                 auto newBody = std::make_shared<NAst::TBlockExpr>(functionBody->Location, std::vector<NAst::TExprPtr>{});
@@ -671,15 +696,22 @@ std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics:
         }
     }
 
-    if (auto error = PreNameResolutionTransform(expr); !error) {
-        return std::unexpected(error.error());
-    }
+    auto nameResolution = [&](NAst::TExprPtr& e) -> std::expected<std::monostate, TError>{
+        if (auto error = PreNameResolutionTransform(e); !error) {
+            return std::unexpected(error.error());
+        }
 
-    if (auto error = r.Resolve(expr)) {
-        return std::unexpected(*error);
-    }
+        if (auto error = r.Resolve(e)) {
+            return std::unexpected(*error);
+        }
 
-    if (auto error = PostNameResolutionTransform(expr, r); !error) {
+        if (auto error = PostNameResolutionTransform(e, r); !error) {
+            return std::unexpected(error.error());
+        }
+        return std::monostate{};
+    };
+
+    if (auto error = nameResolution(expr); !error) {
         return std::unexpected(error.error());
     }
 
@@ -697,6 +729,10 @@ std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics:
         postResult = PostTypeAnnotationTransform(expr, r);
         if (!postResult) {
             return std::unexpected(postResult.error());
+        }
+
+        if (auto error = nameResolution(expr); !error) {
+            return std::unexpected(error.error());
         }
 
         if (auto res = definiteAssignmentChecker.Check(expr); !res) {

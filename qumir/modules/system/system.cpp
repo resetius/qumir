@@ -54,13 +54,28 @@ SystemModule::SystemModule() {
     auto voidPtrType = std::make_shared<NAst::TPointerType>(voidType);
     auto fileType = std::make_shared<NAst::TFileType>();
     auto symbolType = std::make_shared<NAst::TSymbolType>();
-    auto inlineMin = [boolType](NAst::TTypePtr type) {
-        return [type, boolType](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
-            return ifExpr(
-                binary("<", args[0], args[1], boolType),
-                args[0],
-                args[1],
+
+    auto ident = [](const std::string& name) {
+        return std::make_shared<NAst::TIdentExpr>(TLocation{}, name);
+    };
+
+    auto inlineMin = [&](NAst::TTypePtr type) {
+        return [type, boolType, &ident](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
+            std::vector<NAst::TLetExpr::TBinding> bindings;
+            bindings.push_back(NAst::TLetExpr::TBinding{
+                .Name = "$$left",
+                .Value = args[0],
+            });
+            bindings.push_back(NAst::TLetExpr::TBinding{
+                .Name = "$$right",
+                .Value = args[1],
+            });
+            auto body = ifExpr(
+                binary("<", ident("$$left"), ident("$$right"), boolType),
+                ident("$$left"),
+                ident("$$right"),
                 type);
+            return std::make_shared<NAst::TLetExpr>(TLocation{}, std::move(bindings), std::move(body));
         };
     };
     auto inlineMax = [boolType](NAst::TTypePtr type) {
@@ -108,10 +123,6 @@ SystemModule::SystemModule() {
         {
             .Name = "imin",
             .MangledName = "min_int64_t",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t, int64_t)>(min_int64_t)),
-            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                return std::bit_cast<uint64_t>(min_int64_t(std::bit_cast<int64_t>(args[0]), std::bit_cast<int64_t>(args[1])));
-            },
             .ArgTypes = { integerType, integerType },
             .ReturnType = integerType,
             .Inline = inlineMin(integerType),

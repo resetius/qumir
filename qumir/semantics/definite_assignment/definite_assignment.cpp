@@ -138,7 +138,9 @@ TDefiniteAssignmentChecker::CheckExpr(
         // Writing any field counts as initializing the struct variable.
         if (auto maybeIdent = TMaybeNode<TIdentExpr>(fa->Object)) {
             auto symId = GetSymbolId(maybeIdent.Cast()->Name, scopeId, fa->Object);
-            if (symId) state.insert(*symId);
+            if (symId) {
+                state.insert(*symId);
+            }
         }
         return state;
     }
@@ -330,7 +332,7 @@ TDefiniteAssignmentChecker::CheckLetExpr(
                 "LetExpr binding '" + binding.Name + "' has no value."));
         }
 
-        auto valueRes = CheckExpr(binding.Value, letScope, state);
+        auto valueRes = CheckExpr(binding.Value, scopeId, state);
         if (!valueRes) {
             return std::unexpected(valueRes.error());
         }

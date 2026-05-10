@@ -31,6 +31,12 @@ TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TSco
             if (fdecl->Name.empty()) {
                 co_return TError(fdecl->Location, "function with empty name");
             }
+            if (fdecl->Scope >= 0) {
+                if (static_cast<size_t>(fdecl->Scope) >= Scopes.size()) {
+                    co_return TError(fdecl->Location, "function has invalid scope id: " + std::to_string(fdecl->Scope));
+                }
+                co_return std::monostate{};
+            }
             co_await Declare(fdecl->Name, node, scope, nullptr);
             auto newScope = NewScope(scope, nullptr);
             fdecl->Scope = newScope->Id.Id;
@@ -104,6 +110,11 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         if (block->Scope < 0) {
             scope = NewScope(scope, funcScope);
             block->Scope = scope->Id.Id;
+        } else {
+            if (static_cast<size_t>(block->Scope) >= Scopes.size()) {
+                co_return TError(block->Location, "block has invalid scope id: " + std::to_string(block->Scope));
+            }
+            scope = Scopes[block->Scope];
         }
     } else if (auto maybeLet = TMaybeNode<TLetExpr>(node)) {
         auto letExpr = maybeLet.Cast();
@@ -128,9 +139,14 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
             if (!binding.Symbol) {
                 binding.Symbol = std::make_shared<TVarStmt>(letExpr->Location, binding.Name, nullptr);
             }
-            auto res = Declare(binding.Name, binding.Symbol, letScope, funcScope);
-            if (!res) {
-                errors.emplace_back(res.error());
+            auto existing = letScope->NameToSymbolId.find(binding.Name);
+            if (existing == letScope->NameToSymbolId.end()
+                || GetSymbolNode(existing->second) != binding.Symbol)
+            {
+                auto res = Declare(binding.Name, binding.Symbol, letScope, funcScope);
+                if (!res) {
+                    errors.emplace_back(res.error());
+                }
             }
         }
 
@@ -167,6 +183,12 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         auto varStmt = maybeVarStmt.Cast();
         if (auto err = resolveTypeRefOuter(varStmt->Type, varStmt->Location)) {
             co_return *err;
+        }
+        auto existing = scope->NameToSymbolId.find(varStmt->Name);
+        if (existing != scope->NameToSymbolId.end()
+            && GetSymbolNode(existing->second) == node)
+        {
+            co_return {};
         }
         auto res = Declare(varStmt->Name, node, scope, funcScope);
         if (!res) {
