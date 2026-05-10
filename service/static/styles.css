@@ -281,6 +281,29 @@ body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 	/* Safe single-column layout on mobile */
 	main { display: block; overflow: visible; }
 	main > * { display: block; width: 100%; box-sizing: border-box; margin: 0 0 10px 0; }
+	body.dev-mode .workspace-right-group,
+	body:not(.dev-mode) .workspace-right-group:has(.pane.preview.executor-active) {
+		display: block !important;
+		width: 100%;
+		max-width: 100%;
+		overflow: visible;
+	}
+	body.dev-mode .workspace-right-group:has(.pane.preview.executor-active) {
+		grid-template-columns: none;
+	}
+	.workspace-right-group > .pane {
+		display: flex;
+		width: 100%;
+		box-sizing: border-box;
+		margin: 0 0 10px 0;
+	}
+	.workspace-right-group > .pane.preview:not(.executor-active) {
+		display: none;
+	}
+	.pane.preview.executor-active {
+		display: flex !important;
+		min-height: 24vh;
+	}
 	main:has(.pane.left.collapsed),
 	main:has(.pane.right.collapsed),
 	main:has(.pane.left.collapsed):has(.pane.right.collapsed) { display: block; }
