@@ -2,6 +2,8 @@
 
 #include <qumir/runtime/colors.h>
 
+#include <array>
+
 namespace NQumir {
 namespace NRegistry {
 
@@ -237,6 +239,76 @@ ColorsModule::ColorsModule() {
             derivedBindings.push_back({ .Name = "$$lf", .Value = binary("/", idi("$$l"), f(100.0), floatType) });
             auto derived = makeLet(std::move(derivedBindings), std::move(body), colorType);
             return makeLet(std::move(bindings), std::move(derived), colorType);
+        };
+    };
+
+    auto inlineHsv = [integerType, floatType, boolType, colorType, colorPack, intLiteral, floatLiteral, ident, binary, cast, ifExpr](bool withAlpha) {
+        return [integerType, floatType, boolType, colorType, colorPack, intLiteral, floatLiteral, ident, binary, cast, ifExpr, withAlpha](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
+            auto loc = args[0]->Location;
+            auto f = [&](double value) { return floatLiteral(loc, value); };
+            auto idf = [&](const std::string& name) { return ident(loc, name, floatType); };
+            auto idi = [&](const std::string& name) { return ident(loc, name, integerType); };
+            auto makeLet = [&](std::vector<NAst::TLetExpr::TBinding> bindings, NAst::TExprPtr body, NAst::TTypePtr type) {
+                auto expr = std::make_shared<NAst::TLetExpr>(loc, std::move(bindings), std::move(body));
+                expr->Type = std::move(type);
+                return expr;
+            };
+            auto round255 = [&](NAst::TExprPtr value) -> NAst::TExprPtr {
+                return cast(binary("+", binary("*", std::move(value), f(255.0), floatType), f(0.5), floatType), integerType);
+            };
+            auto eqI = [&](int64_t value) {
+                return binary("==", idi("$$i"), intLiteral(loc, value), boolType);
+            };
+            auto selectChannel = [&](const std::array<std::string, 6>& cases, const std::string& fallback) -> NAst::TExprPtr {
+                NAst::TExprPtr selected = idf(fallback);
+                for (int64_t i = 4; i >= 0; --i) {
+                    selected = ifExpr(eqI(i), idf(cases[static_cast<size_t>(i)]), std::move(selected), floatType);
+                }
+                return selected;
+            };
+
+            auto r = round255(selectChannel({"$$vf", "$$q", "$$p", "$$p", "$$t", "$$vf"}, "$$vf"));
+            auto g = round255(selectChannel({"$$t", "$$vf", "$$vf", "$$q", "$$p", "$$p"}, "$$p"));
+            auto b = round255(selectChannel({"$$p", "$$p", "$$t", "$$vf", "$$vf", "$$q"}, "$$q"));
+            auto alpha = withAlpha ? idi("$$a") : intLiteral(loc, 255);
+            auto body = colorPack(std::move(r), std::move(g), std::move(b), std::move(alpha));
+
+            std::vector<NAst::TLetExpr::TBinding> colorBindings;
+            colorBindings.push_back({
+                .Name = "$$i",
+                .Value = ifExpr(
+                    binary("==", idi("$$sector"), intLiteral(loc, 6), boolType),
+                    intLiteral(loc, 0),
+                    idi("$$sector"),
+                    integerType),
+            });
+            colorBindings.push_back({ .Name = "$$p", .Value = binary("*", idf("$$vf"), binary("-", f(1.0), idf("$$sf"), floatType), floatType) });
+            colorBindings.push_back({ .Name = "$$q", .Value = binary("*", idf("$$vf"), binary("-", f(1.0), binary("*", idf("$$f"), idf("$$sf"), floatType), floatType), floatType) });
+            colorBindings.push_back({ .Name = "$$t", .Value = binary("*", idf("$$vf"), binary("-", f(1.0), binary("*", binary("-", f(1.0), idf("$$f"), floatType), idf("$$sf"), floatType), floatType), floatType) });
+            auto colorLet = makeLet(std::move(colorBindings), std::move(body), colorType);
+
+            std::vector<NAst::TLetExpr::TBinding> fBindings;
+            fBindings.push_back({ .Name = "$$f", .Value = binary("-", idf("$$hf"), cast(idi("$$sector"), floatType), floatType) });
+            auto fLet = makeLet(std::move(fBindings), std::move(colorLet), colorType);
+
+            std::vector<NAst::TLetExpr::TBinding> sectorBindings;
+            sectorBindings.push_back({ .Name = "$$sector", .Value = cast(idf("$$hf"), integerType) });
+            auto sectorLet = makeLet(std::move(sectorBindings), std::move(fLet), colorType);
+
+            std::vector<NAst::TLetExpr::TBinding> derivedBindings;
+            derivedBindings.push_back({ .Name = "$$hf", .Value = binary("/", idi("$$h"), f(60.0), floatType) });
+            derivedBindings.push_back({ .Name = "$$sf", .Value = binary("/", idi("$$s"), f(100.0), floatType) });
+            derivedBindings.push_back({ .Name = "$$vf", .Value = binary("/", idi("$$v"), f(100.0), floatType) });
+            auto derivedLet = makeLet(std::move(derivedBindings), std::move(sectorLet), colorType);
+
+            std::vector<NAst::TLetExpr::TBinding> argBindings;
+            argBindings.push_back({ .Name = "$$h", .Value = args[0] });
+            argBindings.push_back({ .Name = "$$s", .Value = args[1] });
+            argBindings.push_back({ .Name = "$$v", .Value = args[2] });
+            if (withAlpha) {
+                argBindings.push_back({ .Name = "$$a", .Value = args[3] });
+            }
+            return makeLet(std::move(argBindings), std::move(derivedLet), colorType);
         };
     };
 
@@ -483,22 +555,16 @@ ColorsModule::ColorsModule() {
         {
             .Name = "HSV",
             .MangledName = "color_hsv",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t,int64_t,int64_t)>(color_hsv)),
-            .Packed = +[](const uint64_t* args, size_t) -> uint64_t {
-                return static_cast<uint64_t>(color_hsv(args[0], args[1], args[2]));
-            },
             .ArgTypes = { integerType, integerType, integerType },
             .ReturnType = colorType,
+            .Inline = inlineHsv(false),
         },
         {
             .Name = "HSVA",
             .MangledName = "color_hsva",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t,int64_t,int64_t,int64_t)>(color_hsva)),
-            .Packed = +[](const uint64_t* args, size_t) -> uint64_t {
-                return static_cast<uint64_t>(color_hsva(args[0], args[1], args[2], args[3]));
-            },
             .ArgTypes = { integerType, integerType, integerType, integerType },
             .ReturnType = colorType,
+            .Inline = inlineHsv(true),
         },
 
         // ── Color decomposition ───────────────────────────────────────────────

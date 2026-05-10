@@ -13,16 +13,6 @@ namespace NRuntime {
 
 extern "C" {
 
-int64_t color_hsv(int64_t h, int64_t s, int64_t v) {
-    auto rgb = HSVtoRGB(h, s, v);
-    return PackRGB(rgb.r, rgb.g, rgb.b);
-}
-
-int64_t color_hsva(int64_t h, int64_t s, int64_t v, int64_t a) {
-    auto rgb = HSVtoRGB(h, s, v);
-    return PackARGB(a, rgb.r, rgb.g, rgb.b);
-}
-
 void color_decompose_cmyk(int64_t color, int64_t* c, int64_t* m, int64_t* y, int64_t* k) {
     int64_t r = (color >> 16) & 0xFF;
     int64_t g = (color >> 8)  & 0xFF;

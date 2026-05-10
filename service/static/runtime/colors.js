@@ -17,21 +17,6 @@ function writeI64(ptr, value) {
   new DataView(MEMORY.buffer).setBigInt64(wasmAddr(ptr), BigInt(value), true);
 }
 
-function packARGB(a, r, g, b) {
-  return (BigInt(a & 0xFF) << 24n) | (BigInt(r & 0xFF) << 16n) |
-         (BigInt(g & 0xFF) <<  8n) |  BigInt(b & 0xFF);
-}
-
-function hsvToRGB(h, s, v) {
-  const hf = h/60, sf = s/100, vf = v/100;
-  const i = Math.floor(hf) % 6;
-  const f = hf - Math.floor(hf);
-  const p = vf*(1-sf), q = vf*(1-f*sf), t = vf*(1-(1-f)*sf);
-  const cases = [[vf,t,p],[q,vf,p],[p,vf,t],[p,q,vf],[t,p,vf],[vf,p,q]];
-  const [r,g,b] = cases[i] || cases[0];
-  return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
-}
-
 // Exported utility for painter.js and drawer.js
 export function argbToStyle(color) {
   const c = BigInt.asUintN(32, BigInt(color));
@@ -41,11 +26,6 @@ export function argbToStyle(color) {
   const b = Number( c         & 0xFFn);
   return `rgba(${r},${g},${b},${(a / 255).toFixed(6)})`;
 }
-
-// ── Color constructors ────────────────────────────────────────────────────────
-
-export function color_hsv(h, s, v)       { const [r,g,b] = hsvToRGB(Number(h),Number(s),Number(v)); return packARGB(255,r,g,b); }
-export function color_hsva(h, s, v, a)   { const [r,g,b] = hsvToRGB(Number(h),Number(s),Number(v)); return packARGB(Number(a),r,g,b); }
 
 // ── Color decomposition ───────────────────────────────────────────────────────
 
