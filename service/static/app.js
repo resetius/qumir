@@ -1029,6 +1029,10 @@ function setErrorsPaneContent(text, { isError = false } = {}) {
   }
 }
 
+function getPreviewBody() {
+  return document.getElementById('preview-body');
+}
+
 function initProjectsUI() {
   __projectToggleBtn = document.getElementById('project-toggle');
   __projectActiveNameEl = document.getElementById('project-active-name');
@@ -1501,7 +1505,8 @@ function ensureErrorGutter() {
 function ensureTurtleUI() {
   showOutputPane();
   const out = document.getElementById('output');
-  if (!out) return;
+  const preview = getPreviewBody();
+  if (!out || !preview) return;
 
   // In non-dev mode, automatically switch to turtle view
   const isDevMode = document.body.classList.contains('dev-mode');
@@ -1509,7 +1514,7 @@ function ensureTurtleUI() {
     setCompilerOutputMode('turtle');
   }
 
-  // Toggle UI (radio buttons)
+  // Preview no longer switches back to compiler text; keep toolbar hidden for turtle.
   if (!__turtleToggle) {
     const ctr = document.createElement('div');
     ctr.id = 'output-mode';
@@ -1517,34 +1522,12 @@ function ensureTurtleUI() {
     ctr.style.margin = '6px 0';
     ctr.style.display = 'flex';
     ctr.style.gap = '12px';
-    out.parentNode.insertBefore(ctr, out);
+    preview.appendChild(ctr);
     __turtleToggle = ctr;
   }
 
-  // Rebuild options for turtle mode
   __turtleToggle.innerHTML = '';
-  const makeOpt = (label, value) => {
-    const lab = document.createElement('label');
-    lab.style.cursor = 'pointer';
-    const input = document.createElement('input');
-    input.type = 'radio';
-    input.name = 'q-out-mode';
-    input.value = value;
-    input.style.marginRight = '6px';
-    input.addEventListener('change', () => { if (input.checked) setCompilerOutputMode(value); });
-    lab.appendChild(input);
-    lab.appendChild(document.createTextNode(label));
-    return lab;
-  };
-  __turtleToggle.appendChild(makeOpt('Текст', 'text'));
-  __turtleToggle.appendChild(makeOpt('Черепаха', 'turtle'));
-
-  __turtleToggle.style.display = '';
-  // Sync radios with current mode or saved cookie
-  const saved = getCookie('q_out_mode');
-  const targetMode = (saved === 'turtle') ? 'turtle' : __compilerOutputMode;
-  const radios = __turtleToggle.querySelectorAll('input[name="q-out-mode"]');
-  radios.forEach(r => { r.checked = (r.value === targetMode); });
+  __turtleToggle.style.display = 'none';
 
   if (!__turtleCanvas) {
     const cnv = document.createElement('canvas');
@@ -1556,7 +1539,7 @@ function ensureTurtleUI() {
     cnv.style.background = '#1b1b1b';
     cnv.style.border = '1px solid #2b2b2b44';
     cnv.style.borderRadius = '4px';
-    out.parentNode.insertBefore(cnv, out.nextSibling);
+    preview.appendChild(cnv);
     __turtleCanvas = cnv;
   }
 }
@@ -1572,16 +1555,16 @@ function hideTurtleUI() {
 }
 
 function showOutputPane() {
-  const rightPane = document.querySelector('.pane.right');
-  if (rightPane) {
-    rightPane.classList.add('executor-active');
+  const previewPane = document.querySelector('.pane.preview');
+  if (previewPane) {
+    previewPane.classList.add('executor-active');
   }
 }
 
 function hideOutputPane() {
-  const rightPane = document.querySelector('.pane.right');
-  if (rightPane && !document.body.classList.contains('dev-mode')) {
-    rightPane.classList.remove('executor-active');
+  const previewPane = document.querySelector('.pane.preview');
+  if (previewPane) {
+    previewPane.classList.remove('executor-active');
   }
 }
 
@@ -1589,7 +1572,8 @@ function hideOutputPane() {
 function ensureRobotUI() {
   showOutputPane();
   const out = document.getElementById('output');
-  if (!out) return;
+  const preview = getPreviewBody();
+  if (!out || !preview) return;
 
   // In non-dev mode, automatically switch to robot view
   const isDevMode = document.body.classList.contains('dev-mode');
@@ -1607,27 +1591,12 @@ function ensureRobotUI() {
     ctr.style.gap = '12px';
     ctr.style.alignItems = 'center';
     ctr.style.flexWrap = 'wrap';
-    out.parentNode.insertBefore(ctr, out);
+    preview.appendChild(ctr);
     __turtleToggle = ctr;
   }
 
-  // Ensure we have text and robot options
+  // Preview no longer switches back to compiler text; robot toolbar keeps animation controls only.
   __turtleToggle.innerHTML = '';
-  const makeOpt = (label, value) => {
-    const lab = document.createElement('label');
-    lab.style.cursor = 'pointer';
-    const input = document.createElement('input');
-    input.type = 'radio';
-    input.name = 'q-out-mode';
-    input.value = value;
-    input.style.marginRight = '6px';
-    input.addEventListener('change', () => { if (input.checked) setCompilerOutputMode(value); });
-    lab.appendChild(input);
-    lab.appendChild(document.createTextNode(label));
-    return lab;
-  };
-  __turtleToggle.appendChild(makeOpt('Текст', 'text'));
-  __turtleToggle.appendChild(makeOpt('Робот', 'robot'));
 
   // Add animation speed control
   const speedContainer = document.createElement('div');
@@ -1707,12 +1676,6 @@ function ensureRobotUI() {
   __turtleToggle.appendChild(speedContainer);
   __turtleToggle.style.display = '';
 
-  // Sync radios with current mode or saved cookie
-  const saved = getCookie('q_out_mode');
-  const targetMode = (saved === 'robot') ? 'robot' : __compilerOutputMode;
-  const radios = __turtleToggle.querySelectorAll('input[name="q-out-mode"]');
-  radios.forEach(r => { r.checked = (r.value === targetMode); });
-
   if (!__robotCanvas) {
     const cnv = document.createElement('canvas');
     cnv.id = 'robot-canvas';
@@ -1723,7 +1686,7 @@ function ensureRobotUI() {
     cnv.style.background = '#1b1b1b';
     cnv.style.border = '1px solid #2b2b2b44';
     cnv.style.borderRadius = '4px';
-    out.parentNode.insertBefore(cnv, out.nextSibling);
+    preview.appendChild(cnv);
     __robotCanvas = cnv;
   }
 }
@@ -1745,7 +1708,8 @@ function hideRobotUI() {
 function ensureDrawerUI() {
   showOutputPane();
   const out = document.getElementById('output');
-  if (!out) return;
+  const preview = getPreviewBody();
+  if (!out || !preview) return;
 
   // In non-dev mode, automatically switch to drawer view
   const isDevMode = document.body.classList.contains('dev-mode');
@@ -1753,7 +1717,7 @@ function ensureDrawerUI() {
     setCompilerOutputMode('drawer');
   }
 
-  // Toggle UI (radio buttons)
+  // Preview no longer switches back to compiler text; keep toolbar hidden for drawer.
   if (!__turtleToggle) {
     const ctr = document.createElement('div');
     ctr.id = 'output-mode';
@@ -1761,34 +1725,12 @@ function ensureDrawerUI() {
     ctr.style.margin = '6px 0';
     ctr.style.display = 'flex';
     ctr.style.gap = '12px';
-    out.parentNode.insertBefore(ctr, out);
+    preview.appendChild(ctr);
     __turtleToggle = ctr;
   }
 
-  // Rebuild options for drawer mode
   __turtleToggle.innerHTML = '';
-  const makeOpt = (label, value) => {
-    const lab = document.createElement('label');
-    lab.style.cursor = 'pointer';
-    const input = document.createElement('input');
-    input.type = 'radio';
-    input.name = 'q-out-mode';
-    input.value = value;
-    input.style.marginRight = '6px';
-    input.addEventListener('change', () => { if (input.checked) setCompilerOutputMode(value); });
-    lab.appendChild(input);
-    lab.appendChild(document.createTextNode(label));
-    return lab;
-  };
-  __turtleToggle.appendChild(makeOpt('Текст', 'text'));
-  __turtleToggle.appendChild(makeOpt('Чертежник', 'drawer'));
-
-  __turtleToggle.style.display = '';
-  // Sync radios with current mode or saved cookie
-  const saved = getCookie('q_out_mode');
-  const targetMode = (saved === 'drawer') ? 'drawer' : __compilerOutputMode;
-  const radios = __turtleToggle.querySelectorAll('input[name="q-out-mode"]');
-  radios.forEach(r => { r.checked = (r.value === targetMode); });
+  __turtleToggle.style.display = 'none';
 
   if (!__drawerCanvas) {
     const cnv = document.createElement('canvas');
@@ -1800,7 +1742,7 @@ function ensureDrawerUI() {
     cnv.style.background = '#1b1b1b';
     cnv.style.border = '1px solid #2b2b2b44';
     cnv.style.borderRadius = '4px';
-    out.parentNode.insertBefore(cnv, out.nextSibling);
+    preview.appendChild(cnv);
     __drawerCanvas = cnv;
   }
 }
@@ -1901,7 +1843,8 @@ function updatePainterRulers(cursorSX, cursorSY) {
 function ensurePainterUI() {
   showOutputPane();
   const out = document.getElementById('output');
-  if (!out) return;
+  const preview = getPreviewBody();
+  if (!out || !preview) return;
 
   const isDevMode = document.body.classList.contains('dev-mode');
   if (!isDevMode) setCompilerOutputMode('painter');
@@ -1913,29 +1856,12 @@ function ensurePainterUI() {
     ctr.style.margin = '6px 0';
     ctr.style.display = 'flex';
     ctr.style.gap = '12px';
-    out.parentNode.insertBefore(ctr, out);
+    preview.appendChild(ctr);
     __turtleToggle = ctr;
   }
 
   __turtleToggle.innerHTML = '';
-  const makeOpt = (label, value) => {
-    const lab = document.createElement('label');
-    lab.style.cursor = 'pointer';
-    const input = document.createElement('input');
-    input.type = 'radio'; input.name = 'q-out-mode'; input.value = value;
-    input.style.marginRight = '6px';
-    input.addEventListener('change', () => { if (input.checked) setCompilerOutputMode(value); });
-    lab.appendChild(input);
-    lab.appendChild(document.createTextNode(label));
-    return lab;
-  };
-  __turtleToggle.appendChild(makeOpt('Текст', 'text'));
-  __turtleToggle.appendChild(makeOpt('Рисователь', 'painter'));
-  __turtleToggle.style.display = '';
-
-  const saved = getCookie('q_out_mode');
-  const targetMode = (saved === 'painter') ? 'painter' : __compilerOutputMode;
-  __turtleToggle.querySelectorAll('input[name="q-out-mode"]').forEach(r => { r.checked = (r.value === targetMode); });
+  __turtleToggle.style.display = 'none';
 
   if (!__painterCanvas) {
     // Wrapper: flex column, takes all remaining pane space
@@ -2016,7 +1942,7 @@ function ensurePainterUI() {
     ui.appendChild(status);
     __painterUI = ui;
 
-    out.parentNode.insertBefore(ui, out.nextSibling);
+    preview.appendChild(ui);
 
     cnv.addEventListener('mousemove', (e) => {
       if (!__painterModule) return;
@@ -2206,6 +2132,7 @@ function setCompilerOutputMode(mode) {
   __compilerOutputMode = (mode === 'turtle' || mode === 'robot' || mode === 'drawer' || mode === 'painter') ? mode : 'text';
   setCookie('q_out_mode', __compilerOutputMode);
   const out = document.getElementById('output');
+  const previewPane = document.querySelector('.pane.preview');
 
   // Hide all special canvases first
   if (__turtleCanvas)  __turtleCanvas.style.display  = 'none';
@@ -2214,37 +2141,42 @@ function setCompilerOutputMode(mode) {
   if (__painterUI)     __painterUI.style.display      = 'none';
 
   if (__compilerOutputMode === 'turtle') {
-    if (out) out.style.display = 'none';
+    if (previewPane) previewPane.classList.add('executor-active');
+    if (out) out.style.display = '';
     if (__turtleCanvas) __turtleCanvas.style.display = 'block';
     try { if (__turtleModule && typeof __turtleModule.__onCanvasShown === 'function') __turtleModule.__onCanvasShown(); } catch {}
   } else if (__compilerOutputMode === 'robot') {
-    if (out) out.style.display = 'none';
+    if (previewPane) previewPane.classList.add('executor-active');
+    if (out) out.style.display = '';
     if (__robotCanvas) __robotCanvas.style.display = 'block';
     renderRobotField();
   } else if (__compilerOutputMode === 'drawer') {
-    if (out) out.style.display = 'none';
+    if (previewPane) previewPane.classList.add('executor-active');
+    if (out) out.style.display = '';
     if (__drawerCanvas) __drawerCanvas.style.display = 'block';
     try { if (__drawerModule && typeof __drawerModule.__onCanvasShown === 'function') __drawerModule.__onCanvasShown(); } catch {}
   } else if (__compilerOutputMode === 'painter') {
-    if (out) out.style.display = 'none';
+    if (previewPane) previewPane.classList.add('executor-active');
+    if (out) out.style.display = '';
     if (__painterUI) __painterUI.style.display = 'flex';
     try { if (__painterModule && typeof __painterModule.__onCanvasShown === 'function') __painterModule.__onCanvasShown(); } catch {}
     updatePainterRulers(-1, -1);
   } else {
+    if (previewPane) previewPane.classList.remove('executor-active');
     if (out) out.style.display = '';
-  }
-  if (__turtleToggle) {
-    const radios = __turtleToggle.querySelectorAll('input[name="q-out-mode"]');
-    radios.forEach(r => { r.checked = (r.value === __compilerOutputMode); });
   }
 }
 
 function getCurrentCompilerOutputNode() {
+  return document.getElementById('output');
+}
+
+function getCurrentPreviewNode() {
   if (__compilerOutputMode === 'turtle'   && __turtleCanvas)  return __turtleCanvas;
   if (__compilerOutputMode === 'robot'    && __robotCanvas)   return __robotCanvas;
   if (__compilerOutputMode === 'drawer'   && __drawerCanvas)  return __drawerCanvas;
-  if (__compilerOutputMode === 'painter'  && __painterCanvas) return __painterCanvas;
-  return document.getElementById('output');
+  if (__compilerOutputMode === 'painter'  && __painterUI)     return __painterUI;
+  return getPreviewBody();
 }
 
 // Celebration animation for successful runs
@@ -2861,7 +2793,7 @@ function refreshWorkspaceLayout() {
   } catch {}
 }
 
-function createSplitter({ axis, splitter, before, after, storageKey, minBefore, minAfter, beforeVar, afterVar, varTarget }) {
+function createSplitter({ axis, splitter, before, after, storageKey, minBefore, minAfter, beforeVar, afterVar, varTarget, unit = '%' }) {
   if (!splitter || !before || !after || !storageKey || !beforeVar || !afterVar) return;
   const isHorizontal = axis === 'horizontal';
   const target = varTarget || before;
@@ -2869,13 +2801,13 @@ function createSplitter({ axis, splitter, before, after, storageKey, minBefore, 
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
       if (!saved || typeof saved.before !== 'number' || typeof saved.after !== 'number') return;
-      target.style.setProperty(beforeVar, `${saved.before}%`);
-      target.style.setProperty(afterVar, `${saved.after}%`);
+      target.style.setProperty(beforeVar, `${saved.before}${unit}`);
+      target.style.setProperty(afterVar, `${saved.after}${unit}`);
     } catch {}
   };
-  const save = (beforePercent, afterPercent) => {
+  const save = (beforeValue, afterValue) => {
     try {
-      localStorage.setItem(storageKey, JSON.stringify({ before: beforePercent, after: afterPercent }));
+      localStorage.setItem(storageKey, JSON.stringify({ before: beforeValue, after: afterValue }));
     } catch {}
   };
   const reset = () => {
@@ -2914,10 +2846,10 @@ function createSplitter({ axis, splitter, before, after, storageKey, minBefore, 
     if (dragging.total <= minBefore + minAfter) return;
     const nextBefore = Math.max(minBefore, Math.min(dragging.total - minAfter, dragging.beforeSize + delta));
     const nextAfter = dragging.total - nextBefore;
-    const beforePercent = (nextBefore / dragging.total) * 100;
-    const afterPercent = (nextAfter / dragging.total) * 100;
-    target.style.setProperty(beforeVar, `${beforePercent}%`);
-    target.style.setProperty(afterVar, `${afterPercent}%`);
+    const beforeValue = unit === 'px' || unit === 'fr' ? nextBefore : (nextBefore / dragging.total) * 100;
+    const afterValue = unit === 'px' || unit === 'fr' ? nextAfter : (nextAfter / dragging.total) * 100;
+    target.style.setProperty(beforeVar, `${beforeValue}${unit}`);
+    target.style.setProperty(afterVar, `${afterValue}${unit}`);
     refreshWorkspaceLayout();
   });
 
@@ -2926,7 +2858,10 @@ function createSplitter({ axis, splitter, before, after, storageKey, minBefore, 
     const beforeSize = isHorizontal ? before.getBoundingClientRect().height : before.getBoundingClientRect().width;
     const afterSize = isHorizontal ? after.getBoundingClientRect().height : after.getBoundingClientRect().width;
     const total = beforeSize + afterSize;
-    if (total > 0) save((beforeSize / total) * 100, (afterSize / total) * 100);
+    if (total > 0) {
+      save(unit === 'px' || unit === 'fr' ? beforeSize : (beforeSize / total) * 100,
+        unit === 'px' || unit === 'fr' ? afterSize : (afterSize / total) * 100);
+    }
     try { splitter.releasePointerCapture(event.pointerId); } catch {}
     splitter.classList.remove('dragging');
     document.body.classList.remove('layout-resizing', 'layout-resizing-horizontal', 'layout-resizing-vertical');
@@ -2945,6 +2880,8 @@ function setupWorkspaceSplitters() {
   const main = document.querySelector('main');
   const editorPane = document.querySelector('.pane.left');
   const outputPane = document.querySelector('.pane.right');
+  const previewPane = document.querySelector('.pane.preview');
+  const rightGroup = document.querySelector('.workspace-right-group');
 
   createSplitter({
     axis: 'horizontal',
@@ -2961,9 +2898,22 @@ function setupWorkspaceSplitters() {
 
   createSplitter({
     axis: 'vertical',
+    splitter: document.getElementById('splitter-output-preview'),
+    before: outputPane,
+    after: previewPane,
+    storageKey: 'q_workspace_output_preview_split_v4',
+    minBefore: 260,
+    minAfter: 260,
+    beforeVar: '--workspace-output-fr',
+    afterVar: '--workspace-preview-fr',
+    varTarget: workspace,
+  });
+
+  createSplitter({
+    axis: 'vertical',
     splitter: document.getElementById('splitter-editor-output'),
     before: editorPane,
-    after: outputPane,
+    after: rightGroup,
     storageKey: 'q_workspace_editor_output_split',
     minBefore: 320,
     minAfter: 260,
@@ -3030,14 +2980,34 @@ function setPaneCollapsed(id, collapsed, { persist = true } = {}) {
 function resetPaneSize(id) {
   if (id === 'io') {
     resetWorkspaceSplit('q_workspace_main_io_split', ['--workspace-main-fr', '--workspace-io-fr']);
-  } else if (id === 'code' || id === 'output') {
+  } else if (id === 'code') {
     resetWorkspaceSplit('q_workspace_editor_output_split', ['--workspace-left-fr', '--workspace-right-fr']);
+  } else if (id === 'output' || id === 'preview') {
+    resetWorkspaceSplit('q_workspace_output_preview_split_v4', ['--workspace-output-fr', '--workspace-preview-fr']);
   }
+}
+
+function resetCurrentPreviewExecutor() {
+  try {
+    if (__compilerOutputMode === 'turtle' && __turtleModule && typeof __turtleModule.__resetTurtle === 'function') {
+      __turtleModule.__resetTurtle(true);
+    } else if (__compilerOutputMode === 'robot' && __robotModule) {
+      if (typeof __robotModule.__resetRobot === 'function') __robotModule.__resetRobot();
+      else if (typeof __robotModule.__initRobotField === 'function') __robotModule.__initRobotField();
+      renderRobotField();
+    } else if (__compilerOutputMode === 'drawer' && __drawerModule && typeof __drawerModule.__resetDrawer === 'function') {
+      __drawerModule.__resetDrawer(true);
+    } else if (__compilerOutputMode === 'painter' && __painterModule && typeof __painterModule.__resetPainter === 'function') {
+      __painterModule.__resetPainter();
+      updatePainterRulers(-1, -1);
+    }
+  } catch {}
+  refreshWorkspaceLayout();
 }
 
 function setupPaneHeaderControls() {
   const saved = readCollapsedPanes();
-  ['code', 'output', 'io'].forEach(id => setPaneCollapsed(id, saved.has(id), { persist: false }));
+  ['code', 'output', 'preview', 'io'].forEach(id => setPaneCollapsed(id, saved.has(id), { persist: false }));
 
   document.querySelectorAll('.pane-title-btn').forEach(btn => {
     btn.addEventListener('mousedown', event => event.stopPropagation());
@@ -3053,6 +3023,10 @@ function setupPaneHeaderControls() {
         setPaneCollapsed(target, !(pane && pane.classList.contains('collapsed')));
       } else if (action === 'reset') {
         resetPaneSize(target);
+      } else if (action === 'preview-reset') {
+        event.preventDefault();
+        event.stopPropagation();
+        resetCurrentPreviewExecutor();
       }
     });
   });
@@ -3760,6 +3734,15 @@ $('#btn-run').addEventListener('click', async () => {
       if (cm) open('Код', cm); else open('Код', document.getElementById('code'));
     });
   }
+  const titlePreview = document.getElementById('title-preview');
+  if (titlePreview) {
+    titlePreview.addEventListener('mousedown', e => e.preventDefault());
+    titlePreview.addEventListener('click', (e) => {
+      if (e.target.closest('.pane-title-btn')) return;
+      const node = getCurrentPreviewNode();
+      if (node) open('Просмотр', node);
+    });
+  }
   document.querySelectorAll('.pane-title-btn[data-pane-action="fullscreen"]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -3773,6 +3756,9 @@ $('#btn-run').addEventListener('click', async () => {
       } else if (target === 'io') {
         const node = getCurrentIoPaneNode();
         if (node) open(`Ввод/Вывод • ${getCurrentIoPaneLabel()}`, node);
+      } else if (target === 'preview') {
+        const node = getCurrentPreviewNode();
+        if (node) open('Просмотр', node);
       }
     });
   });
