@@ -3,6 +3,7 @@
 body.dev-mode .dev-only { display: inline-block !important; }
 body.dev-mode .pane.right.dev-only { display: flex !important; }
 body:not(.dev-mode) main { grid-template-columns: 1fr !important; }
+body:not(.dev-mode) #splitter-editor-output { display: none; }
 
 /* Show right pane when executor (turtle/robot) is active, even in non-dev mode */
 body:not(.dev-mode) .pane.right.executor-active {
@@ -10,7 +11,10 @@ body:not(.dev-mode) .pane.right.executor-active {
 }
 /* Restore two-column layout when executor is active */
 body:not(.dev-mode) main:has(.pane.right.executor-active) {
-  grid-template-columns: minmax(0,1fr) minmax(0,1fr) !important;
+  grid-template-columns: minmax(320px,var(--workspace-left-fr, 1fr)) 6px minmax(260px,var(--workspace-right-fr, 1fr)) !important;
+}
+body:not(.dev-mode) main:has(.pane.right.executor-active) #splitter-editor-output {
+  display: block;
 }
 /* Hide output mode radio buttons (text/executor) in non-dev mode, but keep speed slider */
 body:not(.dev-mode) .output-mode label {
@@ -43,7 +47,32 @@ button.project-toggle:hover { background: #3a3a3a; }
 .controls { display: flex; gap: 8px; align-items: center; }
 .controls label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; user-select: none; }
 .controls label input[type="checkbox"] { cursor: pointer; width: 16px; height: 16px; }
-main { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; padding: 8px; box-sizing: border-box; flex: 1 1 auto; min-height: 0; overflow: auto; }
+.workspace {
+  --workspace-main-fr: 1fr;
+  --workspace-io-fr: 240px;
+  --workspace-left-fr: 1fr;
+  --workspace-right-fr: 1fr;
+  display: grid;
+  grid-template-rows: minmax(220px,var(--workspace-main-fr)) 6px minmax(120px,var(--workspace-io-fr));
+  padding: 8px;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.workspace-main-row { display: flex; min-height: 0; min-width: 0; }
+main { display: grid; grid-template-columns: minmax(320px,var(--workspace-left-fr)) 6px minmax(260px,var(--workspace-right-fr)); gap: 0; padding: 0; box-sizing: border-box; flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; }
+.splitter { position: relative; flex: 0 0 auto; background: transparent; touch-action: none; z-index: 2; }
+.splitter::before { content: ""; position: absolute; inset: 0; border-radius: 3px; transition: background .12s ease; }
+.splitter:hover::before,
+.splitter.dragging::before { background: #0e639c; }
+.splitter-vertical { width: 6px; cursor: col-resize; }
+.splitter-horizontal { height: 6px; cursor: row-resize; }
+.splitter-vertical::before { left: 2px; right: 2px; }
+.splitter-horizontal::before { top: 2px; bottom: 2px; }
+body.layout-resizing { cursor: col-resize; user-select: none; }
+body.layout-resizing-vertical { cursor: col-resize; }
+body.layout-resizing-horizontal { cursor: row-resize; }
 .pane { display: flex; flex-direction: column; border: 1px solid #333; border-radius: 4px; overflow: hidden; min-height: 0; min-width: 0; max-width: 100%; }
 .pane-title { background: #2d2d2d; padding: 6px 8px; border-bottom: 1px solid #333; font-size: 12px; color: #ccc; }
 textarea#code { flex: 1; background: #1e1e1e; color: #e6e6e6; border: none; resize: none; padding: 8px; font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 13px; overflow: auto; }
@@ -53,7 +82,7 @@ textarea#code { flex: 1; background: #1e1e1e; color: #e6e6e6; border: none; resi
 .CodeMirror-linenumber { color: #9e9e9e; }
 #status.status { padding: 4px 8px; font-size: 11px; background: #2d2d2d; border-top: 1px solid #333; color: #bbb; }
 pre.scroll { flex: 1; margin: 0; padding: 8px; background: #1b1b1b; overflow: auto; font-size: 12px; min-width: 0; }
-section.io { display: flex; flex-direction: column; gap: 6px; padding: 0 8px 8px; flex: 0 0 auto; }
+section.io { display: flex; flex-direction: column; gap: 6px; padding: 0; flex: 1 1 auto; min-height: 0; min-width: 0; }
 section.io .pane-title { border-radius: 4px 4px 0 0; }
 .io-toolbar { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #bbb; }
 .io-toolbar label { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; color: #888; }
@@ -62,7 +91,7 @@ section.io .pane-title { border-radius: 4px 4px 0 0; }
 .errors-badge { position: absolute; top: -7px; right: -7px; background: #e53935; color: #fff; border-radius: 50%; width: 16px; height: 16px; font-size: 11px; font-weight: bold; line-height: 16px; text-align: center; pointer-events: none; z-index: 10; }
 .io-select-wrapper.errors-active select { border-color: #e53935; box-shadow: 0 0 0 2px rgba(229,57,53,0.30); }
 .io-toolbar-separator { width: 1px; height: 18px; background: #333; margin: 0 4px; }
-.io-pane-container { border: 1px solid #333; border-radius: 4px; background: #1b1b1b; min-height: 160px; height: clamp(180px, 24vh, 280px); max-height: 280px; flex: 0 0 auto; overflow: hidden; display: flex; flex-direction: column; }
+.io-pane-container { border: 1px solid #333; border-radius: 4px; background: #1b1b1b; min-height: 0; height: auto; max-height: none; flex: 1 1 auto; overflow: hidden; display: flex; flex-direction: column; }
 .io-pane { display: none; height: 100%; flex: 1 1 auto; min-height: 0; }
 .io-pane.active { display: flex; flex-direction: column; min-height: 0; }
 .io-pane pre.scroll { flex: 1 1 auto; min-height: 0; max-height: 100%; }
@@ -213,6 +242,9 @@ body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 	/* Allow page scroll on mobile */
 	html { overflow: auto; height: auto; }
 	body { overflow: auto; height: auto; }
+	.workspace { display: block; min-height: 0; overflow: visible; padding: 8px; }
+	.workspace-main-row { display: block; min-height: 0; }
+	.splitter { display: none !important; }
 
 	/* Safe single-column layout on mobile */
 	main { display: block; overflow: visible; }

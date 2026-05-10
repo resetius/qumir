@@ -47,46 +47,52 @@
       <button id="btn-help" class="btn-help" data-tooltip="Справка по языку">❓</button>
     </div>
   </header>
-  <main>
-    <section class="pane left">
-      <div class="pane-title" id="title-code">Редактор</div>
-      <textarea id="code" spellcheck="false"></textarea>
-      <div id="status" class="status"></div>
-    </section>
-  <div id="output-anchor"></div>
-    <section class="pane right dev-only">
-      <div class="pane-title" id="title-output">Компилятор</div>
-  <div id="view-slot" class="view-slot"></div>
-      <pre id="output" class="scroll"></pre>
-    </section>
-  </main>
-  <section class="io">
-    <div class="pane-title" id="title-io">Ввод/Вывод</div>
-    <div class="io-toolbar">
-      <label for="io-select">Просмотр:</label>
-      <span class="io-select-wrapper">
-        <select id="io-select" data-tooltip="Переключение между выводом, вводом и файлами">
-          <option value="stdout">Вывод</option>
-          <option value="stdin">Ввод</option>
-        </select>
-        <span id="errors-badge" class="errors-badge" style="display:none" aria-label="Есть ошибки">!</span>
-      </span>
-        <button id="io-add-file" class="io-icon" data-tooltip="Добавить файл">＋</button>
-        <span class="io-toolbar-separator"></span>
-        <label for="args">Аргументы:</label>
-        <input id="args" type="text" placeholder="например: 1, 2.5, да, нет" data-tooltip="Параметры, которые программа получит при запуске" />
-        <button id="btn-run" data-tooltip="Запустить программу (Ctrl+Enter)">Запустить</button>
+  <div id="workspace" class="workspace">
+    <div class="workspace-main-row">
+      <main>
+        <section class="pane left">
+          <div class="pane-title" id="title-code">Редактор</div>
+          <textarea id="code" spellcheck="false"></textarea>
+          <div id="status" class="status"></div>
+        </section>
+        <div id="output-anchor"></div>
+        <div id="splitter-editor-output" class="splitter splitter-vertical" role="separator" aria-orientation="vertical" aria-label="Размер редактора и вывода"></div>
+        <section class="pane right dev-only">
+          <div class="pane-title" id="title-output">Компилятор</div>
+          <div id="view-slot" class="view-slot"></div>
+          <pre id="output" class="scroll"></pre>
+        </section>
+      </main>
     </div>
-    <div class="io-pane-container">
-      <div class="io-pane io-pane-stdout active" data-io-pane="stdout">
-        <pre id="stdout" class="scroll"></pre>
+    <div id="splitter-main-io" class="splitter splitter-horizontal" role="separator" aria-orientation="horizontal" aria-label="Размер рабочей зоны и ввода/вывода"></div>
+    <section class="io">
+      <div class="pane-title" id="title-io">Ввод/Вывод</div>
+      <div class="io-toolbar">
+        <label for="io-select">Просмотр:</label>
+        <span class="io-select-wrapper">
+          <select id="io-select" data-tooltip="Переключение между выводом, вводом и файлами">
+            <option value="stdout">Вывод</option>
+            <option value="stdin">Ввод</option>
+          </select>
+          <span id="errors-badge" class="errors-badge" style="display:none" aria-label="Есть ошибки">!</span>
+        </span>
+          <button id="io-add-file" class="io-icon" data-tooltip="Добавить файл">＋</button>
+          <span class="io-toolbar-separator"></span>
+          <label for="args">Аргументы:</label>
+          <input id="args" type="text" placeholder="например: 1, 2.5, да, нет" data-tooltip="Параметры, которые программа получит при запуске" />
+          <button id="btn-run" data-tooltip="Запустить программу (Ctrl+Enter)">Запустить</button>
       </div>
-      <div class="io-pane io-pane-stdin" data-io-pane="stdin">
-        <textarea id="stdin" placeholder="Данные для вашей программы" spellcheck="false"></textarea>
+      <div class="io-pane-container">
+        <div class="io-pane io-pane-stdout active" data-io-pane="stdout">
+          <pre id="stdout" class="scroll"></pre>
+        </div>
+        <div class="io-pane io-pane-stdin" data-io-pane="stdin">
+          <textarea id="stdin" placeholder="Данные для вашей программы" spellcheck="false"></textarea>
+        </div>
+        <div id="io-files" class="io-files"></div>
       </div>
-      <div id="io-files" class="io-files"></div>
-    </div>
-  </section>
+    </section>
+  </div>
   <footer>
   <small><button id="bug-report-btn" type="button" class="bug-button" data-tooltip="Сообщить об ошибке"><span class="bug-icon">🐞</span></button></small>
   <small><button id="docs-page-btn" type="button" class="docs-link-btn" data-tooltip="Открыть документацию">📖</button></small>

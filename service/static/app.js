@@ -2655,7 +2655,7 @@ function initEditor() {
     if (window.innerWidth <= 900) {
       editor.setSize(null, 'auto');
     } else {
-      editor.setSize(null, 420);
+      editor.setSize(null, '100%');
     }
     editor.refresh();
   };
@@ -2759,6 +2759,138 @@ function initEditor() {
   setTimeout(() => editor.refresh(), 0);
 }
 
+function refreshWorkspaceLayout() {
+  try { if (editor) editor.refresh(); } catch {}
+  try { if (__turtleModule && typeof __turtleModule.__onCanvasShown === 'function') __turtleModule.__onCanvasShown(); } catch {}
+  try { if (__drawerModule && typeof __drawerModule.__onCanvasShown === 'function') __drawerModule.__onCanvasShown(); } catch {}
+  try { if (__painterModule && typeof __painterModule.__onCanvasShown === 'function') __painterModule.__onCanvasShown(); } catch {}
+  try {
+    if (__compilerOutputMode === 'robot') {
+      if (__robotCanvas) {
+        delete __robotCanvas.__cachedWidth;
+        delete __robotCanvas.__cachedHeight;
+      }
+      renderRobotField();
+    }
+  } catch {}
+}
+
+function createSplitter({ axis, splitter, before, after, storageKey, minBefore, minAfter, beforeVar, afterVar, varTarget }) {
+  if (!splitter || !before || !after || !storageKey || !beforeVar || !afterVar) return;
+  const isHorizontal = axis === 'horizontal';
+  const target = varTarget || before;
+  const load = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      if (!saved || typeof saved.before !== 'number' || typeof saved.after !== 'number') return;
+      target.style.setProperty(beforeVar, `${saved.before}%`);
+      target.style.setProperty(afterVar, `${saved.after}%`);
+    } catch {}
+  };
+  const save = (beforePercent, afterPercent) => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ before: beforePercent, after: afterPercent }));
+    } catch {}
+  };
+  const reset = () => {
+    try { localStorage.removeItem(storageKey); } catch {}
+    target.style.removeProperty(beforeVar);
+    target.style.removeProperty(afterVar);
+    refreshWorkspaceLayout();
+  };
+
+  load();
+
+  let dragging = null;
+  splitter.addEventListener('pointerdown', (event) => {
+    if (window.innerWidth <= 900) return;
+    event.preventDefault();
+    const beforeRect = before.getBoundingClientRect();
+    const afterRect = after.getBoundingClientRect();
+    const beforeSize = isHorizontal ? beforeRect.height : beforeRect.width;
+    const afterSize = isHorizontal ? afterRect.height : afterRect.width;
+    if (beforeSize + afterSize <= minBefore + minAfter) return;
+    dragging = {
+      pointerId: event.pointerId,
+      start: isHorizontal ? event.clientY : event.clientX,
+      beforeSize,
+      afterSize,
+      total: beforeSize + afterSize,
+    };
+    splitter.classList.add('dragging');
+    document.body.classList.add('layout-resizing', isHorizontal ? 'layout-resizing-horizontal' : 'layout-resizing-vertical');
+    splitter.setPointerCapture(event.pointerId);
+  });
+
+  splitter.addEventListener('pointermove', (event) => {
+    if (!dragging || dragging.pointerId !== event.pointerId) return;
+    const delta = (isHorizontal ? event.clientY : event.clientX) - dragging.start;
+    if (dragging.total <= minBefore + minAfter) return;
+    const nextBefore = Math.max(minBefore, Math.min(dragging.total - minAfter, dragging.beforeSize + delta));
+    const nextAfter = dragging.total - nextBefore;
+    const beforePercent = (nextBefore / dragging.total) * 100;
+    const afterPercent = (nextAfter / dragging.total) * 100;
+    target.style.setProperty(beforeVar, `${beforePercent}%`);
+    target.style.setProperty(afterVar, `${afterPercent}%`);
+    refreshWorkspaceLayout();
+  });
+
+  const stop = (event) => {
+    if (!dragging || dragging.pointerId !== event.pointerId) return;
+    const beforeSize = isHorizontal ? before.getBoundingClientRect().height : before.getBoundingClientRect().width;
+    const afterSize = isHorizontal ? after.getBoundingClientRect().height : after.getBoundingClientRect().width;
+    const total = beforeSize + afterSize;
+    if (total > 0) save((beforeSize / total) * 100, (afterSize / total) * 100);
+    try { splitter.releasePointerCapture(event.pointerId); } catch {}
+    splitter.classList.remove('dragging');
+    document.body.classList.remove('layout-resizing', 'layout-resizing-horizontal', 'layout-resizing-vertical');
+    dragging = null;
+    refreshWorkspaceLayout();
+  };
+  splitter.addEventListener('pointerup', stop);
+  splitter.addEventListener('pointercancel', stop);
+  splitter.addEventListener('dblclick', reset);
+}
+
+function setupWorkspaceSplitters() {
+  const workspace = document.getElementById('workspace');
+  const mainRow = document.querySelector('.workspace-main-row');
+  const io = document.querySelector('section.io');
+  const main = document.querySelector('main');
+  const editorPane = document.querySelector('.pane.left');
+  const outputPane = document.querySelector('.pane.right');
+
+  createSplitter({
+    axis: 'horizontal',
+    splitter: document.getElementById('splitter-main-io'),
+    before: mainRow,
+    after: io,
+    storageKey: 'q_workspace_main_io_split',
+    minBefore: 220,
+    minAfter: 120,
+    beforeVar: '--workspace-main-fr',
+    afterVar: '--workspace-io-fr',
+    varTarget: workspace,
+  });
+
+  createSplitter({
+    axis: 'vertical',
+    splitter: document.getElementById('splitter-editor-output'),
+    before: editorPane,
+    after: outputPane,
+    storageKey: 'q_workspace_editor_output_split',
+    minBefore: 320,
+    minAfter: 260,
+    beforeVar: '--workspace-left-fr',
+    afterVar: '--workspace-right-fr',
+    varTarget: workspace,
+  });
+
+  void main;
+  window.addEventListener('resize', refreshWorkspaceLayout);
+  setTimeout(refreshWorkspaceLayout, 0);
+}
+
 // Diagnostic check for critical elements
 (() => {
   const critical = ['code', 'args', 'stdin', 'stdout', 'view', 'opt', 'btn-run', 'examples'];
@@ -2812,6 +2944,7 @@ initProjectsUI();
 })();
 // Initialize editor (assets are loaded via HTML)
 initEditor();
+setupWorkspaceSplitters();
 
 // Relocate the compiler view selector above the Output on mobile
 (function relocateViewSelector(){
@@ -2840,6 +2973,7 @@ initEditor();
 
 // On mobile, place compiler output below IO section to ensure strict vertical flow
 (function relocateOutputMobile(){
+  if (document.getElementById('workspace')) return;
   const rightPane = document.querySelector('section.pane.right');
   const io = document.querySelector('section.io');
   const anchor = document.getElementById('output-anchor');
