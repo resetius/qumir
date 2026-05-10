@@ -28,7 +28,7 @@ body:not(.dev-mode) .output-mode {
 html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color: #e6e6e6; background: #1e1e1e; }
 html { overflow: hidden; }
 /* Ensure borders/padding are included in width calculations for editors */
-textarea, pre.scroll, .CodeMirror { box-sizing: border-box; }
+textarea, input, pre.scroll, .CodeMirror { box-sizing: border-box; }
 /* Layout: prevent page-level scroll; only panes scroll */
 body { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #252526; border-bottom: 1px solid #333; position: relative; z-index: 100; }
@@ -256,9 +256,24 @@ body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 
 		/* (grid no longer applies due to display: contents) */
 
-		/* Input/Output section stacked vertically and flexible */
+	/* Input/Output section stacked vertically and flexible */
 		section.io { padding: 8px; }
-		.io-toolbar { flex-wrap: wrap; }
+		.io-toolbar {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 32px;
+			align-items: center;
+			gap: 6px 8px;
+			width: 100%;
+			max-width: 100%;
+		}
+		.io-tabs { grid-column: 1; width: 100%; max-width: 100%; flex: initial; }
+		#io-add-file { grid-column: 2; }
+		.io-toolbar-separator { display: none; }
+		.io-toolbar label[for="args"],
+		.io-toolbar input#args,
+		.io-toolbar #btn-run { grid-column: 1 / -1; }
+		.io-toolbar input#args { width: 100%; min-width: 0; }
+		.io-toolbar #btn-run { width: 100%; }
 		.io-pane-container { min-height: 220px; height: auto; max-height: none; flex: 1 1 auto; }
 		.io-pane textarea { height: auto; min-height: 180px; }
 
@@ -273,9 +288,6 @@ body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 	.toolbar { flex-wrap: wrap; gap: 6px; }
 		/* Hide snippet toolbar on mobile to reduce clutter */
 		.toolbar { display: none !important; }
-
-	/* Make args input flexible to line width */
-	.controls input#args { flex: 1 1 180px; min-width: 140px; }
 
 	/* Footer can wrap and stays after content */
 	footer { flex-wrap: wrap; gap: 8px; position: static; }
