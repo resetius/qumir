@@ -313,30 +313,16 @@ ColorsModule::ColorsModule() {
     };
 
     auto decomposeRgbTempId = std::make_shared<size_t>(0);
-    auto decomposeRgb = [integerType, colorType, voidType, intLiteral, decomposeRgbTempId](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
+    auto decomposeRgb = [integerType, colorType, voidType, intLiteral, decomposeRgbTempId, ident, binary](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
         const auto colorName = "$$color_decompose_rgb_" + std::to_string((*decomposeRgbTempId)++);
-
-        auto bin = [](const char* op, NAst::TExprPtr left, NAst::TExprPtr right, NAst::TTypePtr type) -> NAst::TExprPtr {
-            auto loc = left->Location;
-            auto expr = std::make_shared<NAst::TBinaryExpr>(std::move(loc), NAst::TOperator(op),
-                std::move(left), std::move(right));
-            expr->Type = std::move(type);
-            return expr;
-        };
-
-        auto ident = [](TLocation loc, const std::string& name, NAst::TTypePtr type) -> NAst::TExprPtr {
-            auto expr = std::make_shared<NAst::TIdentExpr>(std::move(loc), name);
-            expr->Type = std::move(type);
-            return expr;
-        };
 
         auto component = [&](int64_t shift) -> NAst::TExprPtr {
             auto loc = args[0]->Location;
             NAst::TExprPtr value = ident(loc, colorName, integerType);
             if (shift != 0) {
-                value = bin(">>", std::move(value), intLiteral(loc, shift), integerType);
+                value = binary(">>", std::move(value), intLiteral(loc, shift), integerType);
             }
-            return bin("&", std::move(value), intLiteral(loc, 255), integerType);
+            return binary("&", std::move(value), intLiteral(loc, 255), integerType);
         };
 
         auto assignTarget = [&](const NAst::TExprPtr& target, NAst::TExprPtr value) -> NAst::TExprPtr {
