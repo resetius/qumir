@@ -9,6 +9,7 @@ using namespace NRuntime;
 
 ColorsModule::ColorsModule() {
     auto integerType  = std::make_shared<NAst::TIntegerType>();
+    auto floatType    = std::make_shared<NAst::TFloatType>();
     auto boolType     = std::make_shared<NAst::TBoolType>();
     auto voidType     = std::make_shared<NAst::TVoidType>();
     auto stringType   = std::make_shared<NAst::TStringType>();
@@ -27,6 +28,39 @@ ColorsModule::ColorsModule() {
     auto intLiteral = [integerType](TLocation loc, int64_t value) -> NAst::TExprPtr {
         auto expr = std::make_shared<NAst::TNumberExpr>(std::move(loc), value);
         expr->Type = integerType;
+        return expr;
+    };
+
+    auto floatLiteral = [floatType](TLocation loc, double value) -> NAst::TExprPtr {
+        auto expr = std::make_shared<NAst::TNumberExpr>(std::move(loc), value);
+        expr->Type = floatType;
+        return expr;
+    };
+
+    auto binary = [](const char* op, NAst::TExprPtr left, NAst::TExprPtr right, NAst::TTypePtr type) -> NAst::TExprPtr {
+        auto loc = left->Location;
+        auto expr = std::make_shared<NAst::TBinaryExpr>(std::move(loc), NAst::TOperator(op),
+            std::move(left), std::move(right));
+        expr->Type = std::move(type);
+        return expr;
+    };
+
+    auto cast = [](NAst::TExprPtr value, NAst::TTypePtr type) -> NAst::TExprPtr {
+        auto loc = value->Location;
+        auto expr = std::make_shared<NAst::TCastExpr>(std::move(loc), std::move(value), std::move(type));
+        return expr;
+    };
+
+    auto ident = [](TLocation loc, const std::string& name, NAst::TTypePtr type) -> NAst::TExprPtr {
+        auto expr = std::make_shared<NAst::TIdentExpr>(std::move(loc), name);
+        expr->Type = std::move(type);
+        return expr;
+    };
+
+    auto ifExpr = [](NAst::TExprPtr cond, NAst::TExprPtr thenExpr, NAst::TExprPtr elseExpr, NAst::TTypePtr type) -> NAst::TExprPtr {
+        auto loc = cond->Location;
+        auto expr = std::make_shared<NAst::TIfExpr>(std::move(loc), std::move(cond), std::move(thenExpr), std::move(elseExpr));
+        expr->Type = std::move(type);
         return expr;
     };
 
@@ -58,6 +92,152 @@ ColorsModule::ColorsModule() {
                 integerType),
             mask(std::move(b)),
             colorType);
+    };
+
+    auto inlineCmyk = [integerType, colorPack, intLiteral, binary, cast](bool withAlpha) {
+        return [integerType, colorPack, intLiteral, binary, cast, withAlpha](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
+            auto loc = args[0]->Location;
+            auto hundred = [&](TLocation l) { return intLiteral(l, 100); };
+            auto roundedComponent = [&](const std::string& channelName) -> NAst::TExprPtr {
+                auto channel = std::make_shared<NAst::TIdentExpr>(loc, channelName);
+                channel->Type = integerType;
+                auto k = std::make_shared<NAst::TIdentExpr>(loc, "$$k");
+                k->Type = integerType;
+                auto value = binary("*",
+                    binary("*",
+                        binary("-", hundred(loc), std::move(channel), integerType),
+                        binary("-", hundred(loc), std::move(k), integerType),
+                        integerType),
+                    intLiteral(loc, 255),
+                    integerType);
+                return cast(
+                    binary("+",
+                        binary("/", std::move(value), intLiteral(loc, 10000), std::make_shared<NAst::TFloatType>()),
+                        std::make_shared<NAst::TNumberExpr>(loc, 0.5),
+                        std::make_shared<NAst::TFloatType>()),
+                    integerType);
+            };
+
+            std::vector<NAst::TLetExpr::TBinding> bindings;
+            bindings.push_back({ .Name = "$$c", .Value = args[0] });
+            bindings.push_back({ .Name = "$$m", .Value = args[1] });
+            bindings.push_back({ .Name = "$$y", .Value = args[2] });
+            bindings.push_back({ .Name = "$$k", .Value = args[3] });
+            if (withAlpha) {
+                bindings.push_back({ .Name = "$$a", .Value = args[4] });
+            }
+            auto alpha = withAlpha
+                ? std::make_shared<NAst::TIdentExpr>(loc, "$$a")
+                : intLiteral(loc, 255);
+            alpha->Type = integerType;
+            auto body = colorPack(
+                roundedComponent("$$c"),
+                roundedComponent("$$m"),
+                roundedComponent("$$y"),
+                std::move(alpha));
+            auto expr = std::make_shared<NAst::TLetExpr>(loc, std::move(bindings), std::move(body));
+            expr->Type = colorPack(intLiteral(loc, 0), intLiteral(loc, 0), intLiteral(loc, 0), intLiteral(loc, 0))->Type;
+            return expr;
+        };
+    };
+
+    auto inlineHsl = [integerType, floatType, boolType, colorType, colorPack, intLiteral, floatLiteral, ident, binary, cast, ifExpr](bool withAlpha) {
+        return [integerType, floatType, boolType, colorType, colorPack, intLiteral, floatLiteral, ident, binary, cast, ifExpr, withAlpha](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
+            auto loc = args[0]->Location;
+            auto f = [&](double value) { return floatLiteral(loc, value); };
+            auto idf = [&](const std::string& name) { return ident(loc, name, floatType); };
+            auto idi = [&](const std::string& name) { return ident(loc, name, integerType); };
+            auto round255 = [&](NAst::TExprPtr value) -> NAst::TExprPtr {
+                return cast(binary("+", binary("*", std::move(value), f(255.0), floatType), f(0.5), floatType), integerType);
+            };
+            auto makeLet = [&](std::vector<NAst::TLetExpr::TBinding> bindings, NAst::TExprPtr body, NAst::TTypePtr type) {
+                auto expr = std::make_shared<NAst::TLetExpr>(loc, std::move(bindings), std::move(body));
+                expr->Type = std::move(type);
+                return expr;
+            };
+            auto hueToRgb = [&](NAst::TExprPtr tValue) -> NAst::TExprPtr {
+                auto p = idf("$$p");
+                auto q = idf("$$q");
+                auto qMinusP = [&]() { return binary("-", idf("$$q"), idf("$$p"), floatType); };
+                auto body = ifExpr(
+                    binary("<", idf("$$t"), f(1.0 / 6.0), boolType),
+                    binary("+", idf("$$p"), binary("*", binary("*", qMinusP(), f(6.0), floatType), idf("$$t"), floatType), floatType),
+                    ifExpr(
+                        binary("<", idf("$$t"), f(0.5), boolType),
+                        std::move(q),
+                        ifExpr(
+                            binary("<", idf("$$t"), f(2.0 / 3.0), boolType),
+                            binary("+", std::move(p), binary("*", binary("*", qMinusP(), binary("-", f(2.0 / 3.0), idf("$$t"), floatType), floatType), f(6.0), floatType), floatType),
+                            idf("$$p"),
+                            floatType),
+	                        floatType),
+	                    floatType);
+                std::vector<NAst::TLetExpr::TBinding> normalizedBinding;
+                normalizedBinding.push_back({
+                    .Name = "$$t",
+                    .Value = ifExpr(
+                        binary("<", idf("$$t_raw"), f(0.0), boolType),
+                        binary("+", idf("$$t_raw"), f(1.0), floatType),
+                        ifExpr(
+                            binary(">", idf("$$t_raw"), f(1.0), boolType),
+                            binary("-", idf("$$t_raw"), f(1.0), floatType),
+                            idf("$$t_raw"),
+                            floatType),
+                        floatType),
+                });
+                auto normalized = makeLet(std::move(normalizedBinding), std::move(body), floatType);
+                std::vector<NAst::TLetExpr::TBinding> rawBinding;
+                rawBinding.push_back({ .Name = "$$t_raw", .Value = std::move(tValue) });
+                return makeLet(std::move(rawBinding), std::move(normalized), floatType);
+            };
+
+            std::vector<NAst::TLetExpr::TBinding> bindings;
+            bindings.push_back({ .Name = "$$h", .Value = args[0] });
+            bindings.push_back({ .Name = "$$s", .Value = args[1] });
+            bindings.push_back({ .Name = "$$l", .Value = args[2] });
+            if (withAlpha) {
+                bindings.push_back({ .Name = "$$a", .Value = args[3] });
+            }
+
+            auto alpha = withAlpha ? idi("$$a") : intLiteral(loc, 255);
+            auto gray = round255(idf("$$lf"));
+            auto grayBody = colorPack(gray, round255(idf("$$lf")), round255(idf("$$lf")), alpha);
+
+            std::vector<NAst::TLetExpr::TBinding> pBinding;
+            pBinding.push_back({
+                .Name = "$$p",
+                .Value = binary("-", binary("*", f(2.0), idf("$$lf"), floatType), idf("$$q"), floatType),
+            });
+            auto chromaBody = colorPack(
+                round255(hueToRgb(binary("+", idf("$$hf"), f(1.0 / 3.0), floatType))),
+                round255(hueToRgb(idf("$$hf"))),
+                round255(hueToRgb(binary("-", idf("$$hf"), f(1.0 / 3.0), floatType))),
+                withAlpha ? idi("$$a") : intLiteral(loc, 255));
+            auto pLet = makeLet(std::move(pBinding), std::move(chromaBody), colorType);
+
+            std::vector<NAst::TLetExpr::TBinding> qBinding;
+            qBinding.push_back({
+                .Name = "$$q",
+                .Value = ifExpr(
+                    binary("<", idf("$$lf"), f(0.5), boolType),
+                    binary("*", idf("$$lf"), binary("+", f(1.0), idf("$$sf"), floatType), floatType),
+                    binary("-", binary("+", idf("$$lf"), idf("$$sf"), floatType), binary("*", idf("$$lf"), idf("$$sf"), floatType), floatType),
+                    floatType),
+            });
+            auto chroma = makeLet(std::move(qBinding), std::move(pLet), colorType);
+
+            auto body = ifExpr(
+                binary("==", idf("$$sf"), f(0.0), boolType),
+                std::move(grayBody),
+                std::move(chroma),
+                colorType);
+            std::vector<NAst::TLetExpr::TBinding> derivedBindings;
+            derivedBindings.push_back({ .Name = "$$hf", .Value = binary("/", idi("$$h"), f(360.0), floatType) });
+            derivedBindings.push_back({ .Name = "$$sf", .Value = binary("/", idi("$$s"), f(100.0), floatType) });
+            derivedBindings.push_back({ .Name = "$$lf", .Value = binary("/", idi("$$l"), f(100.0), floatType) });
+            auto derived = makeLet(std::move(derivedBindings), std::move(body), colorType);
+            return makeLet(std::move(bindings), std::move(derived), colorType);
+        };
     };
 
     auto decomposeRgbTempId = std::make_shared<size_t>(0);
@@ -275,42 +455,30 @@ ColorsModule::ColorsModule() {
         {
             .Name = "CMYK",
             .MangledName = "color_cmyk",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t,int64_t,int64_t,int64_t)>(color_cmyk)),
-            .Packed = +[](const uint64_t* args, size_t) -> uint64_t {
-                return static_cast<uint64_t>(color_cmyk(args[0], args[1], args[2], args[3]));
-            },
             .ArgTypes = { integerType, integerType, integerType, integerType },
             .ReturnType = colorType,
+            .Inline = inlineCmyk(false),
         },
         {
             .Name = "CMYKA",
             .MangledName = "color_cmyka",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t,int64_t,int64_t,int64_t,int64_t)>(color_cmyka)),
-            .Packed = +[](const uint64_t* args, size_t) -> uint64_t {
-                return static_cast<uint64_t>(color_cmyka(args[0], args[1], args[2], args[3], args[4]));
-            },
             .ArgTypes = { integerType, integerType, integerType, integerType, integerType },
             .ReturnType = colorType,
+            .Inline = inlineCmyk(true),
         },
         {
             .Name = "HSL",
             .MangledName = "color_hsl",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t,int64_t,int64_t)>(color_hsl)),
-            .Packed = +[](const uint64_t* args, size_t) -> uint64_t {
-                return static_cast<uint64_t>(color_hsl(args[0], args[1], args[2]));
-            },
             .ArgTypes = { integerType, integerType, integerType },
             .ReturnType = colorType,
+            .Inline = inlineHsl(false),
         },
         {
             .Name = "HSLA",
             .MangledName = "color_hsla",
-            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)(int64_t,int64_t,int64_t,int64_t)>(color_hsla)),
-            .Packed = +[](const uint64_t* args, size_t) -> uint64_t {
-                return static_cast<uint64_t>(color_hsla(args[0], args[1], args[2], args[3]));
-            },
             .ArgTypes = { integerType, integerType, integerType, integerType },
             .ReturnType = colorType,
+            .Inline = inlineHsl(true),
         },
         {
             .Name = "HSV",

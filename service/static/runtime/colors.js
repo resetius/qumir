@@ -22,22 +22,6 @@ function packARGB(a, r, g, b) {
          (BigInt(g & 0xFF) <<  8n) |  BigInt(b & 0xFF);
 }
 
-function hueToRGB(p, q, t) {
-  if (t < 0) t += 1; if (t > 1) t -= 1;
-  if (t < 1/6) return p + (q - p) * 6 * t;
-  if (t < 1/2) return q;
-  if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-  return p;
-}
-
-function hslToRGB(h, s, l) {
-  const hf = h/360, sf = s/100, lf = l/100;
-  if (sf === 0) { const v = Math.round(lf*255); return [v,v,v]; }
-  const q = lf < 0.5 ? lf*(1+sf) : lf+sf-lf*sf;
-  const p = 2*lf - q;
-  return [Math.round(hueToRGB(p,q,hf+1/3)*255), Math.round(hueToRGB(p,q,hf)*255), Math.round(hueToRGB(p,q,hf-1/3)*255)];
-}
-
 function hsvToRGB(h, s, v) {
   const hf = h/60, sf = s/100, vf = v/100;
   const i = Math.floor(hf) % 6;
@@ -46,11 +30,6 @@ function hsvToRGB(h, s, v) {
   const cases = [[vf,t,p],[q,vf,p],[p,vf,t],[p,q,vf],[t,p,vf],[vf,p,q]];
   const [r,g,b] = cases[i] || cases[0];
   return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
-}
-
-function cmykToRGB(c, m, y, k) {
-  const cf=c/100, mf=m/100, yf=y/100, kf=k/100;
-  return [Math.round((1-cf)*(1-kf)*255), Math.round((1-mf)*(1-kf)*255), Math.round((1-yf)*(1-kf)*255)];
 }
 
 // Exported utility for painter.js and drawer.js
@@ -65,12 +44,8 @@ export function argbToStyle(color) {
 
 // ── Color constructors ────────────────────────────────────────────────────────
 
-export function color_hsl(h, s, l)       { const [r,g,b] = hslToRGB(Number(h),Number(s),Number(l)); return packARGB(255,r,g,b); }
-export function color_hsla(h, s, l, a)   { const [r,g,b] = hslToRGB(Number(h),Number(s),Number(l)); return packARGB(Number(a),r,g,b); }
 export function color_hsv(h, s, v)       { const [r,g,b] = hsvToRGB(Number(h),Number(s),Number(v)); return packARGB(255,r,g,b); }
 export function color_hsva(h, s, v, a)   { const [r,g,b] = hsvToRGB(Number(h),Number(s),Number(v)); return packARGB(Number(a),r,g,b); }
-export function color_cmyk(c, m, y, k)   { const [r,g,b] = cmykToRGB(Number(c),Number(m),Number(y),Number(k)); return packARGB(255,r,g,b); }
-export function color_cmyka(c,m,y,k,a)   { const [r,g,b] = cmykToRGB(Number(c),Number(m),Number(y),Number(k)); return packARGB(Number(a),r,g,b); }
 
 // ── Color decomposition ───────────────────────────────────────────────────────
 

@@ -364,6 +364,11 @@ struct TIfExpr : TExpr {
 struct TLetExpr : TExpr {
     // Expression form of hidden local bindings: works like Var/Assign prelude,
     // but can be used inside another expression and returns Body's value.
+    // Current limitation: bindings are not a sequential let* contract; binding
+    // values should not depend on sibling bindings. Put dependent temporaries in
+    // nested TLetExpr bodies instead.
+    // TODO: either enforce this restriction in name resolution with a clear
+    // diagnostic, or define and implement sequential binding semantics.
     struct TBinding {
         std::string Name;
         TExprPtr Value;
