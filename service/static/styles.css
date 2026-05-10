@@ -86,10 +86,12 @@ section.io { display: flex; flex-direction: column; gap: 6px; padding: 0; flex: 
 section.io .pane-title { border-radius: 4px 4px 0 0; }
 .io-toolbar { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #bbb; }
 .io-toolbar label { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; color: #888; }
-.io-toolbar select { min-width: 140px; }
-.io-select-wrapper { position: relative; display: inline-block; }
-.errors-badge { position: absolute; top: -7px; right: -7px; background: #e53935; color: #fff; border-radius: 50%; width: 16px; height: 16px; font-size: 11px; font-weight: bold; line-height: 16px; text-align: center; pointer-events: none; z-index: 10; }
-.io-select-wrapper.errors-active select { border-color: #e53935; box-shadow: 0 0 0 2px rgba(229,57,53,0.30); }
+.io-tabs { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 1 1 auto; overflow-x: auto; scrollbar-width: thin; }
+.io-tab { position: relative; flex: 0 0 auto; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #252525; color: #ccc; border: 1px solid #3a3a3a; border-bottom-color: #555; border-radius: 4px 4px 0 0; padding: 5px 10px; font-size: 12px; line-height: 16px; }
+.io-tab:hover { filter: none; background: #303030; }
+.io-tab.active { background: #0e639c; color: #fff; border-color: #1479bd; }
+.io-tab-badge { display: inline-flex; align-items: center; justify-content: center; margin-left: 6px; background: #e53935; color: #fff; border-radius: 50%; width: 15px; height: 15px; font-size: 10px; font-weight: bold; line-height: 15px; vertical-align: 1px; }
+.io-select-compat { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; border: 0 !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; clip-path: inset(50%) !important; white-space: nowrap !important; }
 .io-toolbar-separator { width: 1px; height: 18px; background: #333; margin: 0 4px; }
 .io-pane-container { border: 1px solid #333; border-radius: 4px; background: #1b1b1b; min-height: 0; height: auto; max-height: none; flex: 1 1 auto; overflow: hidden; display: flex; flex-direction: column; }
 .io-pane { display: none; height: 100%; flex: 1 1 auto; min-height: 0; }

@@ -27,6 +27,7 @@ let __ioBound = false;
 const IO_PANE_COOKIE = 'q_io_pane';
 let __ioFiles = [];
 let __ioSelectEl = null;
+let __ioTabsEl = null;
 let __ioFilesRoot = null;
 let __currentIoPane = 'errors';
 let __errorsHasBadge = false;
@@ -738,7 +739,7 @@ function ensureRuntimeFileManager(ioRuntime) {
 }
 
 function refreshIoSelectOptions() {
-  if (!__ioSelectEl) return;
+  if (!__ioSelectEl && !__ioTabsEl) return;
   const fragment = document.createDocumentFragment();
   const addOption = (value, label) => {
     const opt = document.createElement('option');
@@ -753,22 +754,61 @@ function refreshIoSelectOptions() {
     const label = file.name && file.name.trim() ? file.name.trim() : 'untitled';
     addOption(file.id, label);
   });
-  __ioSelectEl.replaceChildren(fragment);
   const knownIds = new Set(['stdout', 'stdin', 'errors', ...__ioFiles.map(f => f.id)]);
   const target = knownIds.has(__currentIoPane) ? __currentIoPane : 'errors';
-  __ioSelectEl.value = target;
+  if (__ioSelectEl) {
+    __ioSelectEl.replaceChildren(fragment);
+    __ioSelectEl.value = target;
+  }
+  refreshIoTabs(target);
+}
+
+function refreshIoTabs(activeId = __currentIoPane) {
+  if (!__ioTabsEl) return;
+  const fragment = document.createDocumentFragment();
+  const tabs = [
+    { id: 'stdout', label: 'Вывод' },
+    { id: 'stdin', label: 'Ввод' },
+    { id: 'errors', label: 'Ошибки', hasBadge: __errorsHasBadge },
+    ...__ioFiles.map(file => ({
+      id: file.id,
+      label: file.name && file.name.trim() ? file.name.trim() : 'untitled',
+    })),
+  ];
+  const knownIds = new Set(tabs.map(tab => tab.id));
+  const target = knownIds.has(activeId) ? activeId : 'errors';
+
+  tabs.forEach(tab => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'io-tab';
+    btn.dataset.ioTab = tab.id;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', tab.id === target ? 'true' : 'false');
+    btn.tabIndex = tab.id === target ? 0 : -1;
+    btn.textContent = tab.label;
+    if (tab.id === target) btn.classList.add('active');
+    if (tab.hasBadge) {
+      const badge = document.createElement('span');
+      badge.id = 'errors-badge';
+      badge.className = 'io-tab-badge';
+      badge.setAttribute('aria-label', 'Есть ошибки');
+      badge.textContent = '!';
+      btn.appendChild(badge);
+    }
+    fragment.appendChild(btn);
+  });
+
+  __ioTabsEl.replaceChildren(fragment);
 }
 
 function setErrorsBadge(show) {
   __errorsHasBadge = show;
-  const badge = document.getElementById('errors-badge');
-  if (badge) badge.style.display = show ? '' : 'none';
   if (__ioSelectEl) {
     const opt = __ioSelectEl.querySelector('option[value="errors"]');
     if (opt) opt.textContent = show ? '⚠ Ошибки' : 'Ошибки';
-    const wrapper = __ioSelectEl.closest('.io-select-wrapper');
-    if (wrapper) wrapper.classList.toggle('errors-active', show);
   }
+  refreshIoTabs();
 }
 
 function setActiveIoPane(candidate, { persistCookie = true } = {}) {
@@ -778,6 +818,14 @@ function setActiveIoPane(candidate, { persistCookie = true } = {}) {
   if (target === 'errors') setErrorsBadge(false);
   if (__ioSelectEl && __ioSelectEl.value !== target) {
     __ioSelectEl.value = target;
+  }
+  if (__ioTabsEl) {
+    __ioTabsEl.querySelectorAll('.io-tab').forEach(tab => {
+      const active = tab.dataset.ioTab === target;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.tabIndex = active ? 0 : -1;
+    });
   }
   document.querySelectorAll('.io-pane').forEach(node => {
     node.classList.toggle('active', node.dataset.ioPane === target);
@@ -876,14 +924,39 @@ function removeIoFile(fileId) {
 
 function initIoWorkspace() {
   __ioSelectEl = document.getElementById('io-select');
+  __ioTabsEl = document.getElementById('io-tabs');
   __ioFilesRoot = document.getElementById('io-files');
   const addBtn = document.getElementById('io-add-file');
-  if (!__ioSelectEl || !__ioFilesRoot || !addBtn) return;
+  if (!__ioFilesRoot || !addBtn) return;
 
   // IO files are restored from the active project in applyProjectToInputs().
   refreshIoSelectOptions();
 
-  __ioSelectEl.addEventListener('change', () => setActiveIoPane(__ioSelectEl.value));
+  if (__ioSelectEl) {
+    __ioSelectEl.addEventListener('change', () => setActiveIoPane(__ioSelectEl.value));
+  }
+  if (__ioTabsEl) {
+    __ioTabsEl.addEventListener('click', (event) => {
+      const tab = event.target.closest('.io-tab');
+      if (!tab || !__ioTabsEl.contains(tab)) return;
+      setActiveIoPane(tab.dataset.ioTab);
+    });
+    __ioTabsEl.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      const tabs = Array.from(__ioTabsEl.querySelectorAll('.io-tab'));
+      if (tabs.length === 0) return;
+      const currentIndex = Math.max(0, tabs.findIndex(tab => tab.dataset.ioTab === __currentIoPane));
+      let nextIndex = currentIndex;
+      if (event.key === 'ArrowLeft') nextIndex = (currentIndex + tabs.length - 1) % tabs.length;
+      if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length;
+      if (event.key === 'Home') nextIndex = 0;
+      if (event.key === 'End') nextIndex = tabs.length - 1;
+      event.preventDefault();
+      const next = tabs[nextIndex];
+      setActiveIoPane(next.dataset.ioTab);
+      next.focus();
+    });
+  }
 
   addBtn.addEventListener('click', () => {
     const newFile = {

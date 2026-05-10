@@ -68,15 +68,12 @@
     <section class="io">
       <div class="pane-title" id="title-io">Ввод/Вывод</div>
       <div class="io-toolbar">
-        <label for="io-select">Просмотр:</label>
-        <span class="io-select-wrapper">
-          <select id="io-select" data-tooltip="Переключение между выводом, вводом и файлами">
-            <option value="stdout">Вывод</option>
-            <option value="stdin">Ввод</option>
-          </select>
-          <span id="errors-badge" class="errors-badge" style="display:none" aria-label="Есть ошибки">!</span>
-        </span>
-          <button id="io-add-file" class="io-icon" data-tooltip="Добавить файл">＋</button>
+        <div id="io-tabs" class="io-tabs" role="tablist" aria-label="Ввод/Вывод"></div>
+        <select id="io-select" class="io-select-compat" aria-hidden="true" tabindex="-1">
+          <option value="stdout">Вывод</option>
+          <option value="stdin">Ввод</option>
+        </select>
+        <button id="io-add-file" class="io-icon" data-tooltip="Добавить файл">＋</button>
           <span class="io-toolbar-separator"></span>
           <label for="args">Аргументы:</label>
           <input id="args" type="text" placeholder="например: 1, 2.5, да, нет" data-tooltip="Параметры, которые программа получит при запуске" />
