@@ -50,23 +50,44 @@
   <div id="workspace" class="workspace">
     <div class="workspace-main-row">
       <main>
-        <section class="pane left">
-          <div class="pane-title" id="title-code">Редактор</div>
+        <section class="pane left" data-pane-id="code">
+          <div class="pane-title" id="title-code">
+            <span class="pane-title-label">Редактор</span>
+            <span class="pane-title-actions">
+              <button class="pane-title-btn" type="button" data-pane-action="fullscreen" data-pane-target="code" data-tooltip="Во весь экран" aria-label="Во весь экран">⛶</button>
+              <button class="pane-title-btn" type="button" data-pane-action="collapse" data-pane-target="code" data-tooltip="Свернуть панель" aria-label="Свернуть панель">▾</button>
+              <button class="pane-title-btn" type="button" data-pane-action="reset" data-pane-target="code" data-tooltip="Сбросить размер" aria-label="Сбросить размер">↺</button>
+            </span>
+          </div>
           <textarea id="code" spellcheck="false"></textarea>
           <div id="status" class="status"></div>
         </section>
         <div id="output-anchor"></div>
         <div id="splitter-editor-output" class="splitter splitter-vertical" role="separator" aria-orientation="vertical" aria-label="Размер редактора и вывода"></div>
-        <section class="pane right dev-only">
-          <div class="pane-title" id="title-output">Компилятор</div>
+        <section class="pane right dev-only" data-pane-id="output">
+          <div class="pane-title" id="title-output">
+            <span class="pane-title-label">Компилятор</span>
+            <span class="pane-title-actions">
+              <button class="pane-title-btn" type="button" data-pane-action="fullscreen" data-pane-target="output" data-tooltip="Во весь экран" aria-label="Во весь экран">⛶</button>
+              <button class="pane-title-btn" type="button" data-pane-action="collapse" data-pane-target="output" data-tooltip="Свернуть панель" aria-label="Свернуть панель">▾</button>
+              <button class="pane-title-btn" type="button" data-pane-action="reset" data-pane-target="output" data-tooltip="Сбросить размер" aria-label="Сбросить размер">↺</button>
+            </span>
+          </div>
           <div id="view-slot" class="view-slot"></div>
           <pre id="output" class="scroll"></pre>
         </section>
       </main>
     </div>
     <div id="splitter-main-io" class="splitter splitter-horizontal" role="separator" aria-orientation="horizontal" aria-label="Размер рабочей зоны и ввода/вывода"></div>
-    <section class="io">
-      <div class="pane-title" id="title-io">Ввод/Вывод</div>
+    <section class="io" data-pane-id="io">
+      <div class="pane-title" id="title-io">
+        <span class="pane-title-label">Ввод/Вывод</span>
+        <span class="pane-title-actions">
+          <button class="pane-title-btn" type="button" data-pane-action="fullscreen" data-pane-target="io" data-tooltip="Во весь экран" aria-label="Во весь экран">⛶</button>
+          <button class="pane-title-btn" type="button" data-pane-action="collapse" data-pane-target="io" data-tooltip="Свернуть панель" aria-label="Свернуть панель">▾</button>
+          <button class="pane-title-btn" type="button" data-pane-action="reset" data-pane-target="io" data-tooltip="Сбросить размер" aria-label="Сбросить размер">↺</button>
+        </span>
+      </div>
       <div class="io-toolbar">
         <div id="io-tabs" class="io-tabs" role="tablist" aria-label="Ввод/Вывод"></div>
         <select id="io-select" class="io-select-compat" aria-hidden="true" tabindex="-1">

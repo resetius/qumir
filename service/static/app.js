@@ -216,7 +216,8 @@ function captureCurrentEditorState() {
   return {
     code: getCode(),
     args: argsEl ? argsEl.value : '',
-    stdin: stdinEl ? stdinEl.value : ''
+    stdin: stdinEl ? stdinEl.value : '',
+    files: __ioFiles.map((file, idx) => normalizeIoFile(file, idx)).filter(Boolean),
   };
 }
 
@@ -224,19 +225,22 @@ function updateActiveProjectFromInputs() {
   const project = getActiveProject();
   if (!project) return;
   const snapshot = captureCurrentEditorState();
+  const prevFiles = JSON.stringify(Array.isArray(project.files) ? project.files : []);
+  const nextFiles = JSON.stringify(snapshot.files);
   // console.log('[projects] updateActiveProjectFromInputs before', {
   //   id: project.id,
   //   name: project.name,
   //   prev: { code: project.code, args: project.args, stdin: project.stdin },
   //   next: snapshot
   // });
-  if (project.code === snapshot.code && project.args === snapshot.args && project.stdin === snapshot.stdin) {
+  if (project.code === snapshot.code && project.args === snapshot.args && project.stdin === snapshot.stdin && prevFiles === nextFiles) {
     // console.log('[projects] updateActiveProjectFromInputs: no changes, skip');
     return;
   }
   project.code = snapshot.code;
   project.args = snapshot.args;
   project.stdin = snapshot.stdin;
+  project.files = snapshot.files;
   project.updatedAt = Date.now();
   // console.log('[projects] updateActiveProjectFromInputs after', {
   //   id: project.id,
@@ -245,6 +249,10 @@ function updateActiveProjectFromInputs() {
   // });
   persistProjects();
   scheduleProjectsRender();
+}
+
+function persistIoFiles() {
+  updateActiveProjectFromInputs();
 }
 
 function applyProjectToInputs(project, { silent = false } = {}) {
@@ -720,6 +728,7 @@ function ensureRuntimeFileManager(ioRuntime) {
         // Create DOM pane for new file
         renderIoFilePane(file);
         refreshIoSelectOptions();
+        persistIoFiles();
         // Show the new file pane
         setActiveIoPane(file.id);
       },
@@ -731,6 +740,7 @@ function ensureRuntimeFileManager(ioRuntime) {
           if (file.elements && file.elements.editor) {
             file.elements.editor.value = content;
           }
+          persistIoFiles();
         }
       }
     });
@@ -902,6 +912,7 @@ function renderIoFilePane(file) {
 
   editor.addEventListener('input', () => {
     file.content = editor.value;
+    persistIoFiles();
     // If this is a .fil file and robot view is active, update the field preview
     if (file.name && file.name.toLowerCase().endsWith('.fil')) {
       tryUpdateRobotFieldPreview();
@@ -920,6 +931,7 @@ function removeIoFile(fileId) {
     setActiveIoPane('stdout');
   }
   refreshIoSelectOptions();
+  persistIoFiles();
 }
 
 function initIoWorkspace() {
@@ -968,6 +980,7 @@ function initIoWorkspace() {
     renderIoFilePane(newFile);
     refreshIoSelectOptions();
     setActiveIoPane(newFile.id);
+    persistIoFiles();
     if (newFile.elements && newFile.elements.nameInput) {
       newFile.elements.nameInput.focus();
       newFile.elements.nameInput.select();
@@ -2964,6 +2977,87 @@ function setupWorkspaceSplitters() {
   setTimeout(refreshWorkspaceLayout, 0);
 }
 
+function resetWorkspaceSplit(storageKey, vars) {
+  const workspace = document.getElementById('workspace');
+  try { localStorage.removeItem(storageKey); } catch {}
+  if (workspace) {
+    vars.forEach(name => workspace.style.removeProperty(name));
+  }
+  refreshWorkspaceLayout();
+}
+
+const PANE_COLLAPSE_STORAGE_KEY = 'q_workspace_collapsed_panes';
+
+function getPaneById(id) {
+  return document.querySelector(`[data-pane-id="${id}"]`);
+}
+
+function readCollapsedPanes() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PANE_COLLAPSE_STORAGE_KEY) || '[]');
+    return new Set(Array.isArray(saved) ? saved : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeCollapsedPanes(collapsed) {
+  try { localStorage.setItem(PANE_COLLAPSE_STORAGE_KEY, JSON.stringify(Array.from(collapsed))); } catch {}
+}
+
+function updatePaneCollapseButton(id, collapsed) {
+  const btn = document.querySelector(`.pane-title-btn[data-pane-action="collapse"][data-pane-target="${id}"]`);
+  if (!btn) return;
+  btn.textContent = collapsed ? '▸' : '▾';
+  btn.setAttribute('aria-label', collapsed ? 'Развернуть панель' : 'Свернуть панель');
+  btn.setAttribute('data-tooltip', collapsed ? 'Развернуть панель' : 'Свернуть панель');
+  btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+}
+
+function setPaneCollapsed(id, collapsed, { persist = true } = {}) {
+  const pane = getPaneById(id);
+  if (!pane) return;
+  pane.classList.toggle('collapsed', collapsed);
+  updatePaneCollapseButton(id, collapsed);
+  if (persist) {
+    const saved = readCollapsedPanes();
+    if (collapsed) saved.add(id); else saved.delete(id);
+    writeCollapsedPanes(saved);
+  }
+  refreshWorkspaceLayout();
+}
+
+function resetPaneSize(id) {
+  if (id === 'io') {
+    resetWorkspaceSplit('q_workspace_main_io_split', ['--workspace-main-fr', '--workspace-io-fr']);
+  } else if (id === 'code' || id === 'output') {
+    resetWorkspaceSplit('q_workspace_editor_output_split', ['--workspace-left-fr', '--workspace-right-fr']);
+  }
+}
+
+function setupPaneHeaderControls() {
+  const saved = readCollapsedPanes();
+  ['code', 'output', 'io'].forEach(id => setPaneCollapsed(id, saved.has(id), { persist: false }));
+
+  document.querySelectorAll('.pane-title-btn').forEach(btn => {
+    btn.addEventListener('mousedown', event => event.stopPropagation());
+    btn.addEventListener('click', event => {
+      const action = btn.dataset.paneAction;
+      const target = btn.dataset.paneTarget;
+      if (action !== 'fullscreen') {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (action === 'collapse') {
+        const pane = getPaneById(target);
+        setPaneCollapsed(target, !(pane && pane.classList.contains('collapsed')));
+      } else if (action === 'reset') {
+        resetPaneSize(target);
+      }
+    });
+  });
+}
+
 // Diagnostic check for critical elements
 (() => {
   const critical = ['code', 'args', 'stdin', 'stdout', 'view', 'opt', 'btn-run', 'examples'];
@@ -3018,6 +3112,7 @@ initProjectsUI();
 // Initialize editor (assets are loaded via HTML)
 initEditor();
 setupWorkspaceSplitters();
+setupPaneHeaderControls();
 
 // Relocate the compiler view selector above the Output on mobile
 (function relocateViewSelector(){
@@ -3411,6 +3506,7 @@ ${indent}знач := a
   if (fsClose) {
     attachTooltip(fsClose, { placeAbove: true });
   }
+  document.querySelectorAll('.pane-title-btn').forEach(btn => attachTooltip(btn));
 })();
 
 // Bug report button copies diagnostics to clipboard and opens GitHub issues
@@ -3639,7 +3735,8 @@ $('#btn-run').addEventListener('click', async () => {
   const titleOutput = document.getElementById('title-output');
   if (compOutEl && titleOutput) {
     titleOutput.addEventListener('mousedown', e => e.preventDefault());
-    titleOutput.addEventListener('click', () => {
+    titleOutput.addEventListener('click', (e) => {
+      if (e.target.closest('.pane-title-btn')) return;
       const node = getCurrentCompilerOutputNode();
       open('Компилятор', node);
     });
@@ -3647,7 +3744,8 @@ $('#btn-run').addEventListener('click', async () => {
   const titleIo = document.getElementById('title-io');
   if (titleIo) {
     titleIo.addEventListener('mousedown', e => e.preventDefault());
-    titleIo.addEventListener('click', () => {
+    titleIo.addEventListener('click', (e) => {
+      if (e.target.closest('.pane-title-btn')) return;
       const node = getCurrentIoPaneNode();
       if (node) open(`Ввод/Вывод • ${getCurrentIoPaneLabel()}`, node);
     });
@@ -3655,12 +3753,29 @@ $('#btn-run').addEventListener('click', async () => {
   const titleCode = document.getElementById('title-code');
   if (titleCode) {
     titleCode.addEventListener('mousedown', e => e.preventDefault());
-    titleCode.addEventListener('click', () => {
+    titleCode.addEventListener('click', (e) => {
+      if (e.target.closest('.pane-title-btn')) return;
       // Move the CodeMirror wrapper if exists, otherwise textarea
       const cm = editor && editor.getWrapperElement ? editor.getWrapperElement() : null;
       if (cm) open('Код', cm); else open('Код', document.getElementById('code'));
     });
   }
+  document.querySelectorAll('.pane-title-btn[data-pane-action="fullscreen"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const target = btn.dataset.paneTarget;
+      if (target === 'code') {
+        const cm = editor && editor.getWrapperElement ? editor.getWrapperElement() : null;
+        open('Код', cm || document.getElementById('code'));
+      } else if (target === 'output') {
+        open('Компилятор', getCurrentCompilerOutputNode());
+      } else if (target === 'io') {
+        const node = getCurrentIoPaneNode();
+        if (node) open(`Ввод/Вывод • ${getCurrentIoPaneLabel()}`, node);
+      }
+    });
+  });
 })();
 
 // Toast helper
