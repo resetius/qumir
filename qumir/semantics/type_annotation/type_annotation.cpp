@@ -229,6 +229,26 @@ TTypePtr CommonNumericType(TTypePtr a, TTypePtr b) {
     return {};
 }
 
+TTypePtr CommonValueType(TTypePtr a, TTypePtr b, NSemantics::TNameResolver& ctx) {
+    if (EqualTypes(a, b)) {
+        return a;
+    }
+
+    if (auto numeric = CommonNumericType(a, b)) {
+        return numeric;
+    }
+
+    if (CanImplicit(a, b, &ctx)) {
+        return b;
+    }
+
+    if (CanImplicit(b, a, &ctx)) {
+        return a;
+    }
+
+    return {};
+}
+
 TExprPtr AnnotateNumber(std::shared_ptr<TNumberExpr> num) {
     if (num->Type && TMaybeType<TNamedType>(num->Type)) {
         return num;
@@ -717,6 +737,55 @@ TTask AnnotateIf(std::shared_ptr<TIfStmt> ifExpr, NSemantics::TNameResolver& con
     co_return ifExpr;
 }
 
+TTask AnnotateIfExpr(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    ifExpr->Cond = co_await DoAnnotate(ifExpr->Cond, context, scopeId);
+    if (!ifExpr->Cond->Type) {
+        co_return TError(ifExpr->Cond->Location, "Условие в if-expression не имеет типа.");
+    }
+
+    auto boolT = std::make_shared<TBoolType>();
+    auto condType = UnwrapReferenceType(ifExpr->Cond->Type);
+    if (!EqualTypes(condType, boolT)) {
+        if (!CanImplicit(condType, boolT, &context)) {
+            co_return TError(ifExpr->Cond->Location, "Условие в if-expression должно иметь логический тип или приводиться к нему.");
+        }
+        ifExpr->Cond = InsertImplicitCastIfNeeded(ifExpr->Cond, boolT, &context);
+    }
+
+    if (!ifExpr->Then || !ifExpr->Else) {
+        co_return TError(ifExpr->Location, "if-expression должен иметь обе ветви: then и else.");
+    }
+
+    ifExpr->Then = co_await DoAnnotate(ifExpr->Then, context, scopeId);
+    if (!ifExpr->Then->Type) {
+        co_return TError(ifExpr->Then->Location, "Ветвь then в if-expression не имеет типа.");
+    }
+
+    ifExpr->Else = co_await DoAnnotate(ifExpr->Else, context, scopeId);
+    if (!ifExpr->Else->Type) {
+        co_return TError(ifExpr->Else->Location, "Ветвь else в if-expression не имеет типа.");
+    }
+
+    auto thenType = UnwrapReferenceType(ifExpr->Then->Type);
+    auto elseType = UnwrapReferenceType(ifExpr->Else->Type);
+    if (TMaybeType<TVoidType>(thenType) || TMaybeType<TVoidType>(elseType)) {
+        co_return TError(ifExpr->Location, "Ветви if-expression должны возвращать значение.");
+    }
+
+    auto common = CommonValueType(thenType, elseType, context);
+    if (!common) {
+        co_return TError(ifExpr->Location,
+            "Типы ветвей if-expression несовместимы: '" + std::string(thenType->TypeName()) +
+            "' и '" + std::string(elseType->TypeName()) + "'.");
+    }
+
+    ifExpr->Then = InsertImplicitCastIfNeeded(ifExpr->Then, common, &context);
+    ifExpr->Else = InsertImplicitCastIfNeeded(ifExpr->Else, common, &context);
+    ifExpr->Type = common;
+
+    co_return ifExpr;
+}
+
 TTask AnnotateLoop(std::shared_ptr<TLoopStmtExpr> loop, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     loop->Type = std::make_shared<TVoidType>();
 
@@ -942,6 +1011,8 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         co_return co_await AnnotateCall(maybeCall.Cast(), context, scopeId);
     } else if (auto maybeIf = TMaybeNode<TIfStmt>(expr)) {
         co_return co_await AnnotateIf(maybeIf.Cast(), context, scopeId);
+    } else if (auto maybeIf = TMaybeNode<TIfExpr>(expr)) {
+        co_return co_await AnnotateIfExpr(maybeIf.Cast(), context, scopeId);
     } else if (auto maybeIndex = TMaybeNode<TIndexExpr>(expr)) {
         co_return co_await AnnotateIndex(maybeIndex.Cast(), context, scopeId);
     } else if (auto maybeSlice = TMaybeNode<TSliceExpr>(expr)) {

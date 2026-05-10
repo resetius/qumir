@@ -335,6 +335,32 @@ struct TIfStmt : TExpr {
     }
 };
 
+struct TIfExpr : TExpr {
+    static constexpr const char* NodeId = "IfExpr";
+
+    TExprPtr Cond;
+    TExprPtr Then;
+    TExprPtr Else;
+    TIfExpr(TLocation loc, TExprPtr c, TExprPtr t, TExprPtr e)
+        : TExpr(std::move(loc))
+        , Cond(std::move(c))
+        , Then(std::move(t))
+        , Else(std::move(e))
+    { }
+
+    std::vector<TExprPtr> Children() const override {
+        return { Cond, Then, Else };
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        return { &Cond, &Then, &Else };
+    }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+};
+
 struct TLoopStmtExpr : TExpr {
     static constexpr const char* NodeId = "Loop";
 

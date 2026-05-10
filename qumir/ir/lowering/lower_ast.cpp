@@ -446,6 +446,54 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
                 }
         }
+    } else if (auto maybeIfExpr = NAst::TMaybeNode<NAst::TIfExpr>(expr)) {
+        auto ife = maybeIfExpr.Cast();
+        auto cond = co_await Lower(ife->Cond, scope);
+        if (!cond.Value) co_return TError(ife->Cond->Location, TErrorString::Get<EErrorId::IF_CONDITION_NOT_NUMBER>());
+
+        auto entryId = Builder.CurrentBlockIdx();
+        auto [thenLabel, thenId] = Builder.NewBlock();
+        auto [elseLabel, elseId] = Builder.NewBlock();
+        auto endLabel = Builder.NewLabel();
+
+        Builder.SetCurrentBlock(entryId);
+        Builder.Emit0("cmp"_op, {*cond.Value, thenLabel, elseLabel});
+
+        Builder.SetCurrentBlock(thenId);
+        auto thenRes = co_await Lower(ife->Then, scope);
+        if (!thenRes.Value) {
+            co_return TError(ife->Then->Location, "Ветвь then в if-expression не возвращает значение");
+        }
+        Builder.SetCurrentBlock(thenRes.ProducingLabel);
+        if (Builder.IsCurrentBlockTerminated()) {
+            co_return TError(ife->Then->Location, "Ветвь then в if-expression не должна завершать управление до merge-блока");
+        }
+        Builder.Emit0("jmp"_op, {endLabel});
+        auto thenEdgeLabel = Builder.CurrentBlockLabel();
+
+        Builder.SetCurrentBlock(elseId);
+        auto elseRes = co_await Lower(ife->Else, scope);
+        if (!elseRes.Value) {
+            co_return TError(ife->Else->Location, "Ветвь else в if-expression не возвращает значение");
+        }
+        Builder.SetCurrentBlock(elseRes.ProducingLabel);
+        if (Builder.IsCurrentBlockTerminated()) {
+            co_return TError(ife->Else->Location, "Ветвь else в if-expression не должна завершать управление до merge-блока");
+        }
+        Builder.Emit0("jmp"_op, {endLabel});
+        auto elseEdgeLabel = Builder.CurrentBlockLabel();
+
+        Builder.NewBlock(endLabel);
+        auto res = Builder.Emit1("phi"_op, {*thenRes.Value, thenEdgeLabel, *elseRes.Value, elseEdgeLabel});
+        Builder.SetType(res, FromAstType(expr->Type, Module.Types));
+        if (thenRes.Value->Type == TOperand::EType::Tmp) {
+            Builder.UnifyTypes(res, thenRes.Value->Tmp);
+        }
+        if (elseRes.Value->Type == TOperand::EType::Tmp) {
+            Builder.UnifyTypes(res, elseRes.Value->Tmp);
+        }
+        co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
+
     } else if (auto maybeIfe = NAst::TMaybeNode<NAst::TIfStmt>(expr)) {
         // If is a statement in this language: no result value, no phi merge.
         auto ife = maybeIfe.Cast();
