@@ -3259,7 +3259,9 @@ ${indent}знач := a
 // JS-driven tooltip (more reliable across browsers)
 (() => {
   let tipEl = null;
+  const canHoverTooltip = () => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   function showTip(target, { placeAbove = false } = {}) {
+    if (!canHoverTooltip()) return;
     const msg = target.getAttribute('data-tooltip');
     if (!msg) return;
     if (!tipEl) {
@@ -3287,59 +3289,54 @@ ${indent}знач := a
   function hideTip() {
     if (tipEl) tipEl.style.display = 'none';
   }
+  function attachTooltip(el, options = {}) {
+    el.addEventListener('mouseenter', () => showTip(el, options));
+    el.addEventListener('mouseleave', hideTip);
+    el.addEventListener('focus', () => showTip(el, options));
+    el.addEventListener('blur', hideTip);
+    el.addEventListener('pointerdown', (event) => {
+      if (event.pointerType !== 'mouse') hideTip();
+    });
+    el.addEventListener('click', hideTip);
+  }
+  document.addEventListener('touchstart', hideTip, { passive: true, capture: true });
+  document.addEventListener('scroll', hideTip, { passive: true, capture: true });
+  window.addEventListener('blur', hideTip);
   // Attach default (below) tooltips to snippet buttons
   ['while','for','if','switch','func','decl'].forEach(k => {
     const btn = document.getElementById(`btn-snippet-${k}`);
     if (!btn) return;
-    btn.addEventListener('mouseenter', () => showTip(btn));
-    btn.addEventListener('mouseleave', hideTip);
-    btn.addEventListener('focus', () => showTip(btn));
-    btn.addEventListener('blur', hideTip);
+    attachTooltip(btn);
   });
   // Attach "above" tooltip only to the bug icon link in the footer
   const bugLink = document.querySelector('footer a[data-tooltip]');
   const bugBtn = document.getElementById('bug-report-btn');
   const bugTarget = bugBtn || bugLink;
   if (bugTarget) {
-    bugTarget.addEventListener('mouseenter', () => showTip(bugTarget, { placeAbove: true }));
-    bugTarget.addEventListener('mouseleave', hideTip);
-    bugTarget.addEventListener('focus', () => showTip(bugTarget, { placeAbove: true }));
-    bugTarget.addEventListener('blur', hideTip);
+    attachTooltip(bugTarget, { placeAbove: true });
   }
   // Attach "above" tooltips to docs, tour, and dev-mode buttons in footer
   ['docs-page-btn', 'tour-restart-btn', 'dev-mode-toggle'].forEach(id => {
     const btn = document.getElementById(id);
     if (!btn) return;
-    btn.addEventListener('mouseenter', () => showTip(btn, { placeAbove: true }));
-    btn.addEventListener('mouseleave', hideTip);
-    btn.addEventListener('focus', () => showTip(btn, { placeAbove: true }));
-    btn.addEventListener('blur', hideTip);
+    attachTooltip(btn, { placeAbove: true });
   });
   // Attach default (below) tooltips to header controls
   ['opt', 'examples', 'view', 'btn-share', 'btn-help'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener('mouseenter', () => showTip(el));
-    el.addEventListener('mouseleave', hideTip);
-    el.addEventListener('focus', () => showTip(el));
-    el.addEventListener('blur', hideTip);
+    attachTooltip(el);
   });
   // Attach default (below) tooltips to IO toolbar controls
   ['io-select', 'io-add-file', 'args', 'btn-run'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener('mouseenter', () => showTip(el));
-    el.addEventListener('mouseleave', hideTip);
-    el.addEventListener('focus', () => showTip(el));
-    el.addEventListener('blur', hideTip);
+    attachTooltip(el);
   });
   // Attach "above" tooltip to fullscreen close button
   const fsClose = document.getElementById('fs-close');
   if (fsClose) {
-    fsClose.addEventListener('mouseenter', () => showTip(fsClose, { placeAbove: true }));
-    fsClose.addEventListener('mouseleave', hideTip);
-    fsClose.addEventListener('focus', () => showTip(fsClose, { placeAbove: true }));
-    fsClose.addEventListener('blur', hideTip);
+    attachTooltip(fsClose, { placeAbove: true });
   }
 })();
 
