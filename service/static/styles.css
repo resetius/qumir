@@ -48,6 +48,7 @@ button.project-toggle:hover { background: #3a3a3a; }
 .controls { display: flex; gap: 8px; align-items: center; }
 .controls label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; user-select: none; }
 .controls label input[type="checkbox"] { cursor: pointer; width: 16px; height: 16px; }
+.controls .icon-control { width: 28px; height: 28px; padding: 0; line-height: 26px; text-align: center; }
 .workspace {
   --workspace-main-fr: 1fr;
   --workspace-io-fr: 240px;
@@ -184,6 +185,20 @@ section.io .pane-title { border-radius: 4px 4px 0 0; }
 .io-tab { position: relative; flex: 0 0 auto; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #252525; color: #ccc; border: 1px solid #3a3a3a; border-bottom-color: #555; border-radius: 4px 4px 0 0; padding: 5px 10px; font-size: 12px; line-height: 16px; }
 .io-tab:hover { filter: none; background: #303030; }
 .io-tab.active { background: #0e639c; color: #fff; border-color: #1479bd; }
+.io-tab[draggable="true"] { cursor: grab; }
+.io-tab.dragging { opacity: .55; cursor: grabbing; }
+.io-tab.drop-before::before,
+.io-tab.drop-after::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: #4fc3f7;
+}
+.io-tab.drop-before::before { left: -2px; }
+.io-tab.drop-after::after { right: -2px; }
 .io-tab-badge { display: inline-flex; align-items: center; justify-content: center; margin-left: 6px; background: #e53935; color: #fff; border-radius: 50%; width: 15px; height: 15px; font-size: 10px; font-weight: bold; line-height: 15px; vertical-align: 1px; }
 .io-select-compat { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; border: 0 !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; clip-path: inset(50%) !important; white-space: nowrap !important; }
 .io-toolbar-separator { width: 1px; height: 18px; background: #333; margin: 0 4px; }
@@ -399,8 +414,9 @@ body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 			.pane.right { min-height: 24vh; }
 			pre.scroll { max-height: 28vh; }
 
-	/* Wrap controls/buttons in header */
-	.controls { flex-wrap: wrap; row-gap: 6px; }
+		/* Wrap controls/buttons in header */
+		.controls { flex-wrap: wrap; row-gap: 6px; }
+		#btn-reset-layout { display: none; }
 	.toolbar { flex-wrap: wrap; gap: 6px; }
 		/* Hide snippet toolbar on mobile to reduce clutter */
 		.toolbar { display: none !important; }

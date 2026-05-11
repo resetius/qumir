@@ -783,6 +783,7 @@ function refreshIoTabs(activeId = __currentIoPane) {
     ...__ioFiles.map(file => ({
       id: file.id,
       label: file.name && file.name.trim() ? file.name.trim() : 'untitled',
+      fileTab: true,
     })),
   ];
   const knownIds = new Set(tabs.map(tab => tab.id));
@@ -793,6 +794,12 @@ function refreshIoTabs(activeId = __currentIoPane) {
     btn.type = 'button';
     btn.className = 'io-tab';
     btn.dataset.ioTab = tab.id;
+    if (tab.fileTab) {
+      btn.draggable = true;
+      btn.dataset.ioFileTab = 'true';
+      btn.setAttribute('aria-grabbed', 'false');
+      btn.setAttribute('data-tooltip', 'Перетащите, чтобы изменить порядок файлов');
+    }
     btn.setAttribute('role', 'tab');
     btn.setAttribute('aria-selected', tab.id === target ? 'true' : 'false');
     btn.tabIndex = tab.id === target ? 0 : -1;
@@ -934,6 +941,99 @@ function removeIoFile(fileId) {
   persistIoFiles();
 }
 
+function setupIoTabDragAndDrop() {
+  if (!__ioTabsEl) return;
+  let draggedFileId = null;
+
+  const clearDropState = () => {
+    __ioTabsEl.classList.remove('io-tabs-dragging');
+    __ioTabsEl.querySelectorAll('.io-tab').forEach(tab => {
+      tab.classList.remove('dragging', 'drop-before', 'drop-after');
+      if (tab.dataset.ioFileTab === 'true') tab.setAttribute('aria-grabbed', 'false');
+    });
+  };
+
+  const getFileTab = (event) => {
+    const tab = event.target.closest('.io-tab[data-io-file-tab="true"]');
+    return tab && __ioTabsEl.contains(tab) ? tab : null;
+  };
+
+  const getDropTarget = (event) => {
+    const tab = getFileTab(event);
+    if (!tab || !draggedFileId || tab.dataset.ioTab === draggedFileId) return null;
+    const rect = tab.getBoundingClientRect();
+    const after = event.clientX > rect.left + rect.width / 2;
+    return { tab, after };
+  };
+
+  const applyDropIndicator = (event) => {
+    __ioTabsEl.querySelectorAll('.io-tab.drop-before, .io-tab.drop-after').forEach(tab => {
+      tab.classList.remove('drop-before', 'drop-after');
+    });
+    const target = getDropTarget(event);
+    if (!target) return null;
+    target.tab.classList.add(target.after ? 'drop-after' : 'drop-before');
+    return target;
+  };
+
+  const moveIoFile = (sourceId, targetId, after) => {
+    const fromIndex = __ioFiles.findIndex(file => file.id === sourceId);
+    const targetIndex = __ioFiles.findIndex(file => file.id === targetId);
+    if (fromIndex === -1 || targetIndex === -1 || fromIndex === targetIndex) return;
+    const [file] = __ioFiles.splice(fromIndex, 1);
+    let insertIndex = __ioFiles.findIndex(item => item.id === targetId);
+    if (insertIndex === -1) {
+      __ioFiles.splice(fromIndex, 0, file);
+      return;
+    }
+    if (after) insertIndex += 1;
+    __ioFiles.splice(insertIndex, 0, file);
+    refreshIoSelectOptions();
+    setActiveIoPane(sourceId, { persistCookie: false });
+    persistIoFiles();
+  };
+
+  __ioTabsEl.addEventListener('dragstart', (event) => {
+    const tab = getFileTab(event);
+    if (!tab) return;
+    draggedFileId = tab.dataset.ioTab;
+    tab.classList.add('dragging');
+    tab.setAttribute('aria-grabbed', 'true');
+    __ioTabsEl.classList.add('io-tabs-dragging');
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', draggedFileId);
+    }
+  });
+
+  __ioTabsEl.addEventListener('dragover', (event) => {
+    if (!draggedFileId) return;
+    const target = applyDropIndicator(event);
+    if (!target) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  });
+
+  __ioTabsEl.addEventListener('dragleave', (event) => {
+    if (!draggedFileId || __ioTabsEl.contains(event.relatedTarget)) return;
+    clearDropState();
+  });
+
+  __ioTabsEl.addEventListener('drop', (event) => {
+    if (!draggedFileId) return;
+    const target = applyDropIndicator(event);
+    event.preventDefault();
+    if (target) moveIoFile(draggedFileId, target.tab.dataset.ioTab, target.after);
+    draggedFileId = null;
+    clearDropState();
+  });
+
+  __ioTabsEl.addEventListener('dragend', () => {
+    draggedFileId = null;
+    clearDropState();
+  });
+}
+
 function initIoWorkspace() {
   __ioSelectEl = document.getElementById('io-select');
   __ioTabsEl = document.getElementById('io-tabs');
@@ -968,6 +1068,7 @@ function initIoWorkspace() {
       setActiveIoPane(next.dataset.ioTab);
       next.focus();
     });
+    setupIoTabDragAndDrop();
   }
 
   addBtn.addEventListener('click', () => {
@@ -2795,6 +2896,58 @@ function refreshWorkspaceLayout() {
 
 const IO_DOCK_STORAGE_KEY = 'q_workspace_io_dock';
 const PREVIEW_DOCK_STORAGE_KEY = 'q_workspace_preview_dock_v2';
+const WORKSPACE_SPLIT_STORAGE_KEYS = [
+  'q_workspace_main_io_split_px',
+  'q_workspace_work_io_split_px',
+  'q_workspace_output_preview_split_v5_px',
+  'q_workspace_output_preview_split_bottom_px',
+  'q_workspace_editor_output_split_px',
+  'q_workspace_editor_output_preview_split_px',
+  'q_workspace_editor_preview_bottom_split_px',
+];
+const WORKSPACE_SIZE_VARS = [
+  '--workspace-main-fr',
+  '--workspace-io-fr',
+  '--workspace-work-fr',
+  '--workspace-side-fr',
+  '--workspace-left-fr',
+  '--workspace-right-fr',
+  '--workspace-output-fr',
+  '--workspace-preview-fr',
+  '--workspace-preview-top-fr',
+  '--workspace-preview-bottom-fr',
+];
+
+function clearWorkspaceSizeVars(vars = WORKSPACE_SIZE_VARS) {
+  const workspace = document.getElementById('workspace');
+  if (!workspace) return;
+  vars.forEach(name => workspace.style.removeProperty(name));
+}
+
+function clearWorkspaceSplitStorage(keys = WORKSPACE_SPLIT_STORAGE_KEYS) {
+  keys.forEach(key => {
+    try { localStorage.removeItem(key); } catch {}
+  });
+}
+
+function normalizeWorkspaceAfterDevModeToggle(isDevMode) {
+  if (isDevMode) {
+    refreshWorkspaceLayout();
+    return;
+  }
+  clearWorkspaceSplitStorage([
+    'q_workspace_editor_output_split_px',
+    'q_workspace_editor_output_preview_split_px',
+    'q_workspace_output_preview_split_v5_px',
+  ]);
+  clearWorkspaceSizeVars([
+    '--workspace-left-fr',
+    '--workspace-right-fr',
+    '--workspace-output-fr',
+    '--workspace-preview-fr',
+  ]);
+  refreshWorkspaceLayout();
+}
 
 function getIoDockPlacement() {
   const workspace = document.getElementById('workspace');
@@ -3154,6 +3307,18 @@ function resetWorkspaceSplit(storageKey, vars) {
   refreshWorkspaceLayout();
 }
 
+function resetWorkspaceLayoutState() {
+  clearWorkspaceSplitStorage();
+  clearWorkspaceSizeVars();
+  try { localStorage.removeItem(IO_DOCK_STORAGE_KEY); } catch {}
+  try { localStorage.removeItem(PREVIEW_DOCK_STORAGE_KEY); } catch {}
+  try { localStorage.removeItem(PANE_COLLAPSE_STORAGE_KEY); } catch {}
+  setIoDockPlacement('bottom', { persist: false });
+  setPreviewDockPlacement('right', { persist: false });
+  ['code', 'output', 'preview', 'io'].forEach(id => setPaneCollapsed(id, false, { persist: false }));
+  refreshWorkspaceLayout();
+}
+
 const PANE_COLLAPSE_STORAGE_KEY = 'q_workspace_collapsed_panes';
 
 function getPaneById(id) {
@@ -3249,6 +3414,11 @@ function fitCurrentPreviewView() {
 function setupPaneHeaderControls() {
   const saved = readCollapsedPanes();
   ['code', 'output', 'preview', 'io'].forEach(id => setPaneCollapsed(id, saved.has(id), { persist: false }));
+
+  const resetLayoutBtn = document.getElementById('btn-reset-layout');
+  if (resetLayoutBtn) {
+    resetLayoutBtn.addEventListener('click', () => resetWorkspaceLayoutState());
+  }
 
   document.querySelectorAll('.pane-title-btn').forEach(btn => {
     btn.addEventListener('mousedown', event => event.stopPropagation());
@@ -4092,6 +4262,7 @@ if (btnShare) {
   devModeBtn.addEventListener('click', () => {
     const isDevMode = document.body.classList.toggle('dev-mode');
     localStorage.setItem('qumir-dev-mode', isDevMode);
+    normalizeWorkspaceAfterDevModeToggle(isDevMode);
 
     if (!isDevMode) {
       // Switch to I/O view when leaving dev mode (avoid errors pane)
