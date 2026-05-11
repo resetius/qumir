@@ -5,15 +5,10 @@ body.dev-mode .pane.right.dev-only { display: flex !important; }
 body:not(.dev-mode) main { grid-template-columns: 1fr !important; }
 body:not(.dev-mode) #splitter-editor-output { display: none; }
 body:not(.dev-mode) #splitter-output-preview { display: none; }
-body:not(.dev-mode) .workspace-right-group { display: none; }
 
 /* Show preview pane when executor (turtle/robot/drawer/painter) is active, even in non-dev mode */
 body:not(.dev-mode) .pane.preview.executor-active {
   display: flex !important;
-}
-body:not(.dev-mode) .workspace-right-group:has(.pane.preview.executor-active) {
-  display: grid;
-  grid-template-columns: minmax(260px,1fr);
 }
 /* Restore two-column layout when executor preview is active */
 body:not(.dev-mode) main:has(.pane.preview.executor-active) {
@@ -62,6 +57,8 @@ button.project-toggle:hover { background: #3a3a3a; }
   --workspace-right-fr: 1fr;
   --workspace-output-fr: 1fr;
   --workspace-preview-fr: 1fr;
+  --workspace-preview-top-fr: 1fr;
+  --workspace-preview-bottom-fr: 1fr;
   display: grid;
   grid-template-rows: minmax(220px,var(--workspace-main-fr)) 6px minmax(120px,var(--workspace-io-fr));
   padding: 8px;
@@ -113,33 +110,32 @@ button.project-toggle:hover { background: #3a3a3a; }
 .workspace.io-dock-left section.io .io-toolbar #btn-run { width: 100%; min-width: 0; }
 .workspace-main-row { display: flex; min-height: 0; min-width: 0; }
 main { display: grid; grid-template-columns: minmax(320px,var(--workspace-left-fr)) 6px minmax(260px,var(--workspace-right-fr)); gap: 0; padding: 0; box-sizing: border-box; flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; }
-main:has(.workspace-right-group.preview-active.preview-dock-bottom) {
-  grid-template-columns: minmax(0,1fr);
-  grid-template-rows: minmax(180px,var(--workspace-left-fr)) 6px minmax(180px,var(--workspace-right-fr));
+body.dev-mode main:has(.pane.preview.executor-active):not(.preview-dock-bottom) {
+  grid-template-columns: minmax(320px,var(--workspace-left-fr)) 6px minmax(260px,var(--workspace-output-fr)) 6px minmax(260px,var(--workspace-preview-fr));
 }
-main:has(.workspace-right-group.preview-active.preview-dock-bottom) .pane.left { grid-column: 1; grid-row: 1; }
-main:has(.workspace-right-group.preview-active.preview-dock-bottom) #splitter-editor-output { grid-column: 1; grid-row: 2; width: auto; height: 6px; cursor: row-resize; }
-main:has(.workspace-right-group.preview-active.preview-dock-bottom) #splitter-editor-output::before { left: 0; right: 0; top: 2px; bottom: 2px; }
-main:has(.workspace-right-group.preview-active.preview-dock-bottom) .workspace-right-group { grid-column: 1; grid-row: 3; }
-body:not(.dev-mode) main:has(.workspace-right-group.preview-active.preview-dock-bottom) {
+main.preview-dock-bottom:has(.pane.preview.executor-active) {
+  grid-template-columns: minmax(320px,var(--workspace-left-fr)) 6px minmax(260px,var(--workspace-right-fr));
+  grid-template-rows: minmax(180px,var(--workspace-preview-top-fr)) 6px minmax(180px,var(--workspace-preview-bottom-fr));
+}
+body.dev-mode main.preview-dock-bottom:has(.pane.preview.executor-active) {
+  grid-template-columns: minmax(320px,var(--workspace-left-fr)) 6px minmax(260px,var(--workspace-output-fr));
+  grid-template-rows: minmax(180px,var(--workspace-preview-top-fr)) 6px minmax(180px,var(--workspace-preview-bottom-fr));
+}
+main.preview-dock-bottom:has(.pane.preview.executor-active) .pane.left { grid-column: 1; grid-row: 1; }
+main.preview-dock-bottom:has(.pane.preview.executor-active) #splitter-editor-output { grid-column: 2; grid-row: 1; }
+main.preview-dock-bottom:has(.pane.preview.executor-active) .pane.right { grid-column: 3; grid-row: 1; }
+main.preview-dock-bottom:has(.pane.preview.executor-active) #splitter-output-preview { grid-column: 1 / 4; grid-row: 2; width: auto; height: 6px; cursor: row-resize; }
+body.dev-mode main.preview-dock-bottom:has(.pane.preview.executor-active) #splitter-output-preview { display: block; }
+main.preview-dock-bottom:has(.pane.preview.executor-active) #splitter-output-preview::before { left: 0; right: 0; top: 2px; bottom: 2px; }
+main.preview-dock-bottom:has(.pane.preview.executor-active) .pane.preview { grid-column: 1 / 4; grid-row: 3; }
+body:not(.dev-mode) main.preview-dock-bottom:has(.pane.preview.executor-active) {
   grid-template-columns: minmax(0,1fr) !important;
-  grid-template-rows: minmax(180px,var(--workspace-left-fr)) 6px minmax(180px,var(--workspace-right-fr));
+  grid-template-rows: minmax(180px,var(--workspace-preview-top-fr)) 6px minmax(180px,var(--workspace-preview-bottom-fr));
 }
-.workspace-right-group { display: grid; grid-template-columns: minmax(260px,1fr); min-height: 0; min-width: 0; overflow: hidden; }
-body.dev-mode .workspace-right-group.preview-active { grid-template-columns: minmax(260px,var(--workspace-output-fr)) 6px minmax(260px,var(--workspace-preview-fr)); }
-body.dev-mode .workspace-right-group.preview-active.preview-dock-bottom {
-  grid-template-columns: minmax(260px,1fr);
-  grid-template-rows: minmax(160px,var(--workspace-output-fr)) 6px minmax(180px,var(--workspace-preview-fr));
-}
-body.dev-mode .workspace-right-group.preview-active.preview-dock-bottom .pane.right { grid-column: 1; grid-row: 1; }
-body.dev-mode .workspace-right-group.preview-active.preview-dock-bottom #splitter-output-preview { grid-column: 1; grid-row: 2; width: auto; height: 6px; cursor: row-resize; }
-body.dev-mode .workspace-right-group.preview-active.preview-dock-bottom #splitter-output-preview::before { left: 0; right: 0; top: 2px; bottom: 2px; }
-body.dev-mode .workspace-right-group.preview-active.preview-dock-bottom .pane.preview { grid-column: 1; grid-row: 3; }
-body:not(.dev-mode) .workspace-right-group.preview-active.preview-dock-bottom {
-  grid-template-columns: minmax(260px,1fr);
-  grid-template-rows: minmax(180px,1fr);
-}
-body:not(.dev-mode) .workspace-right-group.preview-active.preview-dock-bottom .pane.preview { grid-column: 1; grid-row: 1; }
+body:not(.dev-mode) main.preview-dock-bottom:has(.pane.preview.executor-active) .pane.left { grid-column: 1; grid-row: 1; }
+body:not(.dev-mode) main.preview-dock-bottom:has(.pane.preview.executor-active) #splitter-editor-output { grid-column: 1; grid-row: 2; width: auto; height: 6px; cursor: row-resize; }
+body:not(.dev-mode) main.preview-dock-bottom:has(.pane.preview.executor-active) #splitter-editor-output::before { left: 0; right: 0; top: 2px; bottom: 2px; }
+body:not(.dev-mode) main.preview-dock-bottom:has(.pane.preview.executor-active) .pane.preview { grid-column: 1; grid-row: 3; }
 main:has(.pane.left.collapsed) { grid-template-columns: 34px 6px minmax(260px,1fr); }
 main:has(.pane.right.collapsed) { grid-template-columns: minmax(320px,1fr) 6px 34px; }
 main:has(.pane.left.collapsed):has(.pane.right.collapsed) { grid-template-columns: 34px 6px 34px; }
@@ -159,7 +155,7 @@ body.layout-resizing-horizontal { cursor: row-resize; }
 .pane.preview,
 #splitter-output-preview { display: none; }
 .pane.preview.executor-active { display: flex; }
-body.dev-mode .workspace-right-group.preview-active #splitter-output-preview { display: block; }
+body.dev-mode main:has(.pane.preview.executor-active):not(.preview-dock-bottom) #splitter-output-preview { display: block; }
 .preview-body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; min-width: 0; padding: 0; overflow: hidden; background: #1b1b1b; }
 .pane-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #2d2d2d; padding: 4px 6px 4px 8px; border-bottom: 1px solid #333; font-size: 12px; color: #ccc; min-height: 25px; box-sizing: border-box; }
 .pane-title-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -351,23 +347,14 @@ body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 	/* Safe single-column layout on mobile */
 	main { display: block; overflow: visible; }
 	main > * { display: block; width: 100%; box-sizing: border-box; margin: 0 0 10px 0; }
-	body.dev-mode .workspace-right-group,
-	body:not(.dev-mode) .workspace-right-group:has(.pane.preview.executor-active) {
-		display: block !important;
-		width: 100%;
-		max-width: 100%;
-		overflow: visible;
-	}
-	body.dev-mode .workspace-right-group:has(.pane.preview.executor-active) {
-		grid-template-columns: none;
-	}
-	.workspace-right-group > .pane {
+	main > .pane.right,
+	main > .pane.preview {
 		display: flex;
 		width: 100%;
 		box-sizing: border-box;
 		margin: 0 0 10px 0;
 	}
-	.workspace-right-group > .pane.preview:not(.executor-active) {
+	main > .pane.preview:not(.executor-active) {
 		display: none;
 	}
 	.pane.preview.executor-active {

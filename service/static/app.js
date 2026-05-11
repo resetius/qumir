@@ -1556,20 +1556,16 @@ function hideTurtleUI() {
 
 function showOutputPane() {
   const previewPane = document.querySelector('.pane.preview');
-  const rightGroup = document.querySelector('.workspace-right-group');
   if (previewPane) {
     previewPane.classList.add('executor-active');
   }
-  if (rightGroup) rightGroup.classList.add('preview-active');
 }
 
 function hideOutputPane() {
   const previewPane = document.querySelector('.pane.preview');
-  const rightGroup = document.querySelector('.workspace-right-group');
   if (previewPane) {
     previewPane.classList.remove('executor-active');
   }
-  if (rightGroup) rightGroup.classList.remove('preview-active');
 }
 
 // Robot UI functions
@@ -2146,37 +2142,27 @@ function setCompilerOutputMode(mode) {
 
   if (__compilerOutputMode === 'turtle') {
     if (previewPane) previewPane.classList.add('executor-active');
-    const rightGroup = document.querySelector('.workspace-right-group');
-    if (rightGroup) rightGroup.classList.add('preview-active');
     if (out) out.style.display = '';
     if (__turtleCanvas) __turtleCanvas.style.display = 'block';
     try { if (__turtleModule && typeof __turtleModule.__onCanvasShown === 'function') __turtleModule.__onCanvasShown(); } catch {}
   } else if (__compilerOutputMode === 'robot') {
     if (previewPane) previewPane.classList.add('executor-active');
-    const rightGroup = document.querySelector('.workspace-right-group');
-    if (rightGroup) rightGroup.classList.add('preview-active');
     if (out) out.style.display = '';
     if (__robotCanvas) __robotCanvas.style.display = 'block';
     renderRobotField();
   } else if (__compilerOutputMode === 'drawer') {
     if (previewPane) previewPane.classList.add('executor-active');
-    const rightGroup = document.querySelector('.workspace-right-group');
-    if (rightGroup) rightGroup.classList.add('preview-active');
     if (out) out.style.display = '';
     if (__drawerCanvas) __drawerCanvas.style.display = 'block';
     try { if (__drawerModule && typeof __drawerModule.__onCanvasShown === 'function') __drawerModule.__onCanvasShown(); } catch {}
   } else if (__compilerOutputMode === 'painter') {
     if (previewPane) previewPane.classList.add('executor-active');
-    const rightGroup = document.querySelector('.workspace-right-group');
-    if (rightGroup) rightGroup.classList.add('preview-active');
     if (out) out.style.display = '';
     if (__painterUI) __painterUI.style.display = 'flex';
     try { if (__painterModule && typeof __painterModule.__onCanvasShown === 'function') __painterModule.__onCanvasShown(); } catch {}
     updatePainterRulers(-1, -1);
   } else {
     if (previewPane) previewPane.classList.remove('executor-active');
-    const rightGroup = document.querySelector('.workspace-right-group');
-    if (rightGroup) rightGroup.classList.remove('preview-active');
     if (out) out.style.display = '';
   }
 }
@@ -2849,8 +2835,8 @@ function setupIoDocking() {
 }
 
 function getPreviewDockPlacement() {
-  const group = document.querySelector('.workspace-right-group');
-  return group && group.classList.contains('preview-dock-bottom') ? 'bottom' : 'right';
+  const main = document.querySelector('main');
+  return main && main.classList.contains('preview-dock-bottom') ? 'bottom' : 'right';
 }
 
 function updatePreviewDockButton(placement = getPreviewDockPlacement()) {
@@ -2865,10 +2851,39 @@ function updatePreviewDockButton(placement = getPreviewDockPlacement()) {
 }
 
 function setPreviewDockPlacement(placement, { persist = true } = {}) {
-  const group = document.querySelector('.workspace-right-group');
-  if (!group) return;
+  const main = document.querySelector('main');
+  if (!main) return;
+  const previous = getPreviewDockPlacement();
   const normalized = placement === 'bottom' ? 'bottom' : 'right';
-  group.classList.toggle('preview-dock-bottom', normalized === 'bottom');
+  const workspace = document.getElementById('workspace');
+  const editorPane = document.querySelector('.pane.left');
+  const outputPane = document.querySelector('.pane.right');
+  const previewPane = document.querySelector('.pane.preview');
+  const isDevMode = document.body.classList.contains('dev-mode');
+  const isPreviewActive = previewPane && previewPane.classList.contains('executor-active');
+  let nextTopSplit = null;
+  if (workspace && isDevMode && isPreviewActive && previous !== normalized && normalized === 'bottom' && editorPane && outputPane && previewPane) {
+    const editorWidth = editorPane.getBoundingClientRect().width;
+    const outputWidth = outputPane.getBoundingClientRect().width;
+    const previewWidth = previewPane.getBoundingClientRect().width;
+    const topWidth = editorWidth + outputWidth + previewWidth + 6;
+    const baseWidth = editorWidth + outputWidth;
+    const editorRatio = baseWidth > 0 ? editorWidth / baseWidth : 0.5;
+    const nextEditorWidth = Math.max(320, Math.round(topWidth * editorRatio));
+    const nextOutputWidth = Math.max(260, Math.round(topWidth - nextEditorWidth));
+    nextTopSplit = { editor: nextEditorWidth, output: nextOutputWidth };
+  }
+  main.classList.toggle('preview-dock-bottom', normalized === 'bottom');
+  if (workspace && nextTopSplit) {
+    workspace.style.setProperty('--workspace-left-fr', `${nextTopSplit.editor}px`);
+    workspace.style.setProperty('--workspace-output-fr', `${nextTopSplit.output}px`);
+    try {
+      localStorage.setItem('q_workspace_editor_output_preview_split_px', JSON.stringify({
+        before: nextTopSplit.editor,
+        after: nextTopSplit.output,
+      }));
+    } catch {}
+  }
   if (persist) {
     try { localStorage.setItem(PREVIEW_DOCK_STORAGE_KEY, normalized); } catch {}
   }
@@ -2889,6 +2904,8 @@ function createSplitter({ axis, splitter, before, after, storageKey, minBefore, 
     const nextAxis = dynamic.axis || axis;
     return {
       isHorizontal: nextAxis === 'horizontal',
+      before: dynamic.before || before,
+      after: dynamic.after || after,
       storageKey: dynamic.storageKey || storageKey,
       beforeVar: dynamic.beforeVar || beforeVar,
       afterVar: dynamic.afterVar || afterVar,
@@ -2928,8 +2945,8 @@ function createSplitter({ axis, splitter, before, after, storageKey, minBefore, 
     const cfg = getConfig();
     if (window.innerWidth <= 900) return;
     event.preventDefault();
-    const beforeRect = before.getBoundingClientRect();
-    const afterRect = after.getBoundingClientRect();
+    const beforeRect = cfg.before.getBoundingClientRect();
+    const afterRect = cfg.after.getBoundingClientRect();
     const beforeSize = cfg.isHorizontal ? beforeRect.height : beforeRect.width;
     const afterSize = cfg.isHorizontal ? afterRect.height : afterRect.width;
     if (beforeSize + afterSize <= cfg.minBefore + cfg.minAfter) return;
@@ -2963,8 +2980,8 @@ function createSplitter({ axis, splitter, before, after, storageKey, minBefore, 
   const stop = (event) => {
     if (!dragging || dragging.pointerId !== event.pointerId) return;
     const cfg = dragging.cfg;
-    const beforeSize = cfg.isHorizontal ? before.getBoundingClientRect().height : before.getBoundingClientRect().width;
-    const afterSize = cfg.isHorizontal ? after.getBoundingClientRect().height : after.getBoundingClientRect().width;
+    const beforeSize = cfg.isHorizontal ? cfg.before.getBoundingClientRect().height : cfg.before.getBoundingClientRect().width;
+    const afterSize = cfg.isHorizontal ? cfg.after.getBoundingClientRect().height : cfg.after.getBoundingClientRect().width;
     const total = beforeSize + afterSize;
     if (total > 0) {
       save(cfg.unit === 'px' || cfg.unit === 'fr' ? beforeSize : (beforeSize / total) * 100,
@@ -2989,14 +3006,13 @@ function setupWorkspaceSplitters() {
   const editorPane = document.querySelector('.pane.left');
   const outputPane = document.querySelector('.pane.right');
   const previewPane = document.querySelector('.pane.preview');
-  const rightGroup = document.querySelector('.workspace-right-group');
 
   createSplitter({
     axis: 'horizontal',
     splitter: document.getElementById('splitter-main-io'),
     before: mainRow,
     after: io,
-    storageKey: 'q_workspace_main_io_split',
+    storageKey: 'q_workspace_main_io_split_px',
     minBefore: 220,
     minAfter: 120,
     beforeVar: '--workspace-main-fr',
@@ -3005,21 +3021,23 @@ function setupWorkspaceSplitters() {
     resolveConfig: () => getIoDockPlacement() === 'right' || getIoDockPlacement() === 'left'
       ? {
           axis: 'vertical',
-          storageKey: 'q_workspace_work_io_split',
+          storageKey: 'q_workspace_work_io_split_px',
           beforeVar: '--workspace-work-fr',
           afterVar: '--workspace-side-fr',
           minBefore: 420,
           minAfter: 300,
           varTarget: workspace,
+          unit: 'px',
         }
       : {
           axis: 'horizontal',
-          storageKey: 'q_workspace_main_io_split',
+          storageKey: 'q_workspace_main_io_split_px',
           beforeVar: '--workspace-main-fr',
           afterVar: '--workspace-io-fr',
           minBefore: 220,
           minAfter: 120,
           varTarget: workspace,
+          unit: 'px',
         },
   });
 
@@ -3028,7 +3046,7 @@ function setupWorkspaceSplitters() {
     splitter: document.getElementById('splitter-output-preview'),
     before: outputPane,
     after: previewPane,
-    storageKey: 'q_workspace_output_preview_split_v4',
+    storageKey: 'q_workspace_output_preview_split_v5_px',
     minBefore: 260,
     minAfter: 260,
     beforeVar: '--workspace-output-fr',
@@ -3037,21 +3055,23 @@ function setupWorkspaceSplitters() {
     resolveConfig: () => getPreviewDockPlacement() === 'bottom'
       ? {
           axis: 'horizontal',
-          storageKey: 'q_workspace_output_preview_split_bottom',
-          beforeVar: '--workspace-output-fr',
-          afterVar: '--workspace-preview-fr',
+          storageKey: 'q_workspace_output_preview_split_bottom_px',
+          beforeVar: '--workspace-preview-top-fr',
+          afterVar: '--workspace-preview-bottom-fr',
           minBefore: 160,
           minAfter: 180,
           varTarget: workspace,
+          unit: 'px',
         }
       : {
           axis: 'vertical',
-          storageKey: 'q_workspace_output_preview_split_v4',
+          storageKey: 'q_workspace_output_preview_split_v5_px',
           beforeVar: '--workspace-output-fr',
           afterVar: '--workspace-preview-fr',
           minBefore: 260,
           minAfter: 260,
           varTarget: workspace,
+          unit: 'px',
         },
   });
 
@@ -3059,32 +3079,65 @@ function setupWorkspaceSplitters() {
     axis: 'vertical',
     splitter: document.getElementById('splitter-editor-output'),
     before: editorPane,
-    after: rightGroup,
-    storageKey: 'q_workspace_editor_output_split',
+    after: outputPane,
+    storageKey: 'q_workspace_editor_output_split_px',
     minBefore: 320,
     minAfter: 260,
     beforeVar: '--workspace-left-fr',
     afterVar: '--workspace-right-fr',
     varTarget: workspace,
-    resolveConfig: () => getPreviewDockPlacement() === 'bottom'
-      ? {
+    resolveConfig: () => {
+      const isDevMode = document.body.classList.contains('dev-mode');
+      const isPreviewActive = previewPane && previewPane.classList.contains('executor-active');
+      if (getPreviewDockPlacement() === 'bottom' && !isDevMode) {
+        return {
           axis: 'horizontal',
-          storageKey: 'q_workspace_editor_preview_bottom_split',
-          beforeVar: '--workspace-left-fr',
-          afterVar: '--workspace-right-fr',
+          storageKey: 'q_workspace_editor_preview_bottom_split_px',
+          after: previewPane,
+          beforeVar: '--workspace-preview-top-fr',
+          afterVar: '--workspace-preview-bottom-fr',
           minBefore: 180,
           minAfter: 180,
           varTarget: workspace,
-        }
-      : {
+          unit: 'px',
+        };
+      }
+      if (!isDevMode && isPreviewActive) {
+        return {
           axis: 'vertical',
-          storageKey: 'q_workspace_editor_output_split',
+          storageKey: 'q_workspace_editor_output_split_px',
+          after: previewPane,
           beforeVar: '--workspace-left-fr',
           afterVar: '--workspace-right-fr',
           minBefore: 320,
           minAfter: 260,
           varTarget: workspace,
-        },
+          unit: 'px',
+        };
+      }
+      if (isDevMode && isPreviewActive) {
+        return {
+          axis: 'vertical',
+          storageKey: 'q_workspace_editor_output_preview_split_px',
+          beforeVar: '--workspace-left-fr',
+          afterVar: '--workspace-output-fr',
+          minBefore: 320,
+          minAfter: 260,
+          varTarget: workspace,
+          unit: 'px',
+        };
+      }
+      return {
+        axis: 'vertical',
+        storageKey: 'q_workspace_editor_output_split_px',
+        beforeVar: '--workspace-left-fr',
+        afterVar: '--workspace-right-fr',
+        minBefore: 320,
+        minAfter: 260,
+        varTarget: workspace,
+        unit: 'px',
+      };
+    },
   });
 
   void main;
@@ -3144,11 +3197,14 @@ function setPaneCollapsed(id, collapsed, { persist = true } = {}) {
 
 function resetPaneSize(id) {
   if (id === 'io') {
-    resetWorkspaceSplit('q_workspace_main_io_split', ['--workspace-main-fr', '--workspace-io-fr']);
+    resetWorkspaceSplit('q_workspace_main_io_split_px', ['--workspace-main-fr', '--workspace-io-fr']);
   } else if (id === 'code') {
-    resetWorkspaceSplit('q_workspace_editor_output_split', ['--workspace-left-fr', '--workspace-right-fr']);
+    resetWorkspaceSplit('q_workspace_editor_output_split_px', ['--workspace-left-fr', '--workspace-right-fr']);
+    resetWorkspaceSplit('q_workspace_editor_output_preview_split_px', ['--workspace-left-fr', '--workspace-output-fr']);
+    resetWorkspaceSplit('q_workspace_editor_preview_bottom_split_px', ['--workspace-preview-top-fr', '--workspace-preview-bottom-fr']);
   } else if (id === 'output' || id === 'preview') {
-    resetWorkspaceSplit('q_workspace_output_preview_split_v4', ['--workspace-output-fr', '--workspace-preview-fr']);
+    resetWorkspaceSplit('q_workspace_output_preview_split_v5_px', ['--workspace-output-fr', '--workspace-preview-fr']);
+    resetWorkspaceSplit('q_workspace_output_preview_split_bottom_px', ['--workspace-preview-top-fr', '--workspace-preview-bottom-fr']);
   }
 }
 
