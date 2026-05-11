@@ -78,10 +78,68 @@ button.project-toggle:hover { background: #3a3a3a; }
 .workspace.io-dock-right #splitter-main-io { grid-column: 2; grid-row: 1; height: auto; width: 6px; cursor: col-resize; }
 .workspace.io-dock-right #splitter-main-io::before { top: 0; bottom: 0; left: 2px; right: 2px; }
 .workspace.io-dock-right > section.io { grid-column: 3; grid-row: 1; }
+.workspace.io-dock-left {
+  grid-template-rows: minmax(0,1fr);
+  grid-template-columns: minmax(300px,var(--workspace-side-fr)) 6px minmax(0,var(--workspace-work-fr));
+}
+.workspace.io-dock-left > section.io { grid-column: 1; grid-row: 1; }
+.workspace.io-dock-left #splitter-main-io { grid-column: 2; grid-row: 1; height: auto; width: 6px; cursor: col-resize; }
+.workspace.io-dock-left #splitter-main-io::before { top: 0; bottom: 0; left: 2px; right: 2px; }
+.workspace.io-dock-left .workspace-main-row { grid-column: 3; grid-row: 1; }
+.workspace.io-dock-right section.io .io-toolbar,
+.workspace.io-dock-left section.io .io-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 6px 8px;
+  width: 100%;
+  max-width: 100%;
+}
+.workspace.io-dock-right section.io .io-tabs,
+.workspace.io-dock-left section.io .io-tabs { grid-column: 1; width: 100%; max-width: 100%; flex: initial; }
+.workspace.io-dock-right section.io #io-add-file,
+.workspace.io-dock-left section.io #io-add-file { grid-column: 2; }
+.workspace.io-dock-right section.io .io-toolbar-separator,
+.workspace.io-dock-left section.io .io-toolbar-separator { display: none; }
+.workspace.io-dock-right section.io .io-toolbar label[for="args"],
+.workspace.io-dock-right section.io .io-toolbar input#args,
+.workspace.io-dock-right section.io .io-toolbar #btn-run,
+.workspace.io-dock-left section.io .io-toolbar label[for="args"],
+.workspace.io-dock-left section.io .io-toolbar input#args,
+.workspace.io-dock-left section.io .io-toolbar #btn-run { grid-column: 1 / -1; }
+.workspace.io-dock-right section.io .io-toolbar input#args,
+.workspace.io-dock-left section.io .io-toolbar input#args,
+.workspace.io-dock-right section.io .io-toolbar #btn-run,
+.workspace.io-dock-left section.io .io-toolbar #btn-run { width: 100%; min-width: 0; }
 .workspace-main-row { display: flex; min-height: 0; min-width: 0; }
 main { display: grid; grid-template-columns: minmax(320px,var(--workspace-left-fr)) 6px minmax(260px,var(--workspace-right-fr)); gap: 0; padding: 0; box-sizing: border-box; flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; }
+main:has(.workspace-right-group.preview-active.preview-dock-bottom) {
+  grid-template-columns: minmax(0,1fr);
+  grid-template-rows: minmax(180px,var(--workspace-left-fr)) 6px minmax(180px,var(--workspace-right-fr));
+}
+main:has(.workspace-right-group.preview-active.preview-dock-bottom) .pane.left { grid-column: 1; grid-row: 1; }
+main:has(.workspace-right-group.preview-active.preview-dock-bottom) #splitter-editor-output { grid-column: 1; grid-row: 2; width: auto; height: 6px; cursor: row-resize; }
+main:has(.workspace-right-group.preview-active.preview-dock-bottom) #splitter-editor-output::before { left: 0; right: 0; top: 2px; bottom: 2px; }
+main:has(.workspace-right-group.preview-active.preview-dock-bottom) .workspace-right-group { grid-column: 1; grid-row: 3; }
+body:not(.dev-mode) main:has(.workspace-right-group.preview-active.preview-dock-bottom) {
+  grid-template-columns: minmax(0,1fr) !important;
+  grid-template-rows: minmax(180px,var(--workspace-left-fr)) 6px minmax(180px,var(--workspace-right-fr));
+}
 .workspace-right-group { display: grid; grid-template-columns: minmax(260px,1fr); min-height: 0; min-width: 0; overflow: hidden; }
-body.dev-mode .workspace-right-group:has(.pane.preview.executor-active) { grid-template-columns: minmax(260px,var(--workspace-output-fr)) 6px minmax(260px,var(--workspace-preview-fr)); }
+body.dev-mode .workspace-right-group.preview-active { grid-template-columns: minmax(260px,var(--workspace-output-fr)) 6px minmax(260px,var(--workspace-preview-fr)); }
+body.dev-mode .workspace-right-group.preview-active.preview-dock-bottom {
+  grid-template-columns: minmax(260px,1fr);
+  grid-template-rows: minmax(160px,var(--workspace-output-fr)) 6px minmax(180px,var(--workspace-preview-fr));
+}
+body.dev-mode .workspace-right-group.preview-active.preview-dock-bottom .pane.right { grid-column: 1; grid-row: 1; }
+body.dev-mode .workspace-right-group.preview-active.preview-dock-bottom #splitter-output-preview { grid-column: 1; grid-row: 2; width: auto; height: 6px; cursor: row-resize; }
+body.dev-mode .workspace-right-group.preview-active.preview-dock-bottom #splitter-output-preview::before { left: 0; right: 0; top: 2px; bottom: 2px; }
+body.dev-mode .workspace-right-group.preview-active.preview-dock-bottom .pane.preview { grid-column: 1; grid-row: 3; }
+body:not(.dev-mode) .workspace-right-group.preview-active.preview-dock-bottom {
+  grid-template-columns: minmax(260px,1fr);
+  grid-template-rows: minmax(180px,1fr);
+}
+body:not(.dev-mode) .workspace-right-group.preview-active.preview-dock-bottom .pane.preview { grid-column: 1; grid-row: 1; }
 main:has(.pane.left.collapsed) { grid-template-columns: 34px 6px minmax(260px,1fr); }
 main:has(.pane.right.collapsed) { grid-template-columns: minmax(320px,1fr) 6px 34px; }
 main:has(.pane.left.collapsed):has(.pane.right.collapsed) { grid-template-columns: 34px 6px 34px; }
@@ -101,7 +159,7 @@ body.layout-resizing-horizontal { cursor: row-resize; }
 .pane.preview,
 #splitter-output-preview { display: none; }
 .pane.preview.executor-active { display: flex; }
-body.dev-mode main:has(.pane.preview.executor-active) #splitter-output-preview { display: block; }
+body.dev-mode .workspace-right-group.preview-active #splitter-output-preview { display: block; }
 .preview-body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; min-width: 0; padding: 0; overflow: hidden; background: #1b1b1b; }
 .pane-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #2d2d2d; padding: 4px 6px 4px 8px; border-bottom: 1px solid #333; font-size: 12px; color: #ccc; min-height: 25px; box-sizing: border-box; }
 .pane-title-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -286,6 +344,7 @@ body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 	body { overflow: auto; height: auto; }
 	.workspace { display: block; min-height: 0; overflow: visible; padding: 8px; }
 	.workspace.io-dock-right { display: block; }
+	.workspace.io-dock-left { display: block; }
 	.workspace-main-row { display: block; min-height: 0; }
 	.splitter { display: none !important; }
 
