@@ -56,6 +56,8 @@ button.project-toggle:hover { background: #3a3a3a; }
 .workspace {
   --workspace-main-fr: 1fr;
   --workspace-io-fr: 240px;
+  --workspace-work-fr: 1fr;
+  --workspace-side-fr: 360px;
   --workspace-left-fr: 1fr;
   --workspace-right-fr: 1fr;
   --workspace-output-fr: 1fr;
@@ -68,6 +70,14 @@ button.project-toggle:hover { background: #3a3a3a; }
   min-height: 0;
   overflow: hidden;
 }
+.workspace.io-dock-right {
+  grid-template-rows: minmax(0,1fr);
+  grid-template-columns: minmax(0,var(--workspace-work-fr)) 6px minmax(300px,var(--workspace-side-fr));
+}
+.workspace.io-dock-right .workspace-main-row { grid-column: 1; grid-row: 1; }
+.workspace.io-dock-right #splitter-main-io { grid-column: 2; grid-row: 1; height: auto; width: 6px; cursor: col-resize; }
+.workspace.io-dock-right #splitter-main-io::before { top: 0; bottom: 0; left: 2px; right: 2px; }
+.workspace.io-dock-right > section.io { grid-column: 3; grid-row: 1; }
 .workspace-main-row { display: flex; min-height: 0; min-width: 0; }
 main { display: grid; grid-template-columns: minmax(320px,var(--workspace-left-fr)) 6px minmax(260px,var(--workspace-right-fr)); gap: 0; padding: 0; box-sizing: border-box; flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; }
 .workspace-right-group { display: grid; grid-template-columns: minmax(260px,1fr); min-height: 0; min-width: 0; overflow: hidden; }
@@ -275,6 +285,7 @@ body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 	html { overflow: auto; height: auto; }
 	body { overflow: auto; height: auto; }
 	.workspace { display: block; min-height: 0; overflow: visible; padding: 8px; }
+	.workspace.io-dock-right { display: block; }
 	.workspace-main-row { display: block; min-height: 0; }
 	.splitter { display: none !important; }
 

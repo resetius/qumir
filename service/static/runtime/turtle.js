@@ -363,6 +363,15 @@ export function __onCanvasShown() {
   }
 }
 
+export function __fitTurtleView() {
+  if (!canvas) return;
+  userInteracted = false;
+  autoFitPending = true;
+  fitCanvasToCss();
+  fitToContent();
+  scheduleAutoFit();
+}
+
 function moveBy(dist) {
   const rad = (state.ang * Math.PI) / 180;
   const nx = state.x + Math.cos(rad) * dist;

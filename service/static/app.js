@@ -2793,27 +2793,77 @@ function refreshWorkspaceLayout() {
   } catch {}
 }
 
-function createSplitter({ axis, splitter, before, after, storageKey, minBefore, minAfter, beforeVar, afterVar, varTarget, unit = '%' }) {
+const IO_DOCK_STORAGE_KEY = 'q_workspace_io_dock';
+
+function getIoDockPlacement() {
+  const workspace = document.getElementById('workspace');
+  return workspace && workspace.classList.contains('io-dock-right') ? 'right' : 'bottom';
+}
+
+function updateIoDockButton(placement = getIoDockPlacement()) {
+  const btn = document.querySelector('.pane-title-btn[data-pane-action="dock"][data-pane-target="io"]');
+  if (!btn) return;
+  const next = placement === 'right' ? 'bottom' : 'right';
+  btn.dataset.dockPlacement = next;
+  btn.textContent = placement === 'right' ? '⇩' : '⇥';
+  btn.setAttribute('aria-label', placement === 'right' ? 'Закрепить снизу' : 'Закрепить справа');
+  btn.setAttribute('data-tooltip', placement === 'right' ? 'Закрепить снизу' : 'Закрепить справа');
+}
+
+function setIoDockPlacement(placement, { persist = true } = {}) {
+  const workspace = document.getElementById('workspace');
+  if (!workspace) return;
+  const dockRight = placement === 'right';
+  workspace.classList.toggle('io-dock-right', dockRight);
+  if (persist) {
+    try { localStorage.setItem(IO_DOCK_STORAGE_KEY, dockRight ? 'right' : 'bottom'); } catch {}
+  }
+  updateIoDockButton(dockRight ? 'right' : 'bottom');
+  refreshWorkspaceLayout();
+}
+
+function setupIoDocking() {
+  let saved = 'bottom';
+  try { saved = localStorage.getItem(IO_DOCK_STORAGE_KEY) || 'bottom'; } catch {}
+  setIoDockPlacement(saved === 'right' ? 'right' : 'bottom', { persist: false });
+}
+
+function createSplitter({ axis, splitter, before, after, storageKey, minBefore, minAfter, beforeVar, afterVar, varTarget, unit = '%', resolveConfig = null }) {
   if (!splitter || !before || !after || !storageKey || !beforeVar || !afterVar) return;
-  const isHorizontal = axis === 'horizontal';
-  const target = varTarget || before;
+  const getConfig = () => {
+    const dynamic = typeof resolveConfig === 'function' ? resolveConfig() : {};
+    const nextAxis = dynamic.axis || axis;
+    return {
+      isHorizontal: nextAxis === 'horizontal',
+      storageKey: dynamic.storageKey || storageKey,
+      beforeVar: dynamic.beforeVar || beforeVar,
+      afterVar: dynamic.afterVar || afterVar,
+      target: dynamic.varTarget || varTarget || before,
+      unit: dynamic.unit || unit,
+      minBefore: dynamic.minBefore || minBefore,
+      minAfter: dynamic.minAfter || minAfter,
+    };
+  };
   const load = () => {
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      const cfg = getConfig();
+      const saved = JSON.parse(localStorage.getItem(cfg.storageKey) || 'null');
       if (!saved || typeof saved.before !== 'number' || typeof saved.after !== 'number') return;
-      target.style.setProperty(beforeVar, `${saved.before}${unit}`);
-      target.style.setProperty(afterVar, `${saved.after}${unit}`);
+      cfg.target.style.setProperty(cfg.beforeVar, `${saved.before}${cfg.unit}`);
+      cfg.target.style.setProperty(cfg.afterVar, `${saved.after}${cfg.unit}`);
     } catch {}
   };
   const save = (beforeValue, afterValue) => {
     try {
-      localStorage.setItem(storageKey, JSON.stringify({ before: beforeValue, after: afterValue }));
+      const cfg = getConfig();
+      localStorage.setItem(cfg.storageKey, JSON.stringify({ before: beforeValue, after: afterValue }));
     } catch {}
   };
   const reset = () => {
-    try { localStorage.removeItem(storageKey); } catch {}
-    target.style.removeProperty(beforeVar);
-    target.style.removeProperty(afterVar);
+    const cfg = getConfig();
+    try { localStorage.removeItem(cfg.storageKey); } catch {}
+    cfg.target.style.removeProperty(cfg.beforeVar);
+    cfg.target.style.removeProperty(cfg.afterVar);
     refreshWorkspaceLayout();
   };
 
@@ -2821,46 +2871,50 @@ function createSplitter({ axis, splitter, before, after, storageKey, minBefore, 
 
   let dragging = null;
   splitter.addEventListener('pointerdown', (event) => {
+    const cfg = getConfig();
     if (window.innerWidth <= 900) return;
     event.preventDefault();
     const beforeRect = before.getBoundingClientRect();
     const afterRect = after.getBoundingClientRect();
-    const beforeSize = isHorizontal ? beforeRect.height : beforeRect.width;
-    const afterSize = isHorizontal ? afterRect.height : afterRect.width;
-    if (beforeSize + afterSize <= minBefore + minAfter) return;
+    const beforeSize = cfg.isHorizontal ? beforeRect.height : beforeRect.width;
+    const afterSize = cfg.isHorizontal ? afterRect.height : afterRect.width;
+    if (beforeSize + afterSize <= cfg.minBefore + cfg.minAfter) return;
     dragging = {
       pointerId: event.pointerId,
-      start: isHorizontal ? event.clientY : event.clientX,
+      start: cfg.isHorizontal ? event.clientY : event.clientX,
       beforeSize,
       afterSize,
       total: beforeSize + afterSize,
+      cfg,
     };
     splitter.classList.add('dragging');
-    document.body.classList.add('layout-resizing', isHorizontal ? 'layout-resizing-horizontal' : 'layout-resizing-vertical');
+    document.body.classList.add('layout-resizing', cfg.isHorizontal ? 'layout-resizing-horizontal' : 'layout-resizing-vertical');
     splitter.setPointerCapture(event.pointerId);
   });
 
   splitter.addEventListener('pointermove', (event) => {
     if (!dragging || dragging.pointerId !== event.pointerId) return;
-    const delta = (isHorizontal ? event.clientY : event.clientX) - dragging.start;
-    if (dragging.total <= minBefore + minAfter) return;
-    const nextBefore = Math.max(minBefore, Math.min(dragging.total - minAfter, dragging.beforeSize + delta));
+    const cfg = dragging.cfg;
+    const delta = (cfg.isHorizontal ? event.clientY : event.clientX) - dragging.start;
+    if (dragging.total <= cfg.minBefore + cfg.minAfter) return;
+    const nextBefore = Math.max(cfg.minBefore, Math.min(dragging.total - cfg.minAfter, dragging.beforeSize + delta));
     const nextAfter = dragging.total - nextBefore;
-    const beforeValue = unit === 'px' || unit === 'fr' ? nextBefore : (nextBefore / dragging.total) * 100;
-    const afterValue = unit === 'px' || unit === 'fr' ? nextAfter : (nextAfter / dragging.total) * 100;
-    target.style.setProperty(beforeVar, `${beforeValue}${unit}`);
-    target.style.setProperty(afterVar, `${afterValue}${unit}`);
+    const beforeValue = cfg.unit === 'px' || cfg.unit === 'fr' ? nextBefore : (nextBefore / dragging.total) * 100;
+    const afterValue = cfg.unit === 'px' || cfg.unit === 'fr' ? nextAfter : (nextAfter / dragging.total) * 100;
+    cfg.target.style.setProperty(cfg.beforeVar, `${beforeValue}${cfg.unit}`);
+    cfg.target.style.setProperty(cfg.afterVar, `${afterValue}${cfg.unit}`);
     refreshWorkspaceLayout();
   });
 
   const stop = (event) => {
     if (!dragging || dragging.pointerId !== event.pointerId) return;
-    const beforeSize = isHorizontal ? before.getBoundingClientRect().height : before.getBoundingClientRect().width;
-    const afterSize = isHorizontal ? after.getBoundingClientRect().height : after.getBoundingClientRect().width;
+    const cfg = dragging.cfg;
+    const beforeSize = cfg.isHorizontal ? before.getBoundingClientRect().height : before.getBoundingClientRect().width;
+    const afterSize = cfg.isHorizontal ? after.getBoundingClientRect().height : after.getBoundingClientRect().width;
     const total = beforeSize + afterSize;
     if (total > 0) {
-      save(unit === 'px' || unit === 'fr' ? beforeSize : (beforeSize / total) * 100,
-        unit === 'px' || unit === 'fr' ? afterSize : (afterSize / total) * 100);
+      save(cfg.unit === 'px' || cfg.unit === 'fr' ? beforeSize : (beforeSize / total) * 100,
+        cfg.unit === 'px' || cfg.unit === 'fr' ? afterSize : (afterSize / total) * 100);
     }
     try { splitter.releasePointerCapture(event.pointerId); } catch {}
     splitter.classList.remove('dragging');
@@ -2894,6 +2948,25 @@ function setupWorkspaceSplitters() {
     beforeVar: '--workspace-main-fr',
     afterVar: '--workspace-io-fr',
     varTarget: workspace,
+    resolveConfig: () => getIoDockPlacement() === 'right'
+      ? {
+          axis: 'vertical',
+          storageKey: 'q_workspace_work_io_split',
+          beforeVar: '--workspace-work-fr',
+          afterVar: '--workspace-side-fr',
+          minBefore: 420,
+          minAfter: 300,
+          varTarget: workspace,
+        }
+      : {
+          axis: 'horizontal',
+          storageKey: 'q_workspace_main_io_split',
+          beforeVar: '--workspace-main-fr',
+          afterVar: '--workspace-io-fr',
+          minBefore: 220,
+          minAfter: 120,
+          varTarget: workspace,
+        },
   });
 
   createSplitter({
@@ -3005,6 +3078,26 @@ function resetCurrentPreviewExecutor() {
   refreshWorkspaceLayout();
 }
 
+function fitCurrentPreviewView() {
+  try {
+    if (__compilerOutputMode === 'turtle' && __turtleModule && typeof __turtleModule.__fitTurtleView === 'function') {
+      __turtleModule.__fitTurtleView();
+    } else if (__compilerOutputMode === 'robot') {
+      if (__robotCanvas) {
+        delete __robotCanvas.__cachedWidth;
+        delete __robotCanvas.__cachedHeight;
+      }
+      renderRobotField();
+    } else if (__compilerOutputMode === 'drawer' && __drawerModule && typeof __drawerModule.__fitDrawerView === 'function') {
+      __drawerModule.__fitDrawerView();
+    } else if (__compilerOutputMode === 'painter' && __painterModule && typeof __painterModule.__fitPainterView === 'function') {
+      __painterModule.__fitPainterView();
+      updatePainterRulers(-1, -1);
+    }
+  } catch {}
+  refreshWorkspaceLayout();
+}
+
 function setupPaneHeaderControls() {
   const saved = readCollapsedPanes();
   ['code', 'output', 'preview', 'io'].forEach(id => setPaneCollapsed(id, saved.has(id), { persist: false }));
@@ -3027,6 +3120,14 @@ function setupPaneHeaderControls() {
         event.preventDefault();
         event.stopPropagation();
         resetCurrentPreviewExecutor();
+      } else if (action === 'preview-fit') {
+        event.preventDefault();
+        event.stopPropagation();
+        fitCurrentPreviewView();
+      } else if (action === 'dock') {
+        event.preventDefault();
+        event.stopPropagation();
+        setIoDockPlacement(btn.dataset.dockPlacement === 'right' ? 'right' : 'bottom');
       }
     });
   });
@@ -3087,6 +3188,7 @@ initProjectsUI();
 initEditor();
 setupWorkspaceSplitters();
 setupPaneHeaderControls();
+setupIoDocking();
 
 // Relocate the compiler view selector above the Output on mobile
 (function relocateViewSelector(){

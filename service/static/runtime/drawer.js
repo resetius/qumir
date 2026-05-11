@@ -382,6 +382,15 @@ export function __onCanvasShown() {
   }
 }
 
+export function __fitDrawerView() {
+  if (!canvas) return;
+  userInteracted = false;
+  autoFitPending = true;
+  fitCanvasToCss();
+  fitToContent();
+  scheduleAutoFit();
+}
+
 function updateBounds(x, y) {
   const b = state.bounds;
   b.minX = Math.min(b.minX, x);

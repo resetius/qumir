@@ -248,6 +248,12 @@ export function __onCanvasShown() {
   scheduleDraw();
 }
 
+export function __fitPainterView() {
+  if (!canvas) return;
+  fitCanvas();
+  scheduleDraw();
+}
+
 // ── Sheet info ────────────────────────────────────────────────────────────────
 
 export function painter_sheet_width()  { return BigInt(state.sheetW); }
