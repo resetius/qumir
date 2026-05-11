@@ -1556,16 +1556,20 @@ function hideTurtleUI() {
 
 function showOutputPane() {
   const previewPane = document.querySelector('.pane.preview');
+  const rightGroup = document.querySelector('.workspace-right-group');
   if (previewPane) {
     previewPane.classList.add('executor-active');
   }
+  if (rightGroup) rightGroup.classList.add('preview-active');
 }
 
 function hideOutputPane() {
   const previewPane = document.querySelector('.pane.preview');
+  const rightGroup = document.querySelector('.workspace-right-group');
   if (previewPane) {
     previewPane.classList.remove('executor-active');
   }
+  if (rightGroup) rightGroup.classList.remove('preview-active');
 }
 
 // Robot UI functions
@@ -2142,27 +2146,37 @@ function setCompilerOutputMode(mode) {
 
   if (__compilerOutputMode === 'turtle') {
     if (previewPane) previewPane.classList.add('executor-active');
+    const rightGroup = document.querySelector('.workspace-right-group');
+    if (rightGroup) rightGroup.classList.add('preview-active');
     if (out) out.style.display = '';
     if (__turtleCanvas) __turtleCanvas.style.display = 'block';
     try { if (__turtleModule && typeof __turtleModule.__onCanvasShown === 'function') __turtleModule.__onCanvasShown(); } catch {}
   } else if (__compilerOutputMode === 'robot') {
     if (previewPane) previewPane.classList.add('executor-active');
+    const rightGroup = document.querySelector('.workspace-right-group');
+    if (rightGroup) rightGroup.classList.add('preview-active');
     if (out) out.style.display = '';
     if (__robotCanvas) __robotCanvas.style.display = 'block';
     renderRobotField();
   } else if (__compilerOutputMode === 'drawer') {
     if (previewPane) previewPane.classList.add('executor-active');
+    const rightGroup = document.querySelector('.workspace-right-group');
+    if (rightGroup) rightGroup.classList.add('preview-active');
     if (out) out.style.display = '';
     if (__drawerCanvas) __drawerCanvas.style.display = 'block';
     try { if (__drawerModule && typeof __drawerModule.__onCanvasShown === 'function') __drawerModule.__onCanvasShown(); } catch {}
   } else if (__compilerOutputMode === 'painter') {
     if (previewPane) previewPane.classList.add('executor-active');
+    const rightGroup = document.querySelector('.workspace-right-group');
+    if (rightGroup) rightGroup.classList.add('preview-active');
     if (out) out.style.display = '';
     if (__painterUI) __painterUI.style.display = 'flex';
     try { if (__painterModule && typeof __painterModule.__onCanvasShown === 'function') __painterModule.__onCanvasShown(); } catch {}
     updatePainterRulers(-1, -1);
   } else {
     if (previewPane) previewPane.classList.remove('executor-active');
+    const rightGroup = document.querySelector('.workspace-right-group');
+    if (rightGroup) rightGroup.classList.remove('preview-active');
     if (out) out.style.display = '';
   }
 }
@@ -2794,38 +2808,78 @@ function refreshWorkspaceLayout() {
 }
 
 const IO_DOCK_STORAGE_KEY = 'q_workspace_io_dock';
+const PREVIEW_DOCK_STORAGE_KEY = 'q_workspace_preview_dock_v2';
 
 function getIoDockPlacement() {
   const workspace = document.getElementById('workspace');
-  return workspace && workspace.classList.contains('io-dock-right') ? 'right' : 'bottom';
+  if (!workspace) return 'bottom';
+  if (workspace.classList.contains('io-dock-left')) return 'left';
+  if (workspace.classList.contains('io-dock-right')) return 'right';
+  return 'bottom';
 }
 
 function updateIoDockButton(placement = getIoDockPlacement()) {
   const btn = document.querySelector('.pane-title-btn[data-pane-action="dock"][data-pane-target="io"]');
   if (!btn) return;
-  const next = placement === 'right' ? 'bottom' : 'right';
+  const next = placement === 'bottom' ? 'right' : placement === 'right' ? 'left' : 'bottom';
   btn.dataset.dockPlacement = next;
-  btn.textContent = placement === 'right' ? '⇩' : '⇥';
-  btn.setAttribute('aria-label', placement === 'right' ? 'Закрепить снизу' : 'Закрепить справа');
-  btn.setAttribute('data-tooltip', placement === 'right' ? 'Закрепить снизу' : 'Закрепить справа');
+  btn.textContent = placement === 'bottom' ? '⇥' : placement === 'right' ? '⇤' : '⇩';
+  const label = next === 'right' ? 'Закрепить справа' : next === 'left' ? 'Закрепить слева' : 'Закрепить снизу';
+  btn.setAttribute('aria-label', label);
+  btn.setAttribute('data-tooltip', label);
 }
 
 function setIoDockPlacement(placement, { persist = true } = {}) {
   const workspace = document.getElementById('workspace');
   if (!workspace) return;
-  const dockRight = placement === 'right';
-  workspace.classList.toggle('io-dock-right', dockRight);
+  const normalized = placement === 'left' || placement === 'right' ? placement : 'bottom';
+  workspace.classList.toggle('io-dock-right', normalized === 'right');
+  workspace.classList.toggle('io-dock-left', normalized === 'left');
   if (persist) {
-    try { localStorage.setItem(IO_DOCK_STORAGE_KEY, dockRight ? 'right' : 'bottom'); } catch {}
+    try { localStorage.setItem(IO_DOCK_STORAGE_KEY, normalized); } catch {}
   }
-  updateIoDockButton(dockRight ? 'right' : 'bottom');
+  updateIoDockButton(normalized);
   refreshWorkspaceLayout();
 }
 
 function setupIoDocking() {
   let saved = 'bottom';
   try { saved = localStorage.getItem(IO_DOCK_STORAGE_KEY) || 'bottom'; } catch {}
-  setIoDockPlacement(saved === 'right' ? 'right' : 'bottom', { persist: false });
+  setIoDockPlacement(saved, { persist: false });
+}
+
+function getPreviewDockPlacement() {
+  const group = document.querySelector('.workspace-right-group');
+  return group && group.classList.contains('preview-dock-bottom') ? 'bottom' : 'right';
+}
+
+function updatePreviewDockButton(placement = getPreviewDockPlacement()) {
+  const next = placement === 'right' ? 'bottom' : 'right';
+  const label = next === 'bottom' ? 'Просмотр снизу' : 'Просмотр справа';
+  document.querySelectorAll('.pane-title-btn[data-pane-action="dock"][data-pane-target="preview"]').forEach(btn => {
+    btn.dataset.dockPlacement = next;
+    btn.textContent = placement === 'right' ? '⇩' : '⇥';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('data-tooltip', label);
+  });
+}
+
+function setPreviewDockPlacement(placement, { persist = true } = {}) {
+  const group = document.querySelector('.workspace-right-group');
+  if (!group) return;
+  const normalized = placement === 'bottom' ? 'bottom' : 'right';
+  group.classList.toggle('preview-dock-bottom', normalized === 'bottom');
+  if (persist) {
+    try { localStorage.setItem(PREVIEW_DOCK_STORAGE_KEY, normalized); } catch {}
+  }
+  updatePreviewDockButton(normalized);
+  refreshWorkspaceLayout();
+}
+
+function setupPreviewDocking() {
+  let saved = 'right';
+  try { saved = localStorage.getItem(PREVIEW_DOCK_STORAGE_KEY) || 'right'; } catch {}
+  setPreviewDockPlacement(saved, { persist: false });
 }
 
 function createSplitter({ axis, splitter, before, after, storageKey, minBefore, minAfter, beforeVar, afterVar, varTarget, unit = '%', resolveConfig = null }) {
@@ -2948,7 +3002,7 @@ function setupWorkspaceSplitters() {
     beforeVar: '--workspace-main-fr',
     afterVar: '--workspace-io-fr',
     varTarget: workspace,
-    resolveConfig: () => getIoDockPlacement() === 'right'
+    resolveConfig: () => getIoDockPlacement() === 'right' || getIoDockPlacement() === 'left'
       ? {
           axis: 'vertical',
           storageKey: 'q_workspace_work_io_split',
@@ -2980,6 +3034,25 @@ function setupWorkspaceSplitters() {
     beforeVar: '--workspace-output-fr',
     afterVar: '--workspace-preview-fr',
     varTarget: workspace,
+    resolveConfig: () => getPreviewDockPlacement() === 'bottom'
+      ? {
+          axis: 'horizontal',
+          storageKey: 'q_workspace_output_preview_split_bottom',
+          beforeVar: '--workspace-output-fr',
+          afterVar: '--workspace-preview-fr',
+          minBefore: 160,
+          minAfter: 180,
+          varTarget: workspace,
+        }
+      : {
+          axis: 'vertical',
+          storageKey: 'q_workspace_output_preview_split_v4',
+          beforeVar: '--workspace-output-fr',
+          afterVar: '--workspace-preview-fr',
+          minBefore: 260,
+          minAfter: 260,
+          varTarget: workspace,
+        },
   });
 
   createSplitter({
@@ -2993,6 +3066,25 @@ function setupWorkspaceSplitters() {
     beforeVar: '--workspace-left-fr',
     afterVar: '--workspace-right-fr',
     varTarget: workspace,
+    resolveConfig: () => getPreviewDockPlacement() === 'bottom'
+      ? {
+          axis: 'horizontal',
+          storageKey: 'q_workspace_editor_preview_bottom_split',
+          beforeVar: '--workspace-left-fr',
+          afterVar: '--workspace-right-fr',
+          minBefore: 180,
+          minAfter: 180,
+          varTarget: workspace,
+        }
+      : {
+          axis: 'vertical',
+          storageKey: 'q_workspace_editor_output_split',
+          beforeVar: '--workspace-left-fr',
+          afterVar: '--workspace-right-fr',
+          minBefore: 320,
+          minAfter: 260,
+          varTarget: workspace,
+        },
   });
 
   void main;
@@ -3127,7 +3219,11 @@ function setupPaneHeaderControls() {
       } else if (action === 'dock') {
         event.preventDefault();
         event.stopPropagation();
-        setIoDockPlacement(btn.dataset.dockPlacement === 'right' ? 'right' : 'bottom');
+        if (target === 'io') {
+          setIoDockPlacement(btn.dataset.dockPlacement);
+        } else if (target === 'preview') {
+          setPreviewDockPlacement(btn.dataset.dockPlacement);
+        }
       }
     });
   });
@@ -3189,6 +3285,7 @@ initEditor();
 setupWorkspaceSplitters();
 setupPaneHeaderControls();
 setupIoDocking();
+setupPreviewDocking();
 
 // Relocate the compiler view selector above the Output on mobile
 (function relocateViewSelector(){
