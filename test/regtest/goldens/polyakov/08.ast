@@ -1,24 +1,13 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $v:<Int>)
-      ($v =:<Void>
-        (30:<Int>))
-      (IfStmt:<Void>
-        (&&:<Bool>
-          (>=:<Bool>
-            ($v:<Int>)
-            (25:<Int>))
-          (<=:<Bool>
-            ($v:<Int>)
-            (40:<Int>)))
-        (Block:<Void>
-          (Block:<Void>
-            (Call:<Void>
-              ($output_string:<Fun (String) -> Void>)
-              ("подходит":<String>))))
-        (Block:<Void>
-          (Block:<Void>
-            (Call:<Void>
-              ($output_string:<Fun (String) -> Void>)
-              ("не подходит":<String>))))))))
+(block
+  (fun <main> void () ()
+    (block
+      (var v i64)
+      (= v 30)
+      (cond
+        (&& (>= v 25) (<= v 40))
+        (block
+          (seq
+            (call output_string "подходит")))
+        (block
+          (seq
+            (call output_string "не подходит")))))))

@@ -1,43 +1,17 @@
-(Block:<Void>
-  (FunDecl $функция ():<Fun () -> Float>
-    (Block:<Void>
-      (Var $$$return:<Float>)
-      (Var $i:<Int>)
-      (Var $j:<Float>)
-      ($j =:<Void>
-        (0.000000:<Float>))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (10:<Int>))
-        ($$$step =:<Void>
-          (-:<Int>
-            (1:<Int>)))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (0:<Int>))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($j =:<Void>
-              (+:<Float>
-                ($j:<Float>)
-                (1.000000:<Float>))))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      ($$$return =:<Void>
-        ($j:<Float>)))))
+(block
+  (fun функция f64 () ()
+    (block
+      (var $$return f64)
+      (var i i64)
+      (var j f64)
+      (= j 0)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 10)
+        (= $$step (- 1))
+        (= $$next i)
+        (= $$to 0)
+        (loop (>= (* (- $$to $$next) $$step) 0) (= i $$next) (block (= j (+ j 1))) (= $$next (+ $$next $$step))))
+      (= $$return j))))

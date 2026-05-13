@@ -1,133 +1,55 @@
-(Block:<Void>
-  (FunDecl $Массив ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $i:<Int>)
-      (Var $N:<Int>)
-      ($N =:<Void>
-        (10:<Int>))
-      (Block:<Void>
-        (Var $$$A_lbound0:<Int>)
-        (Var $$$A_dimsize0:<Int>)
-        (Var $$$A_mulacc0:<Int>)
-        ($$$A_lbound0 =:<Void>
-          (1:<Int>))
-        ($$$A_dimsize0 =:<Void>
-          (+:<Int>
-            (-:<Int>
-              ($N:<Int>)
-              (1:<Int>))
-            (1:<Int>)))
-        ($$$A_mulacc0 =:<Void>
-          (*:<Int>
-            (1:<Int>)
-            ($$$A_dimsize0:<Int>)))
-        (Var $A:<Array [Int; 1]>))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (1:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          ($N:<Int>))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($A[...] =:<Void>
-              ($i:<Int>)
-              (+:<Int>
-                (180:<Int>)
-                (*:<Int>
-                  ($i:<Int>)
-                  ($i:<Int>)))))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      (Var $count:<Int>)
-      ($count =:<Void>
-        (0:<Int>))
-      (Var $sum:<Int>)
-      ($sum =:<Void>
-        (0:<Int>))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (1:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          ($N:<Int>))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            (IfStmt:<Void>
-              (&&:<Bool>
-                (<:<Bool>
-                  (180:<Int>)
-                  (Index:<Int>
-                    ($A:<Array [Int; 1]>)
-                    ($i:<Int>)))
-                (<:<Bool>
-                  (Index:<Int>
-                    ($A:<Array [Int; 1]>)
-                    ($i:<Int>))
-                  (190:<Int>)))
-              (Block:<Void>
-                ($count =:<Void>
-                  (+:<Int>
-                    ($count:<Int>)
-                    (1:<Int>)))
-                ($sum =:<Void>
-                  (+:<Int>
-                    ($sum:<Int>)
-                    (Index:<Int>
-                      ($A:<Array [Int; 1]>)
-                      ($i:<Int>)))))
-              nil))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($count:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_symbol:<Fun (Char) -> Void>)
-          (Cast<Char>:<Char>
-            (32:<Int>)))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($sum:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>))))))
+(block
+  (fun Массив void () ()
+    (block
+      (var i i64)
+      (var N i64)
+      (= N 10)
+      (seq
+        (var $$A_lbound0 i64)
+        (var $$A_dimsize0 i64)
+        (var $$A_mulacc0 i64)
+        (= $$A_lbound0 1)
+        (= $$A_dimsize0 (+ (- N 1) 1))
+        (= $$A_mulacc0 (* 1 $$A_dimsize0))
+        (var A <array i64 1>))
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 1)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to N)
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= i $$next)
+          (block
+            (= A [i] (+ 180 (* i i))))
+          (= $$next (+ $$next $$step))))
+      (var count i64)
+      (= count 0)
+      (var sum i64)
+      (= sum 0)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 1)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to N)
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= i $$next)
+          (block
+            (cond
+              (&& (< 180 (index i A)) (< (index i A) 190))
+              (block
+                (= count (+ count 1))
+                (= sum (+ sum (index i A))))))
+          (= $$next (+ $$next $$step))))
+      (seq
+        (call output_int64 count 0)
+        (call output_symbol (cast 32 char))
+        (call output_int64 sum 0)
+        (call output_string "\n")))))

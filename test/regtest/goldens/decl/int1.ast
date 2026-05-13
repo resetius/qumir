@@ -1,2 +1,2 @@
-(Block:<Void>
-  (Var $переменная:<Int>))
+(block
+  (var переменная i64))

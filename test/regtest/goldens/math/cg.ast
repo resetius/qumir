@@ -1,911 +1,345 @@
-(Block:<Void>
-  (FunDecl $main ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $n:<Int>)
-      (Var $maxIter:<Int>)
-      (Var $tol:<Float>)
-      ($n =:<Void>
-        (16:<Int>))
-      ($maxIter =:<Void>
-        (500:<Int>))
-      ($tol =:<Void>
-        (0.000000:<Float>))
-      (Block:<Void>
-        (Var $$$x_lbound0:<Int>)
-        (Var $$$x_dimsize0:<Int>)
-        (Var $$$x_mulacc0:<Int>)
-        ($$$x_lbound0 =:<Void>
-          (0:<Int>))
-        ($$$x_dimsize0 =:<Void>
-          (+:<Int>
-            (-:<Int>
-              (-:<Int>
-                ($n:<Int>)
-                (1:<Int>))
-              (0:<Int>))
-            (1:<Int>)))
-        ($$$x_mulacc0 =:<Void>
-          (*:<Int>
-            (1:<Int>)
-            ($$$x_dimsize0:<Int>)))
-        (Var $x:<Array [Float; 1]>))
-      (Block:<Void>
-        (Var $$$b_lbound0:<Int>)
-        (Var $$$b_dimsize0:<Int>)
-        (Var $$$b_mulacc0:<Int>)
-        ($$$b_lbound0 =:<Void>
-          (0:<Int>))
-        ($$$b_dimsize0 =:<Void>
-          (+:<Int>
-            (-:<Int>
-              (-:<Int>
-                ($n:<Int>)
-                (1:<Int>))
-              (0:<Int>))
-            (1:<Int>)))
-        ($$$b_mulacc0 =:<Void>
-          (*:<Int>
-            (1:<Int>)
-            ($$$b_dimsize0:<Int>)))
-        (Var $b:<Array [Float; 1]>))
-      (Block:<Void>
-        (Var $$$r_lbound0:<Int>)
-        (Var $$$r_dimsize0:<Int>)
-        (Var $$$r_mulacc0:<Int>)
-        ($$$r_lbound0 =:<Void>
-          (0:<Int>))
-        ($$$r_dimsize0 =:<Void>
-          (+:<Int>
-            (-:<Int>
-              (-:<Int>
-                ($n:<Int>)
-                (1:<Int>))
-              (0:<Int>))
-            (1:<Int>)))
-        ($$$r_mulacc0 =:<Void>
-          (*:<Int>
-            (1:<Int>)
-            ($$$r_dimsize0:<Int>)))
-        (Var $r:<Array [Float; 1]>))
-      (Block:<Void>
-        (Var $$$p_lbound0:<Int>)
-        (Var $$$p_dimsize0:<Int>)
-        (Var $$$p_mulacc0:<Int>)
-        ($$$p_lbound0 =:<Void>
-          (0:<Int>))
-        ($$$p_dimsize0 =:<Void>
-          (+:<Int>
-            (-:<Int>
-              (-:<Int>
-                ($n:<Int>)
-                (1:<Int>))
-              (0:<Int>))
-            (1:<Int>)))
-        ($$$p_mulacc0 =:<Void>
-          (*:<Int>
-            (1:<Int>)
-            ($$$p_dimsize0:<Int>)))
-        (Var $p:<Array [Float; 1]>))
-      (Block:<Void>
-        (Var $$$Ap_lbound0:<Int>)
-        (Var $$$Ap_dimsize0:<Int>)
-        (Var $$$Ap_mulacc0:<Int>)
-        ($$$Ap_lbound0 =:<Void>
-          (0:<Int>))
-        ($$$Ap_dimsize0 =:<Void>
-          (+:<Int>
-            (-:<Int>
-              (-:<Int>
-                ($n:<Int>)
-                (1:<Int>))
-              (0:<Int>))
-            (1:<Int>)))
-        ($$$Ap_mulacc0 =:<Void>
-          (*:<Int>
-            (1:<Int>)
-            ($$$Ap_dimsize0:<Int>)))
-        (Var $Ap:<Array [Float; 1]>))
-      (Var $i:<Int>)
-      (Var $it:<Int>)
-      (Var $rsold:<Float>)
-      (Var $rsnew:<Float>)
-      (Var $alpha:<Float>)
-      (Var $pAp:<Float>)
-      (Var $rnorm:<Float>)
-      (Var $vabs:<Float>)
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (0:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (-:<Int>
-            ($n:<Int>)
-            (1:<Int>)))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($b[...] =:<Void>
-              ($i:<Int>)
-              (1.000000:<Float>))
-            ($x[...] =:<Void>
-              ($i:<Int>)
-              (0.000000:<Float>)))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      (Call:<Void>
-        ($compute_residual:<Fun (Int, Array, Array, Array, Array) -> Void>)
-        ($n:<Int>)
-        ($x:<Array [Float; 1]>)
-        ($b:<Array [Float; 1]>)
-        ($r:<Array [Float; 1]>)
-        ($Ap:<Array [Float; 1]>))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (0:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (-:<Int>
-            ($n:<Int>)
-            (1:<Int>)))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($p[...] =:<Void>
-              ($i:<Int>)
-              (Index:<Float>
-                ($r:<Array [Float; 1]>)
-                ($i:<Int>))))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      ($rsold =:<Void>
-        (Call:<Float>
-          ($dot:<Fun (Int, Array, Array) -> Float>)
-          ($n:<Int>)
-          ($r:<Array [Float; 1]>)
-          ($r:<Array [Float; 1]>)))
-      ($it =:<Void>
-        (0:<Int>))
-      (Loop:<Void>
-        (<:<Bool>
-          ($it:<Int>)
-          ($maxIter:<Int>))
+(block
+  (fun main void () ()
+    (block
+      (var n i64)
+      (var maxIter i64)
+      (var tol f64)
+      (= n 16)
+      (= maxIter 500)
+      (= tol 7.09187e-10)
+      (seq
+        (var $$x_lbound0 i64)
+        (var $$x_dimsize0 i64)
+        (var $$x_mulacc0 i64)
+        (= $$x_lbound0 0)
+        (= $$x_dimsize0 (+ (- (- n 1) 0) 1))
+        (= $$x_mulacc0 (* 1 $$x_dimsize0))
+        (var x <array f64 1>))
+      (seq
+        (var $$b_lbound0 i64)
+        (var $$b_dimsize0 i64)
+        (var $$b_mulacc0 i64)
+        (= $$b_lbound0 0)
+        (= $$b_dimsize0 (+ (- (- n 1) 0) 1))
+        (= $$b_mulacc0 (* 1 $$b_dimsize0))
+        (var b <array f64 1>))
+      (seq
+        (var $$r_lbound0 i64)
+        (var $$r_dimsize0 i64)
+        (var $$r_mulacc0 i64)
+        (= $$r_lbound0 0)
+        (= $$r_dimsize0 (+ (- (- n 1) 0) 1))
+        (= $$r_mulacc0 (* 1 $$r_dimsize0))
+        (var r <array f64 1>))
+      (seq
+        (var $$p_lbound0 i64)
+        (var $$p_dimsize0 i64)
+        (var $$p_mulacc0 i64)
+        (= $$p_lbound0 0)
+        (= $$p_dimsize0 (+ (- (- n 1) 0) 1))
+        (= $$p_mulacc0 (* 1 $$p_dimsize0))
+        (var p <array f64 1>))
+      (seq
+        (var $$Ap_lbound0 i64)
+        (var $$Ap_dimsize0 i64)
+        (var $$Ap_mulacc0 i64)
+        (= $$Ap_lbound0 0)
+        (= $$Ap_dimsize0 (+ (- (- n 1) 0) 1))
+        (= $$Ap_mulacc0 (* 1 $$Ap_dimsize0))
+        (var Ap <array f64 1>))
+      (var i i64)
+      (var it i64)
+      (var rsold f64)
+      (var rsnew f64)
+      (var alpha f64)
+      (var pAp f64)
+      (var rnorm f64)
+      (var vabs f64)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 0)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to (- n 1))
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= i $$next)
+          (block
+            (= b [i] 1)
+            (= x [i] 0))
+          (= $$next (+ $$next $$step))))
+      (call compute_residual n x b r Ap)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 0)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to (- n 1))
+        (loop (>= (* (- $$to $$next) $$step) 0) (= i $$next) (block (= p [i] (index i r))) (= $$next (+ $$next $$step))))
+      (= rsold (call dot n r r))
+      (= it 0)
+      (loop
+        (< it maxIter)
         nil
-        nil
-        (Block:<Void>
-          (Call:<Void>
-            ($matvec:<Fun (Int, Array, Array) -> Void>)
-            ($n:<Int>)
-            ($p:<Array [Float; 1]>)
-            ($Ap:<Array [Float; 1]>))
-          ($pAp =:<Void>
-            (Call:<Float>
-              ($dot:<Fun (Int, Array, Array) -> Float>)
-              ($n:<Int>)
-              ($p:<Array [Float; 1]>)
-              ($Ap:<Array [Float; 1]>)))
-          (IfStmt:<Void>
-            (==:<Bool>
-              ($pAp:<Float>)
-              (0.000000:<Float>))
-            (Block:<Void>
-              (Break:<Void>))
-            nil)
-          ($alpha =:<Void>
-            (/:<Float>
-              ($rsold:<Float>)
-              ($pAp:<Float>)))
-          (Block:<Void>
-            (Var $$$to:<Int>)
-            (Var $$$step:<Int>)
-            (Var $$$next:<Int>)
-            ($i =:<Void>
-              (0:<Int>))
-            ($$$step =:<Void>
-              (1:<Int>))
-            ($$$next =:<Void>
-              ($i:<Int>))
-            ($$$to =:<Void>
-              (-:<Int>
-                ($n:<Int>)
-                (1:<Int>)))
-            (Loop:<Void>
-              (>=:<Bool>
-                (*:<Int>
-                  (-:<Int>
-                    ($$$to:<Int>)
-                    ($$$next:<Int>))
-                  ($$$step:<Int>))
-                (0:<Int>))
-              nil
-              ($i =:<Void>
-                ($$$next:<Int>))
-              (Block:<Void>
-                ($x[...] =:<Void>
-                  ($i:<Int>)
-                  (+:<Float>
-                    (Index:<Float>
-                      ($x:<Array [Float; 1]>)
-                      ($i:<Int>))
-                    (*:<Float>
-                      ($alpha:<Float>)
-                      (Index:<Float>
-                        ($p:<Array [Float; 1]>)
-                        ($i:<Int>)))))
-                ($r[...] =:<Void>
-                  ($i:<Int>)
-                  (-:<Float>
-                    (Index:<Float>
-                      ($r:<Array [Float; 1]>)
-                      ($i:<Int>))
-                    (*:<Float>
-                      ($alpha:<Float>)
-                      (Index:<Float>
-                        ($Ap:<Array [Float; 1]>)
-                        ($i:<Int>))))))
-              ($$$next =:<Void>
-                (+:<Int>
-                  ($$$next:<Int>)
-                  ($$$step:<Int>)))))
-          ($rnorm =:<Void>
-            (Call:<Float>
-              ($norm2:<Fun (Int, Array) -> Float>)
-              ($n:<Int>)
-              ($r:<Array [Float; 1]>)))
-          (IfStmt:<Void>
-            (<=:<Bool>
-              ($rnorm:<Float>)
-              ($tol:<Float>))
-            (Block:<Void>
-              (Break:<Void>))
-            nil)
-          ($rsnew =:<Void>
-            (Call:<Float>
-              ($dot:<Fun (Int, Array, Array) -> Float>)
-              ($n:<Int>)
-              ($r:<Array [Float; 1]>)
-              ($r:<Array [Float; 1]>)))
-          (IfStmt:<Void>
-            (!=:<Bool>
-              ($rsold:<Float>)
-              (0.000000:<Float>))
-            (Block:<Void>
-              (Var $beta:<Float>)
-              ($beta =:<Void>
-                (/:<Float>
-                  ($rsnew:<Float>)
-                  ($rsold:<Float>)))
-              (Block:<Void>
-                (Var $$$to:<Int>)
-                (Var $$$step:<Int>)
-                (Var $$$next:<Int>)
-                ($i =:<Void>
-                  (0:<Int>))
-                ($$$step =:<Void>
-                  (1:<Int>))
-                ($$$next =:<Void>
-                  ($i:<Int>))
-                ($$$to =:<Void>
-                  (-:<Int>
-                    ($n:<Int>)
-                    (1:<Int>)))
-                (Loop:<Void>
-                  (>=:<Bool>
-                    (*:<Int>
-                      (-:<Int>
-                        ($$$to:<Int>)
-                        ($$$next:<Int>))
-                      ($$$step:<Int>))
-                    (0:<Int>))
-                  nil
-                  ($i =:<Void>
-                    ($$$next:<Int>))
-                  (Block:<Void>
-                    ($p[...] =:<Void>
-                      ($i:<Int>)
-                      (+:<Float>
-                        (Index:<Float>
-                          ($r:<Array [Float; 1]>)
-                          ($i:<Int>))
-                        (*:<Float>
-                          ($beta:<Float>)
-                          (Index:<Float>
-                            ($p:<Array [Float; 1]>)
-                            ($i:<Int>))))))
-                  ($$$next =:<Void>
-                    (+:<Int>
-                      ($$$next:<Int>)
-                      ($$$step:<Int>))))))
-            (Block:<Void>
-              (Block:<Void>
-                (Var $$$to:<Int>)
-                (Var $$$step:<Int>)
-                (Var $$$next:<Int>)
-                ($i =:<Void>
-                  (0:<Int>))
-                ($$$step =:<Void>
-                  (1:<Int>))
-                ($$$next =:<Void>
-                  ($i:<Int>))
-                ($$$to =:<Void>
-                  (-:<Int>
-                    ($n:<Int>)
-                    (1:<Int>)))
-                (Loop:<Void>
-                  (>=:<Bool>
-                    (*:<Int>
-                      (-:<Int>
-                        ($$$to:<Int>)
-                        ($$$next:<Int>))
-                      ($$$step:<Int>))
-                    (0:<Int>))
-                  nil
-                  ($i =:<Void>
-                    ($$$next:<Int>))
-                  (Block:<Void>
-                    ($p[...] =:<Void>
-                      ($i:<Int>)
-                      (Index:<Float>
-                        ($r:<Array [Float; 1]>)
-                        ($i:<Int>))))
-                  ($$$next =:<Void>
-                    (+:<Int>
-                      ($$$next:<Int>)
-                      ($$$step:<Int>)))))))
-          ($rsold =:<Void>
-            ($rsnew:<Float>))
-          ($it =:<Void>
-            (+:<Int>
-              ($it:<Int>)
-              (1:<Int>))))
-        nil)
-      (Call:<Void>
-        ($compute_residual:<Fun (Int, Array, Array, Array, Array) -> Void>)
-        ($n:<Int>)
-        ($x:<Array [Float; 1]>)
-        ($b:<Array [Float; 1]>)
-        ($r:<Array [Float; 1]>)
-        ($Ap:<Array [Float; 1]>))
-      (Var $res_l2_sq:<Float>)
-      (Var $res_l2:<Float>)
-      (Var $res_inf:<Float>)
-      ($res_l2_sq =:<Void>
-        (0.000000:<Float>))
-      ($res_inf =:<Void>
-        (0.000000:<Float>))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (0:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (-:<Int>
-            ($n:<Int>)
-            (1:<Int>)))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($vabs =:<Void>
-              (Index:<Float>
-                ($r:<Array [Float; 1]>)
-                ($i:<Int>)))
-            (IfStmt:<Void>
-              (<:<Bool>
-                ($vabs:<Float>)
-                (0.000000:<Float>))
-              (Block:<Void>
-                ($vabs =:<Void>
-                  (-:<Float>
-                    ($vabs:<Float>))))
-              nil)
-            ($res_l2_sq =:<Void>
-              (+:<Float>
-                ($res_l2_sq:<Float>)
-                (*:<Float>
-                  (Index:<Float>
-                    ($r:<Array [Float; 1]>)
-                    ($i:<Int>))
-                  (Index:<Float>
-                    ($r:<Array [Float; 1]>)
-                    ($i:<Int>)))))
-            (IfStmt:<Void>
-              (>:<Bool>
-                ($vabs:<Float>)
-                ($res_inf:<Float>))
-              (Block:<Void>
-                ($res_inf =:<Void>
-                  ($vabs:<Float>)))
-              nil))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      ($res_l2 =:<Void>
-        (Call:<Float>
-          ($sqrt:<Fun (Float) -> Float>)
-          ($res_l2_sq:<Float>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("cg: n=":<String>))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($n:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          (", maxIter=":<String>))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($maxIter:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("iters=":<String>))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($it:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("||r||_2= ":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          ($res_l2:<Float>)
-          (8:<Int>)
-          (8:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("||r||_inf= ":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          ($res_inf:<Float>)
-          (8:<Int>)
-          (8:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))))
-  (FunDecl $matvec ($n, $v, $w):<Fun (Int, Array, Array) -> Void>
-    (Block:<Void>
-      (Var $$$v_lbound0:<Int>)
-      (Var $$$v_dimsize0:<Int>)
-      (Var $$$v_mulacc0:<Int>)
-      ($$$v_lbound0 =:<Void>
-        (0:<Int>))
-      ($$$v_dimsize0 =:<Void>
-        (+:<Int>
-          (-:<Int>
-            (-:<Int>
-              ($n:<Int>)
-              (1:<Int>))
-            (0:<Int>))
-          (1:<Int>)))
-      ($$$v_mulacc0 =:<Void>
-        (*:<Int>
-          (1:<Int>)
-          ($$$v_dimsize0:<Int>)))
-      (Var $$$w_lbound0:<Int>)
-      (Var $$$w_dimsize0:<Int>)
-      (Var $$$w_mulacc0:<Int>)
-      ($$$w_lbound0 =:<Void>
-        (0:<Int>))
-      ($$$w_dimsize0 =:<Void>
-        (+:<Int>
-          (-:<Int>
-            (-:<Int>
-              ($n:<Int>)
-              (1:<Int>))
-            (0:<Int>))
-          (1:<Int>)))
-      ($$$w_mulacc0 =:<Void>
-        (*:<Int>
-          (1:<Int>)
-          ($$$w_dimsize0:<Int>)))
-      (Var $i:<Int>)
-      (Var $j:<Int>)
-      (Var $sum:<Float>)
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (0:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (-:<Int>
-            ($n:<Int>)
-            (1:<Int>)))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($sum =:<Void>
-              (0.000000:<Float>))
-            (Block:<Void>
-              (Var $$$to:<Int>)
-              (Var $$$step:<Int>)
-              (Var $$$next:<Int>)
-              ($j =:<Void>
-                (0:<Int>))
-              ($$$step =:<Void>
-                (1:<Int>))
-              ($$$next =:<Void>
-                ($j:<Int>))
-              ($$$to =:<Void>
-                (-:<Int>
-                  ($n:<Int>)
-                  (1:<Int>)))
-              (Loop:<Void>
-                (>=:<Bool>
-                  (*:<Int>
-                    (-:<Int>
-                      ($$$to:<Int>)
-                      ($$$next:<Int>))
-                    ($$$step:<Int>))
-                  (0:<Int>))
-                nil
-                ($j =:<Void>
-                  ($$$next:<Int>))
-                (Block:<Void>
-                  ($sum =:<Void>
-                    (+:<Float>
-                      ($sum:<Float>)
-                      (*:<Float>
-                        (/:<Float>
-                          (1.000000:<Float>)
-                          (+:<Float>
-                            (Cast<Float>:<Float>
-                              (+:<Int>
-                                ($i:<Int>)
-                                ($j:<Int>)))
-                            (1.000000:<Float>)))
-                        (Index:<Float>
-                          ($v:<Array [Float; 1]>)
-                          ($j:<Int>))))))
-                ($$$next =:<Void>
-                  (+:<Int>
-                    ($$$next:<Int>)
-                    ($$$step:<Int>)))))
-            ($w[...] =:<Void>
-              ($i:<Int>)
-              ($sum:<Float>)))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))))
-  (FunDecl $norm2 ($n, $v):<Fun (Int, Array) -> Float>
-    (Block:<Void>
-      (Var $$$v_lbound0:<Int>)
-      (Var $$$v_dimsize0:<Int>)
-      (Var $$$v_mulacc0:<Int>)
-      ($$$v_lbound0 =:<Void>
-        (0:<Int>))
-      ($$$v_dimsize0 =:<Void>
-        (+:<Int>
-          (-:<Int>
-            (-:<Int>
-              ($n:<Int>)
-              (1:<Int>))
-            (0:<Int>))
-          (1:<Int>)))
-      ($$$v_mulacc0 =:<Void>
-        (*:<Int>
-          (1:<Int>)
-          ($$$v_dimsize0:<Int>)))
-      (Var $$$return:<Float>)
-      (Var $i:<Int>)
-      (Var $sum:<Float>)
-      ($sum =:<Void>
-        (0.000000:<Float>))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (0:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (-:<Int>
-            ($n:<Int>)
-            (1:<Int>)))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($sum =:<Void>
-              (+:<Float>
-                ($sum:<Float>)
-                (*:<Float>
-                  (Index:<Float>
-                    ($v:<Array [Float; 1]>)
-                    ($i:<Int>))
-                  (Index:<Float>
-                    ($v:<Array [Float; 1]>)
-                    ($i:<Int>))))))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      ($$$return =:<Void>
-        (Call:<Float>
-          ($sqrt:<Fun (Float) -> Float>)
-          ($sum:<Float>)))))
-  (FunDecl $dot ($n, $a, $b):<Fun (Int, Array, Array) -> Float>
-    (Block:<Void>
-      (Var $$$a_lbound0:<Int>)
-      (Var $$$a_dimsize0:<Int>)
-      (Var $$$a_mulacc0:<Int>)
-      ($$$a_lbound0 =:<Void>
-        (0:<Int>))
-      ($$$a_dimsize0 =:<Void>
-        (+:<Int>
-          (-:<Int>
-            (-:<Int>
-              ($n:<Int>)
-              (1:<Int>))
-            (0:<Int>))
-          (1:<Int>)))
-      ($$$a_mulacc0 =:<Void>
-        (*:<Int>
-          (1:<Int>)
-          ($$$a_dimsize0:<Int>)))
-      (Var $$$b_lbound0:<Int>)
-      (Var $$$b_dimsize0:<Int>)
-      (Var $$$b_mulacc0:<Int>)
-      ($$$b_lbound0 =:<Void>
-        (0:<Int>))
-      ($$$b_dimsize0 =:<Void>
-        (+:<Int>
-          (-:<Int>
-            (-:<Int>
-              ($n:<Int>)
-              (1:<Int>))
-            (0:<Int>))
-          (1:<Int>)))
-      ($$$b_mulacc0 =:<Void>
-        (*:<Int>
-          (1:<Int>)
-          ($$$b_dimsize0:<Int>)))
-      (Var $$$return:<Float>)
-      (Var $i:<Int>)
-      (Var $sum:<Float>)
-      ($sum =:<Void>
-        (0.000000:<Float>))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (0:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (-:<Int>
-            ($n:<Int>)
-            (1:<Int>)))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($sum =:<Void>
-              (+:<Float>
-                ($sum:<Float>)
-                (*:<Float>
-                  (Index:<Float>
-                    ($a:<Array [Float; 1]>)
-                    ($i:<Int>))
-                  (Index:<Float>
-                    ($b:<Array [Float; 1]>)
-                    ($i:<Int>))))))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      ($$$return =:<Void>
-        ($sum:<Float>))))
-  (FunDecl $compute_residual ($n, $x, $b, $r, $w):<Fun (Int, Array, Array, Array, Array) -> Void>
-    (Block:<Void>
-      (Var $$$x_lbound0:<Int>)
-      (Var $$$x_dimsize0:<Int>)
-      (Var $$$x_mulacc0:<Int>)
-      ($$$x_lbound0 =:<Void>
-        (0:<Int>))
-      ($$$x_dimsize0 =:<Void>
-        (+:<Int>
-          (-:<Int>
-            (-:<Int>
-              ($n:<Int>)
-              (1:<Int>))
-            (0:<Int>))
-          (1:<Int>)))
-      ($$$x_mulacc0 =:<Void>
-        (*:<Int>
-          (1:<Int>)
-          ($$$x_dimsize0:<Int>)))
-      (Var $$$b_lbound0:<Int>)
-      (Var $$$b_dimsize0:<Int>)
-      (Var $$$b_mulacc0:<Int>)
-      ($$$b_lbound0 =:<Void>
-        (0:<Int>))
-      ($$$b_dimsize0 =:<Void>
-        (+:<Int>
-          (-:<Int>
-            (-:<Int>
-              ($n:<Int>)
-              (1:<Int>))
-            (0:<Int>))
-          (1:<Int>)))
-      ($$$b_mulacc0 =:<Void>
-        (*:<Int>
-          (1:<Int>)
-          ($$$b_dimsize0:<Int>)))
-      (Var $$$r_lbound0:<Int>)
-      (Var $$$r_dimsize0:<Int>)
-      (Var $$$r_mulacc0:<Int>)
-      ($$$r_lbound0 =:<Void>
-        (0:<Int>))
-      ($$$r_dimsize0 =:<Void>
-        (+:<Int>
-          (-:<Int>
-            (-:<Int>
-              ($n:<Int>)
-              (1:<Int>))
-            (0:<Int>))
-          (1:<Int>)))
-      ($$$r_mulacc0 =:<Void>
-        (*:<Int>
-          (1:<Int>)
-          ($$$r_dimsize0:<Int>)))
-      (Var $$$w_lbound0:<Int>)
-      (Var $$$w_dimsize0:<Int>)
-      (Var $$$w_mulacc0:<Int>)
-      ($$$w_lbound0 =:<Void>
-        (0:<Int>))
-      ($$$w_dimsize0 =:<Void>
-        (+:<Int>
-          (-:<Int>
-            (-:<Int>
-              ($n:<Int>)
-              (1:<Int>))
-            (0:<Int>))
-          (1:<Int>)))
-      ($$$w_mulacc0 =:<Void>
-        (*:<Int>
-          (1:<Int>)
-          ($$$w_dimsize0:<Int>)))
-      (Var $i:<Int>)
-      (Call:<Void>
-        ($matvec:<Fun (Int, Array, Array) -> Void>)
-        ($n:<Int>)
-        ($x:<Array [Float; 1]>)
-        ($w:<Array [Float; 1]>))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (0:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (-:<Int>
-            ($n:<Int>)
-            (1:<Int>)))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($r[...] =:<Void>
-              ($i:<Int>)
-              (-:<Float>
-                (Index:<Float>
-                  ($b:<Array [Float; 1]>)
-                  ($i:<Int>))
-                (Index:<Float>
-                  ($w:<Array [Float; 1]>)
-                  ($i:<Int>)))))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>))))))))
+        (block
+          (call matvec n p Ap)
+          (= pAp (call dot n p Ap))
+          (cond (== pAp 0) (block break))
+          (= alpha (/ rsold pAp))
+          (block
+            (var $$to i64)
+            (var $$step i64)
+            (var $$next i64)
+            (= i 0)
+            (= $$step 1)
+            (= $$next i)
+            (= $$to (- n 1))
+            (loop
+              (>= (* (- $$to $$next) $$step) 0)
+              (= i $$next)
+              (block
+                (= x [i] (+ (index i x) (* alpha (index i p))))
+                (= r [i] (- (index i r) (* alpha (index i Ap)))))
+              (= $$next (+ $$next $$step))))
+          (= rnorm (call norm2 n r))
+          (cond (<= rnorm tol) (block break))
+          (= rsnew (call dot n r r))
+          (cond
+            (!= rsold 0)
+            (block
+              (var beta f64)
+              (= beta (/ rsnew rsold))
+              (block
+                (var $$to i64)
+                (var $$step i64)
+                (var $$next i64)
+                (= i 0)
+                (= $$step 1)
+                (= $$next i)
+                (= $$to (- n 1))
+                (loop
+                  (>= (* (- $$to $$next) $$step) 0)
+                  (= i $$next)
+                  (block
+                    (= p [i] (+ (index i r) (* beta (index i p)))))
+                  (= $$next (+ $$next $$step)))))
+            (block
+              (block
+                (var $$to i64)
+                (var $$step i64)
+                (var $$next i64)
+                (= i 0)
+                (= $$step 1)
+                (= $$next i)
+                (= $$to (- n 1))
+                (loop
+                  (>= (* (- $$to $$next) $$step) 0)
+                  (= i $$next)
+                  (block
+                    (= p [i] (index i r)))
+                  (= $$next (+ $$next $$step))))))
+          (= rsold rsnew)
+          (= it (+ it 1))))
+      (call compute_residual n x b r Ap)
+      (var res_l2_sq f64)
+      (var res_l2 f64)
+      (var res_inf f64)
+      (= res_l2_sq 0)
+      (= res_inf 0)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 0)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to (- n 1))
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= i $$next)
+          (block
+            (= vabs (index i r))
+            (cond (< vabs 0) (block (= vabs (- vabs))))
+            (= res_l2_sq (+ res_l2_sq (* (index i r) (index i r))))
+            (cond (> vabs res_inf) (block (= res_inf vabs))))
+          (= $$next (+ $$next $$step))))
+      (= res_l2 (call sqrt res_l2_sq))
+      (seq
+        (call output_string "cg: n=")
+        (call output_int64 n 0)
+        (call output_string ", maxIter=")
+        (call output_int64 maxIter 0)
+        (call output_string "\n"))
+      (seq
+        (call output_string "iters=")
+        (call output_int64 it 0)
+        (call output_string "\n"))
+      (seq
+        (call output_string "||r||_2= ")
+        (call output_double res_l2 8 8)
+        (call output_string "\n"))
+      (seq
+        (call output_string "||r||_inf= ")
+        (call output_double res_inf 8 8)
+        (call output_string "\n"))))
+  (fun matvec void ((var n i64)
+      (var v <array f64 1>)
+      (var w <array f64 1>)) ()
+    (block
+      (var $$v_lbound0 i64)
+      (var $$v_dimsize0 i64)
+      (var $$v_mulacc0 i64)
+      (= $$v_lbound0 0)
+      (= $$v_dimsize0 (+ (- (- n 1) 0) 1))
+      (= $$v_mulacc0 (* 1 $$v_dimsize0))
+      (var $$w_lbound0 i64)
+      (var $$w_dimsize0 i64)
+      (var $$w_mulacc0 i64)
+      (= $$w_lbound0 0)
+      (= $$w_dimsize0 (+ (- (- n 1) 0) 1))
+      (= $$w_mulacc0 (* 1 $$w_dimsize0))
+      (var i i64)
+      (var j i64)
+      (var sum f64)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 0)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to (- n 1))
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= i $$next)
+          (block
+            (= sum 0)
+            (block
+              (var $$to i64)
+              (var $$step i64)
+              (var $$next i64)
+              (= j 0)
+              (= $$step 1)
+              (= $$next j)
+              (= $$to (- n 1))
+              (loop
+                (>= (* (- $$to $$next) $$step) 0)
+                (= j $$next)
+                (block
+                  (= sum (+ sum (* (/ 1 (+ (cast (+ i j) f64) 1)) (index j v)))))
+                (= $$next (+ $$next $$step))))
+            (= w [i] sum))
+          (= $$next (+ $$next $$step))))))
+  (fun norm2 f64 ((var n i64)
+      (var v <array f64 1>)) ()
+    (block
+      (var $$v_lbound0 i64)
+      (var $$v_dimsize0 i64)
+      (var $$v_mulacc0 i64)
+      (= $$v_lbound0 0)
+      (= $$v_dimsize0 (+ (- (- n 1) 0) 1))
+      (= $$v_mulacc0 (* 1 $$v_dimsize0))
+      (var $$return f64)
+      (var i i64)
+      (var sum f64)
+      (= sum 0)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 0)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to (- n 1))
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= i $$next)
+          (block
+            (= sum (+ sum (* (index i v) (index i v)))))
+          (= $$next (+ $$next $$step))))
+      (= $$return (call sqrt sum))))
+  (fun dot f64 ((var n i64)
+      (var a <array f64 1>)
+      (var b <array f64 1>)) ()
+    (block
+      (var $$a_lbound0 i64)
+      (var $$a_dimsize0 i64)
+      (var $$a_mulacc0 i64)
+      (= $$a_lbound0 0)
+      (= $$a_dimsize0 (+ (- (- n 1) 0) 1))
+      (= $$a_mulacc0 (* 1 $$a_dimsize0))
+      (var $$b_lbound0 i64)
+      (var $$b_dimsize0 i64)
+      (var $$b_mulacc0 i64)
+      (= $$b_lbound0 0)
+      (= $$b_dimsize0 (+ (- (- n 1) 0) 1))
+      (= $$b_mulacc0 (* 1 $$b_dimsize0))
+      (var $$return f64)
+      (var i i64)
+      (var sum f64)
+      (= sum 0)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 0)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to (- n 1))
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= i $$next)
+          (block
+            (= sum (+ sum (* (index i a) (index i b)))))
+          (= $$next (+ $$next $$step))))
+      (= $$return sum)))
+  (fun compute_residual void ((var n i64)
+      (var x <array f64 1>)
+      (var b <array f64 1>)
+      (var r <array f64 1>)
+      (var w <array f64 1>)) ()
+    (block
+      (var $$x_lbound0 i64)
+      (var $$x_dimsize0 i64)
+      (var $$x_mulacc0 i64)
+      (= $$x_lbound0 0)
+      (= $$x_dimsize0 (+ (- (- n 1) 0) 1))
+      (= $$x_mulacc0 (* 1 $$x_dimsize0))
+      (var $$b_lbound0 i64)
+      (var $$b_dimsize0 i64)
+      (var $$b_mulacc0 i64)
+      (= $$b_lbound0 0)
+      (= $$b_dimsize0 (+ (- (- n 1) 0) 1))
+      (= $$b_mulacc0 (* 1 $$b_dimsize0))
+      (var $$r_lbound0 i64)
+      (var $$r_dimsize0 i64)
+      (var $$r_mulacc0 i64)
+      (= $$r_lbound0 0)
+      (= $$r_dimsize0 (+ (- (- n 1) 0) 1))
+      (= $$r_mulacc0 (* 1 $$r_dimsize0))
+      (var $$w_lbound0 i64)
+      (var $$w_dimsize0 i64)
+      (var $$w_mulacc0 i64)
+      (= $$w_lbound0 0)
+      (= $$w_dimsize0 (+ (- (- n 1) 0) 1))
+      (= $$w_mulacc0 (* 1 $$w_dimsize0))
+      (var i i64)
+      (call matvec n x w)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 0)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to (- n 1))
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= i $$next)
+          (block
+            (= r [i] (- (index i b) (index i w))))
+          (= $$next (+ $$next $$step)))))))

@@ -1,8 +1,5 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      ($$$return =:<Void>
-        (-:<Int>
-          (9223372036854775807:<Int>)
-          (10:<Int>))))))
+(block
+  (fun ф i64 () ()
+    (block
+      (var $$return i64)
+      (= $$return (- 9223372036854775807 10)))))

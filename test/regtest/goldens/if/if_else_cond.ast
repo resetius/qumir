@@ -1,22 +1,10 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      (Var $i:<Int>)
-      (Var $j:<Int>)
-      ($i =:<Void>
-        (1:<Int>))
-      ($j =:<Void>
-        (2:<Int>))
-      (IfStmt:<Void>
-        (!=:<Bool>
-          ($i:<Int>)
-          ($j:<Int>))
-        (Block:<Void>
-          ($i =:<Void>
-            (1:<Int>)))
-        (Block:<Void>
-          ($i =:<Void>
-            (2:<Int>))))
-      ($$$return =:<Void>
-        ($i:<Int>)))))
+(block
+  (fun ф i64 () ()
+    (block
+      (var $$return i64)
+      (var i i64)
+      (var j i64)
+      (= i 1)
+      (= j 2)
+      (cond (!= i j) (block (= i 1)) (block (= i 2)))
+      (= $$return i))))

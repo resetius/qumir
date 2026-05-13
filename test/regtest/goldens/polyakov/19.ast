@@ -1,87 +1,29 @@
-(Block:<Void>
-  (FunDecl $ЫШЧО ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $word:<String>)
-      ($word =:<Void>
-        ("...":<String>))
-      (Call:<Void>
-        ($TumbaWords:<Fun (String, String, Int) -> Void>)
-        ("ЫШЧО":<String>)
-        ($word:<String>)
-        (0:<Int>))))
-  (FunDecl $TumbaWords ($A, $w0, $N):<Fun (String, String, Int) -> Void>
-    (Block:<Void>
-      (IfStmt:<Void>
-        (==:<Bool>
-          ($N:<Int>)
-          (Call:<Int>
-            ($длин:<Fun (String) -> Int>)
-            ($w0:<String>)))
-        (Block:<Void>
-          (Block:<Void>
-            (Call:<Void>
-              ($output_string:<Fun (String) -> Void>)
-              ($w0:<String>))
-            (Call:<Void>
-              ($output_string:<Fun (String) -> Void>)
-              ("\n":<String>)))
-          (Break:<Void>))
-        nil)
-      (Var $i:<Int>)
-      (Var $w:<String>)
-      ($w =:<Void>
-        (Call:<String>
-          ($str_slice:<Fun (String, Int, Int) -> String>)
-          ($w0:<String>)
-          (1:<Int>)
-          (Call:<Int>
-            ($длин:<Fun (String) -> Int>)
-            ($w0:<String>))))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (1:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (Call:<Int>
-            ($длин:<Fun (String) -> Int>)
-            ($A:<String>)))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($w =:<Void>
-              (Call:<String>
-                ($str_replace_sym:<Fun (String, Char, Int) -> String>)
-                ($w:<String>)
-                (Call:<Char>
-                  ($str_symbol_at:<Fun (String, Int) -> Char>)
-                  ($A:<String>)
-                  ($i:<Int>))
-                (+:<Int>
-                  ($N:<Int>)
-                  (1:<Int>))))
-            (Call:<Void>
-              ($TumbaWords:<Fun (String, String, Int) -> Void>)
-              ($A:<String>)
-              ($w:<String>)
-              (+:<Int>
-                ($N:<Int>)
-                (1:<Int>))))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>))))))))
+(block
+  (fun ЫШЧО void () ()
+    (block
+      (var word string)
+      (= word "...")
+      (call TumbaWords "ЫШЧО" word 0)))
+  (fun TumbaWords void ((var A string)
+      (var w0 string)
+      (var N i64)) ()
+    (block
+      (cond (== N (call длин w0)) (block (seq (call output_string w0) (call output_string "\n")) break))
+      (var i i64)
+      (var w string)
+      (= w (call str_slice w0 1 (call длин w0)))
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 1)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to (call длин A))
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= i $$next)
+          (block
+            (= w (call str_replace_sym w (call str_symbol_at A i) (+ N 1)))
+            (call TumbaWords A w (+ N 1)))
+          (= $$next (+ $$next $$step)))))))

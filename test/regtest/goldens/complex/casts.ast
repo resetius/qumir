@@ -1,95 +1,35 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $x:<Float>)
-      (Var $y:<Float>)
-      (Var $n:<Int>)
-      (Var $a:<Named компл (struct { re: Float; im: Float; })>)
-      (Var $b:<Named компл (struct { re: Float; im: Float; })>)
-      ($x =:<Void>
-        (3.500000:<Float>))
-      ($a =:<Void>
-        (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-          ($x:<Float>)
-          (0.000000:<Float>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("float_to_complex Re=":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          (FieldAccess:<Float>
-            ($a:<Named компл (struct { re: Float; im: Float; })>))
-          (0:<Int>)
-          (-1:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          (" Im=":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          (FieldAccess:<Float>
-            ($a:<Named компл (struct { re: Float; im: Float; })>))
-          (0:<Int>)
-          (-1:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))
-      ($n =:<Void>
-        (7:<Int>))
-      ($b =:<Void>
-        (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-          (Cast<Float>:<Float>
-            ($n:<Int>))
-          (0.000000:<Float>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("int_to_complex Re=":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          (FieldAccess:<Float>
-            ($b:<Named компл (struct { re: Float; im: Float; })>))
-          (0:<Int>)
-          (-1:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          (" Im=":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          (FieldAccess:<Float>
-            ($b:<Named компл (struct { re: Float; im: Float; })>))
-          (0:<Int>)
-          (-1:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))
-      ($y =:<Void>
-        (FieldAccess:<Float>
-          ($a:<Named компл (struct { re: Float; im: Float; })>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("complex_to_float=":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          ($y:<Float>)
-          (0:<Int>)
-          (-1:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))
-      ($n =:<Void>
-        (Cast<Int>:<Int>
-          (FieldAccess:<Float>
-            ($a:<Named компл (struct { re: Float; im: Float; })>))))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("complex_to_int=":<String>))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($n:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>))))))
+(block
+  (use "Комплексные числа")
+  (fun <main> void () ()
+    (block
+      (var x f64)
+      (var y f64)
+      (var n i64)
+      (: (var a <named компл <struct (re f64) (im f64)>>) <named компл <struct (re f64) (im f64)>>)
+      (: (var b <named компл <struct (re f64) (im f64)>>) <named компл <struct (re f64) (im f64)>>)
+      (= x 3.5)
+      (= a (: (struct ((re x) (im 0))) <named компл <struct (re f64) (im f64)>>))
+      (seq
+        (call output_string "float_to_complex Re=")
+        (call output_double (field re (: a <named компл <struct (re f64) (im f64)>>)) 0 -1)
+        (call output_string " Im=")
+        (call output_double (field im (: a <named компл <struct (re f64) (im f64)>>)) 0 -1)
+        (call output_string "\n"))
+      (= n 7)
+      (= b (: (struct ((re (cast n f64)) (im 0))) <named компл <struct (re f64) (im f64)>>))
+      (seq
+        (call output_string "int_to_complex Re=")
+        (call output_double (field re (: b <named компл <struct (re f64) (im f64)>>)) 0 -1)
+        (call output_string " Im=")
+        (call output_double (field im (: b <named компл <struct (re f64) (im f64)>>)) 0 -1)
+        (call output_string "\n"))
+      (= y (field re (: a <named компл <struct (re f64) (im f64)>>)))
+      (seq
+        (call output_string "complex_to_float=")
+        (call output_double y 0 -1)
+        (call output_string "\n"))
+      (= n (cast (field re (: a <named компл <struct (re f64) (im f64)>>)) i64))
+      (seq
+        (call output_string "complex_to_int=")
+        (call output_int64 n 0)
+        (call output_string "\n")))))

@@ -1,27 +1,13 @@
-(Block:<Void>
-  (FunDecl $f ():<Fun () -> String>
-    (Block:<Void>
-      (Var $$$return:<String>)
-      (Var $s:<String>)
-      ($s =:<Void>
-        ("s12345":<String>))
-      (Call:<Void>
-        ($g:<Fun (Ref) -> Void>)
-        ($s:<String>))
-      ($$$return =:<Void>
-        ($s:<String>))))
-  (FunDecl $g ($s):<Fun (Ref) -> Void>
-    (Block:<Void>
-      (Var $a:<Char>)
-      ($a =:<Void>
-        (Call:<Char>
-          ($str_symbol_at:<Fun (String, Int) -> Char>)
-          ($s:<Ref &String>)
-          (1:<Int>)))
-      ($s =:<Void>
-        (Call:<String>
-          ($str_concat:<Fun (String, String) -> String>)
-          ($s:<Ref &String>)
-          (Call:<String>
-            ($str_from_unicode:<Fun (Char) -> String>)
-            ($a:<Char>)))))))
+(block
+  (fun f string () ()
+    (block
+      (var $$return string)
+      (var s string)
+      (= s "s12345")
+      (call g s)
+      (= $$return s)))
+  (fun g void ((var s <ref string>)) ()
+    (block
+      (var a char)
+      (= a (call str_symbol_at s 1))
+      (= s (call str_concat s (call str_from_unicode a))))))

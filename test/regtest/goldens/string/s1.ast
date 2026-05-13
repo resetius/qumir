@@ -1,9 +1,7 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> String>
-    (Block:<Void>
-      (Var $$$return:<String>)
-      (Var $стр:<String>)
-      ($стр =:<Void>
-        ("ыыы":<String>))
-      ($$$return =:<Void>
-        ($стр:<String>)))))
+(block
+  (fun ф string () ()
+    (block
+      (var $$return string)
+      (var стр string)
+      (= стр "ыыы")
+      (= $$return стр))))

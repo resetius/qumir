@@ -1,16 +1,10 @@
-(Block:<Void>
-  (FunDecl $функция ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      (Call:<Void>
-        ($ф:<Fun (Int) -> Void>)
-        (10:<Int>))
-      ($$$return =:<Void>
-        (1:<Int>))))
-  (FunDecl $ф ($i):<Fun (Int) -> Void>
-    (Block:<Void>
-      (Block:<Void>
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($i:<Int>)
-          (0:<Int>))))))
+(block
+  (fun функция i64 () ()
+    (block
+      (var $$return i64)
+      (call ф 10)
+      (= $$return 1)))
+  (fun ф void ((var i i64)) ()
+    (block
+      (seq
+        (call output_int64 i 0)))))

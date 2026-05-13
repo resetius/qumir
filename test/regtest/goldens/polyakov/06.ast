@@ -1,33 +1,13 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      (Var $a:<Int>)
-      ($a =:<Void>
-        (10:<Int>))
-      (Var $b:<Int>)
-      ($b =:<Void>
-        (20:<Int>))
-      (Var $M:<Int>)
-      (IfStmt:<Void>
-        (>:<Bool>
-          ($a:<Int>)
-          ($b:<Int>))
-        (Block:<Void>
-          ($M =:<Void>
-            ($a:<Int>)))
-        (Block:<Void>
-          ($M =:<Void>
-            ($b:<Int>))))
-      ($M =:<Void>
-        ($a:<Int>))
-      (IfStmt:<Void>
-        (>=:<Bool>
-          ($b:<Int>)
-          ($a:<Int>))
-        (Block:<Void>
-          ($M =:<Void>
-            ($b:<Int>)))
-        nil)
-      ($$$return =:<Void>
-        ($M:<Int>)))))
+(block
+  (fun ф i64 () ()
+    (block
+      (var $$return i64)
+      (var a i64)
+      (= a 10)
+      (var b i64)
+      (= b 20)
+      (var M i64)
+      (cond (> a b) (block (= M a)) (block (= M b)))
+      (= M a)
+      (cond (>= b a) (block (= M b)))
+      (= $$return M))))

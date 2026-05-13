@@ -1,67 +1,26 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $i:<Int>)
-      (Var $after:<Int>)
-      ($i =:<Void>
-        (0:<Int>))
-      ($after =:<Void>
-        (0:<Int>))
-      (Loop:<Void>
+(block
+  (fun <main> void () ()
+    (block
+      (var i i64)
+      (var after i64)
+      (= i 0)
+      (= after 0)
+      (loop
         nil
-        (Cast<Bool>:<Bool>
-          (1:<Int>))
         nil
-        (Block:<Void>
-          ($i =:<Void>
-            (+:<Int>
-              ($i:<Int>)
-              (1:<Int>)))
-          (Block:<Void>
-            (Call:<Void>
-              ($output_string:<Fun (String) -> Void>)
-              ("i=":<String>))
-            (Call:<Void>
-              ($output_int64:<Fun (Int, Int) -> Void>)
-              ($i:<Int>)
-              (0:<Int>))
-            (Call:<Void>
-              ($output_string:<Fun (String) -> Void>)
-              ("\n":<String>)))
-          (IfStmt:<Void>
-            (==:<Bool>
-              ($i:<Int>)
-              (3:<Int>))
-            (Block:<Void>
-              (Block:<Void>
-                (Call:<Void>
-                  ($output_string:<Fun (String) -> Void>)
-                  ("break":<String>))
-                (Call:<Void>
-                  ($output_string:<Fun (String) -> Void>)
-                  ("\n":<String>)))
-              (Break:<Void>))
-            nil)
-          ($after =:<Void>
-            (+:<Int>
-              ($after:<Int>)
-              (10:<Int>))))
-        nil)
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("loop ended i=":<String>))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($i:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          (" after=":<String>))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($after:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>))))))
+        (block
+          (= i (+ i 1))
+          (seq
+            (call output_string "i=")
+            (call output_int64 i 0)
+            (call output_string "\n"))
+          (cond (== i 3) (block (seq (call output_string "break") (call output_string "\n")) break))
+          (= after (+ after 10)))
+        nil
+        (cast 1 bool))
+      (seq
+        (call output_string "loop ended i=")
+        (call output_int64 i 0)
+        (call output_string " after=")
+        (call output_int64 after 0)
+        (call output_string "\n")))))

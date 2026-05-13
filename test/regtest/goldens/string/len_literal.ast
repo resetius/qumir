@@ -1,8 +1,5 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      ($$$return =:<Void>
-        (Call:<Int>
-          ($длин:<Fun (String) -> Int>)
-          ("строка":<String>))))))
+(block
+  (fun ф i64 () ()
+    (block
+      (var $$return i64)
+      (= $$return (call длин "строка")))))

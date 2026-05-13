@@ -1,9 +1,9 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $i:<Int>)
-      (Var $j:<Int>)
-      (Var $k:<Int>)
-      (Var $a:<Float>)
-      (Var $b:<Float>)
-      (Var $c:<Float>))))
+(block
+  (fun <main> void () ()
+    (block
+      (var i i64)
+      (var j i64)
+      (var k i64)
+      (var a f64)
+      (var b f64)
+      (var c f64))))

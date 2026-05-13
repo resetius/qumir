@@ -1,30 +1,12 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $z:<Named компл (struct { re: Float; im: Float; })>)
-      ($z =:<Void>
-        (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-          (0.000000:<Float>)
-          (1.000000:<Float>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("i Re=":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          (FieldAccess:<Float>
-            ($z:<Named компл (struct { re: Float; im: Float; })>))
-          (0:<Int>)
-          (-1:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          (" Im=":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          (FieldAccess:<Float>
-            ($z:<Named компл (struct { re: Float; im: Float; })>))
-          (0:<Int>)
-          (-1:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>))))))
+(block
+  (use "Комплексные числа")
+  (fun <main> void () ()
+    (block
+      (: (var z <named компл <struct (re f64) (im f64)>>) <named компл <struct (re f64) (im f64)>>)
+      (= z (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>))
+      (seq
+        (call output_string "i Re=")
+        (call output_double (field re (: z <named компл <struct (re f64) (im f64)>>)) 0 -1)
+        (call output_string " Im=")
+        (call output_double (field im (: z <named компл <struct (re f64) (im f64)>>)) 0 -1)
+        (call output_string "\n")))))

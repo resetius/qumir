@@ -1,20 +1,12 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $a:<Char>)
-      ($a =:<Void>
-        (Call:<Char>
-          ($f:<Fun () -> Char>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_symbol:<Fun (Char) -> Void>)
-          ($a:<Char>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))))
-  (FunDecl $f ():<Fun () -> Char>
-    (Block:<Void>
-      (Var $$$return:<Char>)
-      ($$$return =:<Void>
-        (Cast<Char>:<Char>
-          (1103:<Int>))))))
+(block
+  (fun <main> void () ()
+    (block
+      (var a char)
+      (= a (call f))
+      (seq
+        (call output_symbol a)
+        (call output_string "\n"))))
+  (fun f char () ()
+    (block
+      (var $$return char)
+      (= $$return (cast 1103 char)))))

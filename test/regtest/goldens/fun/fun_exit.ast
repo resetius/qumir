@@ -1,63 +1,31 @@
-(Block:<Void>
-  (FunDecl $f ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      (Var $a:<Int>)
-      (Var $b:<Int>)
-      (Var $c:<Int>)
-      ($a =:<Void>
-        (Call:<Int>
-          ($g:<Fun () -> Int>)))
-      ($b =:<Void>
-        (Call:<Int>
-          ($h:<Fun () -> Int>)))
-      ($c =:<Void>
-        (Call:<Int>
-          ($i:<Fun () -> Int>)))
-      ($$$return =:<Void>
-        (+:<Int>
-          (+:<Int>
-            ($a:<Int>)
-            ($b:<Int>))
-          ($c:<Int>)))))
-  (FunDecl $g ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      ($$$return =:<Void>
-        (1:<Int>))
-      (Break:<Void>)
-      ($$$return =:<Void>
-        (2:<Int>))))
-  (FunDecl $h ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      ($$$return =:<Void>
-        (0:<Int>))
-      (IfStmt:<Void>
-        (==:<Bool>
-          (1:<Int>)
-          (1:<Int>))
-        (Block:<Void>
-          ($$$return =:<Void>
-            (5:<Int>))
-          (Break:<Void>))
-        nil)
-      ($$$return =:<Void>
-        (99:<Int>))))
-  (FunDecl $i ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      ($$$return =:<Void>
-        (1:<Int>))
-      (IfStmt:<Void>
-        (==:<Bool>
-          (2:<Int>)
-          (3:<Int>))
-        (Block:<Void>
-          (Break:<Void>))
-        nil)
-      ($$$return =:<Void>
-        (7:<Int>))
-      (Break:<Void>)
-      ($$$return =:<Void>
-        (100:<Int>)))))
+(block
+  (fun f i64 () ()
+    (block
+      (var $$return i64)
+      (var a i64)
+      (var b i64)
+      (var c i64)
+      (= a (call g))
+      (= b (call h))
+      (= c (call i))
+      (= $$return (+ (+ a b) c))))
+  (fun g i64 () ()
+    (block
+      (var $$return i64)
+      (= $$return 1)
+      break
+      (= $$return 2)))
+  (fun h i64 () ()
+    (block
+      (var $$return i64)
+      (= $$return 0)
+      (cond (== 1 1) (block (= $$return 5) break))
+      (= $$return 99)))
+  (fun i i64 () ()
+    (block
+      (var $$return i64)
+      (= $$return 1)
+      (cond (== 2 3) (block break))
+      (= $$return 7)
+      break
+      (= $$return 100))))

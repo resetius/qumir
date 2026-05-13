@@ -1,14 +1,7 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> String>
-    (Block:<Void>
-      (Var $$$return:<String>)
-      (Var $с:<String>)
-      ($с =:<Void>
-        ("строка":<String>))
-      ($$$return =:<Void>
-        (Call:<String>
-          ($str_from_unicode:<Fun (Char) -> String>)
-          (Call:<Char>
-            ($str_symbol_at:<Fun (String, Int) -> Char>)
-            ($с:<String>)
-            (3:<Int>)))))))
+(block
+  (fun ф string () ()
+    (block
+      (var $$return string)
+      (var с string)
+      (= с "строка")
+      (= $$return (call str_from_unicode (call str_symbol_at с 3))))))

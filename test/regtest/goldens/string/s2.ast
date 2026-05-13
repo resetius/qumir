@@ -1,23 +1,12 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> String>
-    (Block:<Void>
-      (Var $$$return:<String>)
-      (Var $s1:<String>)
-      (Var $s2:<String>)
-      (Var $s3:<String>)
-      ($s3 =:<Void>
-        ("a ":<String>))
-      ($s2 =:<Void>
-        ("b ":<String>))
-      ($s1 =:<Void>
-        ("ыыы":<String>))
-      ($s1 =:<Void>
-        (Call:<String>
-          ($str_concat:<Fun (String, String) -> String>)
-          (Call:<String>
-            ($str_concat:<Fun (String, String) -> String>)
-            ($s1:<String>)
-            ($s2:<String>))
-          ($s3:<String>)))
-      ($$$return =:<Void>
-        ($s1:<String>)))))
+(block
+  (fun ф string () ()
+    (block
+      (var $$return string)
+      (var s1 string)
+      (var s2 string)
+      (var s3 string)
+      (= s3 "a ")
+      (= s2 "b ")
+      (= s1 "ыыы")
+      (= s1 (call str_concat (call str_concat s1 s2) s3))
+      (= $$return s1))))

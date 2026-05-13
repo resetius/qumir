@@ -1,249 +1,81 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $a:<Named компл (struct { re: Float; im: Float; })>)
-      (Var $b:<Named компл (struct { re: Float; im: Float; })>)
-      ($a =:<Void>
-        (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-          (+:<Float>
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (1.000000:<Float>)
-                (0.000000:<Float>)))
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (-:<Float>
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (2.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (2.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>)))))
-                (+:<Float>
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (2.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (2.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))))))
-          (+:<Float>
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (1.000000:<Float>)
-                (0.000000:<Float>)))
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (-:<Float>
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (2.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (2.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>)))))
-                (+:<Float>
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (2.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (2.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))))))))
-      ($b =:<Void>
-        (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-          (+:<Float>
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (1.000000:<Float>)
-                (0.000000:<Float>)))
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (-:<Float>
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (3.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (3.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>)))))
-                (+:<Float>
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (3.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (3.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))))))
-          (+:<Float>
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (1.000000:<Float>)
-                (0.000000:<Float>)))
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (-:<Float>
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (3.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (3.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>)))))
-                (+:<Float>
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (3.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))
-                  (*:<Float>
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (3.000000:<Float>)
-                        (0.000000:<Float>)))
-                    (FieldAccess:<Float>
-                      (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                        (0.000000:<Float>)
-                        (1.000000:<Float>))))))))))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("eq_same=":<String>))
-        (Call:<Void>
-          ($output_bool:<Fun (Bool) -> Void>)
-          (&&:<Bool>
-            (==:<Bool>
-              (FieldAccess:<Float>
-                ($a:<Named компл (struct { re: Float; im: Float; })>))
-              (FieldAccess:<Float>
-                ($a:<Named компл (struct { re: Float; im: Float; })>)))
-            (==:<Bool>
-              (FieldAccess:<Float>
-                ($a:<Named компл (struct { re: Float; im: Float; })>))
-              (FieldAccess:<Float>
-                ($a:<Named компл (struct { re: Float; im: Float; })>)))))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("eq_other=":<String>))
-        (Call:<Void>
-          ($output_bool:<Fun (Bool) -> Void>)
-          (&&:<Bool>
-            (==:<Bool>
-              (FieldAccess:<Float>
-                ($a:<Named компл (struct { re: Float; im: Float; })>))
-              (FieldAccess:<Float>
-                ($b:<Named компл (struct { re: Float; im: Float; })>)))
-            (==:<Bool>
-              (FieldAccess:<Float>
-                ($a:<Named компл (struct { re: Float; im: Float; })>))
-              (FieldAccess:<Float>
-                ($b:<Named компл (struct { re: Float; im: Float; })>)))))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("ne_other=":<String>))
-        (Call:<Void>
-          ($output_bool:<Fun (Bool) -> Void>)
-          (||:<Bool>
-            (!=:<Bool>
-              (FieldAccess:<Float>
-                ($a:<Named компл (struct { re: Float; im: Float; })>))
-              (FieldAccess:<Float>
-                ($b:<Named компл (struct { re: Float; im: Float; })>)))
-            (!=:<Bool>
-              (FieldAccess:<Float>
-                ($a:<Named компл (struct { re: Float; im: Float; })>))
-              (FieldAccess:<Float>
-                ($b:<Named компл (struct { re: Float; im: Float; })>)))))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>))))))
+(block
+  (use "Комплексные числа")
+  (fun <main> void () ()
+    (block
+      (: (var a <named компл <struct (re f64) (im f64)>>) <named компл <struct (re f64) (im f64)>>)
+      (: (var b <named компл <struct (re f64) (im f64)>>) <named компл <struct (re f64) (im f64)>>)
+      (= a
+        (: (struct ((re (+ (field re (: (struct ((re 1) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                (field re
+                  (: (struct ((re (- (* (field re (: (struct ((re 2) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field re (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))
+                          (* (field im (: (struct ((re 2) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field im (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))))
+                        (im (+ (* (field re (: (struct ((re 2) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field im (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))
+                          (* (field im (: (struct ((re 2) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field re (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))))))
+                    <named компл <struct (re f64) (im f64)>>))))
+              (im (+ (field im (: (struct ((re 1) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                (field im
+                  (: (struct ((re (- (* (field re (: (struct ((re 2) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field re (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))
+                          (* (field im (: (struct ((re 2) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field im (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))))
+                        (im (+ (* (field re (: (struct ((re 2) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field im (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))
+                          (* (field im (: (struct ((re 2) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field re (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))))))
+                    <named компл <struct (re f64) (im f64)>>))))))
+          <named компл <struct (re f64) (im f64)>>))
+      (= b
+        (: (struct ((re (+ (field re (: (struct ((re 1) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                (field re
+                  (: (struct ((re (- (* (field re (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field re (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))
+                          (* (field im (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field im (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))))
+                        (im (+ (* (field re (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field im (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))
+                          (* (field im (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field re (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))))))
+                    <named компл <struct (re f64) (im f64)>>))))
+              (im (+ (field im (: (struct ((re 1) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                (field im
+                  (: (struct ((re (- (* (field re (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field re (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))
+                          (* (field im (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field im (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))))
+                        (im (+ (* (field re (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field im (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))
+                          (* (field im (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                            (field re (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>)))))))
+                    <named компл <struct (re f64) (im f64)>>))))))
+          <named компл <struct (re f64) (im f64)>>))
+      (seq
+        (call output_string "eq_same=")
+        (call
+          output_bool
+          (&& (== (field re (: a <named компл <struct (re f64) (im f64)>>))
+              (field re (: a <named компл <struct (re f64) (im f64)>>)))
+            (== (field im (: a <named компл <struct (re f64) (im f64)>>))
+              (field im (: a <named компл <struct (re f64) (im f64)>>)))))
+        (call output_string "\n"))
+      (seq
+        (call output_string "eq_other=")
+        (call
+          output_bool
+          (&& (== (field re (: a <named компл <struct (re f64) (im f64)>>))
+              (field re (: b <named компл <struct (re f64) (im f64)>>)))
+            (== (field im (: a <named компл <struct (re f64) (im f64)>>))
+              (field im (: b <named компл <struct (re f64) (im f64)>>)))))
+        (call output_string "\n"))
+      (seq
+        (call output_string "ne_other=")
+        (call
+          output_bool
+          (|| (!= (field re (: a <named компл <struct (re f64) (im f64)>>))
+              (field re (: b <named компл <struct (re f64) (im f64)>>)))
+            (!= (field im (: a <named компл <struct (re f64) (im f64)>>))
+              (field im (: b <named компл <struct (re f64) (im f64)>>)))))
+        (call output_string "\n")))))

@@ -1,21 +1,8 @@
-(Block:<Void>
-  (FunDecl $функция ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      (Var $ф:<Int>)
-      ($ф =:<Void>
-        (0:<Int>))
-      (Loop:<Void>
-        (<:<Bool>
-          ($ф:<Int>)
-          (10:<Int>))
-        nil
-        nil
-        (Block:<Void>
-          ($ф =:<Void>
-            (+:<Int>
-              ($ф:<Int>)
-              (1:<Int>))))
-        nil)
-      ($$$return =:<Void>
-        ($ф:<Int>)))))
+(block
+  (fun функция i64 () ()
+    (block
+      (var $$return i64)
+      (var ф i64)
+      (= ф 0)
+      (loop (< ф 10) nil (block (= ф (+ ф 1))))
+      (= $$return ф))))

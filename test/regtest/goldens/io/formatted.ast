@@ -1,25 +1,12 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $i:<Int>)
-      (Var $j:<Int>)
-      ($i =:<Void>
-        (1:<Int>))
-      ($j =:<Void>
-        (2:<Int>))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($i:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_symbol:<Fun (Char) -> Void>)
-          (Cast<Char>:<Char>
-            (32:<Int>)))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($j:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>))))))
+(block
+  (fun <main> void () ()
+    (block
+      (var i i64)
+      (var j i64)
+      (= i 1)
+      (= j 2)
+      (seq
+        (call output_int64 i 0)
+        (call output_symbol (cast 32 char))
+        (call output_int64 j 0)
+        (call output_string "\n")))))

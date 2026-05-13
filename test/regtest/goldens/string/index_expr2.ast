@@ -1,19 +1,9 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> String>
-    (Block:<Void>
-      (Var $$$return:<String>)
-      (Var $i:<Int>)
-      (Var $с:<String>)
-      ($с =:<Void>
-        ("строка":<String>))
-      ($i =:<Void>
-        (1:<Int>))
-      ($$$return =:<Void>
-        (Call:<String>
-          ($str_from_unicode:<Fun (Char) -> String>)
-          (Call:<Char>
-            ($str_symbol_at:<Fun (String, Int) -> Char>)
-            ($с:<String>)
-            (*:<Int>
-              ($i:<Int>)
-              (2:<Int>))))))))
+(block
+  (fun ф string () ()
+    (block
+      (var $$return string)
+      (var i i64)
+      (var с string)
+      (= с "строка")
+      (= i 1)
+      (= $$return (call str_from_unicode (call str_symbol_at с (* i 2)))))))

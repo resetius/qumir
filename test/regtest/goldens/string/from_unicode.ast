@@ -1,9 +1,5 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> String>
-    (Block:<Void>
-      (Var $$$return:<String>)
-      ($$$return =:<Void>
-        (Call:<String>
-          ($str_from_unicode:<Fun (Char) -> String>)
-          (Cast<Char>:<Char>
-            (1090:<Int>)))))))
+(block
+  (fun ф string () ()
+    (block
+      (var $$return string)
+      (= $$return (call str_from_unicode (cast 1090 char))))))

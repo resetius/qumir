@@ -1,107 +1,43 @@
-(Block:<Void>
-  (FunDecl $binSearch ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $N:<Int>)
-      ($N =:<Void>
-        (5:<Int>))
-      (Block:<Void>
-        (Var $$$A_lbound0:<Int>)
-        (Var $$$A_dimsize0:<Int>)
-        (Var $$$A_mulacc0:<Int>)
-        ($$$A_lbound0 =:<Void>
-          (1:<Int>))
-        ($$$A_dimsize0 =:<Void>
-          (+:<Int>
-            (-:<Int>
-              ($N:<Int>)
-              (1:<Int>))
-            (1:<Int>)))
-        ($$$A_mulacc0 =:<Void>
-          (*:<Int>
-            (1:<Int>)
-            ($$$A_dimsize0:<Int>)))
-        (Var $A:<Array [Int; 1]>))
-      (Var $i:<Int>)
-      ($A[...] =:<Void>
-        (1:<Int>)
-        (1:<Int>))
-      ($A[...] =:<Void>
-        (2:<Int>)
-        (2:<Int>))
-      ($A[...] =:<Void>
-        (3:<Int>)
-        (3:<Int>))
-      ($A[...] =:<Void>
-        (4:<Int>)
-        (7:<Int>))
-      ($A[...] =:<Void>
-        (5:<Int>)
-        (10:<Int>))
-      (Var $X:<Int>)
-      ($X =:<Void>
-        (7:<Int>))
-      (Var $L:<Int>)
-      (Var $R:<Int>)
-      (Var $c:<Int>)
-      ($L =:<Void>
-        (1:<Int>))
-      ($R =:<Void>
-        (+:<Int>
-          ($N:<Int>)
-          (1:<Int>)))
-      (Loop:<Void>
-        (<:<Bool>
-          ($L:<Int>)
-          (-:<Int>
-            ($R:<Int>)
-            (1:<Int>)))
+(block
+  (fun binSearch void () ()
+    (block
+      (var N i64)
+      (= N 5)
+      (seq
+        (var $$A_lbound0 i64)
+        (var $$A_dimsize0 i64)
+        (var $$A_mulacc0 i64)
+        (= $$A_lbound0 1)
+        (= $$A_dimsize0 (+ (- N 1) 1))
+        (= $$A_mulacc0 (* 1 $$A_dimsize0))
+        (var A <array i64 1>))
+      (var i i64)
+      (= A [1] 1)
+      (= A [2] 2)
+      (= A [3] 3)
+      (= A [4] 7)
+      (= A [5] 10)
+      (var X i64)
+      (= X 7)
+      (var L i64)
+      (var R i64)
+      (var c i64)
+      (= L 1)
+      (= R (+ N 1))
+      (loop
+        (< L (- R 1))
         nil
-        nil
-        (Block:<Void>
-          ($c =:<Void>
-            (Call:<Int>
-              ($div:<Fun (Int, Int) -> Int>)
-              (+:<Int>
-                ($L:<Int>)
-                ($R:<Int>))
-              (2:<Int>)))
-          (IfStmt:<Void>
-            (<:<Bool>
-              ($X:<Int>)
-              (Index:<Int>
-                ($A:<Array [Int; 1]>)
-                ($c:<Int>)))
-            (Block:<Void>
-              ($R =:<Void>
-                ($c:<Int>)))
-            (Block:<Void>
-              ($L =:<Void>
-                ($c:<Int>)))))
-        nil)
-      (IfStmt:<Void>
-        (==:<Bool>
-          (Index:<Int>
-            ($A:<Array [Int; 1]>)
-            ($L:<Int>))
-          ($X:<Int>))
-        (Block:<Void>
-          (Block:<Void>
-            (Call:<Void>
-              ($output_string:<Fun (String) -> Void>)
-              ("A[":<String>))
-            (Call:<Void>
-              ($output_int64:<Fun (Int, Int) -> Void>)
-              ($L:<Int>)
-              (0:<Int>))
-            (Call:<Void>
-              ($output_string:<Fun (String) -> Void>)
-              ("]=":<String>))
-            (Call:<Void>
-              ($output_int64:<Fun (Int, Int) -> Void>)
-              ($X:<Int>)
-              (0:<Int>))))
-        (Block:<Void>
-          (Block:<Void>
-            (Call:<Void>
-              ($output_string:<Fun (String) -> Void>)
-              ("Не нашли!":<String>))))))))
+        (block
+          (= c (call div (+ L R) 2))
+          (cond (< X (index c A)) (block (= R c)) (block (= L c)))))
+      (cond
+        (== (index L A) X)
+        (block
+          (seq
+            (call output_string "A[")
+            (call output_int64 L 0)
+            (call output_string "]=")
+            (call output_int64 X 0)))
+        (block
+          (seq
+            (call output_string "Не нашли!")))))))

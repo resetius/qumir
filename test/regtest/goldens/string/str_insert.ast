@@ -1,17 +1,10 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> String>
-    (Block:<Void>
-      (Var $$$return:<String>)
-      (Var $s:<String>)
-      ($s =:<Void>
-        ("ABCЙЦУКcbv":<String>))
-      (Var $s1:<String>)
-      ($s1 =:<Void>
-        ("QWЩЩЯ":<String>))
-      (Call:<Void>
-        ($вставить:<Fun (String, Ref, Int) -> Void>)
-        ($s1:<String>)
-        ($s:<String>)
-        (5:<Int>))
-      ($$$return =:<Void>
-        ($s:<String>)))))
+(block
+  (fun ф string () ()
+    (block
+      (var $$return string)
+      (var s string)
+      (= s "ABCЙЦУКcbv")
+      (var s1 string)
+      (= s1 "QWЩЩЯ")
+      (call вставить s1 s 5)
+      (= $$return s))))

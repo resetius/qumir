@@ -1,79 +1,15 @@
-(Block:<Void>
-  (FunDecl $тест_неравенство_символ_строка ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      (Var $x:<Char>)
-      (Var $t:<String>)
-      ($x =:<Void>
-        (Cast<Char>:<Char>
-          (98:<Int>)))
-      ($t =:<Void>
-        (Call:<String>
-          ($str_from_unicode:<Fun (Char) -> String>)
-          (Cast<Char>:<Char>
-            (99:<Int>))))
-      (Var $r:<Int>)
-      ($r =:<Void>
-        (0:<Int>))
-      (IfStmt:<Void>
-        (!=:<Bool>
-          (Call:<Int>
-            ($str_compare:<Fun (String, String) -> Int>)
-            (Call:<String>
-              ($str_from_unicode:<Fun (Char) -> String>)
-              ($x:<Char>))
-            ($t:<String>))
-          (0:<Int>))
-        (Block:<Void>
-          ($r =:<Void>
-            (+:<Int>
-              ($r:<Int>)
-              (1:<Int>))))
-        nil)
-      (IfStmt:<Void>
-        (==:<Bool>
-          (Call:<Int>
-            ($str_compare:<Fun (String, String) -> Int>)
-            (Call:<String>
-              ($str_from_unicode:<Fun (Char) -> String>)
-              ($x:<Char>))
-            ($t:<String>))
-          (0:<Int>))
-        (Block:<Void>
-          ($r =:<Void>
-            (+:<Int>
-              ($r:<Int>)
-              (1000:<Int>))))
-        nil)
-      (IfStmt:<Void>
-        (<:<Bool>
-          (Call:<Int>
-            ($str_compare:<Fun (String, String) -> Int>)
-            (Call:<String>
-              ($str_from_unicode:<Fun (Char) -> String>)
-              ($x:<Char>))
-            ($t:<String>))
-          (0:<Int>))
-        (Block:<Void>
-          ($r =:<Void>
-            (+:<Int>
-              ($r:<Int>)
-              (1:<Int>))))
-        nil)
-      (IfStmt:<Void>
-        (>:<Bool>
-          (Call:<Int>
-            ($str_compare:<Fun (String, String) -> Int>)
-            ($t:<String>)
-            (Call:<String>
-              ($str_from_unicode:<Fun (Char) -> String>)
-              ($x:<Char>)))
-          (0:<Int>))
-        (Block:<Void>
-          ($r =:<Void>
-            (+:<Int>
-              ($r:<Int>)
-              (1:<Int>))))
-        nil)
-      ($$$return =:<Void>
-        ($r:<Int>)))))
+(block
+  (fun тест_неравенство_символ_строка i64 () ()
+    (block
+      (var $$return i64)
+      (var x char)
+      (var t string)
+      (= x (cast 98 char))
+      (= t (call str_from_unicode (cast 99 char)))
+      (var r i64)
+      (= r 0)
+      (cond (!= (call str_compare (call str_from_unicode x) t) 0) (block (= r (+ r 1))))
+      (cond (== (call str_compare (call str_from_unicode x) t) 0) (block (= r (+ r 1000))))
+      (cond (< (call str_compare (call str_from_unicode x) t) 0) (block (= r (+ r 1))))
+      (cond (> (call str_compare t (call str_from_unicode x)) 0) (block (= r (+ r 1))))
+      (= $$return r))))

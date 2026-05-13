@@ -1,19 +1,13 @@
-(Block:<Void>
-  (FunDecl $f ():<Fun () -> String>
-    (Block:<Void>
-      (Var $$$return:<String>)
-      (Var $s:<String>)
-      (Call:<Void>
-        ($инит:<Fun (Ref) -> Void>)
-        ($s:<String>))
-      ($$$return =:<Void>
-        ($s:<String>))))
-  (FunDecl $инит ($s):<Fun (Ref) -> Void>
-    (Block:<Void>
-      (Call:<Void>
-        ($deep:<Fun (Ref) -> Void>)
-        ($s:<Ref &String>))))
-  (FunDecl $deep ($s):<Fun (Ref) -> Void>
-    (Block:<Void>
-      ($s =:<Void>
-        ("abc":<String>)))))
+(block
+  (fun f string () ()
+    (block
+      (var $$return string)
+      (var s string)
+      (call инит s)
+      (= $$return s)))
+  (fun инит void ((var s <ref string>)) ()
+    (block
+      (call deep s)))
+  (fun deep void ((var s <ref string>)) ()
+    (block
+      (= s "abc"))))

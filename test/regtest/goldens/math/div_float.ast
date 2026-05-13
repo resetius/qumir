@@ -1,16 +1,9 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> Float>
-    (Block:<Void>
-      (Var $$$return:<Float>)
-      (Var $a:<Int>)
-      (Var $b:<Int>)
-      ($a =:<Void>
-        (7:<Int>))
-      ($b =:<Void>
-        (2:<Int>))
-      ($$$return =:<Void>
-        (/:<Float>
-          (Cast<Float>:<Float>
-            ($a:<Int>))
-          (Cast<Float>:<Float>
-            ($b:<Int>)))))))
+(block
+  (fun ф f64 () ()
+    (block
+      (var $$return f64)
+      (var a i64)
+      (var b i64)
+      (= a 7)
+      (= b 2)
+      (= $$return (/ (cast a f64) (cast b f64))))))

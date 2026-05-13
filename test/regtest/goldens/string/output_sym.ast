@@ -1,8 +1,5 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Block:<Void>
-        (Call:<Void>
-          ($output_symbol:<Fun (Char) -> Void>)
-          (Cast<Char>:<Char>
-            (97:<Int>)))))))
+(block
+  (fun <main> void () ()
+    (block
+      (seq
+        (call output_symbol (cast 97 char))))))

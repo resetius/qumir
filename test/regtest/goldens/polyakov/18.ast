@@ -1,99 +1,32 @@
-(Block:<Void>
-  (FunDecl $Замена всех ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $s:<String>)
-      ($s =:<Void>
-        ("12.12.12":<String>))
-      (Call:<Void>
-        ($replaceAll:<Fun (Ref, String, String) -> Void>)
-        ($s:<String>)
-        ("12":<String>)
-        ("A12B":<String>))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ($s:<String>)))))
-  (FunDecl $replaceAll ($s, $wOld, $wNew):<Fun (Ref, String, String) -> Void>
-    (Block:<Void>
-      (Var $res:<String>)
-      (Var $p:<Int>)
-      (Var $len:<Int>)
-      ($len =:<Void>
-        (Call:<Int>
-          ($длин:<Fun (String) -> Int>)
-          ($wOld:<String>)))
-      ($res =:<Void>
-        ("":<String>))
-      (Loop:<Void>
-        (>:<Bool>
-          (Call:<Int>
-            ($длин:<Fun (String) -> Int>)
-            ($s:<Ref &String>))
-          (0:<Int>))
+(block
+  (fun |Замена всех| void () ()
+    (block
+      (var s string)
+      (= s "12.12.12")
+      (call replaceAll s "12" "A12B")
+      (seq
+        (call output_string s))))
+  (fun replaceAll void ((var s <ref string>)
+      (var wOld string)
+      (var wNew string)) ()
+    (block
+      (var res string)
+      (var p i64)
+      (var len i64)
+      (= len (call длин wOld))
+      (= res "")
+      (loop
+        (> (call длин s) 0)
         nil
-        nil
-        (Block:<Void>
-          ($p =:<Void>
-            (Call:<Int>
-              ($позиция:<Fun (String, String) -> Int>)
-              ($wOld:<String>)
-              ($s:<Ref &String>)))
-          (IfStmt:<Void>
-            (<:<Bool>
-              ($p:<Int>)
-              (0:<Int>))
-            (Block:<Void>
-              ($res =:<Void>
-                (Call:<String>
-                  ($str_concat:<Fun (String, String) -> String>)
-                  ($res:<String>)
-                  ($s:<Ref &String>)))
-              (Break:<Void>))
-            nil)
-          (IfStmt:<Void>
-            (>:<Bool>
-              ($p:<Int>)
-              (1:<Int>))
-            (Block:<Void>
-              ($res =:<Void>
-                (Call:<String>
-                  ($str_concat:<Fun (String, String) -> String>)
-                  ($res:<String>)
-                  (Call:<String>
-                    ($str_slice:<Fun (String, Int, Int) -> String>)
-                    ($s:<Ref &String>)
-                    (1:<Int>)
-                    (-:<Int>
-                      ($p:<Int>)
-                      (1:<Int>))))))
-            nil)
-          ($res =:<Void>
-            (Call:<String>
-              ($str_concat:<Fun (String, String) -> String>)
-              ($res:<String>)
-              ($wNew:<String>)))
-          (IfStmt:<Void>
-            (>:<Bool>
-              (+:<Int>
-                ($p:<Int>)
-                ($len:<Int>))
-              (Call:<Int>
-                ($длин:<Fun (String) -> Int>)
-                ($s:<Ref &String>)))
-            (Block:<Void>
-              ($s =:<Void>
-                ("":<String>)))
-            (Block:<Void>
-              ($s =:<Void>
-                (Call:<String>
-                  ($str_slice:<Fun (String, Int, Int) -> String>)
-                  ($s:<Ref &String>)
-                  (+:<Int>
-                    ($p:<Int>)
-                    ($len:<Int>))
-                  (Call:<Int>
-                    ($длин:<Fun (String) -> Int>)
-                    ($s:<Ref &String>)))))))
-        nil)
-      ($s =:<Void>
-        ($res:<String>)))))
+        (block
+          (= p (call позиция wOld s))
+          (cond (< p 0) (block (= res (call str_concat res s)) break))
+          (cond (> p 1) (block (= res (call str_concat res (call str_slice s 1 (- p 1))))))
+          (= res (call str_concat res wNew))
+          (cond
+            (> (+ p len) (call длин s))
+            (block
+              (= s ""))
+            (block
+              (= s (call str_slice s (+ p len) (call длин s)))))))
+      (= s res))))

@@ -1,17 +1,9 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $успех:<Bool>)
-      (Var $k:<Int>)
-      ($k =:<Void>
-        (Call:<Int>
-          ($лит_в_цел:<Fun (String, Ref) -> Int>)
-          ("123":<String>)
-          ($успех:<Bool>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_bool:<Fun (Bool) -> Void>)
-          ($успех:<Bool>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>))))))
+(block
+  (fun <main> void () ()
+    (block
+      (var успех bool)
+      (var k i64)
+      (= k (call лит_в_цел "123" успех))
+      (seq
+        (call output_bool успех)
+        (call output_string "\n")))))

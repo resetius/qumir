@@ -1,35 +1,14 @@
-(Block:<Void>
-  (FunDecl $Сумма ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $a:<Int>)
-      (Var $b:<Int>)
-      (Block:<Void>
-        ($a =:<Void>
-          (Call:<Int>
-            ($input_int64:<Fun () -> Int>)))
-        ($b =:<Void>
-          (Call:<Int>
-            ($input_int64:<Fun () -> Int>))))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($a:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_symbol:<Fun (Char) -> Void>)
-          (Cast<Char>:<Char>
-            (43:<Int>)))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($b:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_symbol:<Fun (Char) -> Void>)
-          (Cast<Char>:<Char>
-            (61:<Int>)))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          (+:<Int>
-            ($a:<Int>)
-            ($b:<Int>))
-          (0:<Int>))))))
+(block
+  (fun Сумма void () ()
+    (block
+      (var a i64)
+      (var b i64)
+      (seq
+        (= a (call input_int64))
+        (= b (call input_int64)))
+      (seq
+        (call output_int64 a 0)
+        (call output_symbol (cast 43 char))
+        (call output_int64 b 0)
+        (call output_symbol (cast 61 char))
+        (call output_int64 (+ a b) 0)))))

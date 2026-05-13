@@ -1,9 +1,11 @@
-(Block:<Void>
-  (FunDecl $функция ($i1, $j1, $k1):<Fun (Ref, Float, Bool) -> Void>
-    (Block:<Void>
-      (Var $i:<Int>)
-      (Var $j:<Int>)
-      (Var $k:<Int>)
-      (Var $a:<Float>)
-      (Var $b:<Float>)
-      (Var $c:<Float>))))
+(block
+  (fun функция void ((var i1 <ref i64>)
+      (var j1 f64)
+      (var k1 bool)) ()
+    (block
+      (var i i64)
+      (var j i64)
+      (var k i64)
+      (var a f64)
+      (var b f64)
+      (var c f64))))

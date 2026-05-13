@@ -1,888 +1,295 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $Nx:<Int>)
-      (Var $Ny:<Int>)
-      (Var $Nz:<Int>)
-      ($Nx =:<Void>
-        (8:<Int>))
-      ($Ny =:<Void>
-        (8:<Int>))
-      ($Nz =:<Void>
-        (8:<Int>))
-      (Var $pi:<Float>)
-      ($pi =:<Void>
-        (3.141593:<Float>))
-      (Var $h:<Float>)
-      (Var $h2:<Float>)
-      ($h =:<Void>
-        (/:<Float>
-          (1.000000:<Float>)
-          (Cast<Float>:<Float>
-            (-:<Int>
-              ($Nx:<Int>)
-              (1:<Int>)))))
-      ($h2 =:<Void>
-        (*:<Float>
-          ($h:<Float>)
-          ($h:<Float>)))
-      (Var $lam:<Float>)
-      (Var $dt:<Float>)
-      (Var $T:<Float>)
-      ($lam =:<Void>
-        (0.500000:<Float>))
-      ($dt =:<Void>
-        (*:<Float>
-          ($lam:<Float>)
-          ($h2:<Float>)))
-      ($T =:<Void>
-        (0.100000:<Float>))
-      (Var $nt:<Int>)
-      ($nt =:<Void>
-        (Call:<Int>
-          ($int:<Fun (Float) -> Int>)
-          (/:<Float>
-            ($T:<Float>)
-            ($dt:<Float>))))
-      (IfStmt:<Void>
-        (<:<Bool>
-          ($nt:<Int>)
-          (1:<Int>))
-        (Block:<Void>
-          ($nt =:<Void>
-            (1:<Int>)))
-        nil)
-      (Block:<Void>
-        (Var $$$u_lbound3:<Int>)
-        (Var $$$u_dimsize3:<Int>)
-        (Var $$$u_mulacc3:<Int>)
-        ($$$u_lbound3 =:<Void>
-          (0:<Int>))
-        ($$$u_dimsize3 =:<Void>
-          (+:<Int>
-            (-:<Int>
-              (-:<Int>
-                ($Nz:<Int>)
-                (1:<Int>))
-              (0:<Int>))
-            (1:<Int>)))
-        ($$$u_mulacc3 =:<Void>
-          (*:<Int>
-            (1:<Int>)
-            ($$$u_dimsize3:<Int>)))
-        (Var $$$u_lbound2:<Int>)
-        (Var $$$u_dimsize2:<Int>)
-        (Var $$$u_mulacc2:<Int>)
-        ($$$u_lbound2 =:<Void>
-          (0:<Int>))
-        ($$$u_dimsize2 =:<Void>
-          (+:<Int>
-            (-:<Int>
-              (-:<Int>
-                ($Ny:<Int>)
-                (1:<Int>))
-              (0:<Int>))
-            (1:<Int>)))
-        ($$$u_mulacc2 =:<Void>
-          (*:<Int>
-            (*:<Int>
-              (1:<Int>)
-              ($$$u_dimsize3:<Int>))
-            ($$$u_dimsize2:<Int>)))
-        (Var $$$u_lbound1:<Int>)
-        (Var $$$u_dimsize1:<Int>)
-        (Var $$$u_mulacc1:<Int>)
-        ($$$u_lbound1 =:<Void>
-          (0:<Int>))
-        ($$$u_dimsize1 =:<Void>
-          (+:<Int>
-            (-:<Int>
-              (-:<Int>
-                ($Nx:<Int>)
-                (1:<Int>))
-              (0:<Int>))
-            (1:<Int>)))
-        ($$$u_mulacc1 =:<Void>
-          (*:<Int>
-            (*:<Int>
-              (*:<Int>
-                (1:<Int>)
-                ($$$u_dimsize3:<Int>))
-              ($$$u_dimsize2:<Int>))
-            ($$$u_dimsize1:<Int>)))
-        (Var $$$u_lbound0:<Int>)
-        (Var $$$u_dimsize0:<Int>)
-        (Var $$$u_mulacc0:<Int>)
-        ($$$u_lbound0 =:<Void>
-          (0:<Int>))
-        ($$$u_dimsize0 =:<Void>
-          (+:<Int>
-            (-:<Int>
-              ($nt:<Int>)
-              (0:<Int>))
-            (1:<Int>)))
-        ($$$u_mulacc0 =:<Void>
-          (*:<Int>
-            (*:<Int>
-              (*:<Int>
-                (*:<Int>
-                  (1:<Int>)
-                  ($$$u_dimsize3:<Int>))
-                ($$$u_dimsize2:<Int>))
-              ($$$u_dimsize1:<Int>))
-            ($$$u_dimsize0:<Int>)))
-        (Var $u:<Array [Float; 4]>))
-      (Var $i:<Int>)
-      (Var $j:<Int>)
-      (Var $k:<Int>)
-      (Var $n:<Int>)
-      (Var $it:<Int>)
-      (Var $maxIt:<Int>)
-      (Var $x:<Float>)
-      (Var $y:<Float>)
-      (Var $z:<Float>)
-      (Var $t:<Float>)
-      (Var $decay:<Float>)
-      (Var $uex:<Float>)
-      (Var $diff:<Float>)
-      (Var $err:<Float>)
-      (Var $rhs:<Float>)
-      (Var $newv:<Float>)
-      (Var $oldv:<Float>)
-      (Var $change:<Float>)
-      (Var $denom:<Float>)
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (0:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (-:<Int>
-            ($Nx:<Int>)
-            (1:<Int>)))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($x =:<Void>
-              (*:<Float>
-                (Cast<Float>:<Float>
-                  ($i:<Int>))
-                ($h:<Float>)))
-            (Block:<Void>
-              (Var $$$to:<Int>)
-              (Var $$$step:<Int>)
-              (Var $$$next:<Int>)
-              ($j =:<Void>
-                (0:<Int>))
-              ($$$step =:<Void>
-                (1:<Int>))
-              ($$$next =:<Void>
-                ($j:<Int>))
-              ($$$to =:<Void>
-                (-:<Int>
-                  ($Ny:<Int>)
-                  (1:<Int>)))
-              (Loop:<Void>
-                (>=:<Bool>
-                  (*:<Int>
-                    (-:<Int>
-                      ($$$to:<Int>)
-                      ($$$next:<Int>))
-                    ($$$step:<Int>))
-                  (0:<Int>))
-                nil
-                ($j =:<Void>
-                  ($$$next:<Int>))
-                (Block:<Void>
-                  ($y =:<Void>
-                    (*:<Float>
-                      (Cast<Float>:<Float>
-                        ($j:<Int>))
-                      ($h:<Float>)))
-                  (Block:<Void>
-                    (Var $$$to:<Int>)
-                    (Var $$$step:<Int>)
-                    (Var $$$next:<Int>)
-                    ($k =:<Void>
-                      (0:<Int>))
-                    ($$$step =:<Void>
-                      (1:<Int>))
-                    ($$$next =:<Void>
-                      ($k:<Int>))
-                    ($$$to =:<Void>
-                      (-:<Int>
-                        ($Nz:<Int>)
-                        (1:<Int>)))
-                    (Loop:<Void>
-                      (>=:<Bool>
-                        (*:<Int>
-                          (-:<Int>
-                            ($$$to:<Int>)
-                            ($$$next:<Int>))
-                          ($$$step:<Int>))
-                        (0:<Int>))
-                      nil
-                      ($k =:<Void>
-                        ($$$next:<Int>))
-                      (Block:<Void>
-                        ($z =:<Void>
-                          (*:<Float>
-                            (Cast<Float>:<Float>
-                              ($k:<Int>))
-                            ($h:<Float>)))
-                        ($u[...] =:<Void>
-                          (0:<Int>)
-                          ($i:<Int>)
-                          ($j:<Int>)
-                          ($k:<Int>)
-                          (*:<Float>
-                            (*:<Float>
-                              (Call:<Float>
-                                ($sin:<Fun (Float) -> Float>)
-                                (*:<Float>
-                                  ($pi:<Float>)
-                                  ($x:<Float>)))
-                              (Call:<Float>
-                                ($sin:<Fun (Float) -> Float>)
-                                (*:<Float>
-                                  ($pi:<Float>)
-                                  ($y:<Float>))))
-                            (Call:<Float>
-                              ($sin:<Fun (Float) -> Float>)
-                              (*:<Float>
-                                ($pi:<Float>)
-                                ($z:<Float>))))))
-                      ($$$next =:<Void>
-                        (+:<Int>
-                          ($$$next:<Int>)
-                          ($$$step:<Int>))))))
-                ($$$next =:<Void>
-                  (+:<Int>
-                    ($$$next:<Int>)
-                    ($$$step:<Int>))))))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      ($maxIt =:<Void>
-        (200:<Int>))
-      ($denom =:<Void>
-        (+:<Float>
-          (1.000000:<Float>)
-          (*:<Float>
-            (6.000000:<Float>)
-            ($lam:<Float>))))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($n =:<Void>
-          (0:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($n:<Int>))
-        ($$$to =:<Void>
-          (-:<Int>
-            ($nt:<Int>)
-            (1:<Int>)))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($n =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            (Block:<Void>
-              (Var $$$to:<Int>)
-              (Var $$$step:<Int>)
-              (Var $$$next:<Int>)
-              ($i =:<Void>
-                (0:<Int>))
-              ($$$step =:<Void>
-                (1:<Int>))
-              ($$$next =:<Void>
-                ($i:<Int>))
-              ($$$to =:<Void>
-                (-:<Int>
-                  ($Nx:<Int>)
-                  (1:<Int>)))
-              (Loop:<Void>
-                (>=:<Bool>
-                  (*:<Int>
-                    (-:<Int>
-                      ($$$to:<Int>)
-                      ($$$next:<Int>))
-                    ($$$step:<Int>))
-                  (0:<Int>))
-                nil
-                ($i =:<Void>
-                  ($$$next:<Int>))
-                (Block:<Void>
-                  (Block:<Void>
-                    (Var $$$to:<Int>)
-                    (Var $$$step:<Int>)
-                    (Var $$$next:<Int>)
-                    ($j =:<Void>
-                      (0:<Int>))
-                    ($$$step =:<Void>
-                      (1:<Int>))
-                    ($$$next =:<Void>
-                      ($j:<Int>))
-                    ($$$to =:<Void>
-                      (-:<Int>
-                        ($Ny:<Int>)
-                        (1:<Int>)))
-                    (Loop:<Void>
-                      (>=:<Bool>
-                        (*:<Int>
-                          (-:<Int>
-                            ($$$to:<Int>)
-                            ($$$next:<Int>))
-                          ($$$step:<Int>))
-                        (0:<Int>))
-                      nil
-                      ($j =:<Void>
-                        ($$$next:<Int>))
-                      (Block:<Void>
-                        (Block:<Void>
-                          (Var $$$to:<Int>)
-                          (Var $$$step:<Int>)
-                          (Var $$$next:<Int>)
-                          ($k =:<Void>
-                            (0:<Int>))
-                          ($$$step =:<Void>
-                            (1:<Int>))
-                          ($$$next =:<Void>
-                            ($k:<Int>))
-                          ($$$to =:<Void>
-                            (-:<Int>
-                              ($Nz:<Int>)
-                              (1:<Int>)))
-                          (Loop:<Void>
-                            (>=:<Bool>
-                              (*:<Int>
-                                (-:<Int>
-                                  ($$$to:<Int>)
-                                  ($$$next:<Int>))
-                                ($$$step:<Int>))
-                              (0:<Int>))
-                            nil
-                            ($k =:<Void>
-                              ($$$next:<Int>))
-                            (Block:<Void>
-                              ($u[...] =:<Void>
-                                (+:<Int>
-                                  ($n:<Int>)
-                                  (1:<Int>))
-                                ($i:<Int>)
-                                ($j:<Int>)
-                                ($k:<Int>)
-                                (MultiIndex:<Float>
-                                  ($u:<Array [Float; 4]>)
-                                  ($n:<Int>)
-                                  ($i:<Int>)
-                                  ($j:<Int>)
-                                  ($k:<Int>))))
-                            ($$$next =:<Void>
-                              (+:<Int>
-                                ($$$next:<Int>)
-                                ($$$step:<Int>))))))
-                      ($$$next =:<Void>
-                        (+:<Int>
-                          ($$$next:<Int>)
-                          ($$$step:<Int>))))))
-                ($$$next =:<Void>
-                  (+:<Int>
-                    ($$$next:<Int>)
-                    ($$$step:<Int>)))))
-            (Block:<Void>
-              (Var $$$to:<Int>)
-              (Var $$$step:<Int>)
-              (Var $$$next:<Int>)
-              ($it =:<Void>
-                (0:<Int>))
-              ($$$step =:<Void>
-                (1:<Int>))
-              ($$$next =:<Void>
-                ($it:<Int>))
-              ($$$to =:<Void>
-                (-:<Int>
-                  ($maxIt:<Int>)
-                  (1:<Int>)))
-              (Loop:<Void>
-                (>=:<Bool>
-                  (*:<Int>
-                    (-:<Int>
-                      ($$$to:<Int>)
-                      ($$$next:<Int>))
-                    ($$$step:<Int>))
-                  (0:<Int>))
-                nil
-                ($it =:<Void>
-                  ($$$next:<Int>))
-                (Block:<Void>
-                  ($change =:<Void>
-                    (0.000000:<Float>))
-                  (Block:<Void>
-                    (Var $$$to:<Int>)
-                    (Var $$$step:<Int>)
-                    (Var $$$next:<Int>)
-                    ($i =:<Void>
-                      (1:<Int>))
-                    ($$$step =:<Void>
-                      (1:<Int>))
-                    ($$$next =:<Void>
-                      ($i:<Int>))
-                    ($$$to =:<Void>
-                      (-:<Int>
-                        ($Nx:<Int>)
-                        (2:<Int>)))
-                    (Loop:<Void>
-                      (>=:<Bool>
-                        (*:<Int>
-                          (-:<Int>
-                            ($$$to:<Int>)
-                            ($$$next:<Int>))
-                          ($$$step:<Int>))
-                        (0:<Int>))
-                      nil
-                      ($i =:<Void>
-                        ($$$next:<Int>))
-                      (Block:<Void>
-                        (Block:<Void>
-                          (Var $$$to:<Int>)
-                          (Var $$$step:<Int>)
-                          (Var $$$next:<Int>)
-                          ($j =:<Void>
-                            (1:<Int>))
-                          ($$$step =:<Void>
-                            (1:<Int>))
-                          ($$$next =:<Void>
-                            ($j:<Int>))
-                          ($$$to =:<Void>
-                            (-:<Int>
-                              ($Ny:<Int>)
-                              (2:<Int>)))
-                          (Loop:<Void>
-                            (>=:<Bool>
-                              (*:<Int>
-                                (-:<Int>
-                                  ($$$to:<Int>)
-                                  ($$$next:<Int>))
-                                ($$$step:<Int>))
-                              (0:<Int>))
-                            nil
-                            ($j =:<Void>
-                              ($$$next:<Int>))
-                            (Block:<Void>
-                              (Block:<Void>
-                                (Var $$$to:<Int>)
-                                (Var $$$step:<Int>)
-                                (Var $$$next:<Int>)
-                                ($k =:<Void>
-                                  (1:<Int>))
-                                ($$$step =:<Void>
-                                  (1:<Int>))
-                                ($$$next =:<Void>
-                                  ($k:<Int>))
-                                ($$$to =:<Void>
-                                  (-:<Int>
-                                    ($Nz:<Int>)
-                                    (2:<Int>)))
-                                (Loop:<Void>
-                                  (>=:<Bool>
-                                    (*:<Int>
-                                      (-:<Int>
-                                        ($$$to:<Int>)
-                                        ($$$next:<Int>))
-                                      ($$$step:<Int>))
-                                    (0:<Int>))
-                                  nil
-                                  ($k =:<Void>
-                                    ($$$next:<Int>))
-                                  (Block:<Void>
-                                    ($oldv =:<Void>
-                                      (MultiIndex:<Float>
-                                        ($u:<Array [Float; 4]>)
-                                        (+:<Int>
-                                          ($n:<Int>)
-                                          (1:<Int>))
-                                        ($i:<Int>)
-                                        ($j:<Int>)
-                                        ($k:<Int>)))
-                                    ($rhs =:<Void>
-                                      (MultiIndex:<Float>
-                                        ($u:<Array [Float; 4]>)
-                                        ($n:<Int>)
-                                        ($i:<Int>)
-                                        ($j:<Int>)
-                                        ($k:<Int>)))
-                                    ($newv =:<Void>
-                                      (/:<Float>
-                                        (+:<Float>
-                                          ($rhs:<Float>)
-                                          (*:<Float>
-                                            ($lam:<Float>)
-                                            (+:<Float>
-                                              (+:<Float>
-                                                (+:<Float>
-                                                  (+:<Float>
-                                                    (+:<Float>
-                                                      (MultiIndex:<Float>
-                                                        ($u:<Array [Float; 4]>)
-                                                        (+:<Int>
-                                                          ($n:<Int>)
-                                                          (1:<Int>))
-                                                        (+:<Int>
-                                                          ($i:<Int>)
-                                                          (1:<Int>))
-                                                        ($j:<Int>)
-                                                        ($k:<Int>))
-                                                      (MultiIndex:<Float>
-                                                        ($u:<Array [Float; 4]>)
-                                                        (+:<Int>
-                                                          ($n:<Int>)
-                                                          (1:<Int>))
-                                                        (-:<Int>
-                                                          ($i:<Int>)
-                                                          (1:<Int>))
-                                                        ($j:<Int>)
-                                                        ($k:<Int>)))
-                                                    (MultiIndex:<Float>
-                                                      ($u:<Array [Float; 4]>)
-                                                      (+:<Int>
-                                                        ($n:<Int>)
-                                                        (1:<Int>))
-                                                      ($i:<Int>)
-                                                      (+:<Int>
-                                                        ($j:<Int>)
-                                                        (1:<Int>))
-                                                      ($k:<Int>)))
-                                                  (MultiIndex:<Float>
-                                                    ($u:<Array [Float; 4]>)
-                                                    (+:<Int>
-                                                      ($n:<Int>)
-                                                      (1:<Int>))
-                                                    ($i:<Int>)
-                                                    (-:<Int>
-                                                      ($j:<Int>)
-                                                      (1:<Int>))
-                                                    ($k:<Int>)))
-                                                (MultiIndex:<Float>
-                                                  ($u:<Array [Float; 4]>)
-                                                  (+:<Int>
-                                                    ($n:<Int>)
-                                                    (1:<Int>))
-                                                  ($i:<Int>)
-                                                  ($j:<Int>)
-                                                  (+:<Int>
-                                                    ($k:<Int>)
-                                                    (1:<Int>))))
-                                              (MultiIndex:<Float>
-                                                ($u:<Array [Float; 4]>)
-                                                (+:<Int>
-                                                  ($n:<Int>)
-                                                  (1:<Int>))
-                                                ($i:<Int>)
-                                                ($j:<Int>)
-                                                (-:<Int>
-                                                  ($k:<Int>)
-                                                  (1:<Int>))))))
-                                        ($denom:<Float>)))
-                                    ($u[...] =:<Void>
-                                      (+:<Int>
-                                        ($n:<Int>)
-                                        (1:<Int>))
-                                      ($i:<Int>)
-                                      ($j:<Int>)
-                                      ($k:<Int>)
-                                      ($newv:<Float>))
-                                    ($diff =:<Void>
-                                      (LetExpr:<Float>
-                                        (-:<Float>
-                                          ($newv:<Float>)
-                                          ($oldv:<Float>))
-                                        (IfExpr:<Float>
-                                          (<:<Bool>
-                                            ($$$value:<Float>)
-                                            (0.000000:<Float>))
-                                          (-:<Float>
-                                            ($$$value:<Float>))
-                                          ($$$value:<Float>))))
-                                    ($change =:<Void>
-                                      (LetExpr:<Float>
-                                        ($change:<Float>)
-                                        ($diff:<Float>)
-                                        (IfExpr:<Float>
-                                          (>:<Bool>
-                                            ($$$left:<Float>)
-                                            ($$$right:<Float>))
-                                          ($$$left:<Float>)
-                                          ($$$right:<Float>)))))
-                                  ($$$next =:<Void>
-                                    (+:<Int>
-                                      ($$$next:<Int>)
-                                      ($$$step:<Int>))))))
-                            ($$$next =:<Void>
-                              (+:<Int>
-                                ($$$next:<Int>)
-                                ($$$step:<Int>))))))
-                      ($$$next =:<Void>
-                        (+:<Int>
-                          ($$$next:<Int>)
-                          ($$$step:<Int>)))))
-                  (IfStmt:<Void>
-                    (<:<Bool>
-                      ($change:<Float>)
-                      (0.000001:<Float>))
-                    (Block:<Void>
-                      (Break:<Void>))
-                    nil))
-                ($$$next =:<Void>
-                  (+:<Int>
-                    ($$$next:<Int>)
-                    ($$$step:<Int>))))))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      ($t =:<Void>
-        (*:<Float>
-          (Cast<Float>:<Float>
-            ($nt:<Int>))
-          ($dt:<Float>)))
-      ($decay =:<Void>
-        (Call:<Float>
-          ($exp:<Fun (Float) -> Float>)
-          (*:<Float>
-            (*:<Float>
-              (*:<Float>
-                (-:<Float>
-                  (3.000000:<Float>))
-                ($pi:<Float>))
-              ($pi:<Float>))
-            ($t:<Float>))))
-      ($err =:<Void>
-        (0.000000:<Float>))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (0:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (-:<Int>
-            ($Nx:<Int>)
-            (1:<Int>)))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($x =:<Void>
-              (*:<Float>
-                (Cast<Float>:<Float>
-                  ($i:<Int>))
-                ($h:<Float>)))
-            (Block:<Void>
-              (Var $$$to:<Int>)
-              (Var $$$step:<Int>)
-              (Var $$$next:<Int>)
-              ($j =:<Void>
-                (0:<Int>))
-              ($$$step =:<Void>
-                (1:<Int>))
-              ($$$next =:<Void>
-                ($j:<Int>))
-              ($$$to =:<Void>
-                (-:<Int>
-                  ($Ny:<Int>)
-                  (1:<Int>)))
-              (Loop:<Void>
-                (>=:<Bool>
-                  (*:<Int>
-                    (-:<Int>
-                      ($$$to:<Int>)
-                      ($$$next:<Int>))
-                    ($$$step:<Int>))
-                  (0:<Int>))
-                nil
-                ($j =:<Void>
-                  ($$$next:<Int>))
-                (Block:<Void>
-                  ($y =:<Void>
-                    (*:<Float>
-                      (Cast<Float>:<Float>
-                        ($j:<Int>))
-                      ($h:<Float>)))
-                  (Block:<Void>
-                    (Var $$$to:<Int>)
-                    (Var $$$step:<Int>)
-                    (Var $$$next:<Int>)
-                    ($k =:<Void>
-                      (0:<Int>))
-                    ($$$step =:<Void>
-                      (1:<Int>))
-                    ($$$next =:<Void>
-                      ($k:<Int>))
-                    ($$$to =:<Void>
-                      (-:<Int>
-                        ($Nz:<Int>)
-                        (1:<Int>)))
-                    (Loop:<Void>
-                      (>=:<Bool>
-                        (*:<Int>
-                          (-:<Int>
-                            ($$$to:<Int>)
-                            ($$$next:<Int>))
-                          ($$$step:<Int>))
-                        (0:<Int>))
-                      nil
-                      ($k =:<Void>
-                        ($$$next:<Int>))
-                      (Block:<Void>
-                        ($z =:<Void>
-                          (*:<Float>
-                            (Cast<Float>:<Float>
-                              ($k:<Int>))
-                            ($h:<Float>)))
-                        ($uex =:<Void>
-                          (*:<Float>
-                            (*:<Float>
-                              (*:<Float>
-                                ($decay:<Float>)
-                                (Call:<Float>
-                                  ($sin:<Fun (Float) -> Float>)
-                                  (*:<Float>
-                                    ($pi:<Float>)
-                                    ($x:<Float>))))
-                              (Call:<Float>
-                                ($sin:<Fun (Float) -> Float>)
-                                (*:<Float>
-                                  ($pi:<Float>)
-                                  ($y:<Float>))))
-                            (Call:<Float>
-                              ($sin:<Fun (Float) -> Float>)
-                              (*:<Float>
-                                ($pi:<Float>)
-                                ($z:<Float>)))))
-                        ($diff =:<Void>
-                          (LetExpr:<Float>
-                            (-:<Float>
-                              (MultiIndex:<Float>
-                                ($u:<Array [Float; 4]>)
-                                ($nt:<Int>)
-                                ($i:<Int>)
-                                ($j:<Int>)
-                                ($k:<Int>))
-                              ($uex:<Float>))
-                            (IfExpr:<Float>
-                              (<:<Bool>
-                                ($$$value:<Float>)
-                                (0.000000:<Float>))
-                              (-:<Float>
-                                ($$$value:<Float>))
-                              ($$$value:<Float>))))
-                        ($err =:<Void>
-                          (LetExpr:<Float>
-                            ($err:<Float>)
-                            ($diff:<Float>)
-                            (IfExpr:<Float>
-                              (>:<Bool>
-                                ($$$left:<Float>)
-                                ($$$right:<Float>))
-                              ($$$left:<Float>)
-                              ($$$right:<Float>)))))
-                      ($$$next =:<Void>
-                        (+:<Int>
-                          ($$$next:<Int>)
-                          ($$$step:<Int>))))))
-                ($$$next =:<Void>
-                  (+:<Int>
-                    ($$$next:<Int>)
-                    ($$$step:<Int>))))))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>)))))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("Heat3D implicit (4D): N=":<String>))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($Nx:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          (", T=":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          ($t:<Float>)
-          (8:<Int>)
-          (8:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          (", dt=":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          ($dt:<Float>)
-          (8:<Int>)
-          (8:<Int>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          (", max|u-uex|=":<String>))
-        (Call:<Void>
-          ($output_double:<Fun (Float, Int, Int) -> Void>)
-          ($err:<Float>)
-          (8:<Int>)
-          (8:<Int>))
-        (Call:<Void>
-          ($output_symbol:<Fun (Char) -> Void>)
-          (Cast<Char>:<Char>
-            (10:<Int>))))
-      (IfStmt:<Void>
-        (<:<Bool>
-          ($err:<Float>)
-          (0.010000:<Float>))
-        (Block:<Void>
-          (Block:<Void>
-            (Call:<Void>
-              ($output_string:<Fun (String) -> Void>)
-              ("OK\n":<String>))))
-        (Block:<Void>
-          (Block:<Void>
-            (Call:<Void>
-              ($output_string:<Fun (String) -> Void>)
-              ("FAIL\n":<String>))))))))
+(block
+  (fun <main> void () ()
+    (block
+      (var Nx i64)
+      (var Ny i64)
+      (var Nz i64)
+      (= Nx 8)
+      (= Ny 8)
+      (= Nz 8)
+      (var pi f64)
+      (= pi 3.14159)
+      (var h f64)
+      (var h2 f64)
+      (= h (/ 1 (cast (- Nx 1) f64)))
+      (= h2 (* h h))
+      (var lam f64)
+      (var dt f64)
+      (var T f64)
+      (= lam 0.5)
+      (= dt (* lam h2))
+      (= T 0.1)
+      (var nt i64)
+      (= nt (call int (/ T dt)))
+      (cond (< nt 1) (block (= nt 1)))
+      (seq
+        (var $$u_lbound3 i64)
+        (var $$u_dimsize3 i64)
+        (var $$u_mulacc3 i64)
+        (= $$u_lbound3 0)
+        (= $$u_dimsize3 (+ (- (- Nz 1) 0) 1))
+        (= $$u_mulacc3 (* 1 $$u_dimsize3))
+        (var $$u_lbound2 i64)
+        (var $$u_dimsize2 i64)
+        (var $$u_mulacc2 i64)
+        (= $$u_lbound2 0)
+        (= $$u_dimsize2 (+ (- (- Ny 1) 0) 1))
+        (= $$u_mulacc2 (* (* 1 $$u_dimsize3) $$u_dimsize2))
+        (var $$u_lbound1 i64)
+        (var $$u_dimsize1 i64)
+        (var $$u_mulacc1 i64)
+        (= $$u_lbound1 0)
+        (= $$u_dimsize1 (+ (- (- Nx 1) 0) 1))
+        (= $$u_mulacc1 (* (* (* 1 $$u_dimsize3) $$u_dimsize2) $$u_dimsize1))
+        (var $$u_lbound0 i64)
+        (var $$u_dimsize0 i64)
+        (var $$u_mulacc0 i64)
+        (= $$u_lbound0 0)
+        (= $$u_dimsize0 (+ (- nt 0) 1))
+        (= $$u_mulacc0 (* (* (* (* 1 $$u_dimsize3) $$u_dimsize2) $$u_dimsize1) $$u_dimsize0))
+        (var u <array f64 4>))
+      (var i i64)
+      (var j i64)
+      (var k i64)
+      (var n i64)
+      (var it i64)
+      (var maxIt i64)
+      (var x f64)
+      (var y f64)
+      (var z f64)
+      (var t f64)
+      (var decay f64)
+      (var uex f64)
+      (var diff f64)
+      (var err f64)
+      (var rhs f64)
+      (var newv f64)
+      (var oldv f64)
+      (var change f64)
+      (var denom f64)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 0)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to (- Nx 1))
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= i $$next)
+          (block
+            (= x (* (cast i f64) h))
+            (block
+              (var $$to i64)
+              (var $$step i64)
+              (var $$next i64)
+              (= j 0)
+              (= $$step 1)
+              (= $$next j)
+              (= $$to (- Ny 1))
+              (loop
+                (>= (* (- $$to $$next) $$step) 0)
+                (= j $$next)
+                (block
+                  (= y (* (cast j f64) h))
+                  (block
+                    (var $$to i64)
+                    (var $$step i64)
+                    (var $$next i64)
+                    (= k 0)
+                    (= $$step 1)
+                    (= $$next k)
+                    (= $$to (- Nz 1))
+                    (loop
+                      (>= (* (- $$to $$next) $$step) 0)
+                      (= k $$next)
+                      (block
+                        (= z (* (cast k f64) h))
+                        (= u [0 i j k] (* (* (call sin (* pi x)) (call sin (* pi y))) (call sin (* pi z)))))
+                      (= $$next (+ $$next $$step)))))
+                (= $$next (+ $$next $$step)))))
+          (= $$next (+ $$next $$step))))
+      (= maxIt 200)
+      (= denom (+ 1 (* 6 lam)))
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= n 0)
+        (= $$step 1)
+        (= $$next n)
+        (= $$to (- nt 1))
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= n $$next)
+          (block
+            (block
+              (var $$to i64)
+              (var $$step i64)
+              (var $$next i64)
+              (= i 0)
+              (= $$step 1)
+              (= $$next i)
+              (= $$to (- Nx 1))
+              (loop
+                (>= (* (- $$to $$next) $$step) 0)
+                (= i $$next)
+                (block
+                  (block
+                    (var $$to i64)
+                    (var $$step i64)
+                    (var $$next i64)
+                    (= j 0)
+                    (= $$step 1)
+                    (= $$next j)
+                    (= $$to (- Ny 1))
+                    (loop
+                      (>= (* (- $$to $$next) $$step) 0)
+                      (= j $$next)
+                      (block
+                        (block
+                          (var $$to i64)
+                          (var $$step i64)
+                          (var $$next i64)
+                          (= k 0)
+                          (= $$step 1)
+                          (= $$next k)
+                          (= $$to (- Nz 1))
+                          (loop
+                            (>= (* (- $$to $$next) $$step) 0)
+                            (= k $$next)
+                            (block
+                              (= u [(+ n 1) i j k] (index [n i j k] u)))
+                            (= $$next (+ $$next $$step)))))
+                      (= $$next (+ $$next $$step)))))
+                (= $$next (+ $$next $$step))))
+            (block
+              (var $$to i64)
+              (var $$step i64)
+              (var $$next i64)
+              (= it 0)
+              (= $$step 1)
+              (= $$next it)
+              (= $$to (- maxIt 1))
+              (loop
+                (>= (* (- $$to $$next) $$step) 0)
+                (= it $$next)
+                (block
+                  (= change 0)
+                  (block
+                    (var $$to i64)
+                    (var $$step i64)
+                    (var $$next i64)
+                    (= i 1)
+                    (= $$step 1)
+                    (= $$next i)
+                    (= $$to (- Nx 2))
+                    (loop
+                      (>= (* (- $$to $$next) $$step) 0)
+                      (= i $$next)
+                      (block
+                        (block
+                          (var $$to i64)
+                          (var $$step i64)
+                          (var $$next i64)
+                          (= j 1)
+                          (= $$step 1)
+                          (= $$next j)
+                          (= $$to (- Ny 2))
+                          (loop
+                            (>= (* (- $$to $$next) $$step) 0)
+                            (= j $$next)
+                            (block
+                              (block
+                                (var $$to i64)
+                                (var $$step i64)
+                                (var $$next i64)
+                                (= k 1)
+                                (= $$step 1)
+                                (= $$next k)
+                                (= $$to (- Nz 2))
+                                (loop
+                                  (>= (* (- $$to $$next) $$step) 0)
+                                  (= k $$next)
+                                  (block
+                                    (= oldv (index [(+ n 1) i j k] u))
+                                    (= rhs (index [n i j k] u))
+                                    (= newv
+                                      (/ (+ rhs
+                                          (* lam
+                                            (+ (+ (+ (+ (+ (index [(+ n 1) (+ i 1) j k] u) (index [(+ n 1) (- i 1) j k] u))
+                                                    (index [(+ n 1) i (+ j 1) k] u))
+                                                  (index [(+ n 1) i (- j 1) k] u))
+                                                (index [(+ n 1) i j (+ k 1)] u))
+                                              (index [(+ n 1) i j (- k 1)] u))))
+                                        denom))
+                                    (= u [(+ n 1) i j k] newv)
+                                    (= diff (let (($$value (- newv oldv))) (if (< $$value 0) (- $$value) $$value)))
+                                    (= change
+                                      (let (($$left change) ($$right diff)) (if (> $$left $$right) $$left $$right))))
+                                  (= $$next (+ $$next $$step)))))
+                            (= $$next (+ $$next $$step)))))
+                      (= $$next (+ $$next $$step))))
+                  (cond (< change 1e-06) (block break)))
+                (= $$next (+ $$next $$step)))))
+          (= $$next (+ $$next $$step))))
+      (= t (* (cast nt f64) dt))
+      (= decay (call exp (* (* (* (- 3) pi) pi) t)))
+      (= err 0)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 0)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to (- Nx 1))
+        (loop
+          (>= (* (- $$to $$next) $$step) 0)
+          (= i $$next)
+          (block
+            (= x (* (cast i f64) h))
+            (block
+              (var $$to i64)
+              (var $$step i64)
+              (var $$next i64)
+              (= j 0)
+              (= $$step 1)
+              (= $$next j)
+              (= $$to (- Ny 1))
+              (loop
+                (>= (* (- $$to $$next) $$step) 0)
+                (= j $$next)
+                (block
+                  (= y (* (cast j f64) h))
+                  (block
+                    (var $$to i64)
+                    (var $$step i64)
+                    (var $$next i64)
+                    (= k 0)
+                    (= $$step 1)
+                    (= $$next k)
+                    (= $$to (- Nz 1))
+                    (loop
+                      (>= (* (- $$to $$next) $$step) 0)
+                      (= k $$next)
+                      (block
+                        (= z (* (cast k f64) h))
+                        (= uex (* (* (* decay (call sin (* pi x))) (call sin (* pi y))) (call sin (* pi z))))
+                        (= diff (let (($$value (- (index [nt i j k] u) uex))) (if (< $$value 0) (- $$value) $$value)))
+                        (= err (let (($$left err) ($$right diff)) (if (> $$left $$right) $$left $$right))))
+                      (= $$next (+ $$next $$step)))))
+                (= $$next (+ $$next $$step)))))
+          (= $$next (+ $$next $$step))))
+      (seq
+        (call output_string "Heat3D implicit (4D): N=")
+        (call output_int64 Nx 0)
+        (call output_string ", T=")
+        (call output_double t 8 8)
+        (call output_string ", dt=")
+        (call output_double dt 8 8)
+        (call output_string ", max|u-uex|=")
+        (call output_double err 8 8)
+        (call output_symbol (cast 10 char)))
+      (cond (< err 0.01) (block (seq (call output_string "OK\n"))) (block (seq (call output_string "FAIL\n")))))))

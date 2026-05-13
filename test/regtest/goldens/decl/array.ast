@@ -1,152 +1,64 @@
-(Block:<Void>
-  (Block:<Void>
-    (Var $$$й_lbound0:<Int>)
-    (Var $$$й_dimsize0:<Int>)
-    (Var $$$й_mulacc0:<Int>)
-    ($$$й_lbound0 =:<Void>
-      (0:<Int>))
-    ($$$й_dimsize0 =:<Void>
-      (+:<Int>
-        (-:<Int>
-          (10:<Int>)
-          (0:<Int>))
-        (1:<Int>)))
-    ($$$й_mulacc0 =:<Void>
-      (*:<Int>
-        (1:<Int>)
-        ($$$й_dimsize0:<Int>)))
-    (Var $й:<Array [Int; 1]>))
-  (Block:<Void>
-    (Var $$$ц_lbound0:<Int>)
-    (Var $$$ц_dimsize0:<Int>)
-    (Var $$$ц_mulacc0:<Int>)
-    ($$$ц_lbound0 =:<Void>
-      (0:<Int>))
-    ($$$ц_dimsize0 =:<Void>
-      (+:<Int>
-        (-:<Int>
-          (20:<Int>)
-          (0:<Int>))
-        (1:<Int>)))
-    ($$$ц_mulacc0 =:<Void>
-      (*:<Int>
-        (1:<Int>)
-        ($$$ц_dimsize0:<Int>)))
-    (Var $ц:<Array [Int; 1]>))
-  (Block:<Void>
-    (Var $$$l_lbound0:<Int>)
-    (Var $$$l_dimsize0:<Int>)
-    (Var $$$l_mulacc0:<Int>)
-    ($$$l_lbound0 =:<Void>
-      (-:<Int>
-        (1:<Int>)))
-    ($$$l_dimsize0 =:<Void>
-      (+:<Int>
-        (-:<Int>
-          (234:<Int>)
-          (-:<Int>
-            (1:<Int>)))
-        (1:<Int>)))
-    ($$$l_mulacc0 =:<Void>
-      (*:<Int>
-        (1:<Int>)
-        ($$$l_dimsize0:<Int>)))
-    (Var $l:<Array [Float; 1]>))
-  (Block:<Void>
-    (Var $$$тт_lbound0:<Int>)
-    (Var $$$тт_dimsize0:<Int>)
-    (Var $$$тт_mulacc0:<Int>)
-    ($$$тт_lbound0 =:<Void>
-      (-:<Int>
-        (10:<Int>)))
-    ($$$тт_dimsize0 =:<Void>
-      (+:<Int>
-        (-:<Int>
-          (10:<Int>)
-          (-:<Int>
-            (10:<Int>)))
-        (1:<Int>)))
-    ($$$тт_mulacc0 =:<Void>
-      (*:<Int>
-        (1:<Int>)
-        ($$$тт_dimsize0:<Int>)))
-    (Var $тт:<Array [Bool; 1]>))
-  (Block:<Void>
-    (Var $$$multi_lbound1:<Int>)
-    (Var $$$multi_dimsize1:<Int>)
-    (Var $$$multi_mulacc1:<Int>)
-    ($$$multi_lbound1 =:<Void>
-      (0:<Int>))
-    ($$$multi_dimsize1 =:<Void>
-      (+:<Int>
-        (-:<Int>
-          (20:<Int>)
-          (0:<Int>))
-        (1:<Int>)))
-    ($$$multi_mulacc1 =:<Void>
-      (*:<Int>
-        (1:<Int>)
-        ($$$multi_dimsize1:<Int>)))
-    (Var $$$multi_lbound0:<Int>)
-    (Var $$$multi_dimsize0:<Int>)
-    (Var $$$multi_mulacc0:<Int>)
-    ($$$multi_lbound0 =:<Void>
-      (0:<Int>))
-    ($$$multi_dimsize0 =:<Void>
-      (+:<Int>
-        (-:<Int>
-          (10:<Int>)
-          (0:<Int>))
-        (1:<Int>)))
-    ($$$multi_mulacc0 =:<Void>
-      (*:<Int>
-        (*:<Int>
-          (1:<Int>)
-          ($$$multi_dimsize1:<Int>))
-        ($$$multi_dimsize0:<Int>)))
-    (Var $multi:<Array [Int; 2]>))
-  (Var $i:<Int>)
-  ($i =:<Void>
-    (1:<Int>))
-  (Block:<Void>
-    (Var $$$multi2_lbound1:<Int>)
-    (Var $$$multi2_dimsize1:<Int>)
-    (Var $$$multi2_mulacc1:<Int>)
-    ($$$multi2_lbound1 =:<Void>
-      ($i:<Int>))
-    ($$$multi2_dimsize1 =:<Void>
-      (+:<Int>
-        (-:<Int>
-          (*:<Int>
-            ($i:<Int>)
-            (20:<Int>))
-          ($i:<Int>))
-        (1:<Int>)))
-    ($$$multi2_mulacc1 =:<Void>
-      (*:<Int>
-        (1:<Int>)
-        ($$$multi2_dimsize1:<Int>)))
-    (Var $$$multi2_lbound0:<Int>)
-    (Var $$$multi2_dimsize0:<Int>)
-    (Var $$$multi2_mulacc0:<Int>)
-    ($$$multi2_lbound0 =:<Void>
-      ($i:<Int>))
-    ($$$multi2_dimsize0 =:<Void>
-      (+:<Int>
-        (-:<Int>
-          (+:<Int>
-            ($i:<Int>)
-            (10:<Int>))
-          ($i:<Int>))
-        (1:<Int>)))
-    ($$$multi2_mulacc0 =:<Void>
-      (*:<Int>
-        (*:<Int>
-          (1:<Int>)
-          ($$$multi2_dimsize1:<Int>))
-        ($$$multi2_dimsize0:<Int>)))
-    (Var $multi2:<Array [Int; 2]>))
-  ($multi2[...] =:<Void>
-    ($i:<Int>)
-    (10:<Int>)
-    (10:<Int>)))
+(block
+  (seq
+    (var $$й_lbound0 i64)
+    (var $$й_dimsize0 i64)
+    (var $$й_mulacc0 i64)
+    (= $$й_lbound0 0)
+    (= $$й_dimsize0 (+ (- 10 0) 1))
+    (= $$й_mulacc0 (* 1 $$й_dimsize0))
+    (var й <array i64 1>))
+  (seq
+    (var $$ц_lbound0 i64)
+    (var $$ц_dimsize0 i64)
+    (var $$ц_mulacc0 i64)
+    (= $$ц_lbound0 0)
+    (= $$ц_dimsize0 (+ (- 20 0) 1))
+    (= $$ц_mulacc0 (* 1 $$ц_dimsize0))
+    (var ц <array i64 1>))
+  (seq
+    (var $$l_lbound0 i64)
+    (var $$l_dimsize0 i64)
+    (var $$l_mulacc0 i64)
+    (= $$l_lbound0 (- 1))
+    (= $$l_dimsize0 (+ (- 234 (- 1)) 1))
+    (= $$l_mulacc0 (* 1 $$l_dimsize0))
+    (var l <array f64 1>))
+  (seq
+    (var $$тт_lbound0 i64)
+    (var $$тт_dimsize0 i64)
+    (var $$тт_mulacc0 i64)
+    (= $$тт_lbound0 (- 10))
+    (= $$тт_dimsize0 (+ (- 10 (- 10)) 1))
+    (= $$тт_mulacc0 (* 1 $$тт_dimsize0))
+    (var тт <array bool 1>))
+  (seq
+    (var $$multi_lbound1 i64)
+    (var $$multi_dimsize1 i64)
+    (var $$multi_mulacc1 i64)
+    (= $$multi_lbound1 0)
+    (= $$multi_dimsize1 (+ (- 20 0) 1))
+    (= $$multi_mulacc1 (* 1 $$multi_dimsize1))
+    (var $$multi_lbound0 i64)
+    (var $$multi_dimsize0 i64)
+    (var $$multi_mulacc0 i64)
+    (= $$multi_lbound0 0)
+    (= $$multi_dimsize0 (+ (- 10 0) 1))
+    (= $$multi_mulacc0 (* (* 1 $$multi_dimsize1) $$multi_dimsize0))
+    (var multi <array i64 2>))
+  (var i i64)
+  (= i 1)
+  (seq
+    (var $$multi2_lbound1 i64)
+    (var $$multi2_dimsize1 i64)
+    (var $$multi2_mulacc1 i64)
+    (= $$multi2_lbound1 i)
+    (= $$multi2_dimsize1 (+ (- (* i 20) i) 1))
+    (= $$multi2_mulacc1 (* 1 $$multi2_dimsize1))
+    (var $$multi2_lbound0 i64)
+    (var $$multi2_dimsize0 i64)
+    (var $$multi2_mulacc0 i64)
+    (= $$multi2_lbound0 i)
+    (= $$multi2_dimsize0 (+ (- (+ i 10) i) 1))
+    (= $$multi2_mulacc0 (* (* 1 $$multi2_dimsize1) $$multi2_dimsize0))
+    (var multi2 <array i64 2>))
+  (= multi2 [i 10] 10))

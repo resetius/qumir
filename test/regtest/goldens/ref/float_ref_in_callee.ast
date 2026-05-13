@@ -1,18 +1,11 @@
-(Block:<Void>
-  (FunDecl $функция ():<Fun () -> Float>
-    (Block:<Void>
-      (Var $$$return:<Float>)
-      (Var $x:<Float>)
-      ($x =:<Void>
-        (1.500000:<Float>))
-      (Call:<Void>
-        ($g:<Fun (Ref) -> Void>)
-        ($x:<Float>))
-      ($$$return =:<Void>
-        ($x:<Float>))))
-  (FunDecl $g ($x):<Fun (Ref) -> Void>
-    (Block:<Void>
-      ($x =:<Void>
-        (*:<Float>
-          ($x:<Ref &Float>)
-          (2.000000:<Float>))))))
+(block
+  (fun функция f64 () ()
+    (block
+      (var $$return f64)
+      (var x f64)
+      (= x 1.5)
+      (call g x)
+      (= $$return x)))
+  (fun g void ((var x <ref f64>)) ()
+    (block
+      (= x (* x 2)))))

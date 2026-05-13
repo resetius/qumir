@@ -1,16 +1,8 @@
-(Block:<Void>
-  (FunDecl $ф ():<Fun () -> Int>
-    (Block:<Void>
-      (Var $$$return:<Int>)
-      (Var $i:<Int>)
-      ($i =:<Void>
-        (2:<Int>))
-      (IfStmt:<Void>
-        (Cast<Bool>:<Bool>
-          (1:<Int>))
-        (Block:<Void>
-          ($i =:<Void>
-            (1:<Int>)))
-        nil)
-      ($$$return =:<Void>
-        ($i:<Int>)))))
+(block
+  (fun ф i64 () ()
+    (block
+      (var $$return i64)
+      (var i i64)
+      (= i 2)
+      (cond (cast 1 bool) (block (= i 1)))
+      (= $$return i))))

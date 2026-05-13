@@ -1,35 +1,19 @@
-(Block:<Void>
-  (FunDecl $Обмен ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $x:<Int>)
-      ($x =:<Void>
-        (2:<Int>))
-      (Var $y:<Int>)
-      ($y =:<Void>
-        (3:<Int>))
-      (Call:<Void>
-        ($Swap:<Fun (Ref, Ref) -> Void>)
-        ($x:<Int>)
-        ($y:<Int>))
-      (Block:<Void>
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($x:<Int>)
-          (0:<Int>))
-        (Call:<Void>
-          ($output_symbol:<Fun (Char) -> Void>)
-          (Cast<Char>:<Char>
-            (32:<Int>)))
-        (Call:<Void>
-          ($output_int64:<Fun (Int, Int) -> Void>)
-          ($y:<Int>)
-          (0:<Int>)))))
-  (FunDecl $Swap ($a, $b):<Fun (Ref, Ref) -> Void>
-    (Block:<Void>
-      (Var $c:<Int>)
-      ($c =:<Void>
-        ($a:<Ref &Int>))
-      ($a =:<Void>
-        ($b:<Ref &Int>))
-      ($b =:<Void>
-        ($c:<Int>)))))
+(block
+  (fun Обмен void () ()
+    (block
+      (var x i64)
+      (= x 2)
+      (var y i64)
+      (= y 3)
+      (call Swap x y)
+      (seq
+        (call output_int64 x 0)
+        (call output_symbol (cast 32 char))
+        (call output_int64 y 0))))
+  (fun Swap void ((var a <ref i64>)
+      (var b <ref i64>)) ()
+    (block
+      (var c i64)
+      (= c a)
+      (= a b)
+      (= b c))))

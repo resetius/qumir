@@ -1,60 +1,26 @@
-(Block:<Void>
-  (FunDecl $main ():<Fun () -> String>
-    (Block:<Void>
-      (Var $$$return:<String>)
-      (Var $s:<String>)
-      ($s =:<Void>
-        (Call:<String>
-          ($str_concat:<Fun (String, String) -> String>)
-          ("11 ":<String>)
-          ("10":<String>)))
-      ($s =:<Void>
-        (Call:<String>
-          ($ф:<Fun (Int) -> String>)
-          (10:<Int>)))
-      ($$$return =:<Void>
-        ($s:<String>))))
-  (FunDecl $ф ($k):<Fun (Int) -> String>
-    (Block:<Void>
-      (Var $$$return:<String>)
-      (Var $стр:<String>)
-      (Var $i:<Int>)
-      (Var $j:<Int>)
-      ($стр =:<Void>
-        ("ыыы":<String>))
-      ($$$return =:<Void>
-        ($стр:<String>))
-      ($j =:<Void>
-        (0:<Int>))
-      (Block:<Void>
-        (Var $$$to:<Int>)
-        (Var $$$step:<Int>)
-        (Var $$$next:<Int>)
-        ($i =:<Void>
-          (0:<Int>))
-        ($$$step =:<Void>
-          (1:<Int>))
-        ($$$next =:<Void>
-          ($i:<Int>))
-        ($$$to =:<Void>
-          (10:<Int>))
-        (Loop:<Void>
-          (>=:<Bool>
-            (*:<Int>
-              (-:<Int>
-                ($$$to:<Int>)
-                ($$$next:<Int>))
-              ($$$step:<Int>))
-            (0:<Int>))
-          nil
-          ($i =:<Void>
-            ($$$next:<Int>))
-          (Block:<Void>
-            ($j =:<Void>
-              (+:<Int>
-                ($j:<Int>)
-                (1:<Int>))))
-          ($$$next =:<Void>
-            (+:<Int>
-              ($$$next:<Int>)
-              ($$$step:<Int>))))))))
+(block
+  (fun main string () ()
+    (block
+      (var $$return string)
+      (var s string)
+      (= s (call str_concat "11 " "10"))
+      (= s (call ф 10))
+      (= $$return s)))
+  (fun ф string ((var k i64)) ()
+    (block
+      (var $$return string)
+      (var стр string)
+      (var i i64)
+      (var j i64)
+      (= стр "ыыы")
+      (= $$return стр)
+      (= j 0)
+      (block
+        (var $$to i64)
+        (var $$step i64)
+        (var $$next i64)
+        (= i 0)
+        (= $$step 1)
+        (= $$next i)
+        (= $$to 10)
+        (loop (>= (* (- $$to $$next) $$step) 0) (= i $$next) (block (= j (+ j 1))) (= $$next (+ $$next $$step)))))))

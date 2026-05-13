@@ -1,69 +1,27 @@
-(Block:<Void>
-  (FunDecl $<main> ():<Fun () -> Void>
-    (Block:<Void>
-      (Var $z:<Named компл (struct { re: Float; im: Float; })>)
-      ($z =:<Void>
-        (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-          (+:<Float>
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (3.000000:<Float>)
-                (0.000000:<Float>)))
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (0.000000:<Float>)
-                (4.000000:<Float>))))
-          (+:<Float>
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (3.000000:<Float>)
-                (0.000000:<Float>)))
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (0.000000:<Float>)
-                (4.000000:<Float>))))))
-      (Block:<Void>
-        (Call:<Void>
-          ($__unop_вывод_Named::компл:<Fun (Named) -> Void>)
-          ($z:<Named компл (struct { re: Float; im: Float; })>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))
-      ($z =:<Void>
-        (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-          (-:<Float>
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (3.000000:<Float>)
-                (0.000000:<Float>)))
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (0.000000:<Float>)
-                (4.000000:<Float>))))
-          (-:<Float>
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (3.000000:<Float>)
-                (0.000000:<Float>)))
-            (FieldAccess:<Float>
-              (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-                (0.000000:<Float>)
-                (4.000000:<Float>))))))
-      (Block:<Void>
-        (Call:<Void>
-          ($__unop_вывод_Named::компл:<Fun (Named) -> Void>)
-          ($z:<Named компл (struct { re: Float; im: Float; })>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>)))
-      ($z =:<Void>
-        (StructConstruct:<Named компл (struct { re: Float; im: Float; })>
-          (0.000000:<Float>)
-          (2.000000:<Float>)))
-      (Block:<Void>
-        (Call:<Void>
-          ($__unop_вывод_Named::компл:<Fun (Named) -> Void>)
-          ($z:<Named компл (struct { re: Float; im: Float; })>))
-        (Call:<Void>
-          ($output_string:<Fun (String) -> Void>)
-          ("\n":<String>))))))
+(block
+  (use "Комплексные числа")
+  (fun <main> void () ()
+    (block
+      (: (var z <named компл <struct (re f64) (im f64)>>) <named компл <struct (re f64) (im f64)>>)
+      (= z
+        (: (struct ((re (+ (field re (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                (field re (: (struct ((re 0) (im 4))) <named компл <struct (re f64) (im f64)>>))))
+              (im (+ (field im (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                (field im (: (struct ((re 0) (im 4))) <named компл <struct (re f64) (im f64)>>))))))
+          <named компл <struct (re f64) (im f64)>>))
+      (seq
+        (call __unop_вывод_Named::компл (: z <named компл <struct (re f64) (im f64)>>))
+        (call output_string "\n"))
+      (= z
+        (: (struct ((re (- (field re (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                (field re (: (struct ((re 0) (im 4))) <named компл <struct (re f64) (im f64)>>))))
+              (im (- (field im (: (struct ((re 3) (im 0))) <named компл <struct (re f64) (im f64)>>))
+                (field im (: (struct ((re 0) (im 4))) <named компл <struct (re f64) (im f64)>>))))))
+          <named компл <struct (re f64) (im f64)>>))
+      (seq
+        (call __unop_вывод_Named::компл (: z <named компл <struct (re f64) (im f64)>>))
+        (call output_string "\n"))
+      (= z (: (struct ((re 0) (im 2))) <named компл <struct (re f64) (im f64)>>))
+      (seq
+        (call __unop_вывод_Named::компл (: z <named компл <struct (re f64) (im f64)>>))
+        (call output_string "\n")))))

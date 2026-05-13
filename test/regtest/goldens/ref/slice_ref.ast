@@ -1,20 +1,11 @@
-(Block:<Void>
-  (FunDecl $f ():<Fun () -> String>
-    (Block:<Void>
-      (Var $$$return:<String>)
-      (Var $s:<String>)
-      ($s =:<Void>
-        ("s12345":<String>))
-      (Call:<Void>
-        ($g:<Fun (Ref) -> Void>)
-        ($s:<String>))
-      ($$$return =:<Void>
-        ($s:<String>))))
-  (FunDecl $g ($s):<Fun (Ref) -> Void>
-    (Block:<Void>
-      ($s =:<Void>
-        (Call:<String>
-          ($str_slice:<Fun (String, Int, Int) -> String>)
-          ($s:<Ref &String>)
-          (1:<Int>)
-          (2:<Int>))))))
+(block
+  (fun f string () ()
+    (block
+      (var $$return string)
+      (var s string)
+      (= s "s12345")
+      (call g s)
+      (= $$return s)))
+  (fun g void ((var s <ref string>)) ()
+    (block
+      (= s (call str_slice s 1 2)))))
