@@ -111,14 +111,7 @@ struct TStringLiteral {
     }
 
     void AppendUnescaped(char ch) {
-        switch (ch) {
-            case 'n': Value += '\n'; break;
-            case 't': Value += '\t'; break;
-            case '"': Value += '"'; break;
-            case '\\': Value += '\\'; break;
-            default:
-                throw std::runtime_error("unknown escape sequence: \\" + std::string(1, ch));
-        }
+        Value += Unescape(ch);
     }
 };
 
@@ -161,7 +154,7 @@ struct TIdentifierList {
 
     void Advance(char ch) {
         ByteOffset++;
-        if ((ch & 0b11000000) != 0b10000000) {
+        if (!IsUtf8ContinuationByte(ch)) {
             CharOffset++;
         }
     }
@@ -368,16 +361,7 @@ void TTokenStream::Read() {
     };
 
     while ((Tokens.empty() || state != Start) && In.get(ch)) {
-        if (ch == '\n') {
-            CurrentLocation.Line++;
-            CurrentLocation.Byte = 0;
-            CurrentLocation.Column = 0;
-        } else {
-            if ((ch & 0b11000000) != 0b10000000) { // not a UTF-8 continuation byte
-                CurrentLocation.Column++;
-            }
-            CurrentLocation.Byte++;
-        }
+        AdvanceLocation(CurrentLocation, ch);
 
         do {
             repeat = false;

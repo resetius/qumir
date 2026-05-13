@@ -29,8 +29,8 @@ add_library(qumir
     parser/parser.cpp
     parser/type.h
     parser/type.cpp
-#    parser/core/lexer.h
-#    parser/core/lexer.cpp
+    parser/core/lexer.h
+    parser/core/lexer.cpp
     runner/runner_ir.h
     runner/runner_ir.cpp
     runner/runner_llvm.h

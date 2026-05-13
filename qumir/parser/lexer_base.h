@@ -16,6 +16,9 @@ namespace NAst {
 // Interpret a string literal value as a single character code if possible.
 // Returns std::nullopt if the string does not represent exactly one character.
 std::optional<int64_t> AsSingleCharCode(const std::string& s);
+char Unescape(char ch);
+bool IsUtf8ContinuationByte(char ch);
+void AdvanceLocation(TLocation& location, char ch);
 
 struct TToken {
     enum EType {
@@ -23,6 +26,7 @@ struct TToken {
         Float,
         String,
         Char,
+        Boolean,
         Operator,
         Identifier,
         Keyword,

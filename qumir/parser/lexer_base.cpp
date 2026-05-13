@@ -58,6 +58,36 @@ std::optional<int64_t> AsSingleCharCode(const std::string& s) {
     return code;
 }
 
+char Unescape(char ch) {
+    switch (ch) {
+        case 'n': return '\n';
+        case 't': return '\t';
+        case '\\': return '\\';
+        case '"': return '"';
+        case '\'': return '\'';
+        default:
+            throw std::runtime_error("unknown escape sequence: \\" + std::string(1, ch));
+    }
+}
+
+bool IsUtf8ContinuationByte(char ch) {
+    return (static_cast<unsigned char>(ch) & 0b11000000) == 0b10000000;
+}
+
+void AdvanceLocation(TLocation& location, char ch) {
+    if (ch == '\n') {
+        location.Line++;
+        location.Byte = 0;
+        location.Column = 0;
+        return;
+    }
+
+    if (!IsUtf8ContinuationByte(ch)) {
+        location.Column++;
+    }
+    location.Byte++;
+}
+
 ITokenStream::ITokenStream(std::istream& in)
     : In(in)
     , CurrentLocation({1, 1, 1})
