@@ -6,46 +6,151 @@ Delimiters:
   < >  composite type forms
   :    type annotation separator
 
-Forms:
-  (if cond then else)
-      If expression.
+AST node forms:
+  Form names describe the core language surface syntax. They intentionally do
+  not have to match NAst node NodeId values one-to-one.
 
-  (cond cond then)
-  (cond cond then else)
-      Conditional statement, with optional else branch.
+  Literals:
+      integer, float, boolean literal -> Number
+      "string"                        -> StringLiteral
+      'c'                             -> Number with Char type
+
+  name // token with identifier type
+      TIdentExpr, NodeId = "Ident".
+
+  (= name value)
+      TAssignExpr, NodeId = "Assign".
+
+  (= name [index1 ... indexN] value)
+      TArrayAssignExpr, NodeId = "ArrayAssign".
+
+  (+ operand) // 1 operand after operator
+      TUnaryExpr, NodeId = "Unary".
+
+  (+ left right)
+      TBinaryExpr, NodeId = "Binary".
 
   (block stmt1 stmt2 ... stmtN)
-      Block statement.
+      TBlockExpr, NodeId = "Block".
+
+  (cond cond then else)
+      TIfStmt, NodeId = "IfStmt".
+
+  (if cond then else)
+      TIfExpr, NodeId = "IfExpr".
 
   (let
-      (var1 value1)
-      (var2 value2)
-      ...
+      ((name1 value1) (name2 value2) ... (nameN valueN))
       body)
-      Let expression. Bindings are visible in body only; bindings are not
-      visible to each other.
+      TLetExpr, NodeId = "LetExpr". Bindings are visible in body only;
+      bindings are not visible to each other.
+
+  (loop pre_cond pre_body body post_body post_cond)
+      TLoopStmtExpr, NodeId = "Loop".
+
+  break // treat as a keyword
+      TBreakStmt, NodeId = "Break".
+
+  continue // treat as a keyword
+      TContinueStmt, NodeId = "Continue".
+
+  (var name type)
+  (var name type (bound_from1 bound_to1) ... (bound_fromN bound_toN))
+      TVarStmt, NodeId = "Var".
+
+  (vars var1 var2 ... varN)
+      TVarsBlockExpr, NodeId = "VarsBlock".
+
+  (fun name (param1 ... paramN) return_type body)
+      TFunDecl, NodeId = "FunDecl".
+
+  (call callee arg1 arg2 ... argN)
+      TCallExpr, NodeId = "Call".
+
+  (input arg1 arg2 ... argN)
+      TInputExpr, NodeId = "Input".
+
+  (output (expr1 width1 precision1) ... (exprN widthN precisionN))
+      TOutputExpr, NodeId = "Output".
+
+  (cast operand type)
+      TCastExpr, NodeId = "Cast".
+
+  (index index collection)
+      TIndexExpr, NodeId = "Index".
+
+  (index [index1 index2 ... indexN] collection)
+      TMultiIndexExpr, NodeId = "MultiIndex".
+
+  (slice [start end] collection)
+      TSliceExpr, NodeId = "Slice".
+
+  (use module_name)
+      TUseExpr, NodeId = "Use".
+
+  (assert expr)
+      TAssertStmt, NodeId = "Assert".
+
+  (field field_name)
+      TFieldAccessExpr, NodeId = "FieldAccess".
+
+  (struct field1 field2 ... fieldN)
+      TStructConstructExpr, NodeId = "StructConstruct".
+
+  (field_assign object field_name value)
+      TFieldAssignExpr, NodeId = "FieldAssign".
 
   (: ast_node type)
-      Type annotation.
+      Type annotation for any AST node; sets TExpr::Type.
 
 Types:
   Primitive:
-      i32
-      f64
-      bool
+      i64       -> TIntegerType, TypeId = "Int"
+      f64       -> TFloatType, TypeId = "Float"
+      bool      -> TBoolType, TypeId = "Bool"
+      string    -> TStringType, TypeId = "String"
+      char      -> TSymbolType, TypeId = "Char"
+      file      -> TFileType, TypeId = "File"
+      void      -> TVoidType, TypeId = "Void"
 
   Composite:
-      <array element_type arity>
-      <ptr pointee_type>
-      <ref referenced_type>
-      <struct (field_name1 field_type1) ... (field_nameN field_typeN)>
-      <named name underlying_type>
+      <fun return_type (param_type1 ... param_typeN) (attr1 ... attrM) body>
+          TFunctionType, TypeId = "Fun".
 
-  Composite type examples:
-      <array i32 1>
+      <array element_type arity>
+          TArrayType, TypeId = "Array".
+
+      <ptr pointee_type>
+          TPointerType, TypeId = "Ptr".
+
+      <ref referenced_type>
+          TReferenceType, TypeId = "Ref".
+
+      <named name underlying_type>
+          TNamedType, TypeId = "Named".
+
+      <struct (field_name1 field_type1) ... (field_nameN field_typeN)>
+          TStructType, TypeId = "Struct".
+
+  Type examples:
+      i64
+      f64
+      bool
+      string
+      char
+      file
+      void
+      <fun bool (i64 f64) () body>
+      <array i64 1>
       <array <ref f64> 2>
-      <struct (x i32) (values <array f64 1>)>
-      <named color i32>
+      <ptr <struct (x f64) (y f64)>>
+      <ref string>
+      <named color i64>
+      <struct (x i64) (values <array f64 1>)>
+
+  The type syntax is schema-like: composite types are enclosed in < >, while
+  nested lists inside a type, such as function parameter lists and struct
+  fields, are enclosed in ( ).
 
 Literals:
   Integer:
