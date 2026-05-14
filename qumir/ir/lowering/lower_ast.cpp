@@ -16,6 +16,87 @@ namespace NIR {
 
 using namespace NLiterals;
 
+TOperand TAstLowerer::AllocLayoutStorage(NSemantics::TSymbolInfo symbol, int typeId)
+{
+    if (symbol.FunctionLevelIdx >= 0) {
+        return TOperand{Builder.AllocLocal(typeId)};
+    }
+
+    if (NextHiddenGlobalSlot < 0) {
+        NextHiddenGlobalSlot = static_cast<int32_t>(Context.GetSymbols().size());
+    }
+
+    TSlot slot{NextHiddenGlobalSlot++};
+    if (Module.GlobalTypes.size() <= static_cast<size_t>(slot.Idx)) {
+        Module.GlobalTypes.resize(slot.Idx + 1);
+        Module.GlobalValues.resize(slot.Idx + 1);
+    }
+    Module.GlobalTypes[slot.Idx] = typeId;
+    return TOperand{slot};
+}
+
+TTmp TAstLowerer::LoadLayoutOperand(TOperand operand)
+{
+    auto tmp = Builder.Emit1("load"_op, {operand});
+    Builder.SetType(tmp, Module.Types.I(EKind::I64));
+    return tmp;
+}
+
+TExpectedTask<TAstLowerer::TArrayLayout, TError, TLocation> TAstLowerer::LowerArrayLayout(
+    NSemantics::TSymbolInfo symbol,
+    const std::vector<std::pair<NAst::TExprPtr, NAst::TExprPtr>>& bounds,
+    TBlockScope scope,
+    const TLocation& loc)
+{
+    if (bounds.empty()) {
+        co_return TError(loc, TErrorString::Get<EErrorId::UNDEFINED_NAME>());
+    }
+
+    auto i64 = Module.Types.I(EKind::I64);
+    TArrayLayout layout;
+    layout.LBounds.resize(bounds.size());
+    layout.DimSizes.resize(bounds.size());
+    layout.Strides.resize(bounds.size());
+
+    TOperand prevStride = TImm{1, i64};
+    for (int i = static_cast<int>(bounds.size()) - 1; i >= 0; --i) {
+        const auto& [lboundExpr, rboundExpr] = bounds[i];
+        auto lboundValue = co_await Lower(lboundExpr, scope);
+        if (!lboundValue.Value) {
+            co_return TError(lboundExpr->Location, TErrorString::Get<EErrorId::RIGHT_HAND_SIDE_NOT_NUMBER>());
+        }
+        auto rboundValue = co_await Lower(rboundExpr, scope);
+        if (!rboundValue.Value) {
+            co_return TError(rboundExpr->Location, TErrorString::Get<EErrorId::RIGHT_HAND_SIDE_NOT_NUMBER>());
+        }
+
+        auto lboundStorage = AllocLayoutStorage(symbol, i64);
+        auto dimSizeStorage = AllocLayoutStorage(symbol, i64);
+        auto strideStorage = AllocLayoutStorage(symbol, i64);
+
+        Builder.Emit0("stre"_op, {lboundStorage, *lboundValue.Value});
+
+        auto dimDiff = Builder.Emit1("-"_op, {*rboundValue.Value, *lboundValue.Value});
+        Builder.SetType(dimDiff, i64);
+        auto dimSize = Builder.Emit1("+"_op, {dimDiff, TImm{1, i64}});
+        Builder.SetType(dimSize, i64);
+        Builder.Emit0("stre"_op, {dimSizeStorage, dimSize});
+
+        auto stride = Builder.Emit1("*"_op, {prevStride, dimSize});
+        Builder.SetType(stride, i64);
+        Builder.Emit0("stre"_op, {strideStorage, stride});
+
+        layout.LBounds[i] = lboundStorage;
+        layout.DimSizes[i] = dimSizeStorage;
+        layout.Strides[i] = strideStorage;
+        prevStride = stride;
+    }
+
+    layout.TotalElements = layout.Strides[0];
+    ArrayLayouts[symbol.Id] = layout;
+    co_return layout;
+}
+
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerWhile(std::shared_ptr<NAst::TWhileStmtExpr> loop, TBlockScope scope)
 {
     auto entryId = Builder.CurrentBlockIdx();
@@ -259,11 +340,17 @@ TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& n
     co_return tmp;
 }
 
-TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerIndices(const std::string& name, const std::vector<NAst::TExprPtr>& indices, TBlockScope scope, int elemSize)
+TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerIndices(NSemantics::TSymbolInfo symbol, const std::vector<NAst::TExprPtr>& indices, TBlockScope scope, int elemSize)
 {
     int n = indices.size() - 1;
     int i = n;
     auto i64 = Module.Types.I(EKind::I64);
+
+    auto layoutIt = ArrayLayouts.find(symbol.Id);
+    if (layoutIt == ArrayLayouts.end()) {
+        co_return TError(indices.empty() ? TLocation{} : indices.front()->Location, TErrorString::Get<EErrorId::UNDEFINED_NAME>());
+    }
+    const auto& layout = layoutIt->second;
 
     std::optional<TTmp> prev;
 
@@ -276,11 +363,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // stride_n = 1
         // stride_{n-1} = mulAccName_{n}
 
-        auto tmp = co_await LoadVar("$$" + name + "_lbound" + std::to_string(i), scope, indices[i]->Location);
+        auto tmp = LoadLayoutOperand(layout.LBounds[i]);
         tmp = Builder.Emit1("-"_op, {*indexRes.Value, tmp});
         Builder.SetType(tmp, i64);
         if (i != n) {
-            auto stride = co_await LoadVar("$$" + name + "_mulacc" + std::to_string(i+1), scope, indices[i]->Location);
+            auto stride = LoadLayoutOperand(layout.Strides[i + 1]);
             tmp = Builder.Emit1("*"_op, {tmp, stride});
             Builder.SetType(tmp, i64);
         }
@@ -654,11 +741,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto asg = maybeAsg.Cast();
 
         auto arrayPtr = co_await LoadVar(asg->Name, scope, asg->Location);
+        auto arraySymbol = Context.Lookup(asg->Name, scope.Id);
+        if (!arraySymbol) {
+            co_return TError(asg->Location, TErrorString::Get<EErrorId::UNDEFINED_NAME>());
+        }
         auto arrayType = Builder.GetType(arrayPtr);
         int arrayElemTypeId = Module.Types.UnderlyingType(arrayType);
         assert(arrayElemTypeId >= 0);
         int elemByteSize = Module.Types.SizeInBytes(arrayElemTypeId);
-        auto indices = co_await LowerIndices(asg->Name, asg->Indices, scope, elemByteSize);
+        auto indices = co_await LowerIndices(*arraySymbol, asg->Indices, scope, elemByteSize);
         if (!indices.Value) {
             co_return TError(asg->Location, TErrorString::Get<EErrorId::FAILED_LOWER_ARRAY_INDICES>());
         }
@@ -721,8 +812,21 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(index->Collection->Location, TErrorString::Get<EErrorId::COLLECTION_NOT_ARRAY>());
         }
 
+        auto maybeIndexIdent = NAst::TMaybeNode<NAst::TIdentExpr>(index->Collection);
+        if (!maybeIndexIdent) {
+            co_return TError(index->Collection->Location, TErrorString::Get<EErrorId::COLLECTION_NOT_ARRAY>());
+        }
+        auto indexSymbol = Context.Lookup(maybeIndexIdent.Cast()->Name, scope.Id);
+        if (!indexSymbol) {
+            co_return TError(index->Collection->Location, TErrorString::Get<EErrorId::UNDEFINED_NAME>());
+        }
+        auto layoutIt = ArrayLayouts.find(indexSymbol->Id);
+        if (layoutIt == ArrayLayouts.end()) {
+            co_return TError(index->Collection->Location, TErrorString::Get<EErrorId::UNDEFINED_NAME>());
+        }
+
         // Adjust index by lower bound: index0 = index - lbound0
-        auto lbound0 = co_await LoadVar("$$" + NAst::TMaybeNode<NAst::TIdentExpr>(index->Collection).Cast()->Name + "_lbound0", scope, index->Index->Location);
+        auto lbound0 = LoadLayoutOperand(layoutIt->second.LBounds[0]);
         auto i64 = Module.Types.I(EKind::I64);
         auto zeroBasedIndex = Builder.Emit1("-"_op, {*indexValue.Value, lbound0});
         Builder.SetType(zeroBasedIndex, i64);
@@ -840,6 +944,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(multiIndex->Collection->Location, TErrorString::Get<EErrorId::MULTI_INDEX_COLLECTION_MUST_BE_IDENTIFIER>());
         }
         auto asg = maybeIdent.Cast();
+        auto arraySymbol = Context.Lookup(asg->Name, scope.Id);
+        if (!arraySymbol) {
+            co_return TError(multiIndex->Collection->Location, TErrorString::Get<EErrorId::UNDEFINED_NAME>());
+        }
         auto value = co_await Lower(multiIndex->Collection, scope);
         if (!value.Value) {
             co_return TError(multiIndex->Collection->Location, TErrorString::Get<EErrorId::FAILED_LOWER_COLLECTION>());
@@ -851,7 +959,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto arrayType = Builder.GetType(arrayPtr.Tmp);
         int multiElemTypeId = FromAstType(expr->Type, Module.Types);
         int multiElemByteSize = Module.Types.SizeInBytes(multiElemTypeId);
-        auto indices = co_await LowerIndices(asg->Name, multiIndex->Indices, scope, multiElemByteSize);
+        auto indices = co_await LowerIndices(*arraySymbol, multiIndex->Indices, scope, multiElemByteSize);
         if (!indices.Value) {
             co_return TError(asg->Location, TErrorString::Get<EErrorId::FAILED_LOWER_ARRAY_INDICES>());
         }
@@ -1005,14 +1113,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto elemSize = Module.Types.SizeInBytes(elemType);
             auto ctorId = co_await GlobalSymbolId("array_create");
 
-            auto totalElements = Context.Lookup("$$" + var->Name + "_mulacc0", scope.Id);
-            if (!totalElements) co_return TError(var->Location, TErrorString::Get<EErrorId::UNDEFINED_NAME>());
-            TOperand op = (totalElements->FunctionLevelIdx >= 0)
-                ? TOperand { TLocal{ totalElements->FunctionLevelIdx } }
-                : TOperand { TSlot{ totalElements->Id } };
-            auto tmp = Builder.Emit1("load"_op, {op});
+            auto layout = co_await LowerArrayLayout(*sidOpt, var->Bounds, scope, var->Location);
+            auto tmp = LoadLayoutOperand(layout.TotalElements);
             auto i64 = Module.Types.I(EKind::I64);
-            Builder.SetType(tmp, i64);
             auto arraySize = Builder.Emit1("*"_op, {tmp, TImm{elemSize, i64}});
             Builder.SetType(arraySize, i64);
 
@@ -1093,6 +1196,23 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             // TODO: remove me
             // clutch: support string returnType
             Module.Functions[Builder.CurrentFunctionIdx()].ReturnTypeIsString = true;
+        }
+
+        TBlockScope functionBodyScope {
+            .FuncIdx = funcIdx,
+            .Id = NSemantics::TScopeId{funScope},
+            .BreakLabel = std::nullopt,
+            .ContinueLabel = std::nullopt
+        };
+        for (auto& param : fun->Params) {
+            if (param->Bounds.empty() || !NAst::TMaybeType<NAst::TArrayType>(param->Type)) {
+                continue;
+            }
+            auto psid = Context.Lookup(param->Name, NSemantics::TScopeId{funScope});
+            if (!psid) {
+                co_return TError(param->Location, TErrorString::Get<EErrorId::PARAMETER_NO_BINDING>());
+            }
+            co_await LowerArrayLayout(*psid, param->Bounds, functionBodyScope, param->Location);
         }
 
         // Create a dedicated final return block label beforehand and pass it as BreakLabel for early exits.

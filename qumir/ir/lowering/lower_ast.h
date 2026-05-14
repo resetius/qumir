@@ -7,6 +7,8 @@
 
 #include <qumir/optional.h>
 
+#include <unordered_map>
+
 namespace NQumir {
 namespace NIR {
 
@@ -48,14 +50,24 @@ private:
         EOwnership Ownership = EOwnership::Unkwnown; // heap object ownership (strings), used for destructor calls
     };
 
+    struct TArrayLayout {
+        std::vector<TOperand> LBounds;
+        std::vector<TOperand> DimSizes;
+        std::vector<TOperand> Strides;
+        TOperand TotalElements;
+    };
+
     TExpectedTask<TValueWithBlock, TError, TLocation> Lower(const NAst::TExprPtr& expr, TBlockScope scope);
 
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerWhile(std::shared_ptr<NAst::TWhileStmtExpr> loop, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerFor(std::shared_ptr<NAst::TForStmtExpr> loop, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerRepeat(std::shared_ptr<NAst::TRepeatStmtExpr> loop, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerTimes(std::shared_ptr<NAst::TTimesStmtExpr> loop, TBlockScope scope);
-    TExpectedTask<TValueWithBlock, TError, TLocation> LowerIndices(const std::string& name, const std::vector<NAst::TExprPtr>& indices, TBlockScope scope, int elemSize = 8);
+    TExpectedTask<TArrayLayout, TError, TLocation> LowerArrayLayout(NSemantics::TSymbolInfo symbol, const std::vector<std::pair<NAst::TExprPtr, NAst::TExprPtr>>& bounds, TBlockScope scope, const TLocation& loc);
+    TExpectedTask<TValueWithBlock, TError, TLocation> LowerIndices(NSemantics::TSymbolInfo symbol, const std::vector<NAst::TExprPtr>& indices, TBlockScope scope, int elemSize = 8);
     TExpectedTask<TTmp, TError, TLocation> LoadVar(const std::string& name, TBlockScope scope, const TLocation& loc, bool ref = false);
+    TTmp LoadLayoutOperand(TOperand operand);
+    TOperand AllocLayoutStorage(NSemantics::TSymbolInfo symbol, int typeId);
 
     void ImportExternalFunction(int symbolId, const NAst::TFunDecl& funcDecl);
     void ImportExternalFunctions();
@@ -66,6 +78,8 @@ private:
     NSemantics::TNameResolver& Context;
 
     TPendingDestructors PendingDestructors;
+    std::unordered_map<int32_t, TArrayLayout> ArrayLayouts;
+    int32_t NextHiddenGlobalSlot = -1;
 
     int64_t NextReplChunk = 0;
     int64_t NextLambdaChunk = 0;

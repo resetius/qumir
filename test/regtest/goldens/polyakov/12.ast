@@ -4,14 +4,7 @@
       (var i i64)
       (var N i64)
       (= N 10)
-      (seq
-        (var $$A_lbound0 i64)
-        (var $$A_dimsize0 i64)
-        (var $$A_mulacc0 i64)
-        (= $$A_lbound0 1)
-        (= $$A_dimsize0 (+ (- N 1) 1))
-        (= $$A_mulacc0 (* 1 $$A_dimsize0))
-        (var A <array i64 1>))
+      (var A <array i64 1> [1 N])
       (for i 1 N 1 (block (= A [i] (* i i))))
       (for i 1 N 1 (block (seq (call output_int64 (index i A) 0) (call output_symbol (cast 32 char)))))
       (for i

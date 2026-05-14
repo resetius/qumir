@@ -2,19 +2,18 @@ function $$module_constructor () { ; void
   block {
     label: label(0)
     stre slot(73,i64) imm(5,i64) 
-    stre slot(80,i64) imm(1,i64) 
     load tmp(0,i64) = slot(73,i64) 
+    stre slot(80,i64) imm(1,i64) 
     - tmp(1,i64) = tmp(0,i64) imm(1,i64) 
     + tmp(2,i64) = tmp(1,i64) imm(1,i64) 
     stre slot(81,i64) tmp(2,i64) 
-    load tmp(3,i64) = slot(81,i64) 
-    * tmp(4,i64) = imm(1,i64) tmp(3,i64) 
-    stre slot(82,i64) tmp(4,i64) 
-    load tmp(5,i64) = slot(82,i64) 
-    * tmp(6,i64) = tmp(5,i64) imm(8,i64) 
-    arg tmp(6,i64) 
-    call tmp(7,ptr to i64) = array_create 
-    stre slot(74,ptr to i64) tmp(7,ptr to i64) 
+    * tmp(3,i64) = imm(1,i64) tmp(2,i64) 
+    stre slot(82,i64) tmp(3,i64) 
+    load tmp(4,i64) = slot(82,i64) 
+    * tmp(5,i64) = tmp(4,i64) imm(8,i64) 
+    arg tmp(5,i64) 
+    call tmp(6,ptr to i64) = array_create 
+    stre slot(74,ptr to i64) tmp(6,ptr to i64) 
     ret 
   }
 }

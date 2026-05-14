@@ -3,14 +3,7 @@
     (block
       (var N i64)
       (= N 5)
-      (seq
-        (var $$A_lbound0 i64)
-        (var $$A_dimsize0 i64)
-        (var $$A_mulacc0 i64)
-        (= $$A_lbound0 1)
-        (= $$A_dimsize0 (+ (- N 1) 1))
-        (= $$A_mulacc0 (* 1 $$A_dimsize0))
-        (var A <array i64 1>))
+      (var A <array i64 1> [1 N])
       (var i i64)
       (= A [1] 1)
       (= A [2] 2)

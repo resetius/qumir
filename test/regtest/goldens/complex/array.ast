@@ -2,14 +2,7 @@
   (use "Комплексные числа")
   (fun <main> void () ()
     (block
-      (seq
-        (var $$arr_lbound0 i64)
-        (var $$arr_dimsize0 i64)
-        (var $$arr_mulacc0 i64)
-        (= $$arr_lbound0 0)
-        (= $$arr_dimsize0 (+ (- 2 0) 1))
-        (= $$arr_mulacc0 (* 1 $$arr_dimsize0))
-        (var arr <array <named компл <struct (re f64) (im f64)>> 1>))
+      (var arr <array <named компл <struct (re f64) (im f64)>> 1> [0 2])
       (var j i64)
       (for j
         0
