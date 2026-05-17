@@ -10,6 +10,13 @@ let __robotHistory = [];
 let __renderCallback = null;
 let __animationDelay = 150; // ms between steps
 let __deferredError = null; // Error to show after animation
+let __coroutineMode = false;
+
+function recordHistory(entry) {
+  if (!__coroutineMode) {
+    __robotHistory.push(entry);
+  }
+}
 
 // Default field: 7x7, robot at (0,0), no walls, no painted cells
 const DEFAULT_FIELD = `; Kumir Robot Field Format
@@ -291,7 +298,7 @@ function ensureFieldLoaded() {
   }
 
   // Record initial state
-  __robotHistory.push({ action: 'init', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
+  recordHistory({ action: 'init', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function __initRobotField() {
@@ -352,51 +359,51 @@ export function robot_left() {
   ensureFieldLoaded();
   if (field.hasWallLeft()) {
     // Record error in history for deferred display
-    __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: слева стена' });
+    recordHistory({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: слева стена' });
     __deferredError = 'Робот: слева стена';
     robotError('слева стена');
   }
   field.robotX--;
-  __robotHistory.push({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
+  recordHistory({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function robot_right() {
   ensureFieldLoaded();
   if (field.hasWallRight()) {
-    __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: справа стена' });
+    recordHistory({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: справа стена' });
     __deferredError = 'Робот: справа стена';
     robotError('справа стена');
   }
   field.robotX++;
-  __robotHistory.push({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
+  recordHistory({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function robot_up() {
   ensureFieldLoaded();
   if (field.hasWallUp()) {
-    __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: сверху стена' });
+    recordHistory({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: сверху стена' });
     __deferredError = 'Робот: сверху стена';
     robotError('сверху стена');
   }
   field.robotY--;
-  __robotHistory.push({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
+  recordHistory({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function robot_down() {
   ensureFieldLoaded();
   if (field.hasWallDown()) {
-    __robotHistory.push({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: снизу стена' });
+    recordHistory({ action: 'error', x: field.robotX, y: field.robotY, painted: new Set(field.painted), error: 'Робот: снизу стена' });
     __deferredError = 'Робот: снизу стена';
     robotError('снизу стена');
   }
   field.robotY++;
-  __robotHistory.push({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
+  recordHistory({ action: 'move', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function robot_paint() {
   ensureFieldLoaded();
   field.paint();
-  __robotHistory.push({ action: 'paint', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
+  recordHistory({ action: 'paint', x: field.robotX, y: field.robotY, painted: new Set(field.painted) });
 }
 
 export function robot_left_free() {
@@ -471,6 +478,14 @@ export function __setAnimationDelay(delay) {
 
 export function __getAnimationDelay() {
   return __animationDelay;
+}
+
+export function __setCoroutineMode(enabled) {
+  __coroutineMode = !!enabled;
+  if (__coroutineMode) {
+    __robotHistory = [];
+    __deferredError = null;
+  }
 }
 
 export function __hasHistory() {
