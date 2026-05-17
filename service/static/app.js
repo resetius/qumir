@@ -259,31 +259,30 @@ function persistIoFiles() {
 
 function applyProjectToInputs(project, { silent = false } = {}) {
   if (!project) return;
-  // console.log('[projects] applyProjectToInputs', {
-  //   id: project.id,
-  //   name: project.name,
-  //   stdin: project.stdin
-  // });
+  // Capture project.files before setCode() — CodeMirror fires 'change' synchronously
+  // which calls saveState() → updateActiveProjectFromInputs() → project.files = __ioFiles.
+  // If we read project.files after setCode(), we'd get the old project's files.
+  const _projectFiles = Array.isArray(project.files) ? project.files.slice() : [];
   setCode(typeof project.code === 'string' ? project.code : '');
   const argsEl = $('#args');
   if (argsEl) argsEl.value = project.args || '';
   const stdinEl = $('#stdin');
   if (stdinEl) stdinEl.value = project.stdin || '';
-  // Restore per-project IO files into the workspace
-  if (Array.isArray(project.files)) {
-    if (__ioFilesRoot) {
-      __ioFilesRoot.innerHTML = '';
-      ensureErrorsPane();
-    }
-    __ioFiles.length = 0;
-    project.files.forEach(file => {
-      const f = normalizeIoFile(file, __ioFiles.length);
-      if (!f) return;
-      __ioFiles.push(f);
-      renderIoFilePane(f);
-    });
-    refreshIoSelectOptions();
-    // Restore active pane - if saved pane exists in this project's files, use it; otherwise errors
+  // Restore per-project IO files. Always clear first — old files must never
+  // bleed through even when project.files is missing (legacy data without migration).
+  if (__ioFilesRoot) {
+    __ioFilesRoot.innerHTML = '';
+    ensureErrorsPane();
+  }
+  __ioFiles.length = 0;
+  _projectFiles.forEach(file => {
+    const f = normalizeIoFile(file, __ioFiles.length);
+    if (!f) return;
+    __ioFiles.push(f);
+    renderIoFilePane(f);
+  });
+  refreshIoSelectOptions();
+  {
     const savedPane = getCookie(IO_PANE_COOKIE) || 'errors';
     const knownIds = new Set(['stdout', 'stdin', 'errors', ...__ioFiles.map(f => f.id)]);
     const targetPane = knownIds.has(savedPane) ? savedPane : 'errors';
@@ -407,7 +406,10 @@ function createProject(initial = {}, { activate = true } = {}) {
   persistProjects();
   scheduleProjectsRender();
   if (activate) {
-    applyProjectToInputs(project);
+    // silent: true — the new project already has its correct initial files;
+    // saveState() would fire before __ioFiles is cleared and write the
+    // previous project's files into the new one.
+    applyProjectToInputs(project, { silent: true });
     closeProjectsDrawer();
   }
   return project;
@@ -738,11 +740,13 @@ function ensureRuntimeFileManager(ioRuntime) {
         const file = __ioFiles.find(f => f.id === fileId);
         if (file) {
           file.content = content;
-          // Update the textarea if pane exists
           if (file.elements && file.elements.editor) {
             file.elements.editor.value = content;
           }
-          persistIoFiles();
+          // Do not call persistIoFiles() here: fires on every WASM write()
+          // call and would save all __ioFiles (including stale files from a
+          // previous project) into the current project. Content is already
+          // updated in memory and will be saved when switching projects.
         }
       }
     });
