@@ -18,8 +18,10 @@
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/IR/Intrinsics.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/Alignment.h>
+#include <llvm/Support/Error.h>
 #include <llvm/Config/llvm-config.h>
 
 // For optimization
@@ -82,6 +84,56 @@ bool IsSignedIntegerType(const TTypeTable& tt, int typeId) {
             return false;
         default:
             return true;
+    }
+}
+
+void EmitCoroutineRuntimeHelpers(llvm::Module& module, llvm::LLVMContext& ctx) {
+    auto* i1Ty = llvm::Type::getInt1Ty(ctx);
+    auto* i32Ty = llvm::Type::getInt32Ty(ctx);
+    auto* ptrTy = llvm::PointerType::get(ctx, 0);
+    auto* voidTy = llvm::Type::getVoidTy(ctx);
+
+    auto getFn = [&](llvm::StringRef name, llvm::FunctionType* type) {
+        return module.getOrInsertFunction(name, type);
+    };
+
+    auto coroDone = getFn("llvm.coro.done", llvm::FunctionType::get(i1Ty, {ptrTy}, false));
+    auto coroResume = getFn("llvm.coro.resume", llvm::FunctionType::get(voidTy, {ptrTy}, false));
+    auto coroDestroy = getFn("llvm.coro.destroy", llvm::FunctionType::get(voidTy, {ptrTy}, false));
+
+    auto createHelper = [&](llvm::StringRef name, llvm::FunctionType* type) {
+        if (auto* existing = module.getFunction(name)) {
+            if (!existing->isDeclaration()) {
+                return existing;
+            }
+            existing->eraseFromParent();
+        }
+        return llvm::Function::Create(type, llvm::Function::ExternalLinkage, name, module);
+    };
+
+    {
+        auto* helper = createHelper("__qumir_coro_done", llvm::FunctionType::get(i32Ty, {ptrTy}, false));
+        auto* bb = llvm::BasicBlock::Create(ctx, "entry", helper);
+        llvm::IRBuilder<> irb(bb);
+        auto* done = irb.CreateCall(coroDone, {helper->getArg(0)}, "done");
+        auto* result = irb.CreateZExt(done, i32Ty, "done.i32");
+        irb.CreateRet(result);
+    }
+
+    {
+        auto* helper = createHelper("__qumir_coro_resume", llvm::FunctionType::get(voidTy, {ptrTy}, false));
+        auto* bb = llvm::BasicBlock::Create(ctx, "entry", helper);
+        llvm::IRBuilder<> irb(bb);
+        irb.CreateCall(coroResume, {helper->getArg(0)});
+        irb.CreateRetVoid();
+    }
+
+    {
+        auto* helper = createHelper("__qumir_coro_destroy", llvm::FunctionType::get(voidTy, {ptrTy}, false));
+        auto* bb = llvm::BasicBlock::Create(ctx, "entry", helper);
+        llvm::IRBuilder<> irb(bb);
+        irb.CreateCall(coroDestroy, {helper->getArg(0)});
+        irb.CreateRetVoid();
     }
 }
 
@@ -278,6 +330,19 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
     appendGlobalFuncList("llvm.global_ctors", ctorFunctions);
     appendGlobalFuncList("llvm.global_dtors", dtorFunctions);
 
+    // Emit a sentinel global so the JS runtime can reliably detect coroutine modules
+    // without heuristics. JS checks instance.exports.__qumir_is_coroutine !== undefined.
+    const bool hasCoroutines = std::any_of(module.Functions.begin(), module.Functions.end(),
+        [](const NIR::TFunction& f) { return f.IsCoroutine; });
+    if (hasCoroutines) {
+        auto* i32Ty = llvm::Type::getInt32Ty(*Ctx);
+        new llvm::GlobalVariable(*LModule, i32Ty, /*isConstant*/true,
+            llvm::GlobalValue::ExternalLinkage,
+            llvm::ConstantInt::get(i32Ty, 1),
+            "__qumir_is_coroutine");
+        EmitCoroutineRuntimeHelpers(*LModule, *Ctx);
+    }
+
     if (llvm::verifyModule(*LModule, &llvm::errs())) {
         llvm::errs() << "\n[LLVMCodeGen] Module verify failed. Dumping IR:\n";
         LModule->print(llvm::errs(), nullptr);
@@ -327,6 +392,10 @@ llvm::GlobalVariable* TLLVMCodeGen::EnsureSlotGlobal(int64_t sidx, NIR::TModule&
 }
 
 llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, NIR::TModule& module) {
+    if (fun.IsCoroutine) {
+        return LowerCoroutineFunction(fun, module);
+    }
+
     auto& ctx = *Ctx;
     auto lfun = LModule->getFunction(fun.Name);
     // Function has already been registered in Emit pre-pass
@@ -375,6 +444,318 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, NIR::TModule& 
            AddIncomingPhiEdges(instr, module);
         }
     }
+    return lfun;
+}
+
+llvm::Function* TLLVMCodeGen::LowerCoroutineFunction(const TFunction& fun, NIR::TModule& module) {
+    auto& ctx = *Ctx;
+    auto* lfun = LModule->getFunction(fun.Name);
+    if (!lfun) {
+        throw std::runtime_error("coroutine function was not predeclared: " + fun.Name);
+    }
+    lfun->setPresplitCoroutine();
+
+    CurFun = std::make_unique<TFunState>();
+    CurFun->Fun = &fun;
+    CurFun->LFun = lfun;
+    CurFun->TmpValues.resize(fun.NextTmpIdx, nullptr);
+
+    auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
+    auto* entry = llvm::BasicBlock::Create(ctx, "entry", lfun);
+    auto* cleanup = llvm::BasicBlock::Create(ctx, "cleanup", lfun);
+    auto* suspend = llvm::BasicBlock::Create(ctx, "suspend", lfun);
+    auto* final = llvm::BasicBlock::Create(ctx, "final", lfun);
+    std::vector<llvm::BasicBlock*> bbs; bbs.reserve(fun.Blocks.size());
+    for (const auto& b : fun.Blocks) {
+        auto* bb = llvm::BasicBlock::Create(ctx, "bb" + std::to_string(b.Label.Idx), lfun);
+        bbs.push_back(bb);
+        CurFun->LabelToBB[b.Label.Idx] = bb;
+    }
+    irb->SetInsertPoint(entry);
+
+    auto* i1Ty = llvm::Type::getInt1Ty(ctx);
+    auto* i8Ty = llvm::Type::getInt8Ty(ctx);
+    auto* i32Ty = llvm::Type::getInt32Ty(ctx);
+    auto* i64Ty = llvm::Type::getInt64Ty(ctx);
+    auto* ptrTy = llvm::PointerType::get(ctx, 0);
+    auto* tokenTy = llvm::Type::getTokenTy(ctx);
+    auto* voidTy = llvm::Type::getVoidTy(ctx);
+    auto* nullPtr = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(ptrTy));
+    auto* tokenNone = llvm::ConstantTokenNone::get(ctx);
+    auto* resultTy = GetTypeById(fun.CoroutineResultTypeId, module.Types, ctx);
+    auto* promise = resultTy->isVoidTy() ? nullptr : irb->CreateAlloca(resultTy, nullptr, "coro.promise");
+    if (promise) {
+        irb->CreateStore(llvm::Constant::getNullValue(resultTy), promise);
+    }
+
+    auto getFn = [&](llvm::StringRef name, llvm::FunctionType* type) {
+        return LModule->getOrInsertFunction(name, type);
+    };
+
+    auto coroId = getFn("llvm.coro.id", llvm::FunctionType::get(
+        tokenTy, {i32Ty, ptrTy, ptrTy, ptrTy}, false));
+    auto coroSize = getFn("llvm.coro.size.i32", llvm::FunctionType::get(i32Ty, false));
+    auto coroBegin = getFn("llvm.coro.begin", llvm::FunctionType::get(ptrTy, {tokenTy, ptrTy}, false));
+    auto coroSuspend = getFn("llvm.coro.suspend", llvm::FunctionType::get(i8Ty, {tokenTy, i1Ty}, false));
+    auto coroEnd = getFn("llvm.coro.end", llvm::FunctionType::get(i1Ty, {ptrTy, i1Ty, tokenTy}, false));
+    auto coroFree = getFn("llvm.coro.free", llvm::FunctionType::get(ptrTy, {tokenTy, ptrTy}, false));
+    auto coroPromise = getFn("llvm.coro.promise", llvm::FunctionType::get(ptrTy, {ptrTy, i32Ty, i1Ty}, false));
+    auto coroDone = getFn("llvm.coro.done", llvm::FunctionType::get(i1Ty, {ptrTy}, false));
+    auto coroResume = getFn("llvm.coro.resume", llvm::FunctionType::get(voidTy, {ptrTy}, false));
+    auto coroDestroy = getFn("llvm.coro.destroy", llvm::FunctionType::get(voidTy, {ptrTy}, false));
+    auto arrayCreateFn = getFn("array_create", llvm::FunctionType::get(ptrTy, {i64Ty}, false));
+    auto arrayDestroyFn = getFn("array_destroy", llvm::FunctionType::get(voidTy, {ptrTy}, false));
+
+    auto* id = irb->CreateCall(coroId, {
+        llvm::ConstantInt::get(i32Ty, 0),
+        promise ? static_cast<llvm::Value*>(promise) : static_cast<llvm::Value*>(nullPtr),
+        nullPtr,
+        nullPtr
+    }, "coro.id");
+    auto* size = irb->CreateCall(coroSize, {}, "coro.size");
+    auto* allocSize = irb->CreateZExt(size, i64Ty, "coro.alloc.size");
+    auto* alloc = irb->CreateCall(arrayCreateFn, {allocSize}, "coro.alloc");
+    auto* handle = irb->CreateCall(coroBegin, {id, alloc}, "coro.handle");
+
+    CurFun->Allocas.resize(fun.LocalTypes.size(), nullptr);
+    for (int i = 0; i < (int)fun.LocalTypes.size(); ++i) {
+        auto* localTy = GetTypeById(fun.LocalTypes[i], module.Types, ctx);
+        auto* alloca = irb->CreateAlloca(localTy, nullptr, "local" + std::to_string(i));
+        irb->CreateStore(llvm::Constant::getNullValue(localTy), alloca);
+        CurFun->Allocas[i] = alloca;
+    }
+
+    for (int i = 0; i < (int)fun.ArgLocals.size(); ++i) {
+        const auto& l = fun.ArgLocals[i];
+        if (l.Idx < 0 || l.Idx >= (int)CurFun->Allocas.size()) {
+            throw std::runtime_error("invalid argument local index");
+        }
+        auto* ptr = CurFun->Allocas[l.Idx];
+        auto& arg = *lfun->getArg(i);
+        irb->CreateStore(&arg, ptr);
+    }
+    irb->CreateBr(bbs.front());
+
+    auto suspendAfterStep = [&](llvm::BasicBlock* nextBB) {
+        auto* s = irb->CreateCall(coroSuspend, {
+            tokenNone,
+            llvm::ConstantInt::getFalse(ctx)
+        }, "coro.suspend");
+        auto* sw = irb->CreateSwitch(s, suspend, 2);
+        sw->addCase(llvm::ConstantInt::get(i8Ty, 0), nextBB);
+        sw->addCase(llvm::ConstantInt::get(i8Ty, 1), cleanup);
+    };
+
+    auto castAwaitArg = [&](llvm::Value* val, llvm::Type* expectedType) -> llvm::Value* {
+        auto* actualTy = val->getType();
+        if (actualTy == expectedType) {
+            return val;
+        }
+        if (actualTy->isPointerTy() && expectedType->isIntegerTy()) {
+            return irb->CreatePtrToInt(val, expectedType, "cast");
+        }
+        if (actualTy->isIntegerTy() && expectedType->isPointerTy()) {
+            return irb->CreateIntToPtr(val, expectedType, "cast");
+        }
+        throw std::runtime_error(
+            "unexpected cast request while lowering awaited external action argument");
+    };
+
+    auto castCoroutineResult = [&](llvm::Value* val, llvm::Type* expectedType) -> llvm::Value* {
+        auto* actualTy = val->getType();
+        if (actualTy == expectedType) {
+            return val;
+        }
+        if (actualTy->isIntegerTy() && expectedType->isIntegerTy()) {
+            return irb->CreateIntCast(val, expectedType, /*isSigned=*/true, "coro.ret.cast");
+        }
+        if (actualTy->isIntegerTy() && expectedType->isDoubleTy()) {
+            return irb->CreateSIToFP(val, expectedType, "coro.ret.cast");
+        }
+        if (actualTy->isDoubleTy() && expectedType->isIntegerTy()) {
+            return irb->CreateFPToSI(val, expectedType, "coro.ret.cast");
+        }
+        if (actualTy->isPointerTy() && expectedType->isIntegerTy()) {
+            return irb->CreatePtrToInt(val, expectedType, "coro.ret.cast");
+        }
+        if (actualTy->isIntegerTy() && expectedType->isPointerTy()) {
+            return irb->CreateIntToPtr(val, expectedType, "coro.ret.cast");
+        }
+        throw std::runtime_error("coroutine return type mismatch; pre-cast required");
+    };
+
+    auto lowerAwait = [&](const NIR::TInstr& instr, int awaitIndex) {
+        if (instr.Size() != 1 || instr.Operands[0].Type != TOperand::EType::Imm) {
+            throw std::runtime_error("await needs callee Imm(symId)");
+        }
+        const int calleeSymId = static_cast<int>(instr.Operands[0].Imm.Value);
+        auto jt = module.SymIdToExtFuncIdx.find(calleeSymId);
+        if (jt != module.SymIdToExtFuncIdx.end()) {
+            const auto& extFun = module.ExternalFunctions[jt->second];
+            if (extFun.ReturnTypeId != module.Types.I(EKind::Void)) {
+                throw std::runtime_error("coroutine lowering currently supports only void external actions");
+            }
+            std::vector<llvm::Type*> paramTys;
+            for (const auto& pid : extFun.ArgTypes) {
+                paramTys.push_back(GetTypeById(pid, module.Types, ctx));
+            }
+            if (CurFun->PendingArgs.size() != paramTys.size()) {
+                throw std::runtime_error("wrong awaited external action argument count");
+            }
+            std::vector<llvm::Value*> args;
+            args.reserve(CurFun->PendingArgs.size());
+            for (int i = 0; i < (int)CurFun->PendingArgs.size(); ++i) {
+                auto* paramTy = paramTys[i];
+                auto* val = CurFun->PendingArgs[i];
+                if (paramTy->isStructTy() && val->getType()->isPointerTy()) {
+                    val = irb->CreateLoad(paramTy, val, "argstruct");
+                } else {
+                    val = castAwaitArg(val, paramTy);
+                }
+                args.push_back(val);
+            }
+            CurFun->PendingArgs.clear();
+            auto callee = LModule->getOrInsertFunction(
+                extFun.MangledName,
+                llvm::FunctionType::get(voidTy, paramTys, false));
+            irb->CreateCall(callee, args);
+            auto* nextBB = llvm::BasicBlock::Create(ctx, "after.await." + std::to_string(awaitIndex), lfun);
+            suspendAfterStep(nextBB);
+            irb->SetInsertPoint(nextBB);
+            return;
+        }
+
+        const TFunction* childFun = nullptr;
+        for (const auto& candidate : module.Functions) {
+            if (candidate.SymId == calleeSymId) {
+                childFun = &candidate;
+                break;
+            }
+        }
+        if (!childFun || !childFun->IsCoroutine) {
+            throw std::runtime_error("await target is neither an external suspend action nor a coroutine function");
+        }
+        auto childIt = SymIdToLFun.find(calleeSymId);
+        if (childIt == SymIdToLFun.end()) {
+            throw std::runtime_error("awaited coroutine function was not predeclared");
+        }
+
+        auto* childLFun = childIt->second;
+        auto* childFTy = childLFun->getFunctionType();
+        if (CurFun->PendingArgs.size() != childFTy->getNumParams()) {
+            throw std::runtime_error("child coroutine argument count mismatch: expected " +
+                std::to_string(childFTy->getNumParams()) + ", got " +
+                std::to_string(CurFun->PendingArgs.size()));
+        }
+        std::vector<llvm::Value*> childArgs;
+        childArgs.reserve(CurFun->PendingArgs.size());
+        for (size_t i = 0; i < CurFun->PendingArgs.size(); ++i) {
+            auto* expectedTy = childFTy->getParamType(i);
+            auto* val = CurFun->PendingArgs[i];
+            if (val->getType() != expectedTy) {
+                val = castAwaitArg(val, expectedTy);
+            }
+            childArgs.push_back(val);
+        }
+        CurFun->PendingArgs.clear();
+
+        auto* child = irb->CreateCall(childLFun, childArgs, "child.coro");
+        auto* awaitCondBB = llvm::BasicBlock::Create(ctx, "await.child.cond." + std::to_string(awaitIndex), lfun);
+        auto* awaitResumeBB = llvm::BasicBlock::Create(ctx, "await.child.resume." + std::to_string(awaitIndex), lfun);
+        auto* nextBB = llvm::BasicBlock::Create(ctx, "after.await." + std::to_string(awaitIndex), lfun);
+        irb->CreateBr(awaitCondBB);
+
+        irb->SetInsertPoint(awaitCondBB);
+        auto* childDone = irb->CreateCall(coroDone, {child}, "child.done");
+        irb->CreateCondBr(childDone, nextBB, awaitResumeBB);
+
+        irb->SetInsertPoint(awaitResumeBB);
+        irb->CreateCall(coroResume, {child});
+        suspendAfterStep(awaitCondBB);
+
+        irb->SetInsertPoint(nextBB);
+        if (instr.Dest.Idx >= 0) {
+            if (childFun->CoroutineResultTypeId == module.Types.I(EKind::Void)) {
+                throw std::runtime_error("void coroutine await cannot produce a destination value");
+            }
+            auto* childResultTy = GetTypeById(childFun->CoroutineResultTypeId, module.Types, ctx);
+            auto* promisePtr = irb->CreateCall(coroPromise, {
+                child,
+                llvm::ConstantInt::get(i32Ty, 0),
+                llvm::ConstantInt::getFalse(ctx)
+            }, "child.promise");
+            auto* resultPtr = irb->CreatePointerCast(
+                promisePtr,
+                llvm::PointerType::get(ctx, 0),
+                "child.result.ptr");
+            auto* result = irb->CreateLoad(childResultTy, resultPtr, "child.result");
+            CurFun->TmpValues[instr.Dest.Idx] = result;
+        }
+        irb->CreateCall(coroDestroy, {child});
+    };
+
+    int awaitIndex = 0;
+    for (size_t i = 0; i < fun.Blocks.size(); ++i) {
+        irb->SetInsertPoint(bbs[i]);
+        for (const auto& phi : fun.Blocks[i].Phis) {
+            if (irb->GetInsertBlock()->getTerminator()) {
+                throw std::runtime_error("attempt to emit instruction after terminator");
+            }
+            EmitPhi(phi, module);
+        }
+        for (const auto& instr : fun.Blocks[i].Instrs) {
+            if (irb->GetInsertBlock()->getTerminator()) {
+                throw std::runtime_error("attempt to emit instruction after terminator");
+            }
+            if (instr.Op == "ret"_op) {
+                if (promise && instr.Size() == 1) {
+                    auto* retVal = GetOp(instr.Operands[0], module);
+                    if (retVal->getType() != resultTy) {
+                        retVal = castCoroutineResult(retVal, resultTy);
+                    }
+                    irb->CreateStore(retVal, promise);
+                }
+                irb->CreateBr(final);
+            } else if (instr.Op == "await"_op) {
+                lowerAwait(instr, awaitIndex++);
+            } else {
+                LowerInstr(instr, module);
+            }
+        }
+        // After await insertion, the insert block may be a newly created nextBB rather than
+        // bbs[i]. Update LabelToBB so that AddIncomingPhiEdges uses the real exit block of
+        // this IR block as the PHI predecessor.
+        CurFun->LabelToBB[fun.Blocks[i].Label.Idx] = irb->GetInsertBlock();
+    }
+    for (size_t i = 0; i < fun.Blocks.size(); ++i) {
+        irb->SetInsertPoint(bbs[i]);
+        for (const auto& phi : fun.Blocks[i].Phis) {
+            AddIncomingPhiEdges(phi, module);
+        }
+    }
+
+    irb->SetInsertPoint(final);
+    auto* finalSuspend = irb->CreateCall(coroSuspend, {
+        tokenNone,
+        llvm::ConstantInt::getTrue(ctx)
+    }, "coro.final.suspend");
+    auto* finalSwitch = irb->CreateSwitch(finalSuspend, suspend, 2);
+    finalSwitch->addCase(llvm::ConstantInt::get(i8Ty, 0), suspend);
+    finalSwitch->addCase(llvm::ConstantInt::get(i8Ty, 1), cleanup);
+
+    irb->SetInsertPoint(cleanup);
+    auto* mem = irb->CreateCall(coroFree, {id, handle}, "coro.free");
+    irb->CreateCall(arrayDestroyFn, {mem});
+    irb->CreateBr(suspend);
+
+    irb->SetInsertPoint(suspend);
+    irb->CreateCall(coroEnd, {
+        handle,
+        llvm::ConstantInt::getFalse(ctx),
+        tokenNone
+    });
+    irb->CreateRet(handle);
+
     return lfun;
 }
 
@@ -590,7 +971,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             printType(out, outputTypeId);
             out << ") = ";
         }
-        bool isCall = opcode == "call"_op;
+        bool isCall = opcode == "call"_op || opcode == "await"_op;
         for (int i = 0; i < instr.Size(); ++i) {
             if (i > 0) {
                 out << " ";
@@ -960,6 +1341,8 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             CurFun->PendingArgs.push_back(v);
             return nullptr;
         }
+        case "await"_op:
+            throw std::runtime_error("await reached regular LLVM codegen before coroutine lowering is implemented: " + formatInstr());
         case "call"_op: {
             // IR: call has optional Dest (required only for non-void) and one operand: Imm(symId)
             if (operandCount < 1) throw std::runtime_error("call needs callee operand");
@@ -1100,6 +1483,16 @@ void TLLVMCodeGen::Optimize(int optLevel) {
     PB.registerFunctionAnalyses(FAM);
     PB.registerLoopAnalyses(LAM);
     PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+    llvm::ModulePassManager CoroMPM;
+    if (auto err = PB.parsePassPipeline(CoroMPM, "coro-early,coro-split,coro-elide,coro-cleanup")) {
+        std::string msg;
+        llvm::raw_string_ostream os(msg);
+        os << err;
+        os.flush();
+        throw std::runtime_error("failed to build LLVM coroutine pass pipeline: " + msg);
+    }
+    CoroMPM.run(*LModule, MAM);
 
     auto OL = llvm::OptimizationLevel::O0;
     switch (optLevel) {

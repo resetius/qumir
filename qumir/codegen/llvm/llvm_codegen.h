@@ -58,6 +58,7 @@ public:
 
 private:
     llvm::Function* LowerFunction(const NIR::TFunction& fun, NIR::TModule& module);
+    llvm::Function* LowerCoroutineFunction(const NIR::TFunction& fun, NIR::TModule& module);
     void LowerBlock(const NIR::TBlock& blk, NIR::TModule& module, llvm::Function* lf, std::vector<llvm::BasicBlock*>& orderedBBs);
     llvm::Value* LowerInstr(const NIR::TInstr& instr, NIR::TModule& module);
     llvm::Value* EmitPhi(const NIR::TPhi& instr, NIR::TModule& module);
