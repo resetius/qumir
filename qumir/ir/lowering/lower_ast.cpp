@@ -16,6 +16,18 @@ namespace NIR {
 
 using namespace NLiterals;
 
+namespace {
+
+NAst::TTypePtr PhysicalCallResultType(NAst::TTypePtr type)
+{
+    if (auto futureResult = NAst::FutureResultType(type)) {
+        return futureResult;
+    }
+    return type;
+}
+
+} // namespace
+
 TOperand TAstLowerer::AllocLayoutStorage(NSemantics::TSymbolInfo symbol, int typeId)
 {
     if (symbol.FunctionLevelIdx >= 0) {
@@ -384,8 +396,18 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     co_return TValueWithBlock{ *prev, Builder.CurrentBlockLabel() };
 }
 
-TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& expr, TBlockScope scope) {
+TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& inputExpr, TBlockScope scope) {
     int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
+    NAst::TExprPtr expr = inputExpr;
+    bool isAwait = false;
+    if (auto maybeAwait = NAst::TMaybeNode<NAst::TAwaitExpr>(expr)) {
+        auto awaitExpr = maybeAwait.Cast();
+        if (!NAst::TMaybeNode<NAst::TCallExpr>(awaitExpr->Operand)) {
+            co_return TError(awaitExpr->Location, "await lowering expects a call operand");
+        }
+        expr = awaitExpr->Operand;
+        isAwait = true;
+    }
 
     if (auto maybeCast = NAst::TMaybeNode<NAst::TCastExpr>(expr)) {
         auto cast = maybeCast.Cast();
@@ -1180,8 +1202,17 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         // auto currentFuncIdx = Builder.CurrentFunctionIdx(); // needed for nested functions
         auto funcIdx = Builder.NewFunction(name, args, sidOpt->Id);
-        auto returnType = FromAstType(fun->RetType, Module.Types);
+        auto coroutineResultType = NAst::FutureResultType(fun->RetType);
+        const bool isCoroutine = static_cast<bool>(coroutineResultType);
+        auto physicalReturnAstType = isCoroutine
+            ? std::make_shared<NAst::TPointerType>(std::make_shared<NAst::TVoidType>())
+            : fun->RetType;
+        auto returnType = FromAstType(physicalReturnAstType, Module.Types);
         Builder.SetReturnType(returnType);
+        Module.Functions[funcIdx].IsCoroutine = isCoroutine;
+        if (isCoroutine) {
+            Module.Functions[funcIdx].CoroutineResultTypeId = FromAstType(coroutineResultType, Module.Types);
+        }
         for (auto& a : args) {
             Builder.SetType(a, FromAstType(type->ParamTypes[&a - &args[0]], Module.Types));
         }
@@ -1237,7 +1268,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 .ContinueLabel = std::nullopt
             });
         }
-        if (!NAst::TMaybeType<NAst::TVoidType>(fun->RetType)) {
+        if (isCoroutine && NAst::TMaybeType<NAst::TVoidType>(coroutineResultType)) {
+            Builder.Emit0("ret"_op, {});
+        } else if (!NAst::TMaybeType<NAst::TVoidType>(isCoroutine ? coroutineResultType : fun->RetType)) {
             // return value = lowered IdentExpr named '$$return' in function scope
             auto returnVar = co_await LoadVar("$$return", TBlockScope {
                 .FuncIdx = funcIdx,
@@ -1270,7 +1303,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!funDecl) {
             co_return TError(call->Callee->Location, TErrorString::Get<EErrorId::NOT_A_FUNCTION>());
         }
-        NAst::TTypePtr returnType = funDecl->RetType;
+        NAst::TTypePtr returnType = PhysicalCallResultType(funDecl->RetType);
         std::vector<NAst::TTypePtr>* argTypes = nullptr;
         if (auto maybeFuncType = NAst::TMaybeType<NAst::TFunctionType>(funDecl->Type)) {
             argTypes = &maybeFuncType.Cast()->ParamTypes;
@@ -1330,10 +1363,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         std::optional<TOperand> tmp = std::nullopt;
         if (returnsValue) {
-            tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
+            tmp = Builder.Emit1(isAwait ? "await"_op : "call"_op, {TImm{calleeSymId}});
             Builder.SetType(tmp->Tmp, FromAstType(returnType, Module.Types));
         } else {
-            Builder.Emit0("call"_op, {TImm{calleeSymId}});
+            Builder.Emit0(isAwait ? "await"_op : "call"_op, {TImm{calleeSymId}});
         }
         for (auto [arg, ownership] : argv) {
             // For string arguments passed as owned temporaries: release after call
@@ -1366,7 +1399,7 @@ void TAstLowerer::ImportExternalFunction(int symbolId, const NAst::TFunDecl& fun
     }
 
     std::vector<int> argTypes; argTypes.reserve(funcDecl.Params.size());
-    int returnType = FromAstType(funcDecl.RetType, Module.Types);
+    int returnType = FromAstType(PhysicalCallResultType(funcDecl.RetType), Module.Types);
     for (auto& p : funcDecl.Params) {
         argTypes.push_back(FromAstType(p->Type, Module.Types));
     }
@@ -1526,7 +1559,9 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
         return {};
     };
 
-    lowerTopBlock(block, scope);
+    if (auto res = lowerTopBlock(block, scope); !res) {
+        return res;
+    }
     if (constructorFunctionId != -1) {
         Builder.SetCurrentFunction(constructorFunctionId);
         Builder.Emit0("ret"_op, {});

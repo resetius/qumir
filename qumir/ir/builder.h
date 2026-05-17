@@ -223,6 +223,8 @@ struct TFunction {
     std::vector<int> Label2Idx; // LabelIdx -> BlockIdx
     int ReturnTypeId = -1;
     bool ReturnTypeIsString = false; // TODO: remove me, clutch: support string returnType
+    bool IsCoroutine = false;
+    int CoroutineResultTypeId = -1;
     bool CfgBuilt = false;
 
     int SymId;

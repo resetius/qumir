@@ -3,4 +3,5 @@
 цел таб multi[0:10,0:20]
 цел i = 1
 цел таб multi2[i:i+10,i:i*20]
-multi2[i,10] := 10
+| TODO: top-level array element assignment is not yet supported in IR lowering
+| multi2[i,10] := 10

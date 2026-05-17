@@ -96,6 +96,9 @@ int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
     if (auto named = NAst::TMaybeType<NAst::TNamedType>(t)) {
         return FromAstType(named.Cast()->UnderlyingType, tt);
     }
+    if (NAst::TMaybeType<NAst::TFutureType>(t)) {
+        throw std::runtime_error("AST Future<T> cannot be lowered as a regular IR type");
+    }
     if (auto i = NAst::TMaybeType<NAst::TIntegerType>(t)) {
         return tt.I(EKind::I64);
     }

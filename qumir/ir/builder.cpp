@@ -120,6 +120,13 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
     }
     out << ") { ; ";
     module.Types.Print(out, ReturnTypeId);
+    if (IsCoroutine) {
+        out << " coroutine";
+        if (CoroutineResultTypeId >= 0) {
+            out << " result ";
+            module.Types.Print(out, CoroutineResultTypeId);
+        }
+    }
     out << "\n";
 
     auto typeId = [&](auto idx, auto& cache) -> int {
@@ -167,7 +174,7 @@ void TFunction::Print(std::ostream& out, const TModule& module) const
                 } else if constexpr (std::is_same_v<T, TPhi>) {
                     count = i.Operands.size();
                 }
-                bool isCall = (i.Op == "call"_op);
+                bool isCall = (i.Op == "call"_op || i.Op == "await"_op);
                 for (int j = 0; j < count; j++) {
                     const auto& o = i.Operands[j];
                     switch (o.Type) {

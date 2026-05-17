@@ -4,17 +4,22 @@
 #include <qumir/modules/turtle/turtle.h>
 #include <qumir/parser/lexer.h>
 #include <qumir/parser/parser.h>
+#include <qumir/ir/builder.h>
+#include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/type_annotation/type_annotation.h>
 #include <qumir/semantics/transform/transform.h>
 #include <sstream>
+#include <optional>
 
 using namespace NQumir;
 using namespace NQumir::NAst;
 using namespace NQumir::NRegistry;
 using namespace NQumir::NSemantics;
 
-static TExprPtr parseStmtList(const std::string& src) {
+namespace {
+
+TExprPtr parseStmtList(const std::string& src) {
     std::istringstream in(src);
     TTokenStream ts(in);
     TParser p;
@@ -26,7 +31,7 @@ static TExprPtr parseStmtList(const std::string& src) {
     return std::move(res.value());
 }
 
-static const TExternalFunction* findExternal(const std::vector<TExternalFunction>& functions, const std::string& mangledName) {
+const TExternalFunction* findExternal(const std::vector<TExternalFunction>& functions, const std::string& mangledName) {
     for (const auto& function : functions) {
         if (function.MangledName == mangledName) {
             return &function;
@@ -35,13 +40,13 @@ static const TExternalFunction* findExternal(const std::vector<TExternalFunction
     return nullptr;
 }
 
-static void expectMaySuspend(const std::vector<TExternalFunction>& functions, const std::string& mangledName, bool maySuspend) {
+void expectMaySuspend(const std::vector<TExternalFunction>& functions, const std::string& mangledName, bool maySuspend) {
     auto* function = findExternal(functions, mangledName);
     ASSERT_NE(function, nullptr) << mangledName;
     EXPECT_EQ(function->MaySuspend, maySuspend) << mangledName;
 }
 
-static std::shared_ptr<TFunDecl> findFunction(const TExprPtr& ast, const std::string& name) {
+std::shared_ptr<TFunDecl> findFunction(const TExprPtr& ast, const std::string& name) {
     auto block = TMaybeNode<TBlockExpr>(ast).Cast();
     if (!block) {
         return nullptr;
@@ -55,7 +60,7 @@ static std::shared_ptr<TFunDecl> findFunction(const TExprPtr& ast, const std::st
     return nullptr;
 }
 
-static std::shared_ptr<TCallExpr> findCall(const TExprPtr& expr, const std::string& name) {
+std::shared_ptr<TCallExpr> findCall(const TExprPtr& expr, const std::string& name) {
     if (!expr) {
         return nullptr;
     }
@@ -72,7 +77,7 @@ static std::shared_ptr<TCallExpr> findCall(const TExprPtr& expr, const std::stri
     return nullptr;
 }
 
-static std::shared_ptr<TAwaitExpr> findAwaitCall(const TExprPtr& expr, const std::string& name) {
+std::shared_ptr<TAwaitExpr> findAwaitCall(const TExprPtr& expr, const std::string& name) {
     if (!expr) {
         return nullptr;
     }
@@ -92,7 +97,7 @@ static std::shared_ptr<TAwaitExpr> findAwaitCall(const TExprPtr& expr, const std
     return nullptr;
 }
 
-static TExprPtr annotateWithRobotCoroutines(const std::string& src) {
+TExprPtr annotateWithRobotCoroutines(const std::string& src) {
     RobotModule robot;
     TNameResolver resolver;
     resolver.RegisterModule(&robot);
@@ -121,6 +126,99 @@ static TExprPtr annotateWithRobotCoroutines(const std::string& src) {
     }
     return ast;
 }
+
+std::optional<NIR::TModule> buildRobotCoroutineModule(const std::string& src) {
+    RobotModule robot;
+    TNameResolver resolver;
+    resolver.RegisterModule(&robot);
+    auto importResult = resolver.ImportModule(robot.Name());
+    if (!importResult) {
+        ADD_FAILURE() << importResult.error();
+        return std::nullopt;
+    }
+
+    std::istringstream in(src);
+    TTokenStream ts(in);
+    TParser parser;
+    auto parsed = parser.parse(ts, &resolver);
+    if (!parsed) {
+        ADD_FAILURE() << parsed.error().ToString();
+        return std::nullopt;
+    }
+    auto ast = std::move(parsed.value());
+    auto result = NTransform::Pipeline(
+        ast,
+        resolver,
+        NTransform::TPipelineOptions{.EnableCoroutineAnalysis = true});
+    if (!result) {
+        ADD_FAILURE() << result.error().ToString();
+        return std::nullopt;
+    }
+
+    NIR::TModule module;
+    NIR::TBuilder builder(module);
+    NIR::TAstLowerer lowerer(module, builder, resolver);
+    auto lowered = lowerer.LowerTop(ast);
+    if (!lowered) {
+        ADD_FAILURE() << lowered.error().ToString();
+        return std::nullopt;
+    }
+
+    return module;
+}
+
+std::optional<NIR::TModule> buildTurtleCoroutineModule(const std::string& src) {
+    TurtleModule turtle;
+    TNameResolver resolver;
+    resolver.RegisterModule(&turtle);
+    auto importResult = resolver.ImportModule(turtle.Name());
+    if (!importResult) {
+        ADD_FAILURE() << importResult.error();
+        return std::nullopt;
+    }
+
+    std::istringstream in(src);
+    TTokenStream ts(in);
+    TParser parser;
+    auto parsed = parser.parse(ts, &resolver);
+    if (!parsed) {
+        ADD_FAILURE() << parsed.error().ToString();
+        return std::nullopt;
+    }
+    auto ast = std::move(parsed.value());
+    auto result = NTransform::Pipeline(
+        ast,
+        resolver,
+        NTransform::TPipelineOptions{.EnableCoroutineAnalysis = true});
+    if (!result) {
+        ADD_FAILURE() << result.error().ToString();
+        return std::nullopt;
+    }
+
+    NIR::TModule module;
+    NIR::TBuilder builder(module);
+    NIR::TAstLowerer lowerer(module, builder, resolver);
+    auto lowered = lowerer.LowerTop(ast);
+    if (!lowered) {
+        ADD_FAILURE() << lowered.error().ToString();
+        return std::nullopt;
+    }
+
+    return module;
+}
+
+std::string lowerRobotCoroutineIR(const std::string& src) {
+    auto module = buildRobotCoroutineModule(src);
+    if (!module) {
+        return {};
+    }
+
+    std::ostringstream out;
+    module->Print(out);
+    return out.str();
+}
+
+} // namespace
 
 TEST(NameResolver, DeclBindsSymbolIds) {
     auto ast = parseStmtList(R"__(
@@ -306,6 +404,40 @@ TEST(TypeAnnotation, CoroutineAwaitUnwrapsReturnValueAtCallSite) {
     auto awaitCall = findAwaitCall(entry->Body, "wrap");
     ASSERT_TRUE(awaitCall);
     EXPECT_TRUE(TMaybeType<TIntegerType>(awaitCall->Type));
+}
+
+TEST(TypeAnnotation, FutureVoidLowersToCoroutineIRShape) {
+    auto ir = lowerRobotCoroutineIR(R"__(
+алг helper
+нач
+    вверх()
+кон
+)__");
+
+    ASSERT_FALSE(ir.empty());
+    EXPECT_NE(ir.find("function helper () { ; ptr to void coroutine result void"), std::string::npos) << ir;
+    EXPECT_NE(ir.find("await вверх"), std::string::npos) << ir;
+}
+
+TEST(TypeAnnotation, FutureValueCoroutineAwaitsChildResultInInitializer) {
+    auto ir = lowerRobotCoroutineIR(R"__(
+алг цел caller
+нач
+    знач := value()
+кон
+
+алг цел value
+нач
+    вверх()
+    знач := 12
+кон
+)__");
+
+    ASSERT_FALSE(ir.empty());
+    EXPECT_NE(ir.find("function caller () { ; ptr to void coroutine result i64"), std::string::npos) << ir;
+    EXPECT_NE(ir.find("function value () { ; ptr to void coroutine result i64"), std::string::npos) << ir;
+    EXPECT_NE(ir.find("await tmp"), std::string::npos) << ir;
+    EXPECT_NE(ir.find("= value"), std::string::npos) << ir;
 }
 
 TEST(NameResolver, Scopes) {

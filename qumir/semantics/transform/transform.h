@@ -10,14 +10,14 @@
 namespace NQumir {
 namespace NTransform {
 
+struct TPipelineOptions {
+    bool EnableCoroutineAnalysis = false;
+};
+
 std::expected<bool, TError> PreNameResolutionTransform(NAst::TExprPtr& expr);
 std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NSemantics::TNameResolver& r);
 std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NSemantics::TNameResolver& r);
 std::expected<bool, TError> CoroutineAnnotationTransform(NAst::TExprPtr& expr, NSemantics::TNameResolver& r);
-
-struct TPipelineOptions {
-    bool EnableCoroutineAnalysis = false;
-};
 
 std::expected<std::monostate, TError> Pipeline(
     NAst::TExprPtr& expr,
