@@ -432,3 +432,10 @@ export function turtle_restore_state() {
   // Do not modify path; restoring position is instantaneous without drawing.
   scheduleDraw();
 }
+
+// Animation delay for coroutine step pacing (ms between resume steps).
+// Default 0 = instant (batch mode, render once at end).
+let __turtleAnimDelay = 0;
+
+export function __setAnimationDelay(delay) { __turtleAnimDelay = delay; }
+export function __getAnimationDelay() { return __turtleAnimDelay; }

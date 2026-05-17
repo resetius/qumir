@@ -14,6 +14,7 @@ let __turtleToggle = null;
 let __turtleModule = null;
 let __robotModule = null;
 let __robotCanvas = null;
+let __executorToolbarMode = null;
 let __drawerModule = null;
 let __drawerCanvas = null;
 let __colorsModule = null;
@@ -74,9 +75,13 @@ const sample = `алг цел цикл\nнач\n    | пример коммен�
 function parseAlgHeader(code) {
   const lines = code.split(/\r?\n/);
   for (const line of lines) {
-    if (!/^\s*алг\s+/u.test(line)) continue;
+    if (!/^\s*алг\b/u.test(line)) continue;
     const trimmed = line.trim();
     const tokens = trimmed.split(/\s+/);
+    if (tokens.length === 1) {
+      // Plain `алг` — anonymous void entry point
+      return { type: null, name: null };
+    }
     if (tokens.length === 2) {
       return { type: null, name: tokens[1].replace(/\(.*/, '') };
     }
@@ -1635,8 +1640,79 @@ function ensureTurtleUI() {
     __turtleToggle = ctr;
   }
 
-  __turtleToggle.innerHTML = '';
-  __turtleToggle.style.display = 'none';
+  const updateTurtleDelay = () => {
+    const animCheckbox = document.getElementById('turtle-anim-enabled');
+    const speedSlider = document.getElementById('turtle-speed');
+    if (!animCheckbox || !speedSlider) return;
+    if (__turtleModule && typeof __turtleModule.__setAnimationDelay === 'function') {
+      __turtleModule.__setAnimationDelay(animCheckbox.checked ? 300 - parseInt(speedSlider.value, 10) : 0);
+    }
+  };
+
+  if (__executorToolbarMode !== 'turtle') {
+    __turtleToggle.innerHTML = '';
+    __executorToolbarMode = 'turtle';
+
+    // Speed controls (animation checkbox + slider)
+    const speedContainer = document.createElement('div');
+    speedContainer.style.display = 'flex';
+    speedContainer.style.alignItems = 'center';
+    speedContainer.style.gap = '6px';
+
+    const animCheckbox = document.createElement('input');
+    animCheckbox.type = 'checkbox';
+    animCheckbox.id = 'turtle-anim-enabled';
+    animCheckbox.style.cursor = 'pointer';
+    animCheckbox.title = 'Включить анимацию черепахи';
+    const savedTurtleAnim = getCookie('q_turtle_anim');
+    animCheckbox.checked = savedTurtleAnim === '1';
+
+    const speedLabel = document.createElement('span');
+    speedLabel.textContent = '🐢';
+    speedLabel.style.fontSize = '14px';
+
+    const speedSlider = document.createElement('input');
+    speedSlider.type = 'range';
+    speedSlider.id = 'turtle-speed';
+    speedSlider.min = '0';
+    speedSlider.max = '290';
+    const savedTurtleSpeed = getCookie('q_turtle_speed');
+    speedSlider.value = savedTurtleSpeed !== null ? savedTurtleSpeed : '150';
+    speedSlider.style.width = '80px';
+    speedSlider.style.cursor = 'pointer';
+    speedSlider.title = 'Скорость анимации черепахи';
+    speedSlider.disabled = !animCheckbox.checked;
+    speedSlider.style.opacity = animCheckbox.checked ? '1' : '0.5';
+
+    const speedLabelFast = document.createElement('span');
+    speedLabelFast.textContent = '🐇';
+    speedLabelFast.style.fontSize = '14px';
+
+    animCheckbox.addEventListener('change', () => {
+      speedSlider.disabled = !animCheckbox.checked;
+      speedSlider.style.opacity = animCheckbox.checked ? '1' : '0.5';
+      speedLabel.style.opacity = animCheckbox.checked ? '1' : '0.5';
+      speedLabelFast.style.opacity = animCheckbox.checked ? '1' : '0.5';
+      setCookie('q_turtle_anim', animCheckbox.checked ? '1' : '0', 365);
+      updateTurtleDelay();
+    });
+    speedSlider.addEventListener('input', () => {
+      updateTurtleDelay();
+      setCookie('q_turtle_speed', speedSlider.value, 365);
+    });
+
+    speedLabel.style.opacity = animCheckbox.checked ? '1' : '0.5';
+    speedLabelFast.style.opacity = animCheckbox.checked ? '1' : '0.5';
+
+    speedContainer.appendChild(animCheckbox);
+    speedContainer.appendChild(speedLabel);
+    speedContainer.appendChild(speedSlider);
+    speedContainer.appendChild(speedLabelFast);
+    __turtleToggle.appendChild(speedContainer);
+  }
+
+  __turtleToggle.style.display = '';
+  updateTurtleDelay();
 
   if (!__turtleCanvas) {
     const cnv = document.createElement('canvas');
@@ -1704,49 +1780,11 @@ function ensureRobotUI() {
     __turtleToggle = ctr;
   }
 
-  // Preview no longer switches back to compiler text; robot toolbar keeps animation controls only.
-  __turtleToggle.innerHTML = '';
-
-  // Add animation speed control
-  const speedContainer = document.createElement('div');
-  speedContainer.style.display = 'flex';
-  speedContainer.style.alignItems = 'center';
-  speedContainer.style.gap = '6px';
-  speedContainer.style.marginLeft = 'auto';
-
-  // Checkbox to disable animation
-  const animCheckbox = document.createElement('input');
-  animCheckbox.type = 'checkbox';
-  animCheckbox.id = 'robot-anim-enabled';
-  const savedAnimEnabled = getCookie('q_robot_anim');
-  animCheckbox.checked = savedAnimEnabled !== '0'; // enabled by default
-  animCheckbox.style.cursor = 'pointer';
-  animCheckbox.title = 'Включить анимацию';
-
-  const speedLabel = document.createElement('span');
-  speedLabel.textContent = '🐢';
-  speedLabel.style.fontSize = '14px';
-
-  const speedSlider = document.createElement('input');
-  speedSlider.type = 'range';
-  speedSlider.id = 'robot-speed';
-  speedSlider.min = '0';
-  speedSlider.max = '300';
-  // Restore saved value or default to 150
-  const savedSpeed = getCookie('q_robot_speed');
-  speedSlider.value = savedSpeed !== null ? savedSpeed : '150';
-  speedSlider.style.width = '80px';
-  speedSlider.style.cursor = 'pointer';
-  speedSlider.title = 'Скорость анимации';
-  speedSlider.disabled = !animCheckbox.checked;
-  speedSlider.style.opacity = animCheckbox.checked ? '1' : '0.5';
-
-  const speedLabelFast = document.createElement('span');
-  speedLabelFast.textContent = '🐇';
-  speedLabelFast.style.fontSize = '14px';
-
   // Update delay based on checkbox and slider
   const updateAnimationDelay = () => {
+    const animCheckbox = document.getElementById('robot-anim-enabled');
+    const speedSlider = document.getElementById('robot-speed');
+    if (!animCheckbox || !speedSlider) return;
     if (__robotModule && typeof __robotModule.__setAnimationDelay === 'function') {
       if (animCheckbox.checked) {
         __robotModule.__setAnimationDelay(300 - parseInt(speedSlider.value, 10));
@@ -1756,33 +1794,77 @@ function ensureRobotUI() {
     }
   };
 
-  animCheckbox.addEventListener('change', () => {
+  if (__executorToolbarMode !== 'robot') {
+    // Preview no longer switches back to compiler text; robot toolbar keeps animation controls only.
+    __turtleToggle.innerHTML = '';
+    __executorToolbarMode = 'robot';
+
+    // Add animation speed control
+    const speedContainer = document.createElement('div');
+    speedContainer.style.display = 'flex';
+    speedContainer.style.alignItems = 'center';
+    speedContainer.style.gap = '6px';
+    speedContainer.style.marginLeft = 'auto';
+
+    // Checkbox to disable animation
+    const animCheckbox = document.createElement('input');
+    animCheckbox.type = 'checkbox';
+    animCheckbox.id = 'robot-anim-enabled';
+    const savedAnimEnabled = getCookie('q_robot_anim');
+    animCheckbox.checked = savedAnimEnabled !== '0'; // enabled by default
+    animCheckbox.style.cursor = 'pointer';
+    animCheckbox.title = 'Включить анимацию';
+
+    const speedLabel = document.createElement('span');
+    speedLabel.textContent = '🐢';
+    speedLabel.style.fontSize = '14px';
+
+    const speedSlider = document.createElement('input');
+    speedSlider.type = 'range';
+    speedSlider.id = 'robot-speed';
+    speedSlider.min = '0';
+    speedSlider.max = '300';
+    // Restore saved value or default to 150
+    const savedSpeed = getCookie('q_robot_speed');
+    speedSlider.value = savedSpeed !== null ? savedSpeed : '150';
+    speedSlider.style.width = '80px';
+    speedSlider.style.cursor = 'pointer';
+    speedSlider.title = 'Скорость анимации';
     speedSlider.disabled = !animCheckbox.checked;
     speedSlider.style.opacity = animCheckbox.checked ? '1' : '0.5';
+
+    const speedLabelFast = document.createElement('span');
+    speedLabelFast.textContent = '🐇';
+    speedLabelFast.style.fontSize = '14px';
+
+    animCheckbox.addEventListener('change', () => {
+      speedSlider.disabled = !animCheckbox.checked;
+      speedSlider.style.opacity = animCheckbox.checked ? '1' : '0.5';
+      speedLabel.style.opacity = animCheckbox.checked ? '1' : '0.5';
+      speedLabelFast.style.opacity = animCheckbox.checked ? '1' : '0.5';
+      setCookie('q_robot_anim', animCheckbox.checked ? '1' : '0', 365);
+      updateAnimationDelay();
+    });
+
+    speedSlider.addEventListener('input', () => {
+      updateAnimationDelay();
+      setCookie('q_robot_speed', speedSlider.value, 365);
+    });
+
+    // Apply initial opacity
     speedLabel.style.opacity = animCheckbox.checked ? '1' : '0.5';
     speedLabelFast.style.opacity = animCheckbox.checked ? '1' : '0.5';
-    setCookie('q_robot_anim', animCheckbox.checked ? '1' : '0', 365);
-    updateAnimationDelay();
-  });
 
-  speedSlider.addEventListener('input', () => {
-    updateAnimationDelay();
-    setCookie('q_robot_speed', speedSlider.value, 365);
-  });
+    speedContainer.appendChild(animCheckbox);
+    speedContainer.appendChild(speedLabel);
+    speedContainer.appendChild(speedSlider);
+    speedContainer.appendChild(speedLabelFast);
 
-  // Apply initial opacity
-  speedLabel.style.opacity = animCheckbox.checked ? '1' : '0.5';
-  speedLabelFast.style.opacity = animCheckbox.checked ? '1' : '0.5';
+    __turtleToggle.appendChild(speedContainer);
+  }
 
-  // Apply saved delay to module
+  // Apply saved delay to module.
   updateAnimationDelay();
-
-  speedContainer.appendChild(animCheckbox);
-  speedContainer.appendChild(speedLabel);
-  speedContainer.appendChild(speedSlider);
-  speedContainer.appendChild(speedLabelFast);
-
-  __turtleToggle.appendChild(speedContainer);
   __turtleToggle.style.display = '';
 
   if (!__robotCanvas) {
@@ -1839,6 +1921,7 @@ function ensureDrawerUI() {
   }
 
   __turtleToggle.innerHTML = '';
+  __executorToolbarMode = null;
   __turtleToggle.style.display = 'none';
 
   if (!__drawerCanvas) {
@@ -1970,6 +2053,7 @@ function ensurePainterUI() {
   }
 
   __turtleToggle.innerHTML = '';
+  __executorToolbarMode = null;
   __turtleToggle.style.display = 'none';
 
   if (!__painterCanvas) {
@@ -2364,6 +2448,8 @@ async function runWasm() {
   const { type: algType } = parseAlgHeader(code);
   const O = $('#opt').value;
   window.__hasRuntimeErrors = false;
+  __coroStopRequested = false;
+  let runAsCoroutine = false;
   try {
     const bytes = await api('/api/compile-wasm', { code, O }, true);
     const mathEnv = await import('./runtime/math.js');
@@ -2542,21 +2628,32 @@ async function runWasm() {
           out += `${name} expects ${expected} arg(s), got ${parsed.length}.\n`;
         } else {
           const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-          const res = fn(...parsed);
-          const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-          const micros = Math.round((t1 - t0) * 1000);
           // Bind string runtime to result runtime so that 'алг лит' values
           // (negative handles or C-string pointers) are interpreted via string.js.
           if (typeof resultEnv.setStringRuntime === 'function') {
             resultEnv.setStringRuntime(stringEnv);
           }
           const retType = resultEnv.wasmReturnType(bytes, name);
+          runAsCoroutine = shouldRunWasmCoroutine({
+            instance,
+            returnType: retType,
+            algType,
+            usesRobot,
+            usesTurtle,
+            usesDrawer,
+            usesPainter
+          });
+          const res = runAsCoroutine
+            ? await runWasmCoroutine({ instance, entryFn: fn, args: parsed, usesRobot, usesTurtle, usesPainter })
+            : fn(...parsed);
+          const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          const micros = Math.round((t1 - t0) * 1000);
           const normalized = resultEnv.normalizeReturnValue(res, {
             returnType: retType,
             algType
           });
           // Don't print to stdout, save for errors pane
-          window.__lastRunInfo = { name, normalized, micros, hasReturn: retType !== 'void' };
+          window.__lastRunInfo = { name, normalized, micros, hasReturn: retType !== 'void' && !runAsCoroutine };
         }
       } else {
         out += 'no exported functions to invoke\n';
@@ -2581,32 +2678,37 @@ async function runWasm() {
     }
     // Update robot field display after execution with animation
     if (__compilerOutputMode === 'robot' && __robotModule) {
-      // Set render callback for animation
-      if (typeof __robotModule.__setRenderCallback === 'function') {
-        __robotModule.__setRenderCallback(renderRobotField);
-      }
-      // Check animation settings from UI
-      const animEnabled = getCookie('q_robot_anim') !== '0';
-
-      // Check if there's history to animate
-      if (animEnabled && typeof __robotModule.__hasHistory === 'function' && __robotModule.__hasHistory() &&
-          typeof __robotModule.__getHistoryLength === 'function' && __robotModule.__getHistoryLength() > 1) {
-        // Apply animation speed
-        const speedVal = getCookie('q_robot_speed');
-        if (typeof __robotModule.__setAnimationDelay === 'function') {
-          __robotModule.__setAnimationDelay(300 - parseInt(speedVal || '150', 10));
-        }
-        // Replay with animation - error will be shown after animation completes
-        __robotModule.__replayHistory((deferredError) => {
-          // Animation complete - show deferred error if any
-          if (deferredError) {
-            stdoutEl.textContent = deferredError;
-            stdoutEl.classList.add('error');
-          }
-        });
-      } else {
-        // No animation - just render final state
+      if (runAsCoroutine) {
+        // Coroutine mode: field was already rendered after each step; just ensure final state is visible
         renderRobotField();
+      } else {
+        // Set render callback for animation
+        if (typeof __robotModule.__setRenderCallback === 'function') {
+          __robotModule.__setRenderCallback(renderRobotField);
+        }
+        // Check animation settings from UI
+        const animEnabled = getCookie('q_robot_anim') !== '0';
+
+        // Check if there's history to animate
+        if (animEnabled && typeof __robotModule.__hasHistory === 'function' && __robotModule.__hasHistory() &&
+            typeof __robotModule.__getHistoryLength === 'function' && __robotModule.__getHistoryLength() > 1) {
+          // Apply animation speed
+          const speedVal = getCookie('q_robot_speed');
+          if (typeof __robotModule.__setAnimationDelay === 'function') {
+            __robotModule.__setAnimationDelay(300 - parseInt(speedVal || '150', 10));
+          }
+          // Replay with animation - error will be shown after animation completes
+          __robotModule.__replayHistory((deferredError) => {
+            // Animation complete - show deferred error if any
+            if (deferredError) {
+              stdoutEl.textContent = deferredError;
+              stdoutEl.classList.add('error');
+            }
+          });
+        } else {
+          // No animation - just render final state
+          renderRobotField();
+        }
       }
     }
 
@@ -2654,27 +2756,145 @@ async function runWasm() {
       window.__hasRuntimeErrors = true;
     }    // For robot errors, handle animation
     if (__compilerOutputMode === 'robot' && __robotModule) {
-      const animEnabled = getCookie('q_robot_anim') !== '0';
-      const hasHistory = typeof __robotModule.__hasHistory === 'function' && __robotModule.__hasHistory();
-      const historyLen = typeof __robotModule.__getHistoryLength === 'function' ? __robotModule.__getHistoryLength() : 0;
-
-      if (animEnabled && hasHistory && historyLen > 1) {
-        if (typeof __robotModule.__setRenderCallback === 'function') {
-          __robotModule.__setRenderCallback(renderRobotField);
-        }
-        const speedVal = getCookie('q_robot_speed');
-        if (typeof __robotModule.__setAnimationDelay === 'function') {
-          __robotModule.__setAnimationDelay(300 - parseInt(speedVal || '150', 10));
-        }
-        __robotModule.__replayHistory(() => {
-          // Animation complete - error already shown in errors pane
-        });
-      } else {
+      if (runAsCoroutine) {
+        // Coroutine mode: field is at the point where the error occurred
         renderRobotField();
+      } else {
+        const animEnabled = getCookie('q_robot_anim') !== '0';
+        const hasHistory = typeof __robotModule.__hasHistory === 'function' && __robotModule.__hasHistory();
+        const historyLen = typeof __robotModule.__getHistoryLength === 'function' ? __robotModule.__getHistoryLength() : 0;
+
+        if (animEnabled && hasHistory && historyLen > 1) {
+          if (typeof __robotModule.__setRenderCallback === 'function') {
+            __robotModule.__setRenderCallback(renderRobotField);
+          }
+          const speedVal = getCookie('q_robot_speed');
+          if (typeof __robotModule.__setAnimationDelay === 'function') {
+            __robotModule.__setAnimationDelay(300 - parseInt(speedVal || '150', 10));
+          }
+          __robotModule.__replayHistory(() => {
+            // Animation complete - error already shown in errors pane
+          });
+        } else {
+          renderRobotField();
+        }
       }
     }
   }
 }
+
+// Set to true by the Stop button; cleared at the start of each run.
+let __coroStopRequested = false;
+
+function setCoroRunning(running) {
+  const stopBtn = document.getElementById('btn-stop');
+  const runBtn = document.getElementById('btn-run');
+  if (stopBtn) stopBtn.style.display = running ? '' : 'none';
+  if (runBtn) runBtn.disabled = running;
+}
+
+function shouldRunWasmCoroutine({ instance, returnType, algType, usesRobot, usesTurtle, usesDrawer, usesPainter }) {
+  // Prefer the explicit sentinel emitted by the compiler: a global named
+  // __qumir_is_coroutine is present iff the module has coroutine functions.
+  const exports = instance && instance.exports;
+  if (exports && exports.__qumir_is_coroutine !== undefined) {
+    return true;
+  }
+  // Fallback heuristic for older WASM without the sentinel: the entry function
+  // returns i32 (the coroutine handle), the source-level return type is void
+  // (algType === null), and the module uses a visual executor.
+  return returnType === 'i32'
+    && algType === null
+    && (usesRobot || usesTurtle || usesDrawer || usesPainter);
+}
+
+async function runWasmCoroutine({ instance, entryFn, args, usesRobot, usesTurtle, usesPainter }) {
+  const exports = instance && instance.exports;
+  const coroDone = exports && exports.__qumir_coro_done;
+  const coroResume = exports && exports.__qumir_coro_resume;
+  const coroDestroy = exports && exports.__qumir_coro_destroy;
+  if (typeof coroDone !== 'function' || typeof coroResume !== 'function' || typeof coroDestroy !== 'function') {
+    throw new Error('Coroutine execution requires __qumir_coro_done/resume/destroy exports');
+  }
+
+  const getStepDelay = () => {
+    if (usesRobot && __robotModule && typeof __robotModule.__getAnimationDelay === 'function') {
+      return __robotModule.__getAnimationDelay();
+    }
+    if (usesTurtle && __turtleModule && typeof __turtleModule.__getAnimationDelay === 'function') {
+      return __turtleModule.__getAnimationDelay();
+    }
+    return 0;
+  };
+
+  const renderStep = () => {
+    if (usesRobot && typeof renderRobotField === 'function') renderRobotField();
+    if (usesTurtle && __turtleModule && typeof __turtleModule.__onCanvasShown === 'function') __turtleModule.__onCanvasShown();
+    if (usesPainter && __painterModule && typeof __painterModule.__flushPainter === 'function') __painterModule.__flushPainter();
+  };
+
+  let handle = null;
+  let destroyed = false;
+  const isDone = () => coroDone(handle) !== 0;
+  const resume = () => {
+    if (isDone()) return false;
+    coroResume(handle);
+    return true;
+  };
+  const destroy = () => {
+    if (destroyed) return;
+    destroyed = true;
+    if (handle) coroDestroy(handle);
+  };
+
+  setCoroRunning(true);
+  try {
+    if (usesRobot && __robotModule && typeof __robotModule.__setCoroutineMode === 'function') {
+      __robotModule.__setCoroutineMode(true);
+    }
+
+    // entryFn() runs user code up to the first suspend point (first robot/turtle action).
+    // After it returns the frame handle, the first action has already been executed.
+    handle = entryFn(...args);
+    if (!handle) {
+      return undefined;
+    }
+
+    // Single unified loop: checks getStepDelay() on every iteration so live
+    // checkbox/slider changes take effect immediately.
+    const FLUSH_INTERVAL_MS = 1000;
+    let lastFlush = performance.now();
+
+    while (!isDone() && !__coroStopRequested) {
+      const delay = getStepDelay();
+      resume();
+      if (delay === 0) {
+        // Batch: accumulate steps, flush display every second.
+        const now = performance.now();
+        if (now - lastFlush >= FLUSH_INTERVAL_MS) {
+          renderStep();
+          await new Promise(r => setTimeout(r, 0));
+          lastFlush = performance.now();
+        }
+      } else {
+        // Animated: render after each step and wait the configured delay.
+        renderStep();
+        lastFlush = performance.now();
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  } finally {
+    destroy();
+    if (usesRobot && __robotModule && typeof __robotModule.__setCoroutineMode === 'function') {
+      __robotModule.__setCoroutineMode(false);
+    }
+    renderStep();
+    setCoroRunning(false);
+  }
+
+  return undefined;
+}
+
 function loadState() {
   bootstrapProjects();
   const active = getActiveProject();
@@ -4118,6 +4338,10 @@ $('#btn-run').addEventListener('click', async () => {
 
   await runWasm();
   show($('#view').value, { clearErrorsOnSuccess: false });
+});
+
+$('#btn-stop').addEventListener('click', () => {
+  __coroStopRequested = true;
 });
 
 // Fullscreen viewer for outputs (stdout/output)
