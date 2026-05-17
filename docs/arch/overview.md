@@ -61,10 +61,13 @@ The primary user-facing language.  Keywords are Cyrillic:
 
 ### 2.2 Core lang (internal)
 
-A lower-level, ASCII-only representation of the same AST used for tests and
-debugging.  The playground exposes it as a "core syntax" mode.  It allows
-writing test fixtures and viewing the de-sugared program structure without
-going through the full Cyrillic front-end.
+A lower-level surface syntax for the same AST used for tests, golden files, and
+debugging.  The playground exposes it as a "core syntax" mode.  Core lang is
+useful because Kumir syntax is deliberately small and conservative: new
+constructs can be introduced, inspected, and debugged at the AST level first,
+before deciding whether they need `.kum` frontend syntax. See
+[core-lang](core-lang.md) for the concrete syntax, supported AST forms, type
+syntax, and printer conventions.
 
 ---
 
