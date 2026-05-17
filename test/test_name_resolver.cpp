@@ -6,6 +6,8 @@
 #include <qumir/parser/parser.h>
 #include <qumir/ir/builder.h>
 #include <qumir/ir/lowering/lower_ast.h>
+#include <qumir/codegen/llvm/llvm_codegen.h>
+#include <qumir/codegen/llvm/llvm_initializer.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/type_annotation/type_annotation.h>
 #include <qumir/semantics/transform/transform.h>
@@ -215,6 +217,36 @@ std::string lowerRobotCoroutineIR(const std::string& src) {
 
     std::ostringstream out;
     module->Print(out);
+    return out.str();
+}
+
+std::string emitRobotCoroutineLLVM(const std::string& src, int optLevel = 0) {
+    auto module = buildRobotCoroutineModule(src);
+    if (!module) {
+        return {};
+    }
+
+    std::optional<NCodeGen::TLLVMInitializer> llvmInit;
+    if (optLevel > 0) {
+        llvmInit.emplace();
+    }
+    NCodeGen::TLLVMCodeGen codegen;
+    auto artifacts = codegen.Emit(*module, optLevel);
+    std::ostringstream out;
+    artifacts->PrintModule(out);
+    return out.str();
+}
+
+std::string emitTurtleCoroutineLLVM(const std::string& src) {
+    auto module = buildTurtleCoroutineModule(src);
+    if (!module) {
+        return {};
+    }
+
+    NCodeGen::TLLVMCodeGen codegen;
+    auto artifacts = codegen.Emit(*module);
+    std::ostringstream out;
+    artifacts->PrintModule(out);
     return out.str();
 }
 
@@ -438,6 +470,113 @@ TEST(TypeAnnotation, FutureValueCoroutineAwaitsChildResultInInitializer) {
     EXPECT_NE(ir.find("function value () { ; ptr to void coroutine result i64"), std::string::npos) << ir;
     EXPECT_NE(ir.find("await tmp"), std::string::npos) << ir;
     EXPECT_NE(ir.find("= value"), std::string::npos) << ir;
+}
+
+TEST(TypeAnnotation, FutureVoidEmitsLlvmCoroutineIntrinsics) {
+    auto llvmIr = emitRobotCoroutineLLVM(R"__(
+алг helper
+нач
+    вверх()
+кон
+)__");
+
+    ASSERT_FALSE(llvmIr.empty());
+    EXPECT_NE(llvmIr.find("presplitcoroutine"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@llvm.coro.id"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@llvm.coro.begin"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@llvm.coro.suspend"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@llvm.coro.end"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@robot_up"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@array_create"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@array_destroy"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("define i32 @__qumir_coro_done"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("define void @__qumir_coro_resume"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("define void @__qumir_coro_destroy"), std::string::npos) << llvmIr;
+}
+
+TEST(TypeAnnotation, FutureVoidCoroutineLlvmKeepsLoopControlFlow) {
+    auto llvmIr = emitRobotCoroutineLLVM(R"__(
+алг helper
+нач
+    нц пока да
+        вверх()
+    кц
+кон
+)__");
+
+    ASSERT_FALSE(llvmIr.empty());
+    EXPECT_NE(llvmIr.find("after.await"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("br i1"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@llvm.coro.suspend"), std::string::npos) << llvmIr;
+}
+
+TEST(TypeAnnotation, FutureVoidCoroutineLlvmAwaitsChildCoroutine) {
+    auto llvmIr = emitRobotCoroutineLLVM(R"__(
+алг helper
+нач
+    вверх()
+кон
+
+алг caller
+нач
+    helper()
+кон
+)__");
+
+    ASSERT_FALSE(llvmIr.empty());
+    EXPECT_NE(llvmIr.find("call ptr @helper()"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@llvm.coro.done"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@llvm.coro.resume"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@llvm.coro.destroy"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@llvm.coro.suspend"), std::string::npos) << llvmIr;
+}
+
+TEST(TypeAnnotation, FutureValueCoroutineLlvmUsesPromiseForChildResult) {
+    auto llvmIr = emitRobotCoroutineLLVM(R"__(
+алг цел caller
+нач
+    знач := value()
+кон
+
+алг цел value
+нач
+    вверх()
+    знач := 12
+кон
+)__");
+
+    ASSERT_FALSE(llvmIr.empty());
+    EXPECT_NE(llvmIr.find("coro.promise"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("child.promise"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("child.result"), std::string::npos) << llvmIr;
+}
+
+TEST(TypeAnnotation, OptimizedCoroutineLlvmRunsCoroutinePasses) {
+    auto llvmIr = emitRobotCoroutineLLVM(R"__(
+алг helper
+нач
+    вверх()
+кон
+)__", 1);
+
+    ASSERT_FALSE(llvmIr.empty());
+    EXPECT_EQ(llvmIr.find("@llvm.coro.begin"), std::string::npos) << llvmIr;
+    EXPECT_EQ(llvmIr.find("@llvm.coro.suspend"), std::string::npos) << llvmIr;
+    EXPECT_EQ(llvmIr.find("@llvm.coro.end"), std::string::npos) << llvmIr;
+}
+
+TEST(TypeAnnotation, FutureVoidCoroutineLlvmAwaitsExternalActionWithArguments) {
+    auto llvmIr = emitTurtleCoroutineLLVM(R"__(
+алг helper
+нач
+    вперед(10.5)
+кон
+)__");
+
+    ASSERT_FALSE(llvmIr.empty());
+    EXPECT_NE(llvmIr.find("@turtle_forward"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("1.050000e+01"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@llvm.coro.suspend"), std::string::npos) << llvmIr;
 }
 
 TEST(NameResolver, Scopes) {
