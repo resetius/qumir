@@ -9,6 +9,9 @@
 #include <algorithm>
 #include <limits>
 #include <sstream>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace NQumir {
 namespace NTransform {
@@ -589,7 +592,222 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
     return changed;
 }
 
-std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics::TNameResolver& r)
+namespace {
+
+void RefreshFunctionType(const std::shared_ptr<NAst::TFunDecl>& funDecl)
+{
+    std::vector<NAst::TTypePtr> params;
+    params.reserve(funDecl->Params.size());
+    for (const auto& param : funDecl->Params) {
+        params.push_back(param->Type);
+    }
+    funDecl->Type = std::make_shared<NAst::TFunctionType>(std::move(params), funDecl->RetType);
+}
+
+struct TCoroutineAnalysis {
+    NSemantics::TNameResolver& Context;
+    bool Changed = false;
+    std::vector<std::shared_ptr<NAst::TFunDecl>> Functions;
+    std::unordered_set<NAst::TFunDecl*> UserFunctions;
+    std::unordered_map<NAst::TFunDecl*, std::shared_ptr<NAst::TFunDecl>> FunctionPtrs;
+    std::unordered_set<NAst::TFunDecl*> DirectCoroutineFunctions;
+    std::unordered_set<NAst::TFunDecl*> CoroutineFunctions;
+    std::unordered_map<NAst::TFunDecl*, std::unordered_set<NAst::TFunDecl*>> Calls;
+
+    void CollectUserFunctions(const NAst::TExprPtr& expr)
+    {
+        if (!expr) {
+            return;
+        }
+        if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(expr)) {
+            auto fun = maybeFun.Cast();
+            if (fun->Body) {
+                Functions.push_back(fun);
+                UserFunctions.insert(fun.get());
+                FunctionPtrs[fun.get()] = fun;
+            }
+            return;
+        }
+        for (const auto& child : expr->Children()) {
+            CollectUserFunctions(child);
+        }
+    }
+
+    bool EnsureFutureReturn(const std::shared_ptr<NAst::TFunDecl>& funDecl)
+    {
+        if (!funDecl || NAst::IsFutureType(funDecl->RetType)) {
+            return false;
+        }
+        funDecl->RetType = NAst::WrapFutureType(funDecl->RetType);
+        RefreshFunctionType(funDecl);
+        return true;
+    }
+
+    std::shared_ptr<NAst::TFunDecl> LookupFunction(const std::shared_ptr<NAst::TIdentExpr>& ident, NSemantics::TScopeId scopeId)
+    {
+        auto symbolId = Context.Lookup(ident->Name, scopeId);
+        if (!symbolId) {
+            return nullptr;
+        }
+        auto symbolNode = Context.GetSymbolNode(NSemantics::TSymbolId{symbolId->Id});
+        return NAst::TMaybeNode<NAst::TFunDecl>(symbolNode).Cast();
+    }
+
+    void AnalyzeFunction(const std::shared_ptr<NAst::TFunDecl>& funDecl)
+    {
+        if (!funDecl->Body) {
+            return;
+        }
+        AnalyzeExpr(funDecl->Body, funDecl.get(), NSemantics::TScopeId{funDecl->Body->Scope});
+    }
+
+    void AnalyzeExpr(const NAst::TExprPtr& expr, NAst::TFunDecl* currentFunction, NSemantics::TScopeId scopeId)
+    {
+        if (!expr || !currentFunction) {
+            return;
+        }
+        if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(expr)) {
+            if (maybeFun.Cast().get() != currentFunction) {
+                return;
+            }
+        }
+        if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
+            auto block = maybeBlock.Cast();
+            if (block->Scope >= 0) {
+                scopeId = NSemantics::TScopeId{block->Scope};
+            }
+        } else if (auto maybeLet = NAst::TMaybeNode<NAst::TLetExpr>(expr)) {
+            auto let = maybeLet.Cast();
+            if (let->Scope >= 0) {
+                scopeId = NSemantics::TScopeId{let->Scope};
+            }
+        } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(expr)) {
+            auto call = maybeCall.Cast();
+            if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(call->Callee)) {
+                if (auto callee = LookupFunction(maybeIdent.Cast(), scopeId)) {
+                    if (callee->MaySuspend) {
+                        DirectCoroutineFunctions.insert(currentFunction);
+                        Changed = EnsureFutureReturn(callee) || Changed;
+                    } else if (NAst::IsFutureType(callee->RetType)) {
+                        DirectCoroutineFunctions.insert(currentFunction);
+                    }
+                    if (callee->Body) {
+                        Calls[currentFunction].insert(callee.get());
+                    }
+                }
+            }
+        }
+        for (const auto& child : expr->Children()) {
+            AnalyzeExpr(child, currentFunction, scopeId);
+        }
+    }
+
+    void Propagate()
+    {
+        CoroutineFunctions = DirectCoroutineFunctions;
+        bool changed = true;
+        while (changed) {
+            changed = false;
+            for (const auto& [caller, callees] : Calls) {
+                if (CoroutineFunctions.contains(caller)) {
+                    continue;
+                }
+                for (auto* callee : callees) {
+                    if (CoroutineFunctions.contains(callee)) {
+                        CoroutineFunctions.insert(caller);
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    void ApplyFunctionTypes()
+    {
+        for (auto* rawFun : CoroutineFunctions) {
+            if (!UserFunctions.contains(rawFun)) {
+                continue;
+            }
+            auto it = FunctionPtrs.find(rawFun);
+            if (it == FunctionPtrs.end()) {
+                continue;
+            }
+            Changed = EnsureFutureReturn(it->second) || Changed;
+        }
+    }
+
+    bool IsSuspendCall(const std::shared_ptr<NAst::TCallExpr>& call, NSemantics::TScopeId scopeId)
+    {
+        if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(call->Callee)) {
+            if (auto callee = LookupFunction(maybeIdent.Cast(), scopeId)) {
+                return callee->MaySuspend || NAst::IsFutureType(callee->RetType);
+            }
+        }
+        return false;
+    }
+
+    void MarkAwaitCalls(NAst::TExprPtr& expr, NSemantics::TScopeId scopeId)
+    {
+        if (!expr) {
+            return;
+        }
+        if (NAst::TMaybeNode<NAst::TAwaitExpr>(expr)) {
+            return;
+        }
+        if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(expr)) {
+            auto fun = maybeFun.Cast();
+            if (!fun->Body) {
+                return;
+            }
+            NAst::TExprPtr body = fun->Body;
+            MarkAwaitCalls(body, NSemantics::TScopeId{fun->Body->Scope});
+            fun->Body = NAst::TMaybeNode<NAst::TBlockExpr>(body).Cast();
+            return;
+        }
+        if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
+            auto block = maybeBlock.Cast();
+            if (block->Scope >= 0) {
+                scopeId = NSemantics::TScopeId{block->Scope};
+            }
+        } else if (auto maybeLet = NAst::TMaybeNode<NAst::TLetExpr>(expr)) {
+            auto let = maybeLet.Cast();
+            if (let->Scope >= 0) {
+                scopeId = NSemantics::TScopeId{let->Scope};
+            }
+        } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(expr)) {
+            auto call = maybeCall.Cast();
+            for (auto* child : call->MutableChildren()) {
+                MarkAwaitCalls(*child, scopeId);
+            }
+            if (IsSuspendCall(call, scopeId)) {
+                expr = std::make_shared<NAst::TAwaitExpr>(call->Location, expr);
+                Changed = true;
+            }
+            return;
+        }
+        for (auto* child : expr->MutableChildren()) {
+            MarkAwaitCalls(*child, scopeId);
+        }
+    }
+};
+
+} // namespace
+
+std::expected<bool, TError> CoroutineAnnotationTransform(NAst::TExprPtr& expr, NSemantics::TNameResolver& context)
+{
+    TCoroutineAnalysis analysis{context};
+    analysis.CollectUserFunctions(expr);
+    for (const auto& function : analysis.Functions) {
+        analysis.AnalyzeFunction(function);
+    }
+    analysis.Propagate();
+    analysis.ApplyFunctionTypes();
+    analysis.MarkAwaitCalls(expr, NSemantics::TScopeId{0});
+    return analysis.Changed;
+}
+
+std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics::TNameResolver& r, TPipelineOptions options)
 {
     static constexpr int MaxIterations = 10;
 
@@ -619,17 +837,26 @@ std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics:
     NSemantics::TDefiniteAssignmentChecker definiteAssignmentChecker(r);
 
     NTypeAnnotation::TTypeAnnotator annotator(r);
-    std::expected<bool, TError> postResult;
     int iterations = 0;
+    bool changed = false;
 
     do {
         auto annotationResult = annotator.Annotate(expr);
         if (!annotationResult) {
             return std::unexpected(annotationResult.error());
         }
-        postResult = PostTypeAnnotationTransform(expr, r);
+        auto postResult = PostTypeAnnotationTransform(expr, r);
         if (!postResult) {
             return std::unexpected(postResult.error());
+        }
+        changed = postResult.value();
+
+        if (options.EnableCoroutineAnalysis) {
+            auto coroutineResult = CoroutineAnnotationTransform(expr, r);
+            if (!coroutineResult) {
+                return std::unexpected(coroutineResult.error());
+            }
+            changed = coroutineResult.value() || changed;
         }
 
         if (auto error = nameResolution(expr); !error) {
@@ -639,7 +866,7 @@ std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics:
         if (auto res = definiteAssignmentChecker.Check(expr); !res) {
             return std::unexpected(res.error());
         }
-    } while (postResult.value() && ++iterations < MaxIterations);
+    } while (changed && ++iterations < MaxIterations);
     if (iterations == MaxIterations) {
         return std::unexpected(TError(expr->Location, "too many iterations in transform pipeline"));
     }

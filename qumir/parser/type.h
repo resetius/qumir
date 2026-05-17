@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <vector>
 #include <optional>
 
@@ -131,6 +132,24 @@ struct TFunctionType : TType {
     }
 };
 
+struct TFutureType : TType {
+    static constexpr const char* TypeId = "Future";
+
+    TTypePtr ResultType;
+
+    explicit TFutureType(TTypePtr result)
+        : ResultType(std::move(result))
+    {}
+
+    std::string ToString() const override {
+        return "Future<" + (ResultType ? ResultType->ToString() : std::string("unknown")) + ">";
+    }
+
+    const std::string_view TypeName() const override {
+        return TFutureType::TypeId;
+    }
+};
+
 struct TArrayType : TType {
     static constexpr const char* TypeId = "Array";
 
@@ -251,11 +270,30 @@ inline TTypePtr UnwrapNamedType(TTypePtr type) {
     return type;
 }
 
+inline bool IsFutureType(TTypePtr type) {
+    return static_cast<bool>(TMaybeType<TFutureType>(type));
+}
+
+inline TTypePtr FutureResultType(TTypePtr type) {
+    if (auto future = TMaybeType<TFutureType>(type)) {
+        return future.Cast()->ResultType;
+    }
+    return nullptr;
+}
+
+inline TTypePtr WrapFutureType(TTypePtr type) {
+    if (IsFutureType(type)) {
+        return type;
+    }
+    return std::make_shared<TFutureType>(std::move(type));
+}
+
 // Stable string key for a type, used in cast/operator maps.
 // Named types include their name to distinguish компл from цвет.
 inline std::string TypeKey(const TTypePtr& t) {
     if (!t) return "unknown";
     if (auto named = TMaybeType<TNamedType>(t)) return std::string("Named::") + named.Cast()->Name;
+    if (auto future = TMaybeType<TFutureType>(t)) return std::string("Future::") + TypeKey(future.Cast()->ResultType);
     return std::string(t->TypeName());
 }
 

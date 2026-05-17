@@ -400,6 +400,11 @@ TAstTask ParseList(TParserContext& context, TLocation location) {
         auto args = co_await ParseExprsUntil(context, ')');
         co_return std::make_shared<TCallExpr>(location, std::move(callee), std::move(args));
     }
+    if (head == "await") {
+        auto operand = co_await ParseExpr(context);
+        co_await Expect(context, ')');
+        co_return std::make_shared<TAwaitExpr>(location, std::move(operand));
+    }
     if (head == "output") {
         auto args = co_await ParseOutputArgs(context);
         co_return std::make_shared<TOutputExpr>(location, std::move(args));
@@ -582,6 +587,13 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
             if (IsEof(token)) co_return Error(token, "expected '>'");
         }
         co_return std::make_shared<TFunctionType>(std::move(params), std::move(returnType));
+    }
+    if (head == "future") {
+        auto resultType = co_await ParseType(context);
+        auto type = std::make_shared<TFutureType>(std::move(resultType));
+        co_await ParseTypeAttrs(context, *type);
+        co_await Expect(context, '>');
+        co_return type;
     }
     if (head == "array") {
         auto elementType = co_await ParseType(context);

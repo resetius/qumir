@@ -95,6 +95,8 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
                     return err;
                 }
             }
+        } else if (auto maybeFuture = TMaybeType<TFutureType>(type)) {
+            return self(self, maybeFuture.Cast()->ResultType, loc);
         } else if (auto maybeStruct = TMaybeType<TStructType>(type)) {
             for (auto& [_, fieldType] : maybeStruct.Cast()->Fields) {
                 if (auto err = self(self, fieldType, loc)) {
@@ -633,6 +635,7 @@ std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& 
         funDecl->Ptr = fn.Ptr;
         funDecl->Packed = fn.Packed;
         funDecl->RequireArgsMaterialization = fn.RequireArgsMaterialization;
+        funDecl->MaySuspend = fn.MaySuspend;
         funDecl->InlineFactory = fn.Inline;
 
         if (fn.IsOp) {

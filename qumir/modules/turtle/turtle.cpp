@@ -29,6 +29,7 @@ TurtleModule::TurtleModule()
             },
             .ArgTypes = {  },
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "опустить хвост",
@@ -40,6 +41,7 @@ TurtleModule::TurtleModule()
             },
             .ArgTypes = {  },
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "вперед",
@@ -51,6 +53,7 @@ TurtleModule::TurtleModule()
             },
             .ArgTypes = { floatType },
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "назад",
@@ -62,6 +65,7 @@ TurtleModule::TurtleModule()
             },
             .ArgTypes = { floatType },
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "влево",
@@ -73,6 +77,7 @@ TurtleModule::TurtleModule()
             },
             .ArgTypes = { floatType },
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "вправо",
@@ -84,6 +89,7 @@ TurtleModule::TurtleModule()
             },
             .ArgTypes = { floatType },
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "сохранить состояние",
@@ -95,6 +101,7 @@ TurtleModule::TurtleModule()
             },
             .ArgTypes = {  },
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "восстановить состояние",
@@ -106,6 +113,7 @@ TurtleModule::TurtleModule()
             },
             .ArgTypes = {  },
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
     };
 

@@ -158,6 +158,11 @@ private:
             PrintFun(n.Cast(), level);
         } else if (auto n = TMaybeNode<TCallExpr>(expr)) {
             PrintCall(n.Cast(), level);
+        } else if (auto n = TMaybeNode<TAwaitExpr>(expr)) {
+            Out << "(await";
+            Separator(level + 1);
+            PrintExpr(n.Cast()->Operand, true, level + 1);
+            Out << ')';
         } else if (auto n = TMaybeNode<TInputExpr>(expr)) {
             PrintExprList("input", n.Cast()->Args, level);
         } else if (auto n = TMaybeNode<TOutputExpr>(expr)) {
@@ -257,6 +262,11 @@ private:
             PrintScalarType("void", type);
         } else if (auto t = TMaybeType<TFunctionType>(type)) {
             PrintFunctionType(t.Cast(), level);
+        } else if (auto t = TMaybeType<TFutureType>(type)) {
+            Out << "<future ";
+            PrintType(t.Cast()->ResultType, level);
+            PrintTypeAttrs(type);
+            Out << '>';
         } else if (auto t = TMaybeType<TArrayType>(type)) {
             Out << "<array ";
             PrintType(t.Cast()->ElementType, level);

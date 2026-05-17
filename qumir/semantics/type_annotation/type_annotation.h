@@ -13,7 +13,7 @@ namespace NTypeAnnotation {
 
 class TTypeAnnotator {
 public:
-    TTypeAnnotator(NSemantics::TNameResolver& context);
+    explicit TTypeAnnotator(NSemantics::TNameResolver& context);
 
     std::expected<NAst::TExprPtr, TError> Annotate(NAst::TExprPtr expr);
 

@@ -77,6 +77,12 @@ bool EqualTypes(TTypePtr a, TTypePtr b) {
         return maybeANamed.Cast()->Name == maybeBNamed.Cast()->Name;
     }
 
+    auto maybeAFuture = TMaybeType<TFutureType>(a);
+    auto maybeBFuture = TMaybeType<TFutureType>(b);
+    if (maybeAFuture && maybeBFuture) {
+        return EqualTypes(maybeAFuture.Cast()->ResultType, maybeBFuture.Cast()->ResultType);
+    }
+
     return true;
 }
 
@@ -728,6 +734,21 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
     co_return call;
 }
 
+TTask AnnotateAwait(std::shared_ptr<TAwaitExpr> awaitExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    awaitExpr->Operand = co_await DoAnnotate(awaitExpr->Operand, context, scopeId);
+    if (!awaitExpr->Operand->Type) {
+        co_return TError(awaitExpr->Location, "Нельзя ожидать выражение без типа.");
+    }
+
+    auto resultType = FutureResultType(awaitExpr->Operand->Type);
+    if (!resultType) {
+        co_return TError(awaitExpr->Location, "Нельзя ожидать результат выражения, которое не возвращает Future.");
+    }
+
+    awaitExpr->Type = resultType;
+    co_return awaitExpr;
+}
+
 TTask AnnotateIf(std::shared_ptr<TIfStmt> ifExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     ifExpr->Cond = co_await DoAnnotate(ifExpr->Cond, context, scopeId);
     if (!ifExpr->Cond->Type) {
@@ -1108,6 +1129,8 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         co_return co_await AnnotateFunDecl(maybeFunDecl.Cast(), context, scopeId);
     } else if (auto maybeCall = TMaybeNode<TCallExpr>(expr)) {
         co_return co_await AnnotateCall(maybeCall.Cast(), context, scopeId);
+    } else if (auto maybeAwait = TMaybeNode<TAwaitExpr>(expr)) {
+        co_return co_await AnnotateAwait(maybeAwait.Cast(), context, scopeId);
     } else if (auto maybeIf = TMaybeNode<TIfStmt>(expr)) {
         co_return co_await AnnotateIf(maybeIf.Cast(), context, scopeId);
     } else if (auto maybeIf = TMaybeNode<TIfExpr>(expr)) {

@@ -24,6 +24,7 @@ RobotModule::RobotModule()
             },
             .ArgTypes = {},
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "вправо",
@@ -35,6 +36,7 @@ RobotModule::RobotModule()
             },
             .ArgTypes = {},
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "вверх",
@@ -46,6 +48,7 @@ RobotModule::RobotModule()
             },
             .ArgTypes = {},
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "вниз",
@@ -57,6 +60,7 @@ RobotModule::RobotModule()
             },
             .ArgTypes = {},
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "закрасить",
@@ -68,6 +72,7 @@ RobotModule::RobotModule()
             },
             .ArgTypes = {},
             .ReturnType = voidType,
+            .MaySuspend = true,
         },
         {
             .Name = "слева свободно",

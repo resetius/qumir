@@ -1,12 +1,17 @@
 #include <gtest/gtest.h>
 
+#include <qumir/modules/robot/robot.h>
+#include <qumir/modules/turtle/turtle.h>
 #include <qumir/parser/lexer.h>
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
+#include <qumir/semantics/type_annotation/type_annotation.h>
+#include <qumir/semantics/transform/transform.h>
 #include <sstream>
 
 using namespace NQumir;
 using namespace NQumir::NAst;
+using namespace NQumir::NRegistry;
 using namespace NQumir::NSemantics;
 
 static TExprPtr parseStmtList(const std::string& src) {
@@ -19,6 +24,102 @@ static TExprPtr parseStmtList(const std::string& src) {
         return nullptr;
     }
     return std::move(res.value());
+}
+
+static const TExternalFunction* findExternal(const std::vector<TExternalFunction>& functions, const std::string& mangledName) {
+    for (const auto& function : functions) {
+        if (function.MangledName == mangledName) {
+            return &function;
+        }
+    }
+    return nullptr;
+}
+
+static void expectMaySuspend(const std::vector<TExternalFunction>& functions, const std::string& mangledName, bool maySuspend) {
+    auto* function = findExternal(functions, mangledName);
+    ASSERT_NE(function, nullptr) << mangledName;
+    EXPECT_EQ(function->MaySuspend, maySuspend) << mangledName;
+}
+
+static std::shared_ptr<TFunDecl> findFunction(const TExprPtr& ast, const std::string& name) {
+    auto block = TMaybeNode<TBlockExpr>(ast).Cast();
+    if (!block) {
+        return nullptr;
+    }
+    for (const auto& stmt : block->Stmts) {
+        auto fun = TMaybeNode<TFunDecl>(stmt).Cast();
+        if (fun && fun->Name == name) {
+            return fun;
+        }
+    }
+    return nullptr;
+}
+
+static std::shared_ptr<TCallExpr> findCall(const TExprPtr& expr, const std::string& name) {
+    if (!expr) {
+        return nullptr;
+    }
+    if (auto call = TMaybeNode<TCallExpr>(expr).Cast()) {
+        if (auto ident = TMaybeNode<TIdentExpr>(call->Callee).Cast(); ident && ident->Name == name) {
+            return call;
+        }
+    }
+    for (const auto& child : expr->Children()) {
+        if (auto found = findCall(child, name)) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
+static std::shared_ptr<TAwaitExpr> findAwaitCall(const TExprPtr& expr, const std::string& name) {
+    if (!expr) {
+        return nullptr;
+    }
+    if (auto awaitExpr = TMaybeNode<TAwaitExpr>(expr).Cast()) {
+        auto call = TMaybeNode<TCallExpr>(awaitExpr->Operand).Cast();
+        if (call) {
+            if (auto ident = TMaybeNode<TIdentExpr>(call->Callee).Cast(); ident && ident->Name == name) {
+                return awaitExpr;
+            }
+        }
+    }
+    for (const auto& child : expr->Children()) {
+        if (auto found = findAwaitCall(child, name)) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
+static TExprPtr annotateWithRobotCoroutines(const std::string& src) {
+    RobotModule robot;
+    TNameResolver resolver;
+    resolver.RegisterModule(&robot);
+    auto importResult = resolver.ImportModule(robot.Name());
+    if (!importResult) {
+        ADD_FAILURE() << importResult.error();
+        return nullptr;
+    }
+
+    std::istringstream in(src);
+    TTokenStream ts(in);
+    TParser parser;
+    auto parsed = parser.parse(ts, &resolver);
+    if (!parsed) {
+        ADD_FAILURE() << parsed.error().ToString();
+        return nullptr;
+    }
+    auto ast = std::move(parsed.value());
+    auto result = NTransform::Pipeline(
+        ast,
+        resolver,
+        NTransform::TPipelineOptions{.EnableCoroutineAnalysis = true});
+    if (!result) {
+        ADD_FAILURE() << result.error().ToString();
+        return nullptr;
+    }
+    return ast;
 }
 
 TEST(NameResolver, DeclBindsSymbolIds) {
@@ -57,6 +158,69 @@ b := 10
     EXPECT_EQ(syms[aId->Id].Name, "a");
     EXPECT_EQ(syms[bId->Id].Name, "b");
     EXPECT_EQ(syms[cId->Id].Name, "c");
+}
+
+TEST(TypeAnnotation, CoroutineAnalysisMarksDirectAndTransitiveCallers) {
+    auto ast = annotateWithRobotCoroutines(R"__(
+алг helper
+нач
+    вверх()
+кон
+
+алг caller
+нач
+    helper()
+кон
+
+алг pure
+нач
+кон
+)__");
+    ASSERT_NE(ast, nullptr);
+
+    auto helper = findFunction(ast, "helper");
+    auto caller = findFunction(ast, "caller");
+    auto pure = findFunction(ast, "pure");
+    ASSERT_TRUE(helper);
+    ASSERT_TRUE(caller);
+    ASSERT_TRUE(pure);
+
+    auto helperFuture = TMaybeType<TFutureType>(helper->RetType).Cast();
+    auto callerFuture = TMaybeType<TFutureType>(caller->RetType).Cast();
+    ASSERT_TRUE(helperFuture);
+    ASSERT_TRUE(callerFuture);
+    EXPECT_TRUE(TMaybeType<TVoidType>(helperFuture->ResultType));
+    EXPECT_TRUE(TMaybeType<TVoidType>(callerFuture->ResultType));
+    EXPECT_FALSE(TMaybeType<TFutureType>(pure->RetType));
+}
+
+TEST(TypeAnnotation, CoroutineAwaitUnwrapsReturnValueAtCallSite) {
+    auto ast = annotateWithRobotCoroutines(R"__(
+алг entry
+нач
+    цел value
+    value := wrap()
+кон
+
+алг цел wrap
+нач
+    закрасить()
+    знач := 12
+кон
+)__");
+    ASSERT_NE(ast, nullptr);
+
+    auto wrap = findFunction(ast, "wrap");
+    ASSERT_TRUE(wrap);
+    auto wrapFuture = TMaybeType<TFutureType>(wrap->RetType).Cast();
+    ASSERT_TRUE(wrapFuture);
+    EXPECT_TRUE(TMaybeType<TIntegerType>(wrapFuture->ResultType));
+
+    auto entry = findFunction(ast, "entry");
+    ASSERT_TRUE(entry);
+    auto awaitCall = findAwaitCall(entry->Body, "wrap");
+    ASSERT_TRUE(awaitCall);
+    EXPECT_TRUE(TMaybeType<TIntegerType>(awaitCall->Type));
 }
 
 TEST(NameResolver, Scopes) {

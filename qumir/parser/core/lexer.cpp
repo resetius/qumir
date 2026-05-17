@@ -80,6 +80,9 @@ AST node forms:
   (call callee arg1 arg2 ... argN)
       TCallExpr, NodeId = "Call".
 
+  (await operand)
+      TAwaitExpr, NodeId = "Await".
+
   (input arg1 arg2 ... argN)
       TInputExpr, NodeId = "Input".
 
@@ -133,6 +136,9 @@ Types:
       <array element_type arity>
           TArrayType, TypeId = "Array".
 
+      <future result_type>
+          TFutureType, TypeId = "Future".
+
       <ptr pointee_type>
           TPointerType, TypeId = "Ptr".
 
@@ -155,6 +161,7 @@ Types:
       void
       <fun bool (i64 f64) () body>
       <array i64 1>
+      <future void>
       <array <ref f64> 2>
       <ptr <struct (x f64) (y f64)>>
       <ref string>

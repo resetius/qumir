@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
 #include <qumir/parser/core/lexer.h>
+#include <qumir/parser/core/parser.h>
+#include <qumir/parser/core/printer.h>
+#include <qumir/parser/type.h>
 #include <qumir/parser/operator.h>
 
 #include <sstream>
@@ -9,6 +12,16 @@ using namespace NQumir::NAst::NLiterals;
 
 using NQumir::NAst::TWrappedTokenStream;
 using NQumir::NAst::TToken;
+using NQumir::NAst::TMaybeNode;
+using NQumir::NAst::TMaybeType;
+using NQumir::NAst::TAwaitExpr;
+using NQumir::NAst::TCallExpr;
+using NQumir::NAst::TFunDecl;
+using NQumir::NAst::TFutureType;
+using NQumir::NAst::TIntegerType;
+using NQumir::NAst::TNamedType;
+using NQumir::NAst::TVoidType;
+using NQumir::NAst::TypeKey;
 
 namespace {
 
@@ -109,6 +122,45 @@ TEST(CoreWrappedTokenStreamTest, Window) {
     ASSERT_EQ(tokens.GetWindow().size(), 2);
     ExpectIdent(tokens.GetWindow()[0], "block");
     ExpectIdent(tokens.GetWindow()[1], "x");
+}
+
+TEST(CoreTypeTest, FutureTypesPrintAndParse) {
+    auto voidFuture = std::make_shared<TFutureType>(std::make_shared<TVoidType>());
+    EXPECT_EQ(PrintType(voidFuture), "<future void>");
+    EXPECT_EQ(TypeKey(voidFuture), "Future::Void");
+
+    auto namedFuture = std::make_shared<TFutureType>(
+        std::make_shared<TNamedType>("color", std::make_shared<TIntegerType>()));
+    EXPECT_EQ(PrintType(namedFuture), "<future <named color i64>>");
+    EXPECT_EQ(TypeKey(namedFuture), "Future::Named::color");
+
+    std::istringstream input("(fun f <future i64> () () (block))");
+    TTokenStream tokens(input);
+    TParser parser;
+
+    auto parsed = parser.Parse(tokens);
+    ASSERT_TRUE(parsed.has_value()) << parsed.error().ToString();
+
+    auto fun = TMaybeNode<TFunDecl>(*parsed).Cast();
+    ASSERT_TRUE(fun);
+    auto future = TMaybeType<TFutureType>(fun->RetType).Cast();
+    ASSERT_TRUE(future);
+    EXPECT_TRUE(TMaybeType<TIntegerType>(future->ResultType));
+}
+
+TEST(CoreParserTest, AwaitPrintAndParse) {
+    std::istringstream input("(await (call f))");
+    TTokenStream tokens(input);
+    TParser parser;
+
+    auto parsed = parser.Parse(tokens);
+    ASSERT_TRUE(parsed.has_value()) << parsed.error().ToString();
+
+    auto awaitExpr = TMaybeNode<TAwaitExpr>(*parsed).Cast();
+    ASSERT_TRUE(awaitExpr);
+    auto call = TMaybeNode<TCallExpr>(awaitExpr->Operand).Cast();
+    ASSERT_TRUE(call);
+    EXPECT_EQ(PrintAst(*parsed, TPrintOptions{.Pretty = false}), "(await (call f))");
 }
 
 int main(int argc, char** argv) {
