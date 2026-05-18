@@ -4,80 +4,78 @@
 
 использовать Рисователь
 
+цел W = 900
+цел H = 700
+цел N = 100
+цел TAIL = 20
+
+вещ CX = 450.0
+вещ CY = 350.0
+вещ MU = 2400.0
+вещ DT = 0.35
+вещ PI = 3.141592653589793
+
 алг
 нач
-    цел W, H, N, TAIL
-    W := 900
-    H := 700
-    N := 100
-    TAIL := 20
-
-    вещ cx, cy, mu, dt, pi
-    cx := W / 2
-    cy := H / 2
-    mu := 2400.0
-    dt := 0.35
-    pi := 3.141592653589793
-
     вещ таб x[0:N-1], y[0:N-1], vx[0:N-1], vy[0:N-1]
     вещ таб tx[0:N-1, 0:TAIL-1], ty[0:N-1, 0:TAIL-1]
 
     цел frame
 
-    инициализировать(N, TAIL, cx, cy, mu, pi, x, y, vx, vy, tx, ty)
+    инициализировать(x, y, vx, vy, tx, ty)
     новый лист(W, H, чёрный)
     frame := 0
 
     нц пока да
-        шаг_физики(N, TAIL, cx, cy, mu, dt, x, y, vx, vy, tx, ty)
-        нарисовать(W, H, N, TAIL, cx, cy, frame, x, y, tx, ty)
+        шаг_физики(x, y, vx, vy, tx, ty)
+        нарисовать(frame, x, y, tx, ty)
         frame := frame + 1
     кц
 кон
 
-алг инициализировать(цел n, цел tail, вещ cx, вещ cy, вещ mu, вещ pi, арг рез вещ таб x[0:n-1], арг рез вещ таб y[0:n-1], арг рез вещ таб vx[0:n-1], арг рез вещ таб vy[0:n-1], арг рез вещ таб tx[0:n-1, 0:tail-1], арг рез вещ таб ty[0:n-1, 0:tail-1])
+алг инициализировать(арг рез вещ таб x[0:N-1], арг рез вещ таб y[0:N-1], арг рез вещ таб vx[0:N-1], арг рез вещ таб vy[0:N-1], арг рез вещ таб tx[0:N-1, 0:TAIL-1], арг рез вещ таб ty[0:N-1, 0:TAIL-1])
 нач
     цел i, k
     вещ radius, angle, speed, speedScale
 
-    нц для i от 0 до n - 1
-        radius := rand(65.0, 280.0)
-        angle := rand(0.0, 2.0 * pi)
-        speedScale := rand(0.94, 1.06)
-        speed := sqrt(mu / radius) * speedScale
+    нц для i от 0 до N - 1
+        radius := 65.0 + 215.0 * rnd(1.0)
+        angle := 2.0 * PI * rnd(1.0)
+        speedScale := 0.94 + 0.12 * rnd(1.0)
+        speed := sqrt(MU / radius) * speedScale
 
-        x[i] := cx + radius * cos(angle)
-        y[i] := cy + radius * sin(angle)
+        x[i] := CX + radius * cos(angle)
+        y[i] := CY + radius * sin(angle)
         vx[i] := -speed * sin(angle)
         vy[i] := speed * cos(angle)
 
-        нц для k от 0 до tail - 1
+        нц для k от 0 до TAIL - 1
             tx[i, k] := x[i]
             ty[i, k] := y[i]
         кц
     кц
 кон
 
-алг шаг_физики(цел n, цел tail, вещ cx, вещ cy, вещ mu, вещ dt, арг рез вещ таб x[0:n-1], арг рез вещ таб y[0:n-1], арг рез вещ таб vx[0:n-1], арг рез вещ таб vy[0:n-1], арг рез вещ таб tx[0:n-1, 0:tail-1], арг рез вещ таб ty[0:n-1, 0:tail-1])
+алг шаг_физики(арг рез вещ таб x[0:N-1], арг рез вещ таб y[0:N-1], арг рез вещ таб vx[0:N-1], арг рез вещ таб vy[0:N-1], арг рез вещ таб tx[0:N-1, 0:TAIL-1], арг рез вещ таб ty[0:N-1, 0:TAIL-1])
 нач
     цел i, k
     вещ dx, dy, r2, invR, invR3, ax, ay
 
-    нц для i от 0 до n - 1
-        dx := x[i] - cx
-        dy := y[i] - cy
+    нц для i от 0 до N - 1
+        dx := x[i] - CX
+        dy := y[i] - CY
         r2 := dx * dx + dy * dy
         invR := 1.0 / sqrt(r2)
         invR3 := invR * invR * invR
-        ax := -mu * dx * invR3
-        ay := -mu * dy * invR3
+        ax := -MU * dx * invR3
+        ay := -MU * dy * invR3
 
-        vx[i] := vx[i] + ax * dt
-        vy[i] := vy[i] + ay * dt
-        x[i] := x[i] + vx[i] * dt
-        y[i] := y[i] + vy[i] * dt
+        vx[i] := vx[i] + ax * DT
+        vy[i] := vy[i] + ay * DT
+        x[i] := x[i] + vx[i] * DT
+        y[i] := y[i] + vy[i] * DT
 
-        нц для k от tail - 1 до 1 шаг -1
+        нц для k от TAIL - 1 до 1 шаг -1
             tx[i, k] := tx[i, k - 1]
             ty[i, k] := ty[i, k - 1]
         кц
@@ -86,19 +84,19 @@
     кц
 кон
 
-алг нарисовать(цел w, цел h, цел n, цел tail, вещ cx, вещ cy, цел frame, вещ таб x[0:n-1], вещ таб y[0:n-1], вещ таб tx[0:n-1, 0:tail-1], вещ таб ty[0:n-1, 0:tail-1])
+алг нарисовать(цел frame, вещ таб x[0:N-1], вещ таб y[0:N-1], вещ таб tx[0:N-1, 0:TAIL-1], вещ таб ty[0:N-1, 0:TAIL-1])
 нач
     цел i, k
     цел hue, alpha
 
     перо(1, RGB(255, 230, 130))
     кисть(RGB(255, 230, 130))
-    окружность(int(cx), int(cy), 12)
+    окружность(int(CX), int(CY), 12)
 
-    нц для i от 0 до n - 1
-        hue := mod(i * 360 / n + frame / 4, 360)
-        нц для k от tail - 1 до 1 шаг -1
-            alpha := 16 + (tail - k) * 8
+    нц для i от 0 до N - 1
+        hue := mod(div(i * 360, N) + div(frame, 4), 360)
+        нц для k от TAIL - 1 до 1 шаг -1
+            alpha := 16 + (TAIL - k) * 8
             перо(1, HSLA(hue, 85, 60, alpha))
             кисть(HSLA(hue, 85, 60, alpha))
             окружность(int(tx[i, k]), int(ty[i, k]), 1)
@@ -109,5 +107,5 @@
         окружность(int(x[i]), int(y[i]), 2)
     кц
 
-    новый лист(w, h, чёрный)
+    новый лист(W, H, чёрный)
 кон
