@@ -2662,13 +2662,13 @@ async function runWasm() {
             ? await runWasmCoroutine({ instance, entryFn: fn, args: parsed, usesRobot, usesTurtle, usesPainter })
             : fn(...parsed);
           const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-          const micros = Math.round((t1 - t0) * 1000);
+          const elapsedUs = Math.round((t1 - t0) * 1000);
           const normalized = resultEnv.normalizeReturnValue(res, {
             returnType: retType,
             algType
           });
           // Don't print to stdout, save for errors pane
-          window.__lastRunInfo = { name, normalized, micros, hasReturn: retType !== 'void' && !runAsCoroutine };
+          window.__lastRunInfo = { name, normalized, elapsedUs, hasReturn: retType !== 'void' && !runAsCoroutine };
         }
       } else {
         out += 'no exported functions to invoke\n';
@@ -2734,7 +2734,7 @@ async function runWasm() {
       if (info.hasReturn) {
         successMsg += `\n\nФункция "${info.name}" вернула: ${info.normalized}`;
       }
-      successMsg += `\nВремя работы программы: ${info.micros} нс`;
+      successMsg += `\nВремя работы программы: ${info.elapsedUs} мкс`;
       delete window.__lastRunInfo;
     }
     setErrorsPaneContent(successMsg);
