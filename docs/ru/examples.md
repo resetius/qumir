@@ -64,6 +64,7 @@
 - [Шахматная доска](examples/painter_checkerboard.md) — чередование клеток через toggle
 - [HSV-градиент](examples/painter_gradient.md) — двумерный градиент оттенок × яркость
 - [Мандельброт](examples/painter_mandelbrot.md) — цветное множество Мандельброта
+- [Орбиты частиц](examples/painter_orbits.md) — бесконечная 2D-анимация с хвостами
 
 ## Робот
 
