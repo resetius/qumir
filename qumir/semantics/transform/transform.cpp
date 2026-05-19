@@ -20,16 +20,7 @@ std::expected<bool, TError> PreNameResolutionTransform(NAst::TExprPtr& expr)
 {
     bool changed = TransformAst(expr, expr,
         [](const NAst::TExprPtr& node) -> NAst::TExprPtr {
-            if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(node)) {
-                auto ident = maybeIdent.Cast();
-                if (ident->Name == "МАКСВЕЩ") {
-                    // replace with constant = std::numeric_limits<double>::max()
-                    return std::make_shared<NAst::TNumberExpr>(ident->Location, std::numeric_limits<double>::max());
-                } else if (ident->Name == "МАКСЦЕЛ") {
-                    // replace with constant = std::numeric_limits<int64_t>::max()
-                    return std::make_shared<NAst::TNumberExpr>(ident->Location, std::numeric_limits<int64_t>::max());
-                }
-            } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(node)) {
+            if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(node)) {
                 auto call = maybeCall.Cast();
                 if (auto maybeCalleeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(call->Callee)) {
                     auto calleeIdent = maybeCalleeIdent.Cast();

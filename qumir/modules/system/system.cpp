@@ -846,7 +846,25 @@ SystemModule::SystemModule() {
             },
             .ArgTypes = {  },
             .ReturnType = voidType,
+        },
+
+        {
+            .Name = "МАКСВЕЩ",
+            .ArgTypes = {  },
+            .ReturnType = floatType,
+            .Inline = [](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
+                return std::make_shared<NAst::TNumberExpr>(TLocation{}, std::numeric_limits<double>::max());
+            },
+        },
+        {
+            .Name = "МАКСЦЕЛ",
+            .ArgTypes = {  },
+            .ReturnType = integerType,
+            .Inline = [](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
+                return std::make_shared<NAst::TNumberExpr>(TLocation{}, std::numeric_limits<int64_t>::max());
+            },
         }
+
     };
 
     ExternalFunctions_.swap(functions);
