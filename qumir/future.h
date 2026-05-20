@@ -139,21 +139,21 @@ template<typename T>
 TFinalAwaiter<T> TPromiseBase<T>::final_suspend() noexcept { return {}; }
 
 
-struct ITypeLessFuture {
-    virtual ~ITypeLessFuture() = default;
+struct ITypeErasedFuture {
+    virtual ~ITypeErasedFuture() = default;
 
     virtual bool done() = 0;
     virtual void resume() = 0;
     virtual void destroy() = 0;
+    virtual void* address() = 0;
 
     virtual bool await_ready() = 0;
     virtual void await_suspend(std::coroutine_handle<> caller) = 0;
     virtual void await_resume(void* result) = 0;
-    virtual std::coroutine_handle<> continuation() = 0;
 };
 
 template<typename T>
-struct TWrappedFuture : public ITypeLessFuture {
+struct TWrappedFuture : public ITypeErasedFuture {
     TWrappedFuture(TFuture<T>&& future)
         : Future(std::move(future))
     { }
@@ -187,26 +187,65 @@ struct TWrappedFuture : public ITypeLessFuture {
 
     void await_resume(void* result) override {
         assert(Future);
-        if (std::is_same_v<T, void>) {
+        if constexpr(std::is_same_v<T, void>) {
             Future->await_resume();
         } else {
             new (result) T(Future->await_resume());
         }
     }
 
+    void* address() {
+        assert(Future);
+        return Future->address();
+    }
+
 private:
     std::optional<TFuture<T>> Future;
 };
 
+template<typename T>
+struct TTypeErasedAwaiter {
+    ITypeErasedFuture* Future;
+
+    bool await_ready() {
+        return Future->await_ready();
+    }
+
+    void await_suspend(std::coroutine_handle<> h) {
+        Future->await_suspend(h);
+    }
+
+    T await_resume() {
+        T result;
+        Future->await_resume(&result);
+        return result;
+    }
+};
+
+template<typename T>
+TFuture<T> AwaitTypeErasedFuture(ITypeErasedFuture* erasedFuture) {
+    struct TGuard {
+        ITypeErasedFuture* Future;
+        ~TGuard() {
+            if (Future) {
+                Future->destroy();
+            }
+        }
+    } guard{ erasedFuture };
+    T result = co_await TTypeErasedAwaiter<T>{erasedFuture};
+    co_return result;
+}
+
 extern "C" {
 
-// Assume module exports specific ITypeLessFuture contructor for each TFuture<T> specialization
-void __qumir_future_destroy(ITypeLessFuture* future);
-bool __qumir_future_done(ITypeLessFuture* future);
-void __qumir_future_resume(ITypeLessFuture* future);
-bool __qumir_future_await_ready(ITypeLessFuture* future);
-void __qumir_future_await_suspend(ITypeLessFuture* future, void* caller);
-void __qumir_future_await_resume(ITypeLessFuture* future, void* result);
+// Assume module exports specific ITypeErasedFuture contructor for each TFuture<T> specialization
+void __qumir_future_destroy(ITypeErasedFuture* future);
+bool __qumir_future_done(ITypeErasedFuture* future);
+void __qumir_future_resume(ITypeErasedFuture* future);
+void* __qumir_future_address(ITypeErasedFuture* future);
+bool __qumir_future_await_ready(ITypeErasedFuture* future);
+void __qumir_future_await_suspend(ITypeErasedFuture* future, void* caller);
+void __qumir_future_await_resume(ITypeErasedFuture* future, void* result);
 
 };
 

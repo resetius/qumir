@@ -9,6 +9,7 @@
 #include <iomanip>
 
 #include <qumir/runtime/string.h> // for str_release
+#include <qumir/future.h>
 
 namespace NQumir {
 namespace NIR {

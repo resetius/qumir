@@ -18,6 +18,7 @@ ut(test_reg test_reg.cpp ${CMAKE_SOURCE_DIR}/test/regtest)
 ut(test_field_access test_field_access.cpp)
 ut(test_bit_ops test_bit_ops.cpp)
 ut(test_if_expr test_if_expr.cpp)
+ut(test_future test_future.cpp)
 
 # JavaScript execution tests (Node.js required)
 find_program(NODE_EXECUTABLE node)
