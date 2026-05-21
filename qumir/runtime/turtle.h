@@ -1,18 +1,23 @@
 #pragma once
 
+#include <cstddef>
+
 namespace NQumir {
+struct ITypeErasedFuture;
+
 namespace NRuntime {
 
 extern "C" {
 
-void turtle_pen_up();
-void turtle_pen_down();
-void turtle_forward(double distance);
-void turtle_backward(double distance);
-void turtle_turn_left(double angle);
-void turtle_turn_right(double angle);
-void turtle_save_state();
-void turtle_restore_state();
+ITypeErasedFuture* turtle_pen_up();
+ITypeErasedFuture* turtle_pen_down();
+ITypeErasedFuture* turtle_forward(double distance);
+ITypeErasedFuture* turtle_backward(double distance);
+ITypeErasedFuture* turtle_turn_left(double angle);
+ITypeErasedFuture* turtle_turn_right(double angle);
+ITypeErasedFuture* turtle_save_state();
+ITypeErasedFuture* turtle_restore_state();
+size_t turtle_process_events();
 
 } // extern "C"
 

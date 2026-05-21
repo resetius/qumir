@@ -22,10 +22,9 @@ TurtleModule::TurtleModule()
         {
             .Name = "поднять хвост",
             .MangledName = "turtle_pen_up",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(turtle_pen_up)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)()>(turtle_pen_up)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                turtle_pen_up();
-                return 0;
+                return reinterpret_cast<uint64_t>(turtle_pen_up());
             },
             .ArgTypes = {  },
             .ReturnType = voidType,
@@ -34,10 +33,9 @@ TurtleModule::TurtleModule()
         {
             .Name = "опустить хвост",
             .MangledName = "turtle_pen_down",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(turtle_pen_down)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)()>(turtle_pen_down)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                turtle_pen_down();
-                return 0;
+                return reinterpret_cast<uint64_t>(turtle_pen_down());
             },
             .ArgTypes = {  },
             .ReturnType = voidType,
@@ -46,10 +44,9 @@ TurtleModule::TurtleModule()
         {
             .Name = "вперед",
             .MangledName = "turtle_forward",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(double)>(turtle_forward)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)(double)>(turtle_forward)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                turtle_forward(std::bit_cast<double>(args[0]));
-                return 0;
+                return reinterpret_cast<uint64_t>(turtle_forward(std::bit_cast<double>(args[0])));
             },
             .ArgTypes = { floatType },
             .ReturnType = voidType,
@@ -58,10 +55,9 @@ TurtleModule::TurtleModule()
         {
             .Name = "назад",
             .MangledName = "turtle_backward",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(double)>(turtle_backward)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)(double)>(turtle_backward)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                turtle_backward(std::bit_cast<double>(args[0]));
-                return 0;
+                return reinterpret_cast<uint64_t>(turtle_backward(std::bit_cast<double>(args[0])));
             },
             .ArgTypes = { floatType },
             .ReturnType = voidType,
@@ -70,10 +66,9 @@ TurtleModule::TurtleModule()
         {
             .Name = "влево",
             .MangledName = "turtle_turn_left",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(double)>(turtle_turn_left)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)(double)>(turtle_turn_left)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                turtle_turn_left(std::bit_cast<double>(args[0]));
-                return 0;
+                return reinterpret_cast<uint64_t>(turtle_turn_left(std::bit_cast<double>(args[0])));
             },
             .ArgTypes = { floatType },
             .ReturnType = voidType,
@@ -82,10 +77,9 @@ TurtleModule::TurtleModule()
         {
             .Name = "вправо",
             .MangledName = "turtle_turn_right",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(double)>(turtle_turn_right)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)(double)>(turtle_turn_right)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                turtle_turn_right(std::bit_cast<double>(args[0]));
-                return 0;
+                return reinterpret_cast<uint64_t>(turtle_turn_right(std::bit_cast<double>(args[0])));
             },
             .ArgTypes = { floatType },
             .ReturnType = voidType,
@@ -94,10 +88,9 @@ TurtleModule::TurtleModule()
         {
             .Name = "сохранить состояние",
             .MangledName = "turtle_save_state",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(turtle_save_state)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)()>(turtle_save_state)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                turtle_save_state();
-                return 0;
+                return reinterpret_cast<uint64_t>(turtle_save_state());
             },
             .ArgTypes = {  },
             .ReturnType = voidType,
@@ -106,10 +99,9 @@ TurtleModule::TurtleModule()
         {
             .Name = "восстановить состояние",
             .MangledName = "turtle_restore_state",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(turtle_restore_state)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)()>(turtle_restore_state)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                turtle_restore_state();
-                return 0;
+                return reinterpret_cast<uint64_t>(turtle_restore_state());
             },
             .ArgTypes = {  },
             .ReturnType = voidType,

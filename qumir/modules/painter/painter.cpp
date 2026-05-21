@@ -268,10 +268,13 @@ PainterModule::PainterModule() {
         {
             .Name = "новый лист",
             .MangledName = "painter_new_sheet",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int64_t,int64_t,int64_t)>(painter_new_sheet)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)(int64_t,int64_t,int64_t)>(painter_new_sheet)),
             .Packed = +[](const uint64_t* args, size_t) -> uint64_t {
-                painter_new_sheet(args[0], args[1], args[2]);
-                return 0;
+                auto* future = painter_new_sheet(
+                    static_cast<int64_t>(args[0]),
+                    static_cast<int64_t>(args[1]),
+                    static_cast<int64_t>(args[2]));
+                return reinterpret_cast<uint64_t>(future);
             },
             .ArgTypes = { integerType, integerType, colorType },
             .ReturnType = voidType,

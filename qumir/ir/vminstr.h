@@ -71,6 +71,8 @@ enum class EVMOp : uint8_t {
     ArgConst, // constant to argument
     Call,
     ECall, // external call
+    Await,
+    AwaitVoid,
     Ret,
     RetVoid,
 

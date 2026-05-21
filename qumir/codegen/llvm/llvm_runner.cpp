@@ -16,6 +16,30 @@
 
 #include <qumir/runtime/string.h> // for str_release
 #include <qumir/runtime/runtime.h> // for __ensure and longjmp escape hatch
+#include <qumir/runtime/robot.h>
+#include <qumir/runtime/turtle.h>
+#include <qumir/runtime/painter.h>
+#include <qumir/runtime/future.h>
+
+#include <cassert>
+
+
+// Symbol anchors: prevent macOS from dead-stripping __qumir_future_* and
+// __qumir_wrap_coro. These are only called from JIT-compiled IR, so the
+// static linker sees no compile-time references; without this -rdynamic
+// has nothing to export for the JIT symbol lookup. The anchor lives here
+// (in llvm_runner.cpp) because this TU is always included in the link.
+__attribute__((used))
+static const void* const kQumir_jit_symbol_anchors[] = {
+    reinterpret_cast<const void*>(&NQumir::__qumir_future_destroy),
+    reinterpret_cast<const void*>(&NQumir::__qumir_future_done),
+    reinterpret_cast<const void*>(&NQumir::__qumir_future_resume),
+    reinterpret_cast<const void*>(&NQumir::__qumir_future_address),
+    reinterpret_cast<const void*>(&NQumir::__qumir_future_await_ready),
+    reinterpret_cast<const void*>(&NQumir::__qumir_future_await_suspend),
+    reinterpret_cast<const void*>(&NQumir::__qumir_future_await_resume),
+    reinterpret_cast<const void*>(&NQumir::__qumir_wrap_coro),
+};
 
 namespace NQumir::NCodeGen {
 
@@ -74,6 +98,7 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
     // this requires the executable to be linked with -rdynamic as well.
     llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
+
     // Build execution engine
     std::string eeErr;
     llvm::Module* rawModulePtr = artifacts->Module.get();
@@ -118,11 +143,48 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
         return std::nullopt;
     }
 
+    const bool isCoroutineModule = (mod->getGlobalVariable("__qumir_is_coroutine") != nullptr);
+
     std::vector<llvm::GenericValue> noargs;
     if (constructorFunc) {
         SafeRunFunction(ee.get(), constructorFunc, noargs);
     }
     auto gv = SafeRunFunction(ee.get(), target, noargs);
+
+    if (isCoroutineModule) {
+        // Entry point is a coroutine: gv.PointerVal is the coro frame handle.
+        void* handle = gv.PointerVal;
+
+        using TCoroDone    = int(*)(void*);
+        using TCoroResume  = void(*)(void*);
+        using TCoroDestroy = void(*)(void*);
+
+        auto coroDone    = (TCoroDone)   ee->getFunctionAddress("__qumir_coro_done");
+        auto coroResume  = (TCoroResume) ee->getFunctionAddress("__qumir_coro_resume");
+        auto coroDestroy = (TCoroDestroy)ee->getFunctionAddress("__qumir_coro_destroy");
+
+        while (!coroDone(handle)) {
+            size_t processed = NRuntime::robot_process_events()
+                             + NRuntime::turtle_process_events()
+                             + NRuntime::painter_process_events();
+            assert(processed > 0 && "coroutine suspended with no pending async events");
+            if (!coroDone(handle)) {
+                coroResume(handle);
+            }
+        }
+        // Flush any remaining batched calls (e.g. painter drawing commands).
+        NRuntime::robot_process_events();
+        NRuntime::turtle_process_events();
+        NRuntime::painter_process_events();
+
+        coroDestroy(handle);
+
+        if (destructorFunc) {
+            SafeRunFunction(ee.get(), destructorFunc, noargs);
+        }
+        return std::nullopt;
+    }
+
     if (destructorFunc) {
         SafeRunFunction(ee.get(), destructorFunc, noargs);
     }
@@ -149,7 +211,6 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
         auto ptr = (char*)gv.PointerVal;
         if (ptr) {
             oss << ptr;
-            // Release the string if returnTypeIsString
             if (returnTypeIsString) {
                 NRuntime::str_release(ptr);
             }

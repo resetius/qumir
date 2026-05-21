@@ -1,8 +1,11 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace NQumir {
+struct ITypeErasedFuture;
+
 namespace NRuntime {
 
 extern "C" {
@@ -35,7 +38,8 @@ void painter_text(int64_t x, int64_t y, const char* text);
 void painter_fill(int64_t x, int64_t y);
 
 // Sheet management
-void painter_new_sheet(int64_t w, int64_t h, int64_t color);
+ITypeErasedFuture* painter_new_sheet(int64_t w, int64_t h, int64_t color);
+size_t painter_process_events();
 void painter_load_sheet(const char* filename);
 void painter_save_sheet(const char* filename);
 

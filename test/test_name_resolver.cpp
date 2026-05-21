@@ -448,7 +448,8 @@ TEST(TypeAnnotation, FutureVoidLowersToCoroutineIRShape) {
 
     ASSERT_FALSE(ir.empty());
     EXPECT_NE(ir.find("function helper () { ; ptr to void coroutine result void"), std::string::npos) << ir;
-    EXPECT_NE(ir.find("await вверх"), std::string::npos) << ir;
+    EXPECT_NE(ir.find("= вверх"), std::string::npos) << ir;
+    EXPECT_NE(ir.find("await tmp"), std::string::npos) << ir;
 }
 
 TEST(TypeAnnotation, FutureValueCoroutineAwaitsChildResultInInitializer) {
@@ -480,18 +481,17 @@ TEST(TypeAnnotation, FutureVoidEmitsLlvmCoroutineIntrinsics) {
 кон
 )__");
 
+    // After coro passes the split frame/ramp/resume/destroy are in the IR.
     ASSERT_FALSE(llvmIr.empty());
-    EXPECT_NE(llvmIr.find("presplitcoroutine"), std::string::npos) << llvmIr;
-    EXPECT_NE(llvmIr.find("@llvm.coro.id"), std::string::npos) << llvmIr;
-    EXPECT_NE(llvmIr.find("@llvm.coro.begin"), std::string::npos) << llvmIr;
-    EXPECT_NE(llvmIr.find("@llvm.coro.suspend"), std::string::npos) << llvmIr;
-    EXPECT_NE(llvmIr.find("@llvm.coro.end"), std::string::npos) << llvmIr;
     EXPECT_NE(llvmIr.find("@robot_up"), std::string::npos) << llvmIr;
     EXPECT_NE(llvmIr.find("@array_create"), std::string::npos) << llvmIr;
     EXPECT_NE(llvmIr.find("@array_destroy"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@__qumir_future_await_ready"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@__qumir_future_await_suspend"), std::string::npos) << llvmIr;
     EXPECT_NE(llvmIr.find("define i32 @__qumir_coro_done"), std::string::npos) << llvmIr;
     EXPECT_NE(llvmIr.find("define void @__qumir_coro_resume"), std::string::npos) << llvmIr;
     EXPECT_NE(llvmIr.find("define void @__qumir_coro_destroy"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("AfterCoroEnd"), std::string::npos) << llvmIr;
 }
 
 TEST(TypeAnnotation, FutureVoidCoroutineLlvmKeepsLoopControlFlow) {
@@ -507,7 +507,7 @@ TEST(TypeAnnotation, FutureVoidCoroutineLlvmKeepsLoopControlFlow) {
     ASSERT_FALSE(llvmIr.empty());
     EXPECT_NE(llvmIr.find("after.await"), std::string::npos) << llvmIr;
     EXPECT_NE(llvmIr.find("br i1"), std::string::npos) << llvmIr;
-    EXPECT_NE(llvmIr.find("@llvm.coro.suspend"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@__qumir_future_await_ready"), std::string::npos) << llvmIr;
 }
 
 TEST(TypeAnnotation, FutureVoidCoroutineLlvmAwaitsChildCoroutine) {
@@ -523,12 +523,15 @@ TEST(TypeAnnotation, FutureVoidCoroutineLlvmAwaitsChildCoroutine) {
 кон
 )__");
 
+    // After coro passes: helper() is called, result wrapped in ITypeErasedFuture*.
+    // @llvm.coro.done/resume/destroy remain in the __qumir_coro_* helper bodies.
     ASSERT_FALSE(llvmIr.empty());
     EXPECT_NE(llvmIr.find("call ptr @helper()"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@__qumir_wrap_coro"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@__qumir_future_await_ready"), std::string::npos) << llvmIr;
     EXPECT_NE(llvmIr.find("@llvm.coro.done"), std::string::npos) << llvmIr;
     EXPECT_NE(llvmIr.find("@llvm.coro.resume"), std::string::npos) << llvmIr;
     EXPECT_NE(llvmIr.find("@llvm.coro.destroy"), std::string::npos) << llvmIr;
-    EXPECT_NE(llvmIr.find("@llvm.coro.suspend"), std::string::npos) << llvmIr;
 }
 
 TEST(TypeAnnotation, FutureValueCoroutineLlvmUsesPromiseForChildResult) {
@@ -545,10 +548,11 @@ TEST(TypeAnnotation, FutureValueCoroutineLlvmUsesPromiseForChildResult) {
 кон
 )__");
 
+    // After coro passes: promise alloca is spilled to coro frame; result loaded.
     ASSERT_FALSE(llvmIr.empty());
     EXPECT_NE(llvmIr.find("coro.promise"), std::string::npos) << llvmIr;
-    EXPECT_NE(llvmIr.find("child.promise"), std::string::npos) << llvmIr;
     EXPECT_NE(llvmIr.find("child.result"), std::string::npos) << llvmIr;
+    EXPECT_NE(llvmIr.find("@__qumir_wrap_coro"), std::string::npos) << llvmIr;
 }
 
 TEST(TypeAnnotation, OptimizedCoroutineLlvmRunsCoroutinePasses) {

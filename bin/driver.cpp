@@ -82,7 +82,7 @@ std::shared_ptr<std::ostream> OpenOutputFile(const std::string& filename, bool r
     }
 }
 
-int GenerateAst(const std::string& inputFile, const std::string& outputFile, bool transformed, bool coreInput, bool asyncCode, bool verbose) {
+int GenerateAst(const std::string& inputFile, const std::string& outputFile, bool transformed, bool coreInput, bool verbose) {
     if (verbose) {
         std::cerr << "Generating " << (transformed ? "transformed " : "") << "AST from " << inputFile << " to " << outputFile << "\n";
     }
@@ -118,7 +118,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     auto ast = std::move(expected.value());
     if (transformed) {
         auto error = NTransform::Pipeline(ast, r, NTransform::TPipelineOptions{
-            .EnableCoroutineAnalysis = asyncCode
+            .EnableCoroutineAnalysis = true
         });
         if (!error) {
             std::cerr << error.error().ToString() << "\n";
@@ -136,7 +136,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     return 0;
 }
 
-int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool asyncCode, bool verbose) {
+int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose) {
     if (verbose) {
         std::cerr << "Generating IR from " << inputFile << " to " << outputFile << "\n";
     }
@@ -172,7 +172,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     auto ast = std::move(expected.value());
 
     auto error = NTransform::Pipeline(ast, r, NTransform::TPipelineOptions{
-        .EnableCoroutineAnalysis = asyncCode
+        .EnableCoroutineAnalysis = true
     });
     if (!error) {
         std::cerr << error.error().ToString() << "\n";
@@ -202,7 +202,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     return 0;
 }
 
-int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool asyncCode, bool verbose) {
+int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose) {
     if (verbose) {
         std::cerr << "Generating LLVM IR from " << inputFile << " to " << outputFile << "\n";
     }
@@ -238,7 +238,7 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     auto ast = std::move(expected.value());
 
     auto error = NTransform::Pipeline(ast, r, NTransform::TPipelineOptions{
-        .EnableCoroutineAnalysis = asyncCode
+        .EnableCoroutineAnalysis = true
     });
     if (!error) {
         std::cerr << error.error().ToString() << "\n";
@@ -383,7 +383,7 @@ void GenerateObjFromAsm(const std::string& asmCode, std::ostream& objOut) {
 }
 #endif
 
-int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, bool targetWasm, bool coreInput, bool asyncCode, bool verbose) {
+int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, bool targetWasm, bool coreInput, bool verbose) {
     if (verbose) {
         std::cerr << "Compiling " << inputFile << " to " << outputFile << "\n";
     }
@@ -419,7 +419,7 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     auto ast = std::move(expected.value());
 
     auto error = NTransform::Pipeline(ast, r, NTransform::TPipelineOptions{
-        .EnableCoroutineAnalysis = asyncCode
+        .EnableCoroutineAnalysis = true
     });
     if (!error) {
         std::cerr << error.error().ToString() << "\n";
@@ -511,7 +511,6 @@ int main(int argc, char** argv) {
     bool generateAsm = false;
     int optLevel = 0;
     bool targetWasm = false;
-    bool asyncCode = false;
     bool coreInput = false;
     bool verbose = false;
     for (int i = 1; i < argc; ++i) {
@@ -533,7 +532,6 @@ int main(int argc, char** argv) {
                          "  --transformed-ast Generate transformed AST only (no IR, no codegen)\n"
                          "  --ir          Generate IR only (no codegen)\n"
                          "  --wasm        Target WebAssembly (wasm32-unknown-unknown)\n"
-                         "  --async-code  Enable coroutine/async analysis (robot/turtle suspend points)\n"
                          "  -S            Generate assembly only (no linking), implies -c\n"
                          "  -O <level>    Optimization level (0-3), default 0\n"
                          "  -O0           Optimization level 0 (no optimizations)\n"
@@ -581,8 +579,6 @@ int main(int argc, char** argv) {
             optLevel = 2;
         } else if (!std::strcmp(argv[i], "-O3")) {
             optLevel = 3;
-        } else if (!std::strcmp(argv[i], "--async-code")) {
-            asyncCode = true;
         } else if (!std::strcmp(argv[i], "--core")) {
             coreInput = true;
         } else if (!std::strcmp(argv[i], "--verbose")) {
@@ -603,21 +599,21 @@ int main(int argc, char** argv) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ast");
         }
-        return GenerateAst(inputFile, outputFile, generateTransformedAst, coreInput, asyncCode, verbose);
+        return GenerateAst(inputFile, outputFile, generateTransformedAst, coreInput, verbose);
     }
 
     if (generateIr) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ir");
         }
-        return GenerateIr(inputFile, outputFile, optLevel, coreInput, asyncCode, verbose);
+        return GenerateIr(inputFile, outputFile, optLevel, coreInput, verbose);
     }
 
     if (generateLlvm) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ll");
         }
-        return GenerateLlvm(inputFile, outputFile, optLevel, coreInput, asyncCode, verbose);
+        return GenerateLlvm(inputFile, outputFile, optLevel, coreInput, verbose);
     }
 
     if (!compileOnly && outputFile.empty()) {
@@ -633,5 +629,5 @@ int main(int argc, char** argv) {
             : outputFile;
     }
 
-    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, targetWasm, coreInput, asyncCode, verbose);
+    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, targetWasm, coreInput, verbose);
 }

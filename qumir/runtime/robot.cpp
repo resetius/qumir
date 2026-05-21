@@ -1,4 +1,10 @@
 #include "robot.h"
+#include <qumir/future.h>
+
+#include <functional>
+#include <iostream>
+#include <utility>
+#include <vector>
 
 namespace NQumir {
 namespace NRuntime {
@@ -7,28 +13,72 @@ namespace {
     int robotX = 0;
     int robotY = 0;
     bool cellPainted = false;
+
+    struct TPendingEvent {
+        std::function<void()> Callback;
+        TFuture<void> Future;
+    };
+
+    std::vector<TPendingEvent> pendingEvents;
+
+    ITypeErasedFuture* EnqueueRobotCall(std::function<void()> call) {
+        auto promise = std::make_shared<TPromise<void>>();
+        pendingEvents.emplace_back(TPendingEvent{
+            .Callback = std::move(call),
+            .Future = MakeExternalFuture<void>(promise)
+        });
+        return new TWrappedFuture<void>(MakeExternalFuture<void>(promise));
+    }
 }
 
 extern "C" {
 
-void robot_left() {
-    robotX--;
+ITypeErasedFuture* robot_left() {
+    return EnqueueRobotCall([]() {
+        robotX--;
+        std::cerr << "robot_left\n";
+    });
 }
 
-void robot_right() {
-    robotX++;
+ITypeErasedFuture* robot_right() {
+    return EnqueueRobotCall([]() {
+        robotX++;
+        std::cerr << "robot_right\n";
+    });
 }
 
-void robot_up() {
-    robotY--;
+ITypeErasedFuture* robot_up() {
+    return EnqueueRobotCall([]() {
+        robotY--;
+        std::cerr << "robot_up\n";
+    });
 }
 
-void robot_down() {
-    robotY++;
+ITypeErasedFuture* robot_down() {
+    return EnqueueRobotCall([]() {
+        robotY++;
+        std::cerr << "robot_down\n";
+    });
 }
 
-void robot_paint() {
-    cellPainted = true;
+ITypeErasedFuture* robot_paint() {
+    return EnqueueRobotCall([]() {
+        cellPainted = true;
+        std::cerr << "robot_paint\n";
+    });
+}
+
+size_t robot_process_events() {
+    auto events = std::move(pendingEvents);
+    for (auto& event : events) {
+        if (event.Callback) {
+            event.Callback();
+        }
+        if (!event.Future.done()) {
+            event.Future.resume();
+        }
+    }
+    return events.size();
 }
 
 bool robot_left_free() {
