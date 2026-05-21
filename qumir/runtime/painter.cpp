@@ -1,11 +1,14 @@
 #include "painter.h"
 #include "colors.h"
+#include <qumir/future.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace NQumir {
@@ -32,6 +35,23 @@ struct PainterState {
 
 PainterState g_state;
 
+std::vector<std::function<void()>> g_pendingCalls;
+std::vector<TFuture<void>> g_pendingFutures;
+
+void EnqueuePainterCall(std::function<void()> call) {
+    g_pendingCalls.push_back(std::move(call));
+}
+
+void DoPainterNewSheet(int64_t w, int64_t h, int64_t color) {
+    std::cerr << "painter_new_sheet " << w << "x" << h << " color=" << std::hex << color << std::dec << "\n";
+    if (w <= 0 || h <= 0 || w > 32767 || h > 32767) {
+        throw std::runtime_error("Invalid sheet dimensions");
+    }
+    g_state.sheetWidth  = w;
+    g_state.sheetHeight = h;
+    g_state.pixels.assign(static_cast<size_t>(w * h), static_cast<uint32_t>(color));
+}
+
 } // namespace
 
 extern "C" {
@@ -55,100 +75,161 @@ int64_t painter_get_pixel(int64_t x, int64_t y) {
 }
 
 void painter_pen(int64_t width, int64_t color) {
-    std::cerr << "painter_pen width=" << width << " color=" << std::hex << color << std::dec << "\n";
-    g_state.penWidth = width;
-    g_state.penColor = color;
+    EnqueuePainterCall([width, color]() {
+        std::cerr << "painter_pen width=" << width << " color=" << std::hex << color << std::dec << "\n";
+        g_state.penWidth = width;
+        g_state.penColor = color;
+    });
 }
 
 void painter_brush(int64_t color) {
-    std::cerr << "painter_brush color=" << std::hex << color << std::dec << "\n";
-    g_state.brushColor = color;
-    g_state.hasBrush   = true;
+    EnqueuePainterCall([color]() {
+        std::cerr << "painter_brush color=" << std::hex << color << std::dec << "\n";
+        g_state.brushColor = color;
+        g_state.hasBrush   = true;
+    });
 }
 
 void painter_no_brush() {
-    std::cerr << "painter_no_brush\n";
-    g_state.hasBrush = false;
+    EnqueuePainterCall([]() {
+        std::cerr << "painter_no_brush\n";
+        g_state.hasBrush = false;
+    });
 }
 
 void painter_density(int64_t d) {
-    std::cerr << "painter_density " << d << "\n";
-    g_state.density = d;
+    EnqueuePainterCall([d]() {
+        std::cerr << "painter_density " << d << "\n";
+        g_state.density = d;
+    });
 }
 
 void painter_font(const char* family, int64_t size, bool bold, bool italic) {
-    std::cerr << "painter_font family=" << family << " size=" << size
-              << " bold=" << bold << " italic=" << italic << "\n";
-    g_state.fontFamily = family;
-    g_state.fontSize   = size;
-    g_state.fontBold   = bold;
-    g_state.fontItalic = italic;
+    std::string familyCopy = family ? family : "";
+    EnqueuePainterCall([familyCopy = std::move(familyCopy), size, bold, italic]() {
+        std::cerr << "painter_font family=" << familyCopy << " size=" << size
+                  << " bold=" << bold << " italic=" << italic << "\n";
+        g_state.fontFamily = familyCopy;
+        g_state.fontSize   = size;
+        g_state.fontBold   = bold;
+        g_state.fontItalic = italic;
+    });
 }
 
 void painter_move_to(int64_t x, int64_t y) {
-    std::cerr << "painter_move_to (" << x << "," << y << ")\n";
-    g_state.curX = x;
-    g_state.curY = y;
+    EnqueuePainterCall([x, y]() {
+        std::cerr << "painter_move_to (" << x << "," << y << ")\n";
+        g_state.curX = x;
+        g_state.curY = y;
+    });
 }
 
 void painter_line(int64_t x1, int64_t y1, int64_t x2, int64_t y2) {
-    std::cerr << "painter_line (" << x1 << "," << y1 << ") -> (" << x2 << "," << y2 << ")\n";
+    EnqueuePainterCall([x1, y1, x2, y2]() {
+        std::cerr << "painter_line (" << x1 << "," << y1 << ") -> (" << x2 << "," << y2 << ")\n";
+    });
 }
 
 void painter_line_to(int64_t x, int64_t y) {
-    std::cerr << "painter_line_to (" << g_state.curX << "," << g_state.curY
-              << ") -> (" << x << "," << y << ")\n";
-    g_state.curX = x;
-    g_state.curY = y;
+    EnqueuePainterCall([x, y]() {
+        std::cerr << "painter_line_to (" << g_state.curX << "," << g_state.curY
+                  << ") -> (" << x << "," << y << ")\n";
+        g_state.curX = x;
+        g_state.curY = y;
+    });
 }
 
 void painter_polygon(int64_t n, int64_t* xs, int64_t* ys) {
-    std::cerr << "painter_polygon n=" << n << "\n";
+    std::vector<int64_t> xsCopy;
+    std::vector<int64_t> ysCopy;
+    if (n > 0) {
+        xsCopy.assign(xs, xs + n);
+        ysCopy.assign(ys, ys + n);
+    }
+    EnqueuePainterCall([n, xsCopy = std::move(xsCopy), ysCopy = std::move(ysCopy)]() {
+        (void)xsCopy;
+        (void)ysCopy;
+        std::cerr << "painter_polygon n=" << n << "\n";
+    });
 }
 
 void painter_pixel(int64_t x, int64_t y, int64_t color) {
-    std::cerr << "painter_pixel (" << x << "," << y << ") color=" << std::hex << color << std::dec << "\n";
-    if (x >= 0 && y >= 0 && x < g_state.sheetWidth && y < g_state.sheetHeight && !g_state.pixels.empty()) {
-        g_state.pixels[y * g_state.sheetWidth + x] = static_cast<uint32_t>(color);
-    }
+    EnqueuePainterCall([x, y, color]() {
+        std::cerr << "painter_pixel (" << x << "," << y << ") color=" << std::hex << color << std::dec << "\n";
+        if (x >= 0 && y >= 0 && x < g_state.sheetWidth && y < g_state.sheetHeight && !g_state.pixels.empty()) {
+            g_state.pixels[y * g_state.sheetWidth + x] = static_cast<uint32_t>(color);
+        }
+    });
 }
 
 void painter_rect(int64_t x1, int64_t y1, int64_t x2, int64_t y2) {
-    std::cerr << "painter_rect (" << x1 << "," << y1 << ")-(" << x2 << "," << y2 << ")\n";
+    EnqueuePainterCall([x1, y1, x2, y2]() {
+        std::cerr << "painter_rect (" << x1 << "," << y1 << ")-(" << x2 << "," << y2 << ")\n";
+    });
 }
 
 void painter_ellipse(int64_t x1, int64_t y1, int64_t x2, int64_t y2) {
-    std::cerr << "painter_ellipse (" << x1 << "," << y1 << ")-(" << x2 << "," << y2 << ")\n";
+    EnqueuePainterCall([x1, y1, x2, y2]() {
+        std::cerr << "painter_ellipse (" << x1 << "," << y1 << ")-(" << x2 << "," << y2 << ")\n";
+    });
 }
 
 void painter_circle(int64_t x, int64_t y, int64_t r) {
-    std::cerr << "painter_circle center=(" << x << "," << y << ") r=" << r << "\n";
+    EnqueuePainterCall([x, y, r]() {
+        std::cerr << "painter_circle center=(" << x << "," << y << ") r=" << r << "\n";
+    });
 }
 
 void painter_text(int64_t x, int64_t y, const char* text) {
-    std::cerr << "painter_text (" << x << "," << y << ") \"" << text << "\"\n";
+    std::string textCopy = text ? text : "";
+    EnqueuePainterCall([x, y, textCopy = std::move(textCopy)]() {
+        std::cerr << "painter_text (" << x << "," << y << ") \"" << textCopy << "\"\n";
+    });
 }
 
 void painter_fill(int64_t x, int64_t y) {
-    std::cerr << "painter_fill (" << x << "," << y << ")\n";
+    EnqueuePainterCall([x, y]() {
+        std::cerr << "painter_fill (" << x << "," << y << ")\n";
+    });
 }
 
-void painter_new_sheet(int64_t w, int64_t h, int64_t color) {
-    std::cerr << "painter_new_sheet " << w << "x" << h << " color=" << std::hex << color << std::dec << "\n";
-    if (w <= 0 || h <= 0 || w > 32767 || h > 32767) {
-        throw std::runtime_error("Invalid sheet dimensions");
+ITypeErasedFuture* painter_new_sheet(int64_t w, int64_t h, int64_t color) {
+    auto promise = std::make_shared<TPromise<void>>();
+    auto future = MakeExternalFuture<void>(promise);
+    EnqueuePainterCall([w, h, color]() {
+        DoPainterNewSheet(w, h, color);
+    });
+    g_pendingFutures.emplace_back(std::move(future));
+    return new TWrappedFuture<void>(MakeExternalFuture<void>(promise));
+}
+
+size_t painter_process_events() {
+    auto calls = std::move(g_pendingCalls);
+    for (auto& call : calls) {
+        call();
     }
-    g_state.sheetWidth  = w;
-    g_state.sheetHeight = h;
-    g_state.pixels.assign(static_cast<size_t>(w * h), static_cast<uint32_t>(color));
+
+    auto futures = std::move(g_pendingFutures);
+    for (auto& future : futures) {
+        if (!future.done()) {
+            future.resume();
+        }
+    }
+    return calls.size() + futures.size();
 }
 
 void painter_load_sheet(const char* filename) {
-    std::cerr << "painter_load_sheet \"" << filename << "\"\n";
+    std::string filenameCopy = filename ? filename : "";
+    EnqueuePainterCall([filenameCopy = std::move(filenameCopy)]() {
+        std::cerr << "painter_load_sheet \"" << filenameCopy << "\"\n";
+    });
 }
 
 void painter_save_sheet(const char* filename) {
-    std::cerr << "painter_save_sheet \"" << filename << "\"\n";
+    std::string filenameCopy = filename ? filename : "";
+    EnqueuePainterCall([filenameCopy = std::move(filenameCopy)]() {
+        std::cerr << "painter_save_sheet \"" << filenameCopy << "\"\n";
+    });
 }
 
 } // extern "C"

@@ -399,15 +399,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& inputExpr, TBlockScope scope) {
     int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
     NAst::TExprPtr expr = inputExpr;
-    bool isAwait = false;
-    if (auto maybeAwait = NAst::TMaybeNode<NAst::TAwaitExpr>(expr)) {
-        auto awaitExpr = maybeAwait.Cast();
-        if (!NAst::TMaybeNode<NAst::TCallExpr>(awaitExpr->Operand)) {
-            co_return TError(awaitExpr->Location, "await lowering expects a call operand");
-        }
-        expr = awaitExpr->Operand;
-        isAwait = true;
-    }
 
     if (auto maybeCast = NAst::TMaybeNode<NAst::TCastExpr>(expr)) {
         auto cast = maybeCast.Cast();
@@ -1283,6 +1274,23 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.Emit0("ret"_op, {});
         }
         co_return TValueWithBlock{ {}, Builder.CurrentBlockLabel() };
+    } else if (auto maybeAwait = NAst::TMaybeNode<NAst::TAwaitExpr>(expr)) {
+        auto awaitExpr = maybeAwait.Cast();
+        auto future = co_await Lower(awaitExpr->Operand, scope);
+        if (!future.Value) {
+            co_return TError(awaitExpr->Location, "await operand did not produce a future");
+        }
+
+        std::optional<TOperand> tmp = std::nullopt;
+        if (NAst::TMaybeType<NAst::TVoidType>(awaitExpr->Type)) {
+            Builder.Emit0("await"_op, {*future.Value});
+        } else {
+            tmp = Builder.Emit1("await"_op, {*future.Value});
+            Builder.SetType(tmp->Tmp, FromAstType(awaitExpr->Type, Module.Types));
+        }
+
+        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(),
+            NAst::TMaybeType<NAst::TStringType>(awaitExpr->Type) ? EOwnership::Owned : EOwnership::Unkwnown };
     } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(expr)) {
         auto call = maybeCall.Cast();
         // Evaluate callee and perform a function call.
@@ -1303,7 +1311,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!funDecl) {
             co_return TError(call->Callee->Location, TErrorString::Get<EErrorId::NOT_A_FUNCTION>());
         }
-        NAst::TTypePtr returnType = PhysicalCallResultType(funDecl->RetType);
+        auto futureResultType = NAst::FutureResultType(funDecl->RetType);
+        NAst::TTypePtr returnType = futureResultType
+            ? std::make_shared<NAst::TPointerType>(std::make_shared<NAst::TVoidType>())
+            : PhysicalCallResultType(funDecl->RetType);
         std::vector<NAst::TTypePtr>* argTypes = nullptr;
         if (auto maybeFuncType = NAst::TMaybeType<NAst::TFunctionType>(funDecl->Type)) {
             argTypes = &maybeFuncType.Cast()->ParamTypes;
@@ -1363,10 +1374,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         std::optional<TOperand> tmp = std::nullopt;
         if (returnsValue) {
-            tmp = Builder.Emit1(isAwait ? "await"_op : "call"_op, {TImm{calleeSymId}});
+            tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
             Builder.SetType(tmp->Tmp, FromAstType(returnType, Module.Types));
         } else {
-            Builder.Emit0(isAwait ? "await"_op : "call"_op, {TImm{calleeSymId}});
+            Builder.Emit0("call"_op, {TImm{calleeSymId}});
         }
         for (auto [arg, ownership] : argv) {
             // For string arguments passed as owned temporaries: release after call
@@ -1399,7 +1410,10 @@ void TAstLowerer::ImportExternalFunction(int symbolId, const NAst::TFunDecl& fun
     }
 
     std::vector<int> argTypes; argTypes.reserve(funcDecl.Params.size());
-    int returnType = FromAstType(PhysicalCallResultType(funcDecl.RetType), Module.Types);
+    NAst::TTypePtr physRetType = NAst::FutureResultType(funcDecl.RetType)
+        ? std::make_shared<NAst::TPointerType>(std::make_shared<NAst::TVoidType>())
+        : PhysicalCallResultType(funcDecl.RetType);
+    int returnType = FromAstType(physRetType, Module.Types);
     for (auto& p : funcDecl.Params) {
         argTypes.push_back(FromAstType(p->Type, Module.Types));
     }

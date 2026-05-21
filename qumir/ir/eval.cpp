@@ -8,6 +8,10 @@
 #include <cstring>
 
 #include <qumir/runtime/string.h> // for str_release
+#include <qumir/runtime/painter.h>
+#include <qumir/runtime/robot.h>
+#include <qumir/runtime/turtle.h>
+#include <qumir/runtime/future.h>
 #include <qumir/future.h>
 
 namespace NQumir {
@@ -71,18 +75,21 @@ std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<i
     return ans;
 }
 
-void TInterpreter::ProcessAsyncRuntimeEvents() {
-    // runtime should register event processors
+size_t TInterpreter::ProcessAsyncRuntimeEvents() {
+    size_t processed = 0;
+    processed += NRuntime::robot_process_events();
+    processed += NRuntime::turtle_process_events();
+    processed += NRuntime::painter_process_events();
+    return processed;
 }
 
 std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector<int64_t> args, TOptions options) {
     auto future = DoEvalAsync(function, args, options);
     while (!future.done()) {
-        ProcessAsyncRuntimeEvents();
-        if (!future.done()) {
-            future.resume();
-        }
+        bool hasEvents = ProcessAsyncRuntimeEvents() > 0;
+        assert(hasEvents && "coroutine suspended with no pending async events");
     }
+    ProcessAsyncRuntimeEvents();
     return future.await_resume();
 }
 
@@ -551,6 +558,17 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
                 .PC = &calleeExec->VMCode[0],
                 .Name = calleeFn->Name,
             });
+            break;
+        }
+        case EVMOp::Await: {
+            ITypeErasedFuture* future = reinterpret_cast<ITypeErasedFuture*>(ReadOperand(Runtime.Regs, instr.Operands[1]));
+            auto value = co_await AwaitTypeErasedFuture<uint64_t>(future);
+            Runtime.Regs[instr.Operands[0].Tmp.Idx] = static_cast<int64_t>(value);
+            break;
+        }
+        case EVMOp::AwaitVoid: {
+            ITypeErasedFuture* future = reinterpret_cast<ITypeErasedFuture*>(ReadOperand(Runtime.Regs, instr.Operands[0]));
+            co_await AwaitTypeErasedFuture<void>(future);
             break;
         }
         case EVMOp::Ret:

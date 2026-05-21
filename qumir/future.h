@@ -6,6 +6,10 @@
 #include <exception>
 #include <utility>
 #include <cassert>
+#include <memory>
+#include <type_traits>
+
+#include <qumir/runtime/future.h>
 
 namespace NQumir {
 
@@ -42,44 +46,106 @@ struct TPromise: public TPromiseBase<T> {
 };
 
 template<typename T>
-struct TFutureBase: public std::coroutine_handle<TPromise<T>> {
+struct TFutureBase {
+    using THandle = std::coroutine_handle<TPromise<T>>;
+
     TFutureBase() = default;
     TFutureBase(TPromise<T>& promise)
-        : std::coroutine_handle<TPromise<T>>(std::coroutine_handle<TPromise<T>>::from_promise(promise))
+        : Coro(THandle::from_promise(promise))
+    { }
+    explicit TFutureBase(std::shared_ptr<TPromise<T>> promise)
+        : ExternalPromise(std::move(promise))
     { }
     TFutureBase(TFutureBase&& other)
-        : std::coroutine_handle<TPromise<T>>(other)
-    {
-        other.std::coroutine_handle<TPromise<T>>::operator=(nullptr);
-    }
+        : Coro(std::exchange(other.Coro, nullptr))
+        , ExternalPromise(std::move(other.ExternalPromise))
+    { }
     TFutureBase(const TFutureBase&) = delete;
     TFutureBase& operator=(const TFutureBase&) = delete;
     TFutureBase& operator=(TFutureBase&& other) = delete;
 
     ~TFutureBase() {
-        if (*this) {
-            this->destroy();
+        if (Coro) {
+            Coro.destroy();
         }
     }
 
+    explicit operator bool() const {
+        return Coro || ExternalPromise;
+    }
+
+    bool done() const {
+        return Promise().ErrorOr.has_value();
+    }
+
+    void resume() {
+        if (Coro) {
+            if (!Coro.done()) {
+                Coro.resume();
+            }
+            return;
+        }
+        if constexpr(std::is_same_v<T, void>) {
+            if (ExternalPromise && !ExternalPromise->ErrorOr.has_value()) {
+                ExternalPromise->return_void();
+                ResumeCaller();
+            }
+        } else {
+            assert(false && "external non-void future needs an explicit result");
+        }
+    }
+
+    void* address() const {
+        return Coro ? Coro.address() : nullptr;
+    }
+
     bool await_ready() const {
-        return this->promise().ErrorOr.has_value();
+        return Promise().ErrorOr.has_value();
+    }
+
+    void destroy() {
+        if (Coro) {
+            Coro.destroy();
+            Coro = nullptr;
+        }
     }
 
     std::coroutine_handle<> await_suspend(std::coroutine_handle<> caller) {
-        this->promise().Caller = caller;
-        return *this;
+        Promise().Caller = caller;
+        return std::noop_coroutine();
+    }
+
+    TPromise<T>& Promise() {
+        return Coro ? Coro.promise() : *ExternalPromise;
+    }
+
+    const TPromise<T>& Promise() const {
+        return Coro ? Coro.promise() : *ExternalPromise;
     }
 
     using promise_type = TPromise<T>;
+
+private:
+    void ResumeCaller() {
+        auto caller = ExternalPromise->Caller;
+        ExternalPromise->Caller = std::noop_coroutine();
+        if (caller) {
+            caller.resume();
+        }
+    }
+
+    THandle Coro = nullptr;
+    std::shared_ptr<TPromise<T>> ExternalPromise;
 };
 
 template<> struct TFuture<void>;
 
 template<typename T>
 struct TFuture : public TFutureBase<T> {
+    using TFutureBase<T>::TFutureBase;
+
     T await_resume() {
-        auto& errorOr = *this->promise().ErrorOr;
+        auto& errorOr = *this->Promise().ErrorOr;
         if (errorOr.has_value()) {
             return std::move(errorOr.value());
         } else {
@@ -106,8 +172,10 @@ struct TPromise<void>: public TPromiseBase<void> {
 
 template<>
 struct TFuture<void> : public TFutureBase<void> {
+    using TFutureBase<void>::TFutureBase;
+
     void await_resume() {
-        auto& errorOr = *this->promise().ErrorOr;
+        auto& errorOr = *this->Promise().ErrorOr;
         if (errorOr) {
             std::rethrow_exception(errorOr);
         }
@@ -131,19 +199,10 @@ TFuture<T> TPromise<T>::get_return_object() { return { TFuture<T>{*this} }; }
 template<typename T>
 TFinalAwaiter<T> TPromiseBase<T>::final_suspend() noexcept { return {}; }
 
-
-struct ITypeErasedFuture {
-    virtual ~ITypeErasedFuture() = default;
-
-    virtual bool done() = 0;
-    virtual void resume() = 0;
-    virtual void destroy() = 0;
-    virtual void* address() = 0;
-
-    virtual bool await_ready() = 0;
-    virtual void await_suspend(std::coroutine_handle<> caller) = 0;
-    virtual void await_resume(void* result) = 0;
-};
+template<typename T>
+TFuture<T> MakeExternalFuture(const std::shared_ptr<TPromise<T>>& promise) {
+    return TFuture<T>(promise);
+}
 
 template<typename T>
 struct TWrappedFuture : public ITypeErasedFuture {
@@ -152,20 +211,19 @@ struct TWrappedFuture : public ITypeErasedFuture {
     { }
 
     bool done() override {
-        if (Future) {
-            return Future->done();
-        }
-        return true;
+        assert(Future);
+        return Future->done();
     }
 
     void resume() override {
-        if (Future && !Future->done()) {
+        assert(Future);
+        if (!Future->done()) {
             Future->resume();
         }
     }
 
     void destroy() override {
-        Future.reset();
+        Future->destroy();
     }
 
     bool await_ready() override {
@@ -173,9 +231,9 @@ struct TWrappedFuture : public ITypeErasedFuture {
         return Future->await_ready();
     }
 
-    void await_suspend(std::coroutine_handle<> caller) override {
+    void* await_suspend(void* caller) override {
         assert(Future);
-        Future->await_suspend(caller);
+        return Future->await_suspend(std::coroutine_handle<>::from_address(caller)).address();
     }
 
     void await_resume(void* result) override {
@@ -187,7 +245,7 @@ struct TWrappedFuture : public ITypeErasedFuture {
         }
     }
 
-    void* address() {
+    void* address() override {
         assert(Future);
         return Future->address();
     }
@@ -204,14 +262,31 @@ struct TTypeErasedAwaiter {
         return Future->await_ready();
     }
 
-    void await_suspend(std::coroutine_handle<> h) {
-        Future->await_suspend(h);
+    std::coroutine_handle<> await_suspend(std::coroutine_handle<> h) {
+        return std::coroutine_handle<>::from_address(Future->await_suspend(h.address()));
     }
 
     T await_resume() {
         T result;
         Future->await_resume(&result);
         return result;
+    }
+};
+
+template<>
+struct TTypeErasedAwaiter<void> {
+    ITypeErasedFuture* Future;
+
+    bool await_ready() {
+        return Future->await_ready();
+    }
+
+    std::coroutine_handle<> await_suspend(std::coroutine_handle<> h) {
+        return std::coroutine_handle<>::from_address(Future->await_suspend(h.address()));
+    }
+
+    void await_resume() {
+        Future->await_resume(nullptr);
     }
 };
 
@@ -222,24 +297,17 @@ TFuture<T> AwaitTypeErasedFuture(ITypeErasedFuture* erasedFuture) {
         ~TGuard() {
             if (Future) {
                 Future->destroy();
+                delete Future;
             }
         }
     } guard{ erasedFuture };
-    T result = co_await TTypeErasedAwaiter<T>{erasedFuture};
-    co_return result;
+    if constexpr(std::is_same_v<T, void>) {
+        co_await TTypeErasedAwaiter<void>{erasedFuture};
+        co_return;
+    } else {
+        T result = co_await TTypeErasedAwaiter<T>{erasedFuture};
+        co_return result;
+    }
 }
-
-extern "C" {
-
-// Assume module exports specific ITypeErasedFuture contructor for each TFuture<T> specialization
-void __qumir_future_destroy(ITypeErasedFuture* future);
-bool __qumir_future_done(ITypeErasedFuture* future);
-void __qumir_future_resume(ITypeErasedFuture* future);
-void* __qumir_future_address(ITypeErasedFuture* future);
-bool __qumir_future_await_ready(ITypeErasedFuture* future);
-void __qumir_future_await_suspend(ITypeErasedFuture* future, void* caller);
-void __qumir_future_await_resume(ITypeErasedFuture* future, void* result);
-
-};
 
 } // namespace NQumir

@@ -329,15 +329,15 @@ private:
             if (target == "ast") {
                 args = {"--ast", "-o", "-", "-"};
             } else if (target == "transformed-ast") {
-                args = {"--transformed-ast", "--async-code", "-o", "-", "-"};
+                args = {"--transformed-ast", "-o", "-", "-"};
             } else if (target == "ir") {
-                args = {"--ir", "--async-code", "-O" + std::to_string(olevel), "-o", "-", "-"};
+                args = {"--ir", "-O" + std::to_string(olevel), "-o", "-", "-"};
             } else if (target == "llvm") {
-                args = {"--llvm", "--async-code", "-O" + std::to_string(olevel), "-o", "-", "-"};
+                args = {"--llvm", "-O" + std::to_string(olevel), "-o", "-", "-"};
             } else if (target == "asm") {
-                args = {"-S", "--async-code", "-O" + std::to_string(olevel), "-o", "-", "-"};
+                args = {"-S", "-O" + std::to_string(olevel), "-o", "-", "-"};
             } else if (target == "wasm-text") {
-                args = {"--wasm", "--async-code", "-S", "-O" + std::to_string(olevel), "-o", "-", "-"};
+                args = {"--wasm", "-S", "-O" + std::to_string(olevel), "-o", "-", "-"};
             }
             if (coreInput && !args.empty()) {
                 args.insert(args.begin(), "--core");
@@ -384,7 +384,7 @@ private:
         std::string dst;
         std::string contentType = "application/wasm";
         dst = src + ".wasm";
-        args = {"--wasm", "--async-code", "-O" + std::to_string(olevel), "-o", dst, src};
+        args = {"--wasm", "-O" + std::to_string(olevel), "-o", dst, src};
         if (coreInput) {
             args.insert(args.begin(), "--core");
         }

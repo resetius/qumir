@@ -14,6 +14,7 @@
 #include <qumir/modules/colors/colors.h>
 #include <qumir/ir/passes/transforms/pipeline.h>
 
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 
@@ -73,7 +74,10 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
         std::cerr << "============================\n\n";
     }
 
-    auto error = NTransform::Pipeline(ast, Resolver);
+    auto error = NTransform::Pipeline(ast, Resolver,
+        NTransform::TPipelineOptions{
+            .EnableCoroutineAnalysis = true
+        });
     if (!error) {
         return std::unexpected(error.error());
     }
@@ -106,7 +110,6 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
         std::cerr << "============================\n\n";
     }
 
-    // Emit LLVM IR for the module
     NCodeGen::TLLVMCodeGen cg({});
     std::string err;
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> artifacts;

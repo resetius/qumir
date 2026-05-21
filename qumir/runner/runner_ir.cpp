@@ -76,7 +76,9 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
         std::cerr << "============================\n\n";
     }
 
-    auto error = NTransform::Pipeline(ast, Resolver);
+    auto error = NTransform::Pipeline(ast, Resolver, NTransform::TPipelineOptions{
+        .EnableCoroutineAnalysis = true
+    });
     if (!error) {
         return std::unexpected(error.error());
     }

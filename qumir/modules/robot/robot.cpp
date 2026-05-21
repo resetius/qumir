@@ -17,10 +17,9 @@ RobotModule::RobotModule()
         {
             .Name = "влево",
             .MangledName = "robot_left",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(robot_left)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)()>(robot_left)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                robot_left();
-                return 0;
+                return reinterpret_cast<uint64_t>(robot_left());
             },
             .ArgTypes = {},
             .ReturnType = voidType,
@@ -29,10 +28,9 @@ RobotModule::RobotModule()
         {
             .Name = "вправо",
             .MangledName = "robot_right",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(robot_right)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)()>(robot_right)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                robot_right();
-                return 0;
+                return reinterpret_cast<uint64_t>(robot_right());
             },
             .ArgTypes = {},
             .ReturnType = voidType,
@@ -41,10 +39,9 @@ RobotModule::RobotModule()
         {
             .Name = "вверх",
             .MangledName = "robot_up",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(robot_up)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)()>(robot_up)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                robot_up();
-                return 0;
+                return reinterpret_cast<uint64_t>(robot_up());
             },
             .ArgTypes = {},
             .ReturnType = voidType,
@@ -53,10 +50,9 @@ RobotModule::RobotModule()
         {
             .Name = "вниз",
             .MangledName = "robot_down",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(robot_down)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)()>(robot_down)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                robot_down();
-                return 0;
+                return reinterpret_cast<uint64_t>(robot_down());
             },
             .ArgTypes = {},
             .ReturnType = voidType,
@@ -65,10 +61,9 @@ RobotModule::RobotModule()
         {
             .Name = "закрасить",
             .MangledName = "robot_paint",
-            .Ptr = reinterpret_cast<void*>(static_cast<void(*)()>(robot_paint)),
+            .Ptr = reinterpret_cast<void*>(static_cast<ITypeErasedFuture*(*)()>(robot_paint)),
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                robot_paint();
-                return 0;
+                return reinterpret_cast<uint64_t>(robot_paint());
             },
             .ArgTypes = {},
             .ReturnType = voidType,

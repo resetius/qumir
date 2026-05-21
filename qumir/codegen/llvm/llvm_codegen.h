@@ -66,6 +66,7 @@ private:
     llvm::Value* GetOp(const NIR::TOperand& op, NIR::TModule& module);
     void CreateTargetMachine();
     void Optimize(int optLevel);
+    void RunCoroutinePasses();
 
     llvm::GlobalVariable* EnsureSlotGlobal(int64_t sidx, NIR::TModule& module);
 

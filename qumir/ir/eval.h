@@ -51,7 +51,7 @@ private:
     std::optional<std::string> DoEval(TFunction& function, std::vector<int64_t> args, TOptions options);
 
     TFuture<std::optional<std::string>> DoEvalAsync(TFunction& function, std::vector<int64_t> args, TOptions options);
-    void ProcessAsyncRuntimeEvents();
+    size_t ProcessAsyncRuntimeEvents();
 
     std::ostream& Out;
     std::istream& In;

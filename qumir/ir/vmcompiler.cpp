@@ -479,6 +479,14 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
 
                 break;
             }
+            case "await"_op: {
+                if (ins.Dest.Idx < 0) {
+                    out.Op = EVMOp::AwaitVoid;
+                } else {
+                    out.Op = EVMOp::Await;
+                }
+                break;
+            }
             case "ret"_op: {
                 if (ins.OperandCount == 0) {
                     out.Op = EVMOp::RetVoid;

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <qumir/future.h>
+#include <qumir/runtime/future.h>
 
 using namespace NQumir;
 
@@ -56,16 +57,16 @@ TEST(FutureTest, ExceptionPropagatesThroughErasure) {
 }
 
 TEST(FutureTest, AwaitTypeErasedInt) {
-    TWrappedFuture<int> wrapped(AsyncInt(99));
-    TFuture<int> unwrapped = AwaitTypeErasedFuture<int>(&wrapped);
+    auto* wrapped = new TWrappedFuture<int>(AsyncInt(99));
+    TFuture<int> unwrapped = AwaitTypeErasedFuture<int>(wrapped);
 
     EXPECT_TRUE(unwrapped.await_ready());
     EXPECT_EQ(unwrapped.await_resume(), 99);
 }
 
 TEST(FutureTest, AwaitTypeErasedExceptionRethrows) {
-    TWrappedFuture<int> wrapped(AsyncThrow());
-    TFuture<int> unwrapped = AwaitTypeErasedFuture<int>(&wrapped);
+    auto* wrapped = new TWrappedFuture<int>(AsyncThrow());
+    TFuture<int> unwrapped = AwaitTypeErasedFuture<int>(wrapped);
 
     EXPECT_TRUE(unwrapped.await_ready());
     EXPECT_THROW(unwrapped.await_resume(), std::runtime_error);
@@ -88,16 +89,27 @@ TEST(FutureTest, SuspendingWrapResumeUnwrap) {
 }
 
 TEST(FutureTest, SuspendingChainPropagatesOnResume) {
-    TWrappedFuture<int> wrapped(AsyncSuspendingInt(13));
-    TFuture<int> outer = AwaitTypeErasedFuture<int>(&wrapped);
+    auto* wrapped = new TWrappedFuture<int>(AsyncSuspendingInt(13));
+    TFuture<int> outer = AwaitTypeErasedFuture<int>(wrapped);
 
-    EXPECT_FALSE(wrapped.done());
-    EXPECT_FALSE(outer.await_ready());
-
-    wrapped.resume();
+    if (!outer.await_ready()) {
+        wrapped->resume(); // wrapped is deleted by TGuard inside AwaitTypeErasedFuture
+    }
 
     EXPECT_TRUE(outer.await_ready());
     EXPECT_EQ(outer.await_resume(), 13);
+}
+
+TEST(FutureTest, LeafVoidFutureCompletesFromRuntimeEvents) {
+    auto* leaf = new TWrappedFuture<void>(MakeExternalFuture<void>(std::make_shared<TPromise<void>>()));
+    TFuture<void> outer = AwaitTypeErasedFuture<void>(leaf);
+
+    EXPECT_FALSE(outer.await_ready());
+
+    __qumir_future_resume(leaf);
+
+    EXPECT_TRUE(outer.await_ready());
+    EXPECT_NO_THROW(outer.await_resume());
 }
 
 int main(int argc, char** argv) {

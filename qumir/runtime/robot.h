@@ -1,17 +1,21 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 
 namespace NQumir {
+struct ITypeErasedFuture;
+
 namespace NRuntime {
 
 extern "C" {
 
-void robot_left();
-void robot_right();
-void robot_up();
-void robot_down();
-void robot_paint();
+ITypeErasedFuture* robot_left();
+ITypeErasedFuture* robot_right();
+ITypeErasedFuture* robot_up();
+ITypeErasedFuture* robot_down();
+ITypeErasedFuture* robot_paint();
+size_t robot_process_events();
 
 bool robot_left_free();
 bool robot_right_free();
