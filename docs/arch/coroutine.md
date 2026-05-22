@@ -1,15 +1,15 @@
 # Coroutines
 
-This note describes the current coroutine pipeline: front-end typing,
-propagation, AST `await` insertion, IR lowering, LLVM coroutine lowering, and
-browser/WebAssembly execution.
-
-Coroutines are currently an LLVM/WASM execution feature. The classic VM runner
-does not execute coroutine IR yet.
+This note describes the coroutine pipeline: front-end typing, propagation,
+AST `await` insertion, IR lowering, LLVM coroutine lowering, VM eval execution,
+and browser/WebAssembly execution.
 
 ## Motivation
 
-Robot and Turtle commands may suspend so that the browser runtime can render movement step by step. In source code this should behave like a normal call, but after semantic analysis the AST must make suspension explicit:
+Robot, Turtle, and Painter commands may suspend so the browser runtime can
+render movement step by step, or so the VM can process async events between
+steps. In source code this behaves like a normal call. After semantic analysis
+the AST makes suspension explicit:
 
 ```text
 value := function()
@@ -21,15 +21,25 @@ where `function` is coroutine-typed becomes:
 value := await function()
 ```
 
-Physically, if a function calls a coroutine, the semantics are the same as `value = co_await function()`, and the caller also becomes a coroutine.
+Physically, if a function calls a coroutine it also becomes a coroutine
+(`co_await` semantics), and the caller is marked `Future<T>`-returning too.
+
+---
 
 ## Type model
 
-`Future<T>` is an AST-level type. It marks a function whose execution may suspend before producing `T`.
+`Future<T>` is an AST-level type. It marks a function whose execution may
+suspend before producing `T`.
 
-Runtime functions that can suspend are marked on their function declarations with `MaySuspend`. The coroutine annotation pass treats those functions as returning `Future<RetType>` for front-end typing purposes.
+Runtime functions that can suspend are marked on their function declarations
+with `MaySuspend`. The coroutine annotation pass treats those functions as
+returning `Future<RetType>` for front-end typing.
 
-User functions are not annotated as coroutine functions during normal type annotation. First, the ordinary type annotator assigns types without doing coroutine propagation. Then a separate transform pass rewrites coroutine types and call sites.
+User functions are not annotated as coroutines during normal type annotation.
+First the ordinary type annotator assigns types, then a separate transform
+pass rewrites coroutine types and call sites.
+
+---
 
 ## Pipeline
 
@@ -39,91 +49,152 @@ Coroutine annotation is part of the transform pipeline:
 2. Run type annotation.
 3. Run `PostTypeAnnotationTransform`.
 4. Run `CoroutineAnnotationTransform`.
-5. If either post-type transform changed the AST or function types, run name resolution, type annotation, and post-type transforms again.
+5. If anything changed, repeat name resolution and type annotation.
 
-This keeps the type annotator local: it does not discover coroutine functions by itself. It only understands the `Await` node once the transform has inserted it.
+This keeps the type annotator local: it only understands `TAwaitExpr` once
+the transform has inserted it.
 
 ## Propagation
 
-`CoroutineAnnotationTransform` builds a call graph for user functions and finds direct coroutine callers:
+`CoroutineAnnotationTransform` builds a call graph and marks direct coroutine
+callers:
 
-- a function directly calls a `MaySuspend` runtime function;
-- a function directly calls another function whose return type is already `Future<T>`.
+- a function calls a `MaySuspend` runtime function;
+- a function calls another function already returning `Future<T>`.
 
-The pass then propagates this mark backwards through the call graph. If `a` calls `b` and `b` is a coroutine, then `a` becomes a coroutine too. For every user function marked this way, the pass changes its return type from `T` to `Future<T>`.
-
-The pass is idempotent. If a return type is already `Future<T>`, it is not wrapped again.
+The mark propagates backwards. If `a` calls `b` and `b` is a coroutine,
+`a` becomes a coroutine too, and its return type changes from `T` to `Future<T>`.
 
 ## Await insertion
 
-Await is represented by a distinct AST node:
-
 ```cpp
-TAwaitExpr {
-    TExprPtr Operand;
-}
+TAwaitExpr { TExprPtr Operand; }
 ```
 
-The transform rewrites:
+The transform rewrites `(call f ...)` to `(await (call f ...))` when `f` is
+`MaySuspend` or returns `Future<T>`. On the next type annotation iteration,
+`AnnotateAwait` checks the operand has type `Future<T>` and sets the await
+expression type to `T`.
 
-```text
-(call f ...)
+---
+
+## Two-level API
+
+The coroutine system exposes two distinct API layers.
+
+---
+
+### Low-level API — `__qumir_coro_*`
+
+Provided by `EmitCoroutineRuntimeHelpers` (LLVM codegen). These are thin
+wrappers over LLVM coroutine intrinsics that cannot be called from outside an
+LLVM module. They operate directly on raw coroutine frame pointers.
+
+```c
+// 1 if the coroutine is at final suspend (resume function pointer is null)
+int   __qumir_coro_done        (void* frame);
+
+// Resume the coroutine from its current suspension point
+void  __qumir_coro_resume      (void* frame);
+
+// Free the coroutine frame memory
+void  __qumir_coro_destroy     (void* frame);
+
+// Address of the promise / result slot inside the frame (offset 0)
+void* __qumir_coro_promise_ptr (void* frame);
 ```
 
-to:
+These implement the **coroutine frame ABI** exposed by LLVM. They are the
+foundation on top of which higher-level abstractions such as `ITypeErasedFuture`
+and `TWrappedLLVMCoro` are built. Callers outside the runtime should not use
+them directly — use the high-level API below instead.
 
-```text
-(await (call f ...))
+---
+
+### High-level API — `__qumir_future_*`
+
+Built on top of the low-level API. All awaitable objects are represented as
+`ITypeErasedFuture*`. This interface is what compiled programs, executor
+runtimes, and the event loop all use. It must be implemented for every new
+awaitable type (external operations, child coroutines, etc.).
+
+```c
+// Lifetime
+void  __qumir_future_destroy      (ITypeErasedFuture* future);
+
+// Polling — used by executor event loops (process_events, JIT runner, JS loop)
+bool  __qumir_future_done         (ITypeErasedFuture* future);
+void  __qumir_future_resume       (ITypeErasedFuture* future);
+void* __qumir_future_address      (ITypeErasedFuture* future);
+
+// Await protocol — called from compiled program code (WASM coro / IR eval)
+bool  __qumir_future_await_ready  (ITypeErasedFuture* future);
+void* __qumir_future_await_suspend(ITypeErasedFuture* future, void* caller);
+void  __qumir_future_await_resume (ITypeErasedFuture* future, void* result);
+
+// Wrap a raw LLVM coroutine frame as an ITypeErasedFuture
+ITypeErasedFuture* __qumir_wrap_coro(void* frame, size_t result_size);
 ```
 
-when `f` is `MaySuspend` or has return type `Future<T>`.
+#### Who calls what
 
-During the next type annotation iteration, `AnnotateAwait` checks that the operand has type `Future<T>` and sets the await expression type to `T`. This is what allows assignments such as:
+**Executor side** (robot.js, turtle.js, painter.js; C++ `robot_process_events` etc.):
 
-```text
-цел value
-value := wrap()
-```
+- Creates `ITypeErasedFuture*` objects and returns them to the program when
+  an async operation is initiated (`robot_right()` returns a future).
+- Calls `__qumir_future_done` / `__qumir_future_resume` to drive the event
+  loop (C++ eval path).
 
-when `wrap` was rewritten to return `Future<Integer>` by propagation.
+**Program side** (the compiled Qumir program — WASM coroutine or IR eval):
+
+- Calls `__qumir_future_await_ready` to check whether the future is complete.
+- Calls `__qumir_future_await_suspend(future, caller)` to register the current
+  coroutine handle as the continuation and yield.
+- After resumption, calls `__qumir_future_await_resume(future, result_ptr)` to
+  extract the optional result.
+- Calls `__qumir_future_destroy` to release the future.
+
+**LLVM lowering** (`lowerAwaitFuture` / `LowerCoroutineFunction`):
+
+- Emits calls to the await protocol for every `await` IR instruction.
+- Calls `__qumir_wrap_coro(frame, size)` immediately after a `call` to a user
+  coroutine to wrap the raw frame in `ITypeErasedFuture*`, so the same await
+  path is used for both external operations and child coroutines.
+- Uses `__qumir_future_address(future)` to recover the child frame pointer
+  and read its result via `llvm.coro.promise` in the `afterBB` block.
+
+**Event loop** (C++ JIT runner, browser `app.js`):
+
+- Wraps the top-level entry coro frame with `__qumir_wrap_coro(rawHandle, 0)`.
+- Drives the loop through `__qumir_future_done`, `__qumir_future_resume`, and
+  `__qumir_future_destroy` exclusively — no direct use of the low-level API.
+
+---
 
 ## IR Lowering
 
-`Future<T>` does not become a low-level `Future` object in IR. It is an AST type
-only. During AST-to-IR lowering a coroutine function is represented as a normal
-IR function with a physical pointer return type:
+`Future<T>` is an AST-only type. During lowering a coroutine function is
+represented as a normal IR function with a physical pointer return type:
 
-- source/AST return type: `Future<T>`
-- IR function return type: `ptr<void>` coroutine handle
-- IR metadata on the function:
-  - `IsCoroutine = true`
-  - `CoroutineResultTypeId = IR type id of T`
+| Level | Value |
+|---|---|
+| Source / AST return type | `Future<T>` |
+| IR function return type | `ptr<void>` — the coroutine handle |
+| `IsCoroutine` flag | `true` |
+| `CoroutineResultTypeId` | IR type-id of `T` (void for `Future<void>`) |
 
-For `Future<void>`, `CoroutineResultTypeId` is `void` and the coroutine has no
-promise result payload. For `Future<Int>`, the function still physically returns
-the coroutine handle, while the `Int` result is stored in the coroutine promise
-and loaded by the awaiting parent after the child is complete.
-
-The AST lowerer recognizes `TAwaitExpr` before lowering the operand. It requires
-the operand to be a call, lowers the call arguments in the usual way, and emits
-IR opcode `await` instead of `call`.
-
-Regular call:
+The lowerer emits **two separate IR instructions** for every awaited call:
+a `call` that captures the returned `ITypeErasedFuture*`, followed by an
+`await` that drives the await protocol:
 
 ```text
 arg ...
-%tmp = call f
+%h = call f        ; returns ITypeErasedFuture* (ptr to void)
+await %h           ; drives await_ready/suspend/resume/destroy
 ```
 
-Awaited call:
-
-```text
-arg ...
-%tmp = await f
-```
-
-The `await` opcode is illegal in regular LLVM lowering. It must appear only in a
-function marked `IsCoroutine`, and it is consumed by `LowerCoroutineFunction`.
+The `await` opcode is illegal in non-coroutine functions. It is consumed by
+the LLVM and VM backends.
 
 ### IR Example
 
@@ -140,16 +211,19 @@ Source:
 кон
 ```
 
-With `--async-code`, robot actions are `MaySuspend`, so `квадрат` becomes a
-coroutine. The printed IR looks like this, shortened:
+Robot actions are `MaySuspend`, so `квадрат` becomes a coroutine.
+Printed IR (shortened):
 
 ```text
 function квадрат () { ; ptr to void coroutine result void
   block {
     label: label(0)
-    await закрасить
-    await вправо
-    await закрасить
+    call tmp(0,ptr to void) = закрасить
+    await tmp(0,ptr to void)
+    call tmp(1,ptr to void) = вправо
+    await tmp(1,ptr to void)
+    call tmp(2,ptr to void) = закрасить
+    await tmp(2,ptr to void)
     jmp label(1)
   }
   block {
@@ -159,241 +233,298 @@ function квадрат () { ; ptr to void coroutine result void
 }
 ```
 
-The comment means:
+The comment `; ptr to void coroutine result void` means:
+- physical return type: `ptr to void` (the coroutine handle)
+- result type stored in the promise: `void`
 
-- physical function return: `ptr to void`
-- coroutine promise/result type: `void`
+For `Future<Int>` the result metadata would be `Int` instead of `void`.
 
-If the function returned `Future<Int>`, the physical return would still be
-`ptr<void>`, but the comment/result metadata would identify the coroutine result
-as `Int`.
+---
 
 ## LLVM Lowering
 
 `TLLVMCodeGen::LowerFunction` dispatches coroutine functions to
-`LowerCoroutineFunction`. Coroutine functions are emitted with
-`presplitcoroutine` and use LLVM coroutine intrinsics directly:
+`LowerCoroutineFunction`. Coroutine frames are allocated via `array_create`
+(same allocator as Qumir arrays), which keeps the JS runtime import list
+minimal.
 
-- `llvm.coro.id`
-- `llvm.coro.size.i32`
-- `llvm.coro.begin`
-- `llvm.coro.suspend`
-- `llvm.coro.end`
-- `llvm.coro.free`
-- `llvm.coro.promise`
-- `llvm.coro.done`
-- `llvm.coro.resume`
-- `llvm.coro.destroy`
+The central piece is `lowerAwaitFuture`, which emits the await protocol for
+**both** external futures (robot/turtle/painter) and wrapped child coroutines
+using the same `__qumir_future_*` imports. No special cases at the LLVM level.
 
-LLVM supports several coroutine lowering conventions / ABIs. Qumir uses LLVM's
-**standard switched-resume lowering**: it is selected by emitting
-`llvm.coro.id`, the same family of intrinsics used for the C++ coroutine-style
-handle/resume/destroy model. In this convention the coroutine invocation is
-represented by a coroutine object / frame handle, and LLVM creates shared
-resume and destroy functions that switch on the stored suspend index.
+### `lowerAwaitFuture` — the unified await loop
 
-The other LLVM coroutine lowerings are not used here:
-
-- returned-continuation lowering, selected by `llvm.coro.id.retcon` or
-  `llvm.coro.id.retcon.once`;
-- async lowering, selected by `llvm.coro.id.async`.
-
-Frame memory is allocated through the existing runtime allocation API:
+For every `await %h` instruction, the following LLVM IR is emitted:
 
 ```llvm
-%size = call i32 @llvm.coro.size.i32()
-%alloc.size = zext i32 %size to i64
-%alloc = call ptr @array_create(i64 %alloc.size)
-%handle = call ptr @llvm.coro.begin(token %id, ptr %alloc)
-```
+; %future holds the ITypeErasedFuture* from the preceding call instruction
 
-Cleanup uses `llvm.coro.free` and `array_destroy`:
+await.check.N:
+  %ready = call i1 @__qumir_future_await_ready(ptr %future)
+  br i1 %ready, label %after.await.N, label %await.suspend.N
 
-```llvm
-%mem = call ptr @llvm.coro.free(token %id, ptr %handle)
-call void @array_destroy(ptr %mem)
-```
-
-This keeps coroutine frames on the same allocation path as arrays, so the JS
-runtime does not need a separate `malloc/free` import for coroutine frames.
-
-### Awaiting External Suspend Actions
-
-External executor functions marked `MaySuspend` are still imported as ordinary
-void host calls at the low level. The suspension is inserted around the call by
-the compiler.
-
-For an awaited robot action, lowering emits:
-
-```llvm
-call void @robot_paint()
-%s = call i8 @llvm.coro.suspend(token none, i1 false)
-switch i8 %s, label %suspend [
-  i8 0, label %after.await.N
-  i8 1, label %cleanup
-]
-```
-
-So the command is executed first, then the coroutine yields back to JavaScript.
-This is why the browser can render the already-applied robot/turtle/painter
-state after each suspension.
-
-### Awaiting Child Coroutines
-
-When `await` targets another user coroutine, lowering calls the child coroutine
-to get its handle, then repeatedly resumes it until `llvm.coro.done(child)` is
-true. After each child resume, the parent suspends too:
-
-```llvm
-%child = call ptr @child(...)
-br label %await.child.cond
-
-await.child.cond:
-  %done = call i1 @llvm.coro.done(ptr %child)
-  br i1 %done, label %after.await, label %await.child.resume
-
-await.child.resume:
-  call void @llvm.coro.resume(ptr %child)
+await.suspend.N:
+  call ptr @__qumir_future_await_suspend(ptr %future, ptr %coro.handle)
   %s = call i8 @llvm.coro.suspend(token none, i1 false)
   switch i8 %s, label %suspend [
-    i8 0, label %await.child.cond
+    i8 0, label %await.check.N     ; resumed → re-check
     i8 1, label %cleanup
   ]
+
+after.await.N:
+  ; for non-void result:
+  %child.handle  = call ptr  @__qumir_future_address(ptr %future)
+  %child.promise = call ptr  @llvm.coro.promise(ptr %child.handle, i32 0, i1 false)
+  %result        = load <T>, ptr %child.promise
+  ; for void result: nothing to load
+  call void @__qumir_future_await_resume(ptr %future, ptr null)
+  call void @__qumir_future_destroy(ptr %future)
 ```
 
-If the child has a non-void result, the parent reads it from the child promise:
+`__qumir_future_await_suspend` stores `%coro.handle` as the continuation
+(`Caller`) inside the future. When the executor resolves the future it calls
+`__qumir_future_resume` which fires `ResumeCaller`, resuming the coroutine at
+`await.check.N`.
+
+### Child coroutine wrapping
+
+When a `call` instruction targets a user coroutine (`IsCoroutine = true`),
+`LowerCoroutineFunction` wraps the raw frame pointer immediately after the
+call:
 
 ```llvm
-%promise = call ptr @llvm.coro.promise(ptr %child, i32 0, i1 false)
-%result = load <T>, ptr %promise
+%raw    = call ptr @child(...)                        ; raw coro frame
+%future = call ptr @__qumir_wrap_coro(ptr %raw, i64 <result_bytes>)
+; %future is ITypeErasedFuture* — fed to the following await
 ```
 
-Then the child is destroyed:
+`TWrappedLLVMCoro` (returned by `__qumir_wrap_coro`) implements
+`ITypeErasedFuture` using `std::coroutine_handle<>`, which is ABI-compatible
+with LLVM coroutine frames. Its `await_suspend` drives the child one step
+and returns `noop`, so the parent polls by looping back to `await.check.N`.
 
-```llvm
-call void @llvm.coro.destroy(ptr %child)
-```
+### Coroutine frame helpers (`__qumir_coro_*`)
 
-### Returning Values
-
-Coroutine return values are not returned through the physical LLVM function
-return. The physical return is always the coroutine handle. On `ret value`, the
-lowerer stores `value` into the promise slot and branches to final suspend.
-
-Final suspend is emitted with `isFinal = true`:
-
-```llvm
-%sf = call i8 @llvm.coro.suspend(token none, i1 true)
-switch i8 %sf, label %suspend [
-  i8 0, label %suspend
-  i8 1, label %cleanup
-]
-```
-
-After final suspend, `llvm.coro.done(handle)` becomes true.
-
-### Coroutine Passes
-
-LLVM coroutine intrinsics must be split before object/WASM code emission. In the
-compiler driver path, coroutine modules run this LLVM pass pipeline:
+`EmitCoroutineRuntimeHelpers` generates four thin wrapper functions:
 
 ```text
-coro-early,coro-split,coro-elide,coro-cleanup
+__qumir_coro_done(ptr)        -> i32   ; llvm.coro.done
+__qumir_coro_resume(ptr)      -> void  ; llvm.coro.resume
+__qumir_coro_destroy(ptr)     -> void  ; llvm.coro.destroy
+__qumir_coro_promise_ptr(ptr) -> ptr   ; llvm.coro.promise(h, i32 0, i1 false)
 ```
 
-`coro-split` requires optimization infrastructure. The compiler driver
-automatically bumps the effective optimization level from `O0` to `O1` when the
-IR module contains coroutine functions.
+These are **not part of the public C API**. They exist solely because
+`llvm.coro.*` are LLVM intrinsics that cannot be called directly from outside
+the LLVM module — neither from C++ nor from JavaScript. The wrappers bridge
+that gap:
 
-## WebAssembly Output
+- `TWrappedLLVMCoro` (the `__qumir_wrap_coro` result) uses
+  `std::coroutine_handle<>` which calls the coro's resume/destroy function
+  pointer directly through the C++ coroutine ABI, so it does **not** need
+  these wrappers.
+- The browser `future.js` uses them when implementing `__qumir_wrap_coro`
+  as a JS import: it stores the raw coro frame pointer and must call back
+  into WASM to check completion or extract the result.
 
-LLVM's coroutine passes lower the coroutine into a frame and generated resume /
-destroy functions. In the optimized output the public Qumir coroutine function
-returns a pointer to the frame:
+In the C++ JIT runner the public `__qumir_future_*` API is used throughout.
+The raw coro frame returned by the entry function is immediately wrapped via
+`__qumir_wrap_coro`, and the event loop drives it through
+`__qumir_future_done`, `__qumir_future_resume`, and `__qumir_future_destroy`
+without ever touching `__qumir_coro_*`.
+
+### Returning values
+
+The physical LLVM function always returns the coroutine handle. On `ret value`,
+the lowerer stores `value` into the promise alloca and branches to final
+suspend:
 
 ```llvm
-define ptr @main() {
-entry:
-  %frame = call ptr @array_create(i64 <frame-size>)
-  store ptr @main.resume, ptr %frame
-  store ptr @main.destroy, ptr <destroy-slot>
-  call void @robot_paint()
-  store <state> ..., ptr <state-slot>
-  ret ptr %frame
-}
+store <T> %val, ptr %coro.promise
+br label %final
+final:
+  %sf = call i8 @llvm.coro.suspend(token none, i1 true)
+  ...
 ```
 
-The exact frame layout is LLVM-owned. Conceptually it contains:
+After final suspend `__qumir_coro_done(handle)` returns true and the parent
+can read the result via `__qumir_coro_promise_ptr(handle)`.
 
-- resume function pointer
-- destroy function pointer
-- suspend-state index
-- spilled locals / temporaries
-- optional promise storage
+### Coroutine passes
 
-On `wasm32`, function pointers are represented through the WebAssembly function
-table. The compiler also emits stable helper exports so JavaScript does not need
-to know the frame layout:
+LLVM coroutine intrinsics must be split before code emission:
 
 ```text
-__qumir_is_coroutine  ; exported sentinel global
-__qumir_coro_done(ptr) -> i32
-__qumir_coro_resume(ptr) -> void
-__qumir_coro_destroy(ptr) -> void
+coro-early, coro-split, coro-elide, coro-cleanup
 ```
 
-The sentinel is emitted if the module contains at least one coroutine function.
-The JS runtime uses it to decide whether the entry point must be driven as a
-coroutine.
+These passes run automatically:
+- at `O1+` as part of the full optimization pipeline;
+- at `O0` via a dedicated `RunCoroutinePasses()` call whenever the module
+  contains coroutine functions.
 
-## Browser Runtime
+This ensures the JIT and AOT paths both receive lowered (non-intrinsic) IR.
 
-The browser compiles with `--async-code` and instantiates the WASM module as
-usual. After choosing the exported entry function, `runWasm` calls
-`shouldRunWasmCoroutine`.
+---
 
-Coroutine execution is:
+## VM / Eval Path
 
-```javascript
-const handle = entryFn(...args);
+The IR interpreter (`TInterpreter`) handles coroutines through a C++-coroutine
+event loop. `DoEvalAsync` is itself a C++ coroutine: it runs the instruction
+loop and, when it encounters `EVMOp::AwaitVoid` or `EVMOp::Await`, suspends
+via `co_await AwaitTypeErasedFuture<T>(future)`.
 
-while (!__qumir_coro_done(handle) && !stopRequested) {
-  __qumir_coro_resume(handle);
-  renderStep();
-  await sleep(animationDelay);
+`DoEval` drives it:
+
+```cpp
+auto future = DoEvalAsync(function, args, options);
+while (!future.done()) {
+    size_t processed = ProcessAsyncRuntimeEvents();
+    assert(processed > 0 && "coroutine suspended with no pending async events");
+}
+ProcessAsyncRuntimeEvents(); // flush batched calls
+```
+
+`ProcessAsyncRuntimeEvents` calls:
+
+```cpp
+robot_process_events()   // resolves pending robot futures, resumes coroutine
+turtle_process_events()  // same for turtle
+painter_process_events() // same for painter
+```
+
+Each `process_events` function calls the action callback, then calls
+`__qumir_future_resume(future)` on the associated future, which triggers
+`ResumeCaller` and resumes `DoEvalAsync` directly through the C++ coroutine
+chain. The eval loop never calls `DoEvalAsync.resume()` explicitly; all
+advancement happens inside `process_events`.
+
+---
+
+## WebAssembly / Browser Runtime
+
+### Await protocol imports
+
+In the WASM build, `__qumir_future_*` and `__qumir_wrap_coro` are **JS
+imports** (implemented in `service/static/runtime/future.js`). They never
+enter the WASM binary as C++ code. The WASM binary only exports the
+`__qumir_coro_*` helpers.
+
+`future.js` maintains a JS-managed future table. All handles are negative
+`i32` values (analogous to how `string.js` uses negative handles for JS
+strings). Two kinds:
+
+| Kind | Entry fields | Created by |
+|---|---|---|
+| JS-created | `{ caller, done }` | robot/turtle/painter JS imports |
+| Wrapped child coro | `{ caller, done, coroPtr, resultSize }` | `__qumir_wrap_coro` |
+
+Robot, turtle, and painter JS functions (e.g. `robot_right()`) now return a
+JS future handle instead of `void`. The WASM coroutine calls the await
+protocol imports on that handle exactly as on the native side.
+
+### JS-side await protocol
+
+```js
+// future.js — exports (become WASM env imports)
+
+__qumir_future_await_ready(h)        // → TABLE.get(h).done (or coro.done for child)
+__qumir_future_await_suspend(h, caller) // stores caller; drives child one step
+__qumir_future_await_resume(h, ptr)  // copies child result bytes if needed
+__qumir_future_destroy(h)            // destroys child coro, removes from TABLE
+__qumir_future_address(h)            // returns coroPtr (for llvm.coro.promise)
+__qumir_wrap_coro(wasm_ptr, size)    // allocates TABLE entry, returns negative handle
+```
+
+`resolveFuture(h)` is called by the executor (robot.js etc.) when an
+operation completes: it sets `done = true` and calls
+`wasm.__qumir_coro_resume(entry.caller)` to resume the waiting WASM coroutine.
+
+### Browser event loop
+
+The event loop follows exactly the same pattern as the C++ JIT runner: the raw
+coro frame returned by `entryFn` is immediately wrapped, and all further
+operations go through the public `__qumir_future_*` API.
+
+```js
+futureEnv.__resetFutures();
+
+const rawHandle = entryFn(...args);
+const future    = futureEnv.__qumir_wrap_coro(rawHandle, 0);
+
+while (!futureEnv.__qumir_future_done(future) && !stopRequested) {
+  if (futureEnv.hasPendingOp()) {
+    // Execute the next JS-side action, then resolve its future.
+    // resolveFuture() calls __qumir_coro_resume(caller) internally,
+    // advancing the WASM coro to the next await or completion.
+    const { h, execute } = futureEnv.shiftPendingOp();
+    execute();
+    futureEnv.resolveFuture(h);
+  } else {
+    // No pending external op: parent may be polling a child coro.
+    futureEnv.__qumir_future_resume(future);
+  }
+
+  renderStep();       // robot field / turtle canvas / painter canvas
+  await sleep(delay); // animation pacing; 0 = batch mode
 }
 
-__qumir_coro_destroy(handle);
+futureEnv.__qumir_future_destroy(future);
 ```
 
-The actual implementation uses exported helpers:
+For child coroutines (`__qumir_wrap_coro`), `__qumir_future_await_suspend`
+drives the child one step. The parent suspends. When the child's own async
+operations are resolved via `resolveFuture`, the child advances. The parent
+polls by re-entering via `__qumir_future_resume(future)` in the `else` branch.
 
-- `__qumir_coro_done(handle)` checks final suspend;
-- `__qumir_coro_resume(handle)` resumes execution until the next suspend;
-- `__qumir_coro_destroy(handle)` releases the coroutine frame.
+### Sentinel and WASM exports
 
-For Robot, the runtime also enables coroutine mode in `robot.js`. In coroutine
-mode robot history replay is disabled because the browser is rendering the real
-execution state after each suspend, not replaying a recorded history.
+The sentinel global `__qumir_is_coroutine` is emitted whenever the module
+contains at least one coroutine function. `runWasmCoroutine` checks for it to
+decide the execution path.
 
-For animated executors:
+WASM exports available to JS:
 
-- Robot and Turtle return their configured animation delay;
-- Painter currently uses frame boundaries such as `новый лист` as suspend
-  points and returns a frame delay;
-- if delay is zero, the runner batches resumes and yields to the browser
-  periodically with `setTimeout(..., 0)` so long runs do not freeze the tab.
+```text
+__qumir_is_coroutine       ; exported i32 constant = 1
+__qumir_coro_done(ptr)     → i32    ; 1 if coroutine is at final suspend
+__qumir_coro_resume(ptr)   → void   ; resume from current suspension point
+__qumir_coro_destroy(ptr)  → void   ; free the coroutine frame
+__qumir_coro_promise_ptr(ptr) → ptr ; address of the promise/result slot
+```
 
-Stopping execution sets the stop flag. The loop exits at the next suspension,
-destroys the coroutine handle, and renders the final visible state.
+---
 
-## Current Limitations
+## Summary
 
-- VM execution for coroutine IR is not implemented.
-- Low-level `await` is currently LLVM-codegen-only.
-- Awaited external suspend actions are expected to be void-returning host
-  calls. Non-void coroutine values are supported for user coroutine calls via
-  the promise path.
-- JS intentionally uses compiler-exported helpers instead of reading coroutine
-  frame fields directly. This keeps the browser side independent from LLVM's
-  exact frame layout.
+### High-level API — use this everywhere
+
+| Function | Purpose | Called by |
+|---|---|---|
+| `__qumir_future_await_ready` | Is the future complete? | Compiled program |
+| `__qumir_future_await_suspend` | Store caller handle, yield | Compiled program |
+| `__qumir_future_await_resume` | Extract optional result | Compiled program |
+| `__qumir_future_destroy` | Release the future object | Compiled program |
+| `__qumir_future_address` | Get underlying coro frame ptr (for result extraction) | LLVM lowering |
+| `__qumir_future_done` | Poll for completion | Executor event loops |
+| `__qumir_future_resume` | Drive future one step / resolve | Executor event loops |
+| `__qumir_wrap_coro` | Wrap raw coro frame in `ITypeErasedFuture*` | LLVM lowering, event loops |
+
+### Low-level API — LLVM-provided, for implementors only
+
+These are thin wrappers over LLVM coroutine intrinsics generated by
+`EmitCoroutineRuntimeHelpers`. They implement the raw **coroutine frame ABI**
+and are used to build `ITypeErasedFuture` implementations such as
+`TWrappedLLVMCoro`. Direct callers outside the runtime should not exist —
+use the high-level API instead.
+
+| Function | Purpose |
+|---|---|
+| `__qumir_coro_done(frame)` | 1 if frame is at final suspend (resume fn ptr is null) |
+| `__qumir_coro_resume(frame)` | Resume coro from current suspension point |
+| `__qumir_coro_destroy(frame)` | Free the coro frame allocation |
+| `__qumir_coro_promise_ptr(frame)` | Address of the result/promise slot in the frame |
+
+Currently `__qumir_coro_*` are only called from inside `future.js` (the
+WASM/JS bridge that implements `__qumir_wrap_coro` and the await protocol as
+JS functions).
