@@ -392,45 +392,58 @@ function moveBy(dist) {
   scheduleAutoFit();
 }
 
+// JS future runtime — set by __bindFutureRuntime from app.js.
+let __futureRuntime = null;
+export function __bindFutureRuntime(fr) { __futureRuntime = fr; }
+
+function _turtleOp(execute) {
+  if (!__futureRuntime) { execute(); return 0; }
+  const h = __futureRuntime.allocFuture();
+  __futureRuntime.enqueuePendingOp({ h, execute });
+  return h;
+}
+
 export function turtle_pen_up() {
-  state.penDown = false;
+  return _turtleOp(() => { state.penDown = false; scheduleDraw(); });
 }
 
 export function turtle_pen_down() {
-  state.penDown = true;
+  return _turtleOp(() => { state.penDown = true; scheduleDraw(); });
 }
 
 export function turtle_forward(d) {
-  moveBy(Number(d) || 0);
+  const dist = Number(d) || 0;
+  return _turtleOp(() => { moveBy(dist); });
 }
 
 export function turtle_backward(d) {
-  moveBy(- (Number(d) || 0));
+  const dist = Number(d) || 0;
+  return _turtleOp(() => { moveBy(-dist); });
 }
 
 export function turtle_turn_left(deg) {
-  state.ang = (state.ang + (Number(deg) || 0)) % 360;
-  scheduleDraw();
+  const angle = Number(deg) || 0;
+  return _turtleOp(() => { state.ang = (state.ang + angle) % 360; scheduleDraw(); });
 }
 
 export function turtle_turn_right(deg) {
-  state.ang = (state.ang - (Number(deg) || 0)) % 360;
-  scheduleDraw();
+  const angle = Number(deg) || 0;
+  return _turtleOp(() => { state.ang = (state.ang - angle) % 360; scheduleDraw(); });
 }
 
 export function turtle_save_state() {
-  savedStack.push({ x: state.x, y: state.y, ang: state.ang, penDown: state.penDown });
+  return _turtleOp(() => {
+    savedStack.push({ x: state.x, y: state.y, ang: state.ang, penDown: state.penDown });
+  });
 }
 
 export function turtle_restore_state() {
-  if (!savedStack.length) return;
-  const s = savedStack.pop();
-  state.x = s.x;
-  state.y = s.y;
-  state.ang = s.ang;
-  state.penDown = s.penDown;
-  // Do not modify path; restoring position is instantaneous without drawing.
-  scheduleDraw();
+  return _turtleOp(() => {
+    if (!savedStack.length) return;
+    const s = savedStack.pop();
+    state.x = s.x; state.y = s.y; state.ang = s.ang; state.penDown = s.penDown;
+    scheduleDraw();
+  });
 }
 
 // Animation delay for coroutine step pacing (ms between resume steps).

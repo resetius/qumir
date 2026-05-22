@@ -500,16 +500,26 @@ export function painter_fill(x, y) {
 
 // ── Sheet management ──────────────────────────────────────────────────────────
 
+// JS future runtime — set by __bindFutureRuntime from app.js.
+let __futureRuntime = null;
+export function __bindFutureRuntime(fr) { __futureRuntime = fr; }
+
 export function painter_new_sheet(w, h, color) {
   const sw = Number(w), sh = Number(h);
-  if (sw <= 0 || sh <= 0 || sw > 32767 || sh > 32767) return;
-  if (offscreen && hasDrawnSinceSheet) {
-    drawNow();
-    pendingSheet = { w: sw, h: sh, color };
-    hasDrawnSinceSheet = false;
-    return;
-  }
-  applySheet(sw, sh, color);
+  const execute = () => {
+    if (sw <= 0 || sh <= 0 || sw > 32767 || sh > 32767) return;
+    if (offscreen && hasDrawnSinceSheet) {
+      drawNow();
+      pendingSheet = { w: sw, h: sh, color };
+      hasDrawnSinceSheet = false;
+    } else {
+      applySheet(sw, sh, color);
+    }
+  };
+  if (!__futureRuntime) { execute(); return 0; }
+  const hf = __futureRuntime.allocFuture();
+  __futureRuntime.enqueuePendingOp({ h: hf, execute });
+  return hf;
 }
 
 export function __flushPainter() {

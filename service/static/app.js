@@ -1898,10 +1898,6 @@ function ensureRobotUI() {
 }
 
 function hideRobotUI() {
-  // Stop any running animation
-  if (__robotModule && typeof __robotModule.__stopAnimation === 'function') {
-    __robotModule.__stopAnimation();
-  }
   if (__robotCanvas) __robotCanvas.style.display = 'none';
   // Also hide toggle and restore text output
   if (__turtleToggle) __turtleToggle.style.display = 'none';
@@ -2478,12 +2474,16 @@ async function runWasm() {
     const stringEnv = await import('./runtime/string.js');
     const arrayEnv = await import('./runtime/array.js');
     const complexEnv = await import('./runtime/complex.js');
+    const futureEnv = await import('./runtime/future.js');
     if (!__turtleModule)  { try { __turtleModule  = await import('./runtime/turtle.js');  } catch {} }
     if (!__robotModule)   { try { __robotModule   = await import('./runtime/robot.js');   } catch {} }
     if (!__drawerModule)  { try { __drawerModule  = await import('./runtime/drawer.js');  } catch {} }
     if (!__painterModule) { try { __painterModule = await import('./runtime/painter.js'); } catch {} }
     if (!__colorsModule)  { try { __colorsModule  = await import('./runtime/colors.js');  } catch {} }
-    const env = { ...mathEnv, ...ioEnv, ...stringEnv, ...arrayEnv, ...complexEnv, ...(__turtleModule || {}), ...(__robotModule || {}), ...(__drawerModule || {}), ...(__painterModule || {}), ...(__colorsModule || {}) };
+    const env = { ...mathEnv, ...ioEnv, ...stringEnv, ...arrayEnv, ...complexEnv,
+                  ...futureEnv,
+                  ...(__turtleModule || {}), ...(__robotModule || {}), ...(__drawerModule || {}),
+                  ...(__painterModule || {}), ...(__colorsModule || {}) };
     const imports = { env };
     const { instance, module } = await WebAssembly.instantiate(bytes, imports);
     const mem = instance.exports && instance.exports.memory;
@@ -2499,6 +2499,18 @@ async function runWasm() {
     if (mem && typeof complexEnv.__bindMemory === 'function') {
       complexEnv.__bindMemory(mem);
     }
+    // Bind WASM exports to future runtime (needed for __qumir_wrap_coro child coro ops)
+    if (typeof futureEnv.__bindWasm === 'function') {
+      futureEnv.__bindWasm(instance.exports);
+    }
+    if (mem && typeof futureEnv.__bindMemory === 'function') {
+      futureEnv.__bindMemory(mem);
+    }
+    // Give robot/turtle/painter modules access to the JS future runtime
+    if (__robotModule   && typeof __robotModule.__bindFutureRuntime   === 'function') __robotModule.__bindFutureRuntime(futureEnv);
+    if (__turtleModule  && typeof __turtleModule.__bindFutureRuntime  === 'function') __turtleModule.__bindFutureRuntime(futureEnv);
+    if (__painterModule && typeof __painterModule.__bindFutureRuntime === 'function') __painterModule.__bindFutureRuntime(futureEnv);
+
     // Bind string runtime to drawer module for text handling
     if (__drawerModule && typeof __drawerModule.__bindStringRuntime === 'function') {
       __drawerModule.__bindStringRuntime(stringEnv);
@@ -2609,10 +2621,6 @@ async function runWasm() {
           }
         );
       }
-      // Stop any running animation before starting new execution
-      if (typeof __robotModule.__stopAnimation === 'function') {
-        __robotModule.__stopAnimation();
-      }
       if (typeof __robotModule.__initRobotField === 'function') {
         __robotModule.__initRobotField();
       }
@@ -2659,7 +2667,7 @@ async function runWasm() {
             usesPainter
           });
           const res = runAsCoroutine
-            ? await runWasmCoroutine({ instance, entryFn: fn, args: parsed, usesRobot, usesTurtle, usesPainter })
+            ? await runWasmCoroutine({ instance, entryFn: fn, args: parsed, usesRobot, usesTurtle, usesPainter, futureEnv })
             : fn(...parsed);
           const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
           const elapsedUs = Math.round((t1 - t0) * 1000);
@@ -2691,40 +2699,9 @@ async function runWasm() {
       stdoutEl.textContent += "\n";
       stdoutEl.textContent += out;
     }
-    // Update robot field display after execution with animation
+    // Render final robot field state
     if (__compilerOutputMode === 'robot' && __robotModule) {
-      if (runAsCoroutine) {
-        // Coroutine mode: field was already rendered after each step; just ensure final state is visible
-        renderRobotField();
-      } else {
-        // Set render callback for animation
-        if (typeof __robotModule.__setRenderCallback === 'function') {
-          __robotModule.__setRenderCallback(renderRobotField);
-        }
-        // Check animation settings from UI
-        const animEnabled = getCookie('q_robot_anim') !== '0';
-
-        // Check if there's history to animate
-        if (animEnabled && typeof __robotModule.__hasHistory === 'function' && __robotModule.__hasHistory() &&
-            typeof __robotModule.__getHistoryLength === 'function' && __robotModule.__getHistoryLength() > 1) {
-          // Apply animation speed
-          const speedVal = getCookie('q_robot_speed');
-          if (typeof __robotModule.__setAnimationDelay === 'function') {
-            __robotModule.__setAnimationDelay(300 - parseInt(speedVal || '150', 10));
-          }
-          // Replay with animation - error will be shown after animation completes
-          __robotModule.__replayHistory((deferredError) => {
-            // Animation complete - show deferred error if any
-            if (deferredError) {
-              stdoutEl.textContent = deferredError;
-              stdoutEl.classList.add('error');
-            }
-          });
-        } else {
-          // No animation - just render final state
-          renderRobotField();
-        }
-      }
+      renderRobotField();
     }
 
     // Show success info in errors pane
@@ -2769,31 +2746,9 @@ async function runWasm() {
       }];
       addErrorHighlights(errors);
       window.__hasRuntimeErrors = true;
-    }    // For robot errors, handle animation
+    }    // Render robot field at the point where the error occurred
     if (__compilerOutputMode === 'robot' && __robotModule) {
-      if (runAsCoroutine) {
-        // Coroutine mode: field is at the point where the error occurred
-        renderRobotField();
-      } else {
-        const animEnabled = getCookie('q_robot_anim') !== '0';
-        const hasHistory = typeof __robotModule.__hasHistory === 'function' && __robotModule.__hasHistory();
-        const historyLen = typeof __robotModule.__getHistoryLength === 'function' ? __robotModule.__getHistoryLength() : 0;
-
-        if (animEnabled && hasHistory && historyLen > 1) {
-          if (typeof __robotModule.__setRenderCallback === 'function') {
-            __robotModule.__setRenderCallback(renderRobotField);
-          }
-          const speedVal = getCookie('q_robot_speed');
-          if (typeof __robotModule.__setAnimationDelay === 'function') {
-            __robotModule.__setAnimationDelay(300 - parseInt(speedVal || '150', 10));
-          }
-          __robotModule.__replayHistory(() => {
-            // Animation complete - error already shown in errors pane
-          });
-        } else {
-          renderRobotField();
-        }
-      }
+      renderRobotField();
     }
   }
 }
@@ -2820,69 +2775,67 @@ function shouldRunWasmCoroutine({ instance, returnType, algType, usesRobot, uses
     && (usesRobot || usesTurtle || usesDrawer || usesPainter);
 }
 
-async function runWasmCoroutine({ instance, entryFn, args, usesRobot, usesTurtle, usesPainter }) {
+async function runWasmCoroutine({ instance, entryFn, args, usesRobot, usesTurtle, usesPainter, futureEnv }) {
   const exports = instance && instance.exports;
-  const coroDone = exports && exports.__qumir_coro_done;
-  const coroResume = exports && exports.__qumir_coro_resume;
+  const coroDone    = exports && exports.__qumir_coro_done;
+  const coroResume  = exports && exports.__qumir_coro_resume;
   const coroDestroy = exports && exports.__qumir_coro_destroy;
   if (typeof coroDone !== 'function' || typeof coroResume !== 'function' || typeof coroDestroy !== 'function') {
     throw new Error('Coroutine execution requires __qumir_coro_done/resume/destroy exports');
   }
 
   const getStepDelay = () => {
-    if (usesRobot && __robotModule && typeof __robotModule.__getAnimationDelay === 'function') {
-      return __robotModule.__getAnimationDelay();
-    }
-    if (usesTurtle && __turtleModule && typeof __turtleModule.__getAnimationDelay === 'function') {
-      return __turtleModule.__getAnimationDelay();
-    }
-    if (usesPainter && __painterModule && typeof __painterModule.__getAnimationDelay === 'function') {
-      return __painterModule.__getAnimationDelay();
-    }
+    if (usesRobot   && __robotModule   && typeof __robotModule.__getAnimationDelay   === 'function') return __robotModule.__getAnimationDelay();
+    if (usesTurtle  && __turtleModule  && typeof __turtleModule.__getAnimationDelay  === 'function') return __turtleModule.__getAnimationDelay();
+    if (usesPainter && __painterModule && typeof __painterModule.__getAnimationDelay === 'function') return __painterModule.__getAnimationDelay();
     return 0;
   };
 
   const renderStep = () => {
-    if (usesRobot && typeof renderRobotField === 'function') renderRobotField();
-    if (usesTurtle && __turtleModule && typeof __turtleModule.__onCanvasShown === 'function') __turtleModule.__onCanvasShown();
-    if (usesPainter && __painterModule && typeof __painterModule.__flushPainter === 'function') __painterModule.__flushPainter();
+    if (usesRobot   && typeof renderRobotField === 'function') renderRobotField();
+    if (usesTurtle  && __turtleModule  && typeof __turtleModule.__onCanvasShown  === 'function') __turtleModule.__onCanvasShown();
+    if (usesPainter && __painterModule && typeof __painterModule.__flushPainter  === 'function') __painterModule.__flushPainter();
   };
 
   let handle = null;
   let destroyed = false;
-  const isDone = () => coroDone(handle) !== 0;
-  const resume = () => {
-    if (isDone()) return false;
-    coroResume(handle);
-    return true;
-  };
+  const isDone  = () => coroDone(handle) !== 0;
   const destroy = () => {
     if (destroyed) return;
     destroyed = true;
     if (handle) coroDestroy(handle);
   };
 
+  // Reset the JS future table for this run.
+  if (futureEnv && typeof futureEnv.__resetFutures === 'function') {
+    futureEnv.__resetFutures();
+  }
+
   setCoroRunning(true);
   try {
-    if (usesRobot && __robotModule && typeof __robotModule.__setCoroutineMode === 'function') {
-      __robotModule.__setCoroutineMode(true);
-    }
-
-    // entryFn() runs user code up to the first suspend point (first robot/turtle action).
-    // After it returns the frame handle, the first action has already been executed.
+    // Run WASM coro up to its first await (first robot/turtle/painter action).
     handle = entryFn(...args);
-    if (!handle) {
-      return undefined;
-    }
+    if (!handle) return undefined;
 
-    // Single unified loop: checks getStepDelay() on every iteration so live
-    // checkbox/slider changes take effect immediately.
     const FLUSH_INTERVAL_MS = 1000;
     let lastFlush = performance.now();
 
     while (!isDone() && !__coroStopRequested) {
       const delay = getStepDelay();
-      resume();
+
+      if (futureEnv && futureEnv.hasPendingOp()) {
+        // Execute the next pending JS action and resolve its future.
+        // resolveFuture() internally calls __qumir_coro_resume(caller),
+        // advancing the WASM coro to the next await or completion.
+        const { h, execute } = futureEnv.shiftPendingOp();
+        execute();
+        futureEnv.resolveFuture(h);
+      } else if (!isDone()) {
+        // No pending external op: coro may be polling a wrapped child coro.
+        // Resume the parent so it re-checks await_ready.
+        coroResume(handle);
+      }
+
       if (delay === 0) {
         // Batch: accumulate steps, flush display every second.
         const now = performance.now();
@@ -2892,7 +2845,7 @@ async function runWasmCoroutine({ instance, entryFn, args, usesRobot, usesTurtle
           lastFlush = performance.now();
         }
       } else {
-        // Animated: render after each step and wait the configured delay.
+        // Animated: render after each step, wait configured delay.
         renderStep();
         lastFlush = performance.now();
         await new Promise(r => setTimeout(r, delay));
@@ -2900,9 +2853,6 @@ async function runWasmCoroutine({ instance, entryFn, args, usesRobot, usesTurtle
     }
   } finally {
     destroy();
-    if (usesRobot && __robotModule && typeof __robotModule.__setCoroutineMode === 'function') {
-      __robotModule.__setCoroutineMode(false);
-    }
     renderStep();
     setCoroRunning(false);
   }
