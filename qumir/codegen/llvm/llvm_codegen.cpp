@@ -358,16 +358,20 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
         EmitCoroutineRuntimeHelpers(*LModule, *Ctx);
     }
 
-    if (llvm::verifyModule(*LModule, &llvm::errs())) {
-        llvm::errs() << "\n[LLVMCodeGen] Module verify failed. Dumping IR:\n";
-        LModule->print(llvm::errs(), nullptr);
-        throw std::runtime_error("LLVM verify failed");
-    }
-
+    // Coroutine passes must run before verification: pre-split coroutine IR
+    // intentionally violates SSA dominance (values live across suspend points
+    // are not yet spilled). coro-split inserts the frame spills that make the
+    // IR valid. Verifying before the passes would reject well-formed coroutines.
     if (optLevel > 0) {
         Optimize(optLevel);
     } else if (hasCoroutines) {
         RunCoroutinePasses();
+    }
+
+    if (llvm::verifyModule(*LModule, &llvm::errs())) {
+        llvm::errs() << "\n[LLVMCodeGen] Module verify failed. Dumping IR:\n";
+        LModule->print(llvm::errs(), nullptr);
+        throw std::runtime_error("LLVM verify failed");
     }
 
     auto out = std::make_unique<TLLVMModuleArtifacts>();
