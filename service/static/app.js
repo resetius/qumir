@@ -2776,13 +2776,7 @@ function shouldRunWasmCoroutine({ instance, returnType, algType, usesRobot, uses
 }
 
 async function runWasmCoroutine({ instance, entryFn, args, usesRobot, usesTurtle, usesPainter, futureEnv }) {
-  const exports = instance && instance.exports;
-  const coroDone    = exports && exports.__qumir_coro_done;
-  const coroResume  = exports && exports.__qumir_coro_resume;
-  const coroDestroy = exports && exports.__qumir_coro_destroy;
-  if (typeof coroDone !== 'function' || typeof coroResume !== 'function' || typeof coroDestroy !== 'function') {
-    throw new Error('Coroutine execution requires __qumir_coro_done/resume/destroy exports');
-  }
+  if (!futureEnv) throw new Error('runWasmCoroutine requires futureEnv');
 
   const getStepDelay = () => {
     if (usesRobot   && __robotModule   && typeof __robotModule.__getAnimationDelay   === 'function') return __robotModule.__getAnimationDelay();
@@ -2797,25 +2791,28 @@ async function runWasmCoroutine({ instance, entryFn, args, usesRobot, usesTurtle
     if (usesPainter && __painterModule && typeof __painterModule.__flushPainter  === 'function') __painterModule.__flushPainter();
   };
 
-  let handle = null;
+  // Wrap the raw coro frame in a JS-managed future so the entire event loop
+  // goes through the public __qumir_future_* API — same as the C++ JIT runner.
+  let future = null;
   let destroyed = false;
-  const isDone  = () => coroDone(handle) !== 0;
+  const isDone  = () => futureEnv.__qumir_future_done(future) !== 0;
   const destroy = () => {
     if (destroyed) return;
     destroyed = true;
-    if (handle) coroDestroy(handle);
+    if (future !== null) futureEnv.__qumir_future_destroy(future);
   };
 
   // Reset the JS future table for this run.
-  if (futureEnv && typeof futureEnv.__resetFutures === 'function') {
-    futureEnv.__resetFutures();
-  }
+  futureEnv.__resetFutures();
 
   setCoroRunning(true);
   try {
-    // Run WASM coro up to its first await (first robot/turtle/painter action).
-    handle = entryFn(...args);
-    if (!handle) return undefined;
+    // Run WASM coro up to its first await.  The entry function returns a raw
+    // coro frame pointer; wrap it immediately so all further operations use the
+    // __qumir_future_* API.
+    const rawHandle = entryFn(...args);
+    if (!rawHandle) return undefined;
+    future = futureEnv.__qumir_wrap_coro(rawHandle, 0);
 
     const FLUSH_INTERVAL_MS = 1000;
     let lastFlush = performance.now();
@@ -2823,7 +2820,7 @@ async function runWasmCoroutine({ instance, entryFn, args, usesRobot, usesTurtle
     while (!isDone() && !__coroStopRequested) {
       const delay = getStepDelay();
 
-      if (futureEnv && futureEnv.hasPendingOp()) {
+      if (futureEnv.hasPendingOp()) {
         // Execute the next pending JS action and resolve its future.
         // resolveFuture() internally calls __qumir_coro_resume(caller),
         // advancing the WASM coro to the next await or completion.
@@ -2832,8 +2829,8 @@ async function runWasmCoroutine({ instance, entryFn, args, usesRobot, usesTurtle
         futureEnv.resolveFuture(h);
       } else if (!isDone()) {
         // No pending external op: coro may be polling a wrapped child coro.
-        // Resume the parent so it re-checks await_ready.
-        coroResume(handle);
+        // Resume via the public API so it re-checks await_ready.
+        futureEnv.__qumir_future_resume(future);
       }
 
       if (delay === 0) {
