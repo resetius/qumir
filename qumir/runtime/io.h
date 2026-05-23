@@ -37,6 +37,7 @@ void output_set_file(int32_t fileHandle);
 void output_reset_file();
 
 ITypeErasedFuture* sleep(int64_t milliseconds);
+int64_t time_from_daystart_millis();
 
 size_t io_process_events();
 

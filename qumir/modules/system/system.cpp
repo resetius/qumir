@@ -892,6 +892,16 @@ SystemModule::SystemModule() {
             .ArgTypes = { integerType },
             .ReturnType = voidType,
             .MaySuspend = true,
+        },
+        {
+            .Name = "время",
+            .MangledName = "time_from_daystart_millis",
+            .Ptr = reinterpret_cast<void*>(static_cast<int64_t(*)()>(NRuntime::time_from_daystart_millis)),
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return std::bit_cast<uint64_t>(NRuntime::time_from_daystart_millis());
+            },
+            .ArgTypes = {  },
+            .ReturnType = integerType,
         }
 
     };

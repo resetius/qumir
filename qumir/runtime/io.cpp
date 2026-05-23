@@ -20,6 +20,7 @@ std::ostream *Out = &std::cout;
 
 std::vector<std::function<void()>> g_pendingCalls;
 std::vector<TFuture<void>> g_pendingFutures;
+const std::chrono::time_zone* tz = std::chrono::current_zone();
 
 };
 
@@ -220,6 +221,18 @@ void input_reset_file() {
 
 void output_reset_file() {
     SetOutputStream(&std::cout);
+}
+
+// time from day start in milliseconds in local timezone
+int64_t time_from_daystart_millis() {
+    using namespace std::chrono;
+    auto now = system_clock::now();
+    auto localNow = zoned_time{tz, now};
+    auto localDays = floor<days>(localNow.get_local_time());
+    auto midnight = localDays;
+    return duration_cast<milliseconds>(
+        localNow.get_local_time() - midnight
+    ).count();
 }
 
 ITypeErasedFuture* sleep(int64_t milliseconds) {
