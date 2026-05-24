@@ -35,6 +35,8 @@ struct TFrame {
 struct TReturnLink {
     int64_t FrameIdx;
     int32_t CallerDst; // destination tmp idx in caller frame, -1 if none
+    bool CalleeIsCoroutine = false;
+    bool CalleeReturnsVoid = false;
 };
 
 class TInterpreter {

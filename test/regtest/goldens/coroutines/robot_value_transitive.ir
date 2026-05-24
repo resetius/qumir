@@ -1,0 +1,29 @@
+function caller () { ; ptr to void coroutine result i64
+  block {
+    label: label(0)
+    call tmp(0,ptr to void) = value 
+    await tmp(1,i64) = tmp(0,ptr to void) 
+    + tmp(2,i64) = tmp(1,i64) imm(1,i64) 
+    stre local(0,i64) tmp(2,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(3,i64) = local(0,i64) 
+    ret tmp(3,i64) 
+  }
+}
+function value () { ; ptr to void coroutine result i64
+  block {
+    label: label(0)
+    call tmp(0,ptr to void) = вверх 
+    await tmp(0,ptr to void) 
+    stre local(0,i64) imm(12,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(1,i64) = local(0,i64) 
+    ret tmp(1,i64) 
+  }
+}

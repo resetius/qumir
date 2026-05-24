@@ -1,0 +1,10 @@
+(block
+  (use "Робот")
+  (fun caller <future void> () ()
+    (block
+      (await (call helper))))
+  (fun helper <future void> () ()
+    (block
+      (await (call вверх))))
+  (fun pure void () ()
+    (block)))

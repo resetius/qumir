@@ -55,6 +55,18 @@ inline int64_t EvalAlu(const std::vector<int64_t>& regs, const TVMInstr& instr, 
     }
 }
 
+ITypeErasedFuture* MakeCompletedVoidFuture() {
+    auto promise = std::make_shared<TPromise<void>>();
+    promise->return_void();
+    return new TWrappedFuture<void>(MakeExternalFuture<void>(promise));
+}
+
+ITypeErasedFuture* MakeCompletedValueFuture(uint64_t value) {
+    auto promise = std::make_shared<TPromise<uint64_t>>();
+    promise->return_value(value);
+    return new TWrappedFuture<uint64_t>(MakeExternalFuture<uint64_t>(promise));
+}
+
 } // namespace
 
 TInterpreter::TInterpreter(TModule& module, std::ostream& out, std::istream& in)
@@ -550,6 +562,9 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
             ReturnLinks.emplace_back(TReturnLink {
                 .FrameIdx = (int64_t) callStack.size() - 1,
                 .CallerDst = instr.Operands[0].Tmp.Idx,
+                .CalleeIsCoroutine = calleeFn->IsCoroutine,
+                .CalleeReturnsVoid = calleeFn->CoroutineResultTypeId >= 0
+                    && Module.Types.IsVoid(calleeFn->CoroutineResultTypeId),
             });
 
             Runtime.Args.clear();
@@ -598,7 +613,15 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
                 const size_t savedRegsBytes = callerFrame.UsedRegs * 8;
                 const size_t savedRegsStart = base - savedRegsBytes;
                 std::memcpy(Runtime.Regs.data(), Runtime.Stack.data() + savedRegsStart, savedRegsBytes);
-                if (retVal.has_value()) {
+                if (link.CallerDst >= 0 && link.CalleeIsCoroutine) {
+                    ITypeErasedFuture* completed = nullptr;
+                    if (link.CalleeReturnsVoid) {
+                        completed = MakeCompletedVoidFuture();
+                    } else {
+                        completed = MakeCompletedValueFuture(static_cast<uint64_t>(retVal.value_or(0)));
+                    }
+                    Runtime.Regs[link.CallerDst] = reinterpret_cast<int64_t>(completed);
+                } else if (retVal.has_value()) {
                     Runtime.Regs[link.CallerDst] = materializedRet.value_or(*retVal);
                 }
                 Runtime.Stack.resize(savedRegsStart);
@@ -615,13 +638,16 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
 
     if (retVal.has_value()) {
         std::ostringstream out;
+        const int resultTypeId = function.IsCoroutine && function.CoroutineResultTypeId >= 0
+            ? function.CoroutineResultTypeId
+            : function.ReturnTypeId;
         if (function.ReturnTypeIsString) {
             // TODO: remove me, clutch: support string returnType
             char* strPtr = reinterpret_cast<char*>(std::bit_cast<uint64_t>(*retVal));
             out << strPtr;
             NRuntime::str_release(strPtr);
-        } else if (function.ReturnTypeId >= 0) {
-            Module.Types.Format(out, std::bit_cast<uint64_t>(*retVal), function.ReturnTypeId);
+        } else if (resultTypeId >= 0) {
+            Module.Types.Format(out, std::bit_cast<uint64_t>(*retVal), resultTypeId);
         } else {
             out << *retVal;
         }

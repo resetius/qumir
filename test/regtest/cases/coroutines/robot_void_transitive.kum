@@ -1,0 +1,16 @@
+| disable_jsexec
+использовать Робот
+
+алг caller
+нач
+    helper
+кон
+
+алг helper
+нач
+    вверх
+кон
+
+алг pure
+нач
+кон

@@ -110,7 +110,7 @@ std::string BuildAst(NAst::TTokenStream& ts) {
     }
 
     auto expr = parsed.value();
-    auto error = NTransform::Pipeline(expr, nr);
+    auto error = NTransform::Pipeline(expr, nr, {.EnableCoroutineAnalysis = true});
     if (!error) {
         return "Error: " + error.error().ToString() + "\n";
     }
@@ -151,7 +151,7 @@ std::string BuildIR(NAst::TTokenStream& ts) {
     }
 
     auto expr = parsed.value();
-    auto error = NTransform::Pipeline(expr, resolver);
+    auto error = NTransform::Pipeline(expr, resolver, {.EnableCoroutineAnalysis = true});
     if (!error) {
         return "Error: " + error.error().ToString() + "\n";
     }

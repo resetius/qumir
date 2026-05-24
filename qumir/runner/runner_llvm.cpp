@@ -15,6 +15,7 @@
 #include <qumir/ir/passes/transforms/pipeline.h>
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 
@@ -138,7 +139,29 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
     NCodeGen::TLlvmRunner runner;
     try {
         std::string runErr;
-        auto res = runner.Run(std::move(artifacts), mainFun->Name, &runErr, mainFun->ReturnTypeIsString);
+        auto coroutineResultFormatter = [&]() -> std::function<std::optional<std::string>(const void*)> {
+            if (!mainFun->IsCoroutine || mainFun->CoroutineResultTypeId < 0
+                || Module.Types.IsVoid(mainFun->CoroutineResultTypeId)) {
+                return {};
+            }
+            return [&](const void* promisePtr) -> std::optional<std::string> {
+                if (!promisePtr) {
+                    return std::nullopt;
+                }
+                uint64_t bitRepr = 0;
+                std::memcpy(&bitRepr, promisePtr,
+                    std::min<int>(sizeof(bitRepr), Module.Types.SizeInBytes(mainFun->CoroutineResultTypeId)));
+                std::ostringstream out;
+                Module.Types.Format(out, bitRepr, mainFun->CoroutineResultTypeId);
+                return out.str();
+            };
+        }();
+        auto res = runner.Run(
+            std::move(artifacts),
+            mainFun->Name,
+            &runErr,
+            mainFun->ReturnTypeIsString,
+            std::move(coroutineResultFormatter));
         if (!runErr.empty()) {
             return std::unexpected(TError({}, std::string("llvm run error: ") + runErr));
         }

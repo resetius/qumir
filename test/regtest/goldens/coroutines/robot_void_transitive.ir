@@ -1,0 +1,34 @@
+function caller () { ; ptr to void coroutine result void
+  block {
+    label: label(0)
+    call tmp(0,ptr to void) = helper 
+    await tmp(0,ptr to void) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}
+function helper () { ; ptr to void coroutine result void
+  block {
+    label: label(0)
+    call tmp(0,ptr to void) = вверх 
+    await tmp(0,ptr to void) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}
+function pure () { ; void
+  block {
+    label: label(0)
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

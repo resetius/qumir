@@ -5,6 +5,7 @@
 #include <istream>
 #include <string>
 #include <optional>
+#include <functional>
 
 namespace NQumir::NCodeGen {
 
@@ -20,7 +21,8 @@ public:
         std::unique_ptr<ILLVMModuleArtifacts> artifacts,
         const std::string& entryPoint,
         std::string* error = nullptr,
-        bool returnTypeIsString = false /* TODO: remove me, clutch: support string returnType */);
+        bool returnTypeIsString = false /* TODO: remove me, clutch: support string returnType */,
+        std::function<std::optional<std::string>(const void*)> coroutineResultFormatter = {});
 
 private:
     std::string LastError; // currently unused (kept for future diagnostics)

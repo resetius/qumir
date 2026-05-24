@@ -51,6 +51,7 @@ const defaultStringRuntimePath = path.join(__dirname, '..', 'service', 'static',
 const defaultArrayRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'array.js');
 const defaultComplexRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'complex.js');
 const defaultColorsRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'colors.js');
+const defaultFutureRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'future.js');
 
 let cachedIoRuntime = null;
 let cachedResultRuntime = null;
@@ -58,6 +59,7 @@ let cachedStringRuntime = null;
 let cachedArrayRuntime = null;
 let cachedComplexRuntime = null;
 let cachedColorsRuntime = null;
+let cachedFutureRuntime = null;
 
 class TestInputStream {
   constructor(stdinContent) {
@@ -223,6 +225,18 @@ async function loadColorsRuntimeModule() {
   const url = pathToFileURL(colorsPath).href;
   cachedColorsRuntime = await import(url);
   return cachedColorsRuntime;
+}
+
+async function loadFutureRuntimeModule() {
+  if (cachedFutureRuntime) return cachedFutureRuntime;
+  let futurePath = defaultFutureRuntimePath;
+  if (runtimeDir) {
+    const candidate = path.join(runtimeDir, 'future.js');
+    if (fs.existsSync(candidate)) futurePath = candidate;
+  }
+  const url = pathToFileURL(futurePath).href;
+  cachedFutureRuntime = await import(url);
+  return cachedFutureRuntime;
 }
 
 function bindIoStreams(ioRuntime, inputStream, outputStream) {
@@ -434,6 +448,17 @@ async function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
   const runtimeModulesForBinding = [];
   // Load built-in runtimes that are always available in the browser/service.
   try {
+    const futureRuntime = await loadFutureRuntimeModule();
+    if (futureRuntime) {
+      runtimeModulesForBinding.push(futureRuntime);
+      for (const [name, val] of Object.entries(futureRuntime)) {
+        if (typeof val === 'function') runtimeFns[name] = val;
+      }
+    }
+  } catch (e) {
+    if (printOutput) log('[WARN] failed to load future runtime', e.message);
+  }
+  try {
     const arrayRuntime = await loadArrayRuntimeModule();
     if (arrayRuntime) {
       runtimeModulesForBinding.push(arrayRuntime);
@@ -518,13 +543,53 @@ async function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
         try { env.__bindMemory(memory); if (printOutput) log('[INIT] __bindMemory re-called after memory switch'); } catch (e) { if (printOutput) log('[WARN] re-__bindMemory failed', e.message); }
       }
     }
+    for (const mod of runtimeModulesForBinding) {
+      if (mod && typeof mod.__bindWasm === 'function') {
+        try { mod.__bindWasm(instance.exports); } catch (e) { if (printOutput) log('[WARN] runtime.__bindWasm failed', e.message); }
+      }
+    }
     // Expose last used memory globally so runAll can decode pointer returns for 'лит' algorithms.
     global.__lastWasmMemory = memory;
     return { instance, memory };
   });
 }
 
-async function executeCase(wasmPath, algName, caseBase) {
+async function runWasmCoroutine(instance, entryFn, memory, algType) {
+  const futureRuntime = await loadFutureRuntimeModule();
+  if (!futureRuntime) throw new Error('future runtime is unavailable');
+  if (typeof futureRuntime.__resetFutures === 'function') {
+    futureRuntime.__resetFutures();
+  }
+
+  const rawHandle = entryFn();
+  if (!rawHandle) return undefined;
+  const future = futureRuntime.__qumir_wrap_coro(rawHandle, 0);
+  try {
+    while (futureRuntime.__qumir_future_done(future) === 0) {
+      if (futureRuntime.hasPendingOp && futureRuntime.hasPendingOp()) {
+        const { h, execute } = futureRuntime.shiftPendingOp();
+        await execute();
+        futureRuntime.resolveFuture(h);
+      } else {
+        futureRuntime.__qumir_future_resume(future);
+      }
+    }
+
+    if (!algType || algType === 'void') return undefined;
+    if (typeof instance.exports.__qumir_coro_promise_ptr !== 'function') return undefined;
+    const promisePtr = instance.exports.__qumir_coro_promise_ptr(rawHandle) >>> 0;
+    if (!promisePtr) return undefined;
+    const view = new DataView(memory.buffer);
+    if (algType === 'цел') return view.getBigInt64(promisePtr, true);
+    if (algType === 'вещ') return view.getFloat64(promisePtr, true);
+    if (algType === 'лог') return view.getUint8(promisePtr) !== 0 ? 1 : 0;
+    return view.getInt32(promisePtr, true);
+  } finally {
+    futureRuntime.__qumir_future_destroy(future);
+  }
+}
+
+async function executeCase(wasmPath, algName, caseBase, algType) {
   const ioCapture = { stdout: '' };
   const bytes = fs.readFileSync(wasmPath);
   const resultRuntime = await loadResultRuntimeModule();
@@ -533,7 +598,7 @@ async function executeCase(wasmPath, algName, caseBase) {
   const stdoutStream = new CaptureOutputStream(ioCapture);
   const ioRuntime = await loadIoRuntimeModule();
   bindIoStreams(ioRuntime, stdinStream, stdoutStream);
-  const { instance } = await instantiateWasm(wasmPath, ioCapture, ioRuntime);
+  const { instance, memory } = await instantiateWasm(wasmPath, ioCapture, ioRuntime);
   // Call global constructors if present (init_array handlers)
   if (typeof instance.exports.__wasm_call_ctors === 'function') {
     instance.exports.__wasm_call_ctors();
@@ -592,7 +657,12 @@ async function executeCase(wasmPath, algName, caseBase) {
     fn = instance.exports[algName];
   }
   if (!fn && exportFnNames.length) throw new Error('No executable export found for ' + wasmPath);
-  const ret = fn();
+  let ret;
+  if (instance.exports.__qumir_is_coroutine !== undefined) {
+    ret = await runWasmCoroutine(instance, fn, memory, algType);
+  } else {
+    ret = fn();
+  }
   // Call global destructors if present
   if (typeof instance.exports.__wasm_call_dtors === 'function') {
     instance.exports.__wasm_call_dtors();
@@ -656,7 +726,7 @@ async function runAll() {
 
     let exec;
     try {
-      exec = await executeCase(wasmPath, algName, caseBase);
+      exec = await executeCase(wasmPath, algName, caseBase, algType);
     } catch (e) {
       log('[FAIL]', caseBase, 'execution error:', e.message);
       if (printOutput) log('[DEBUG] consider adding JS runtime for imports via --runtime');

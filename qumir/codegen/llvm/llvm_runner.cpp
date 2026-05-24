@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <setjmp.h>
 #include <stdexcept>
+#include <functional>
 
 #include <qumir/runtime/string.h> // for str_release
 #include <qumir/runtime/runtime.h> // for __ensure and longjmp escape hatch
@@ -79,7 +80,12 @@ extern "C" {
 TLlvmRunner::TLlvmRunner()
 {}
 
-std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts> iartifacts, const std::string& entryPoint, std::string* error, bool returnTypeIsString) {
+std::optional<std::string> TLlvmRunner::Run(
+    std::unique_ptr<ILLVMModuleArtifacts> iartifacts,
+    const std::string& entryPoint,
+    std::string* error,
+    bool returnTypeIsString,
+    std::function<std::optional<std::string>(const void*)> coroutineResultFormatter) {
     auto* artifacts = static_cast<TLLVMModuleArtifacts*>(iartifacts.get());
     if (!artifacts || !artifacts->Module) {
         if (error) *error = "null artifacts";
@@ -117,6 +123,7 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
     llvm::Function* last = nullptr;
     llvm::Function* constructorFunc = nullptr;
     llvm::Function* destructorFunc = nullptr;
+    llvm::Function* coroPromisePtrFunc = nullptr;
     if (mod) {
         for (auto& f : *mod) {
             last = &f;
@@ -124,6 +131,7 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
             if (name == entryPoint) target = &f; // keep last matching
             if (name == "$$module_constructor") constructorFunc = &f;
             if (name == "$$module_destructor") destructorFunc = &f;
+            if (name == "__qumir_coro_promise_ptr") coroPromisePtrFunc = &f;
         }
     }
     if (!target) target = last;
@@ -176,12 +184,24 @@ std::optional<std::string> TLlvmRunner::Run(std::unique_ptr<ILLVMModuleArtifacts
         // Flush any remaining batched calls (e.g. painter drawing commands).
         processEvents();
 
+        std::optional<std::string> result;
+        if (coroutineResultFormatter && coroPromisePtrFunc) {
+            using TPromisePtrFn = void* (*)(void*);
+            auto addr = ee->getFunctionAddress(coroPromisePtrFunc->getName().str());
+            if (addr == 0) {
+                if (error) *error = "failed to resolve __qumir_coro_promise_ptr";
+            } else {
+                auto* promisePtrFn = reinterpret_cast<TPromisePtrFn>(addr);
+                result = coroutineResultFormatter(promisePtrFn(gv.PointerVal));
+            }
+        }
+
         __qumir_future_destroy(future);
 
         if (destructorFunc) {
             SafeRunFunction(ee.get(), destructorFunc, noargs);
         }
-        return std::nullopt;
+        return result;
     }
 
     if (destructorFunc) {
