@@ -51,6 +51,7 @@ const defaultStringRuntimePath = path.join(__dirname, '..', 'service', 'static',
 const defaultArrayRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'array.js');
 const defaultComplexRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'complex.js');
 const defaultColorsRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'colors.js');
+const defaultKeyboardRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'keyboard.js');
 const defaultFutureRuntimePath = path.join(__dirname, '..', 'service', 'static', 'runtime', 'future.js');
 
 let cachedIoRuntime = null;
@@ -59,6 +60,7 @@ let cachedStringRuntime = null;
 let cachedArrayRuntime = null;
 let cachedComplexRuntime = null;
 let cachedColorsRuntime = null;
+let cachedKeyboardRuntime = null;
 let cachedFutureRuntime = null;
 
 class TestInputStream {
@@ -227,6 +229,18 @@ async function loadColorsRuntimeModule() {
   return cachedColorsRuntime;
 }
 
+async function loadKeyboardRuntimeModule() {
+  if (cachedKeyboardRuntime) return cachedKeyboardRuntime;
+  let keyboardPath = defaultKeyboardRuntimePath;
+  if (runtimeDir) {
+    const candidate = path.join(runtimeDir, 'keyboard.js');
+    if (fs.existsSync(candidate)) keyboardPath = candidate;
+  }
+  const url = pathToFileURL(keyboardPath).href;
+  cachedKeyboardRuntime = await import(url);
+  return cachedKeyboardRuntime;
+}
+
 async function loadFutureRuntimeModule() {
   if (cachedFutureRuntime) return cachedFutureRuntime;
   let futurePath = defaultFutureRuntimePath;
@@ -255,7 +269,8 @@ function extractIoEnv(ioRuntime) {
   if (!ioRuntime) return env;
   for (const [name, fn] of Object.entries(ioRuntime)) {
     if (typeof fn !== 'function') continue;
-    if (name.startsWith('input_') || name.startsWith('output_') || name.startsWith('__')) {
+    if (name.startsWith('input_') || name.startsWith('output_') || name.startsWith('__')
+        || name === 'sleep' || name === 'qumir_sleep') {
       env[name] = fn;
     }
   }
@@ -491,6 +506,20 @@ async function instantiateWasm(wasmPath, ioCapture, ioRuntime) {
   } catch (e) {
     if (printOutput) log('[WARN] failed to load colors runtime', e.message);
   }
+  try {
+    const keyboardRuntime = await loadKeyboardRuntimeModule();
+    if (keyboardRuntime) {
+      runtimeModulesForBinding.push(keyboardRuntime);
+      if (typeof keyboardRuntime.__resetKeyboard === 'function') {
+        keyboardRuntime.__resetKeyboard();
+      }
+      for (const [name, val] of Object.entries(keyboardRuntime)) {
+        if (typeof val === 'function') runtimeFns[name] = val;
+      }
+    }
+  } catch (e) {
+    if (printOutput) log('[WARN] failed to load keyboard runtime', e.message);
+  }
   const ioEnvFns = extractIoEnv(ioRuntime);
   const bindIoMemory = (mem) => {
     if (ioRuntime && typeof ioRuntime.__bindMemory === 'function') {
@@ -568,8 +597,8 @@ async function runWasmCoroutine(instance, entryFn, memory, algType) {
     while (futureRuntime.__qumir_future_done(future) === 0) {
       if (futureRuntime.hasPendingOp && futureRuntime.hasPendingOp()) {
         const { h, execute } = futureRuntime.shiftPendingOp();
-        await execute();
-        futureRuntime.resolveFuture(h);
+        const opResult = await execute();
+        futureRuntime.resolveFuture(h, opResult);
       } else {
         futureRuntime.__qumir_future_resume(future);
       }

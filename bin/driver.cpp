@@ -21,6 +21,7 @@
 #include <qumir/modules/painter/painter.h>
 #include <qumir/modules/complex/complex.h>
 #include <qumir/modules/colors/colors.h>
+#include <qumir/modules/keyboard/keyboard.h>
 #include <sstream>
 #include <string>
 
@@ -109,6 +110,8 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     r.RegisterModule(&complex);
     NRegistry::ColorsModule colors;
     r.RegisterModule(&colors);
+    NRegistry::KeyboardModule keyboard;
+    r.RegisterModule(&keyboard);
 
     auto expected = ParseInput(*in, r, coreInput);
     if (!expected.has_value()) {
@@ -163,6 +166,8 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     r.RegisterModule(&complex);
     NRegistry::ColorsModule colors;
     r.RegisterModule(&colors);
+    NRegistry::KeyboardModule keyboard;
+    r.RegisterModule(&keyboard);
 
     auto expected = ParseInput(*in, r, coreInput);
     if (!expected.has_value()) {
@@ -229,6 +234,8 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     r.RegisterModule(&complex);
     NRegistry::ColorsModule colors;
     r.RegisterModule(&colors);
+    NRegistry::KeyboardModule keyboard;
+    r.RegisterModule(&keyboard);
 
     auto expected = ParseInput(*in, r, coreInput);
     if (!expected.has_value()) {
@@ -410,6 +417,8 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     r.RegisterModule(&complex);
     NRegistry::ColorsModule colors;
     r.RegisterModule(&colors);
+    NRegistry::KeyboardModule keyboard;
+    r.RegisterModule(&keyboard);
 
     auto expected = ParseInput(*in, r, coreInput);
     if (!expected.has_value()) {

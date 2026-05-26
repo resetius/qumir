@@ -13,6 +13,7 @@
 #include <qumir/modules/painter/painter.h>
 #include <qumir/modules/complex/complex.h>
 #include <qumir/modules/colors/colors.h>
+#include <qumir/modules/keyboard/keyboard.h>
 #include <qumir/ir/passes/transforms/pipeline.h>
 
 #include <iostream>
@@ -41,6 +42,7 @@ TIRRunner::TIRRunner(
     AvailableModules.push_back(std::make_shared<NRegistry::PainterModule>());
     AvailableModules.push_back(std::make_shared<NRegistry::ComplexModule>());
     AvailableModules.push_back(std::make_shared<NRegistry::ColorsModule>());
+    AvailableModules.push_back(std::make_shared<NRegistry::KeyboardModule>());
 
     for (const auto& mod : RegisteredModules) {
         Resolver.RegisterModule(mod.get());

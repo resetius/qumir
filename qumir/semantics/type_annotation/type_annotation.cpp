@@ -547,6 +547,11 @@ TTask AnnotateAssign(std::shared_ptr<TAssignExpr> assign, NSemantics::TNameResol
 
     auto valueType = UnwrapReferenceType(assign->Value->Type);
     if (!EqualTypes(valueType, symbolType)) {
+        auto futureValueType = FutureResultType(valueType);
+        if (futureValueType && CanImplicit(futureValueType, symbolType, &context)) {
+            assign->Type = std::make_shared<NAst::TVoidType>();
+            co_return assign;
+        }
         if (!CanImplicit(valueType, symbolType, &context)) {
             co_return TError(assign->Location, "Нельзя неявно преобразовать тип '" + std::string(valueType->TypeName()) + "' к типу '" + std::string(symbolType->TypeName()) + "' при присваивании переменной '" + assign->Name + "'.");
         }

@@ -9,6 +9,7 @@ const $ = sel => document.querySelector(sel);
 let currentAbort = null;
 // Set to true by the Stop button; cleared at the start of each run.
 let __coroStopRequested = false;
+let __coroStopSignal = null;
 // Output view selection for the compiler pane (text or turtle)
 let __compilerOutputMode = 'text';
 let __turtleCanvas = null;
@@ -20,6 +21,7 @@ let __executorToolbarMode = null;
 let __drawerModule = null;
 let __drawerCanvas = null;
 let __colorsModule = null;
+let __keyboardModule = null;
 let __painterModule = null;
 let __painterUI = null;
 let __painterRulerX = null;
@@ -74,10 +76,37 @@ const apiGet = async (path) => {
 
 function requestStopRunningProgram() {
   const stopBtn = document.getElementById('btn-stop');
-  __coroStopRequested = true;
+  signalCoroStop();
   if (stopBtn && stopBtn.style.display !== 'none') {
     stopBtn.click();
   }
+}
+
+function resetCoroStopSignal() {
+  __coroStopRequested = false;
+  __coroStopSignal = {};
+  __coroStopSignal.promise = new Promise(resolve => {
+    __coroStopSignal.resolve = resolve;
+  });
+}
+
+function signalCoroStop() {
+  __coroStopRequested = true;
+  if (__coroStopSignal && typeof __coroStopSignal.resolve === 'function') {
+    __coroStopSignal.resolve();
+    __coroStopSignal.resolve = null;
+  }
+}
+
+function waitUnlessStopped(promise) {
+  if (__coroStopRequested) return Promise.resolve({ stopped: true });
+  const stopPromise = __coroStopSignal
+    ? __coroStopSignal.promise.then(() => ({ stopped: true }))
+    : new Promise(() => {});
+  return Promise.race([
+    Promise.resolve(promise).then(value => ({ stopped: false, value })),
+    stopPromise
+  ]);
 }
 
 const sample = `алг цел цикл\nнач\n    | пример комментария: горячий цикл для теста производительности\n    цел ф, i\n    ф := 1\n    нц для i от 1 до 10000000\n        ф := факториал(13)\n    кц\n    знач := ф\nкон\n\nалг цел факториал(цел число)\nнач\n    | пример комментария внутри функции\n    цел i\n    знач := 1\n    нц для i от 1 до число\n        знач := знач * i\n    кц\nкон\n`;
@@ -2533,7 +2562,7 @@ async function runWasm() {
   const { type: algType } = parseAlgHeader(code);
   const O = $('#opt').value;
   window.__hasRuntimeErrors = false;
-  __coroStopRequested = false;
+  resetCoroStopSignal();
   let runAsCoroutine = false;
   try {
     const bytes = await api('/api/compile-wasm', { code, O }, true);
@@ -2554,10 +2583,14 @@ async function runWasm() {
     if (!__drawerModule)  { try { __drawerModule  = await import('./runtime/drawer.js');  } catch {} }
     if (!__painterModule) { try { __painterModule = await import('./runtime/painter.js'); } catch {} }
     if (!__colorsModule)  { try { __colorsModule  = await import('./runtime/colors.js');  } catch {} }
+    if (!__keyboardModule){ try { __keyboardModule = await import('./runtime/keyboard.js');} catch {} }
     const env = { ...mathEnv, ...ioEnv, ...stringEnv, ...arrayEnv, ...complexEnv,
                   ...futureEnv,
                   ...(__turtleModule || {}), ...(__robotModule || {}), ...(__drawerModule || {}),
-                  ...(__painterModule || {}), ...(__colorsModule || {}) };
+                  ...(__painterModule || {}), ...(__colorsModule || {}), ...(__keyboardModule || {}) };
+    if (__keyboardModule && typeof __keyboardModule.__resetKeyboard === 'function') {
+      __keyboardModule.__resetKeyboard();
+    }
     const imports = { env };
     const { instance, module } = await WebAssembly.instantiate(bytes, imports);
     const mem = instance.exports && instance.exports.memory;
@@ -2899,8 +2932,23 @@ async function runWasmCoroutine({ instance, entryFn, args, usesRobot, usesTurtle
         // resolveFuture() internally calls __qumir_coro_resume(caller),
         // advancing the WASM coro to the next await or completion.
         const { h, execute } = futureEnv.shiftPendingOp();
-        await execute();
-        futureEnv.resolveFuture(h);
+        const op = execute();
+        const isAsyncOp = op && typeof op.then === 'function';
+        if (isAsyncOp) {
+          renderStep();
+          lastFlush = performance.now();
+        }
+        const waited = isAsyncOp
+          ? await waitUnlessStopped(op)
+          : { stopped: false, value: op };
+        if (waited.stopped || __coroStopRequested) {
+          if (typeof futureEnv.__qumir_future_destroy === 'function') {
+            futureEnv.__qumir_future_destroy(h);
+          }
+          break;
+        }
+        const opResult = waited.value;
+        futureEnv.resolveFuture(h, opResult);
       } else if (!isDone()) {
         // No pending external op: coro may be polling a wrapped child coro.
         // Resume via the public API so it re-checks await_ready.
@@ -2919,11 +2967,20 @@ async function runWasmCoroutine({ instance, entryFn, args, usesRobot, usesTurtle
         // Animated: render after each step, wait configured delay.
         renderStep();
         lastFlush = performance.now();
-        await new Promise(r => setTimeout(r, delay));
+        const waited = await waitUnlessStopped(new Promise(r => setTimeout(r, delay)));
+        if (waited.stopped || __coroStopRequested) break;
       }
     }
   } finally {
     destroy();
+    if (__coroStopRequested) {
+      if (__keyboardModule && typeof __keyboardModule.__resetKeyboard === 'function') {
+        __keyboardModule.__resetKeyboard();
+      }
+      if (futureEnv && typeof futureEnv.__resetFutures === 'function') {
+        futureEnv.__resetFutures();
+      }
+    }
     renderStep();
     setCoroRunning(false);
   }
@@ -4379,7 +4436,7 @@ $('#btn-run').addEventListener('click', async () => {
 });
 
 $('#btn-stop').addEventListener('click', () => {
-  __coroStopRequested = true;
+  signalCoroStop();
 });
 
 // Fullscreen viewer for outputs (stdout/output)

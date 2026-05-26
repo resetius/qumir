@@ -19,6 +19,7 @@
 #include <qumir/modules/painter/painter.h>
 #include <qumir/modules/complex/complex.h>
 #include <qumir/modules/colors/colors.h>
+#include <qumir/modules/keyboard/keyboard.h>
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/ir/builder.h>
 
@@ -47,6 +48,7 @@ void RegisterRuntimeModules(NSemantics::TNameResolver& resolver) {
     static NRegistry::PainterModule painter;
     static NRegistry::ComplexModule complex;
     static NRegistry::ColorsModule colors;
+    static NRegistry::KeyboardModule keyboard;
 
     resolver.RegisterModule(&system);
     resolver.RegisterModule(&turtle);
@@ -55,6 +57,7 @@ void RegisterRuntimeModules(NSemantics::TNameResolver& resolver) {
     resolver.RegisterModule(&painter);
     resolver.RegisterModule(&complex);
     resolver.RegisterModule(&colors);
+    resolver.RegisterModule(&keyboard);
     resolver.ImportModule(system.Name());
 }
 

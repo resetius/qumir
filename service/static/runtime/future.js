@@ -42,7 +42,7 @@ export function __resetFutures() {
 export function allocFuture() {
     const h = NEXT_H | 0;
     NEXT_H = (NEXT_H - 1) | 0;
-    TABLE.set(h, { caller: 0, done: false });
+    TABLE.set(h, { caller: 0, done: false, result: undefined });
     return h;
 }
 
@@ -59,9 +59,10 @@ export function shiftPendingOp() {
 }
 
 // Marks future as done and resumes the waiting WASM coroutine.
-export function resolveFuture(h) {
+export function resolveFuture(h, result = undefined) {
     const e = TABLE.get(h);
     if (!e || e.done) return;
+    e.result = result;
     e.done = true;
     if (e.caller && wasmExports && wasmExports.__qumir_coro_resume) {
         wasmExports.__qumir_coro_resume(e.caller);
@@ -109,9 +110,15 @@ export function __qumir_future_await_suspend(h, caller) {
 }
 
 export function __qumir_future_await_resume(h, result_ptr) {
-    if (!result_ptr || !MEMORY) return;
     const e = TABLE.get(h);
-    if (!e || e.coroPtr === undefined || !e.resultSize) return;
+    if (!e) return;
+    if (e.coroPtr === undefined) {
+        if (!result_ptr || !MEMORY || e.result === undefined) return;
+        const view = new DataView(MEMORY.buffer);
+        view.setBigInt64(result_ptr >>> 0, BigInt(e.result), true);
+        return;
+    }
+    if (!result_ptr || !MEMORY || !e.resultSize) return;
     if (!wasmExports || !wasmExports.__qumir_coro_promise_ptr) return;
     const src = wasmExports.__qumir_coro_promise_ptr(e.coroPtr) >>> 0;
     if (!src) return;

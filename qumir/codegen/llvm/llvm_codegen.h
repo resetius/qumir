@@ -82,6 +82,7 @@ private:
         llvm::Function* LFun {nullptr};
         std::vector<llvm::Value*> TmpValues; // size = Fun->NextTmpIdx
         std::unordered_map<int64_t, llvm::BasicBlock*> LabelToBB; // direct mapping for jmp/cmp targets
+        std::unordered_map<int64_t, llvm::BasicBlock*> LabelExitBB; // actual predecessor block for PHI incoming edges
         std::vector<llvm::Value*> PendingArgs; // collected via 'arg' ops before 'call'
         std::vector<llvm::AllocaInst*> Allocas;
     };

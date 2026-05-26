@@ -431,6 +431,7 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, NIR::TModule& 
         auto *bb = llvm::BasicBlock::Create(ctx, "bb" + std::to_string(b.Label.Idx), lfun);
         bbs.push_back(bb);
         CurFun->LabelToBB[b.Label.Idx] = bb;
+        CurFun->LabelExitBB[b.Label.Idx] = bb;
     }
 
     auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
@@ -491,6 +492,7 @@ llvm::Function* TLLVMCodeGen::LowerCoroutineFunction(const TFunction& fun, NIR::
         auto* bb = llvm::BasicBlock::Create(ctx, "bb" + std::to_string(b.Label.Idx), lfun);
         bbs.push_back(bb);
         CurFun->LabelToBB[b.Label.Idx] = bb;
+        CurFun->LabelExitBB[b.Label.Idx] = bb;
     }
     irb->SetInsertPoint(entry);
 
@@ -627,21 +629,39 @@ llvm::Function* TLLVMCodeGen::LowerCoroutineFunction(const TFunction& fun, NIR::
 
         irb->SetInsertPoint(afterBB);
         if (instr.Dest.Idx >= 0) {
-            // Non-void result: read from child coro promise via __qumir_future_address
+            const int outputTypeId = CurFun->Fun->GetTmpType(instr.Dest.Idx);
+            auto* childResultTy = GetTypeById(outputTypeId, module.Types, ctx);
+            auto* resultSlot = irb->CreateAlloca(childResultTy, nullptr, "await.result");
             auto futureAddressFn = getFn("__qumir_future_address",
                 llvm::FunctionType::get(ptrTy, {ptrTy}, false));
             auto* childHandle = irb->CreateCall(futureAddressFn, {future}, "child.handle");
+            auto* wrappedCoro = irb->CreateICmpNE(childHandle, nullPtr, "await.wrapped_coro");
+            auto* wrappedBB = llvm::BasicBlock::Create(ctx, "await.wrapped." + sfx, lfun);
+            auto* jsBB = llvm::BasicBlock::Create(ctx, "await.js." + sfx, lfun);
+            auto* loadBB = llvm::BasicBlock::Create(ctx, "await.load." + sfx, lfun);
+            irb->CreateCondBr(wrappedCoro, wrappedBB, jsBB);
+
+            irb->SetInsertPoint(wrappedBB);
             auto* promisePtr  = irb->CreateCall(coroPromise, {
                 childHandle,
                 llvm::ConstantInt::get(i32Ty, 0),
                 llvm::ConstantInt::getFalse(ctx)
             }, "child.promise");
-            const int outputTypeId = CurFun->Fun->GetTmpType(instr.Dest.Idx);
-            auto* childResultTy = GetTypeById(outputTypeId, module.Types, ctx);
-            auto* result = irb->CreateLoad(childResultTy, promisePtr, "child.result");
+            auto* wrappedResult = irb->CreateLoad(childResultTy, promisePtr, "child.result");
+            irb->CreateStore(wrappedResult, resultSlot);
+            irb->CreateCall(futureAwaitResumeFn, {future, nullPtr});
+            irb->CreateBr(loadBB);
+
+            irb->SetInsertPoint(jsBB);
+            irb->CreateCall(futureAwaitResumeFn, {future, resultSlot});
+            irb->CreateBr(loadBB);
+
+            irb->SetInsertPoint(loadBB);
+            auto* result = irb->CreateLoad(childResultTy, resultSlot, "await.result.value");
             CurFun->TmpValues[instr.Dest.Idx] = castCoroutineResult(result, childResultTy);
+        } else {
+            irb->CreateCall(futureAwaitResumeFn, {future, nullPtr});
         }
-        irb->CreateCall(futureAwaitResumeFn, {future, nullPtr});
         irb->CreateCall(futureDestroyFn, {future});
     };
 
@@ -695,10 +715,10 @@ llvm::Function* TLLVMCodeGen::LowerCoroutineFunction(const TFunction& fun, NIR::
                 LowerInstr(instr, module);
             }
         }
-        // After await insertion, the insert block may be a newly created nextBB rather than
-        // bbs[i]. Update LabelToBB so that AddIncomingPhiEdges uses the real exit block of
-        // this IR block as the PHI predecessor.
-        CurFun->LabelToBB[fun.Blocks[i].Label.Idx] = irb->GetInsertBlock();
+        // After await insertion, the insert block may be a newly created block
+        // rather than bbs[i]. Keep LabelToBB as the block entry for jmp/cmp
+        // targets, and record the real exit block separately for PHI edges.
+        CurFun->LabelExitBB[fun.Blocks[i].Label.Idx] = irb->GetInsertBlock();
     }
     for (size_t i = 0; i < fun.Blocks.size(); ++i) {
         irb->SetInsertPoint(bbs[i]);
@@ -856,11 +876,16 @@ void TLLVMCodeGen::AddIncomingPhiEdges(const NIR::TPhi& instr, NIR::TModule& mod
     for (int i = 0; i < instr.Size() / 2; ++i) {
         auto value = GetOp(instr.Operands[2*i], module);
         auto label = instr.Operands[2*i+1].Label.Idx;
-        auto block = CurFun->LabelToBB.find(label);
-        if (block == CurFun->LabelToBB.end()) {
+        llvm::BasicBlock* block = nullptr;
+        if (auto it = CurFun->LabelExitBB.find(label); it != CurFun->LabelExitBB.end()) {
+            block = it->second;
+        } else if (auto it = CurFun->LabelToBB.find(label); it != CurFun->LabelToBB.end()) {
+            block = it->second;
+        }
+        if (!block) {
             throw std::runtime_error("phi incoming label not found");
         }
-        phi->addIncoming(value, block->second);
+        phi->addIncoming(value, block);
     }
 }
 

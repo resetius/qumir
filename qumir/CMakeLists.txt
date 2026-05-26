@@ -5,6 +5,8 @@ add_library(qumir
     modules/robot/robot.cpp
     modules/colors/colors.h
     modules/colors/colors.cpp
+    modules/keyboard/keyboard.h
+    modules/keyboard/keyboard.cpp
     modules/turtle/turtle.h
     modules/turtle/turtle.cpp
     modules/drawer/drawer.h
