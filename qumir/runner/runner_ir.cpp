@@ -72,6 +72,12 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     scope->AllowsRedeclare = true; // TODO: move to options?
     scope->RootLevel = false;
 
+    if (Options.CoreInput && Options.ResolveCoreInput) {
+        if (auto err = Resolver.Resolve(ast)) {
+            return std::unexpected(*err);
+        }
+    }
+
     if (Options.PrintAst) {
         std::cerr << "=========== AST: ===========\n";
         std::cerr << ast << std::endl;

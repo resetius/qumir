@@ -806,7 +806,7 @@ function <main> () { ; void
     - tmp(520,f64) = tmp(518,f64) tmp(519,f64) 
     stre local(30,f64) tmp(520,f64) 
     load tmp(521,f64) = local(30,f64) 
-    < tmp(522,i1) = tmp(521,f64) imm(0,f64) 
+    < tmp(522,i1) = tmp(521,f64) imm(0,i64) 
     cmp tmp(522,i1) label(49) label(50) 
   }
   block {
@@ -1054,7 +1054,7 @@ function <main> () { ; void
     - tmp(648,f64) = tmp(646,f64) tmp(647,f64) 
     stre local(33,f64) tmp(648,f64) 
     load tmp(649,f64) = local(33,f64) 
-    < tmp(650,i1) = tmp(649,f64) imm(0,f64) 
+    < tmp(650,i1) = tmp(649,f64) imm(0,i64) 
     cmp tmp(650,i1) label(70) label(71) 
   }
   block {

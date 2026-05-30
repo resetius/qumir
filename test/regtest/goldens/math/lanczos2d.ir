@@ -3186,7 +3186,7 @@ function sturm_count (local(0), local(1), local(2), local(3)) { ; i64
     load tmp(32,f64) = local(7,f64) 
     stre local(9,f64) tmp(32,f64) 
     load tmp(33,f64) = local(9,f64) 
-    < tmp(34,i1) = tmp(33,f64) imm(0,f64) 
+    < tmp(34,i1) = tmp(33,f64) imm(0,i64) 
     cmp tmp(34,i1) label(9) label(10) 
   }
   block {

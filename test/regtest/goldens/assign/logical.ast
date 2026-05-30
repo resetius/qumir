@@ -3,5 +3,5 @@
     (block
       (var $$return bool)
       (var i bool)
-      (= i (cast 1 bool))
+      (= i (cast #t bool))
       (= $$return i))))

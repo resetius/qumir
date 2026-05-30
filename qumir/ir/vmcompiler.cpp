@@ -137,6 +137,8 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 return s.Imm.TypeId;
             case TOperand::EType::Slot:
                 return Module.GlobalTypes[static_cast<size_t>(s.Slot.Idx)];
+            case TOperand::EType::Local:
+                return function.LocalTypes[static_cast<size_t>(s.Local.Idx)];
             default:
                 return -1;
         }
@@ -150,9 +152,8 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
         //  1 - unsigned
         if (Module.Types.IsFloat(leftType) || Module.Types.IsFloat(rightType)) {
             return 0;
-        } else {
-            return -1; // we don't have unsigned types yet
         }
+        return Module.Types.IsUnsigned(leftType) ? 1 : -1;
     };
 
     auto isSignedInteger = [&](int typeId) -> bool {
@@ -260,7 +261,7 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 if (Module.Types.IsFloat(t)) {
                     out.Op = EVMOp::FDiv;
                 } else {
-                    out.Op = EVMOp::IDivS;
+                    out.Op = isSignedInteger(t) ? EVMOp::IDivS : EVMOp::IDivU;
                 }
                 break;
             }

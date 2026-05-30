@@ -100,7 +100,17 @@ int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
         throw std::runtime_error("AST Future<T> cannot be lowered as a regular IR type");
     }
     if (auto i = NAst::TMaybeType<NAst::TIntegerType>(t)) {
-        return tt.I(EKind::I64);
+        using K = NAst::TIntegerType::EKind;
+        switch (i.Cast()->Kind) {
+            case K::I8: return tt.I(EKind::I8);
+            case K::I16: return tt.I(EKind::I16);
+            case K::I32: return tt.I(EKind::I32);
+            case K::I64: return tt.I(EKind::I64);
+            case K::U8: return tt.I(EKind::U8);
+            case K::U16: return tt.I(EKind::U16);
+            case K::U32: return tt.I(EKind::U32);
+            case K::U64: return tt.I(EKind::U64);
+        }
     }
     if (auto f = NAst::TMaybeType<NAst::TFloatType>(t)) {
         return tt.I(EKind::F64);
@@ -167,6 +177,11 @@ void TTypeTable::Print(std::ostream& out, int typeId) const {
         case EKind::I16: out << "i16"; break;
         case EKind::I32: out << "i32"; break;
         case EKind::I64: out << "i64"; break;
+        case EKind::U8: out << "u8"; break;
+        case EKind::U16: out << "u16"; break;
+        case EKind::U32: out << "u32"; break;
+        case EKind::U64: out << "u64"; break;
+        case EKind::F32: out << "f32"; break;
         case EKind::F64: out << "f64"; break;
         case EKind::Void: out << "void"; break;
         case EKind::Undef: out << "undef"; break;
@@ -211,6 +226,14 @@ void TTypeTable::Format(std::ostream& out, uint64_t bitRepr, int typeId) const {
             ss << (bitRepr ? "true" : "false");
             break;
         }
+        case EKind::I8: {
+            ss << static_cast<int>(static_cast<int8_t>(bitRepr));
+            break;
+        }
+        case EKind::I16: {
+            ss << static_cast<int16_t>(bitRepr);
+            break;
+        }
         case EKind::I32: {
             ss << (int32_t)bitRepr;
             break;
@@ -219,6 +242,23 @@ void TTypeTable::Format(std::ostream& out, uint64_t bitRepr, int typeId) const {
             ss << (int64_t)bitRepr;
             break;
         }
+        case EKind::U8: {
+            ss << static_cast<unsigned>(static_cast<uint8_t>(bitRepr));
+            break;
+        }
+        case EKind::U16: {
+            ss << static_cast<uint16_t>(bitRepr);
+            break;
+        }
+        case EKind::U32: {
+            ss << static_cast<uint32_t>(bitRepr);
+            break;
+        }
+        case EKind::U64: {
+            ss << static_cast<uint64_t>(bitRepr);
+            break;
+        }
+        case EKind::F32:
         case EKind::F64: {
             double d = std::bit_cast<double>(bitRepr);
             ss << std::fixed << std::setprecision(15) << d;
@@ -267,13 +307,26 @@ bool TTypeTable::IsPrimitive(int typeId) const {
 bool TTypeTable::IsFloat(int typeId) const {
     if (typeId < 0 || typeId >= (int)Types.size()) return false;
     auto k = Types[typeId].Kind;
-    return k == EKind::F64;
+    return k == EKind::F32 || k == EKind::F64;
 }
 
 bool TTypeTable::IsInteger(int typeId) const {
     if (typeId < 0 || typeId >= (int)Types.size()) return false;
     auto k = Types[typeId].Kind;
-    return k == EKind::I1 || k == EKind::I64;
+    return k == EKind::I1 || k == EKind::I8 || k == EKind::I16 || k == EKind::I32 || k == EKind::I64
+        || k == EKind::U8 || k == EKind::U16 || k == EKind::U32 || k == EKind::U64;
+}
+
+bool TTypeTable::IsSigned(int typeId) const {
+    if (typeId < 0 || typeId >= (int)Types.size()) return false;
+    auto k = Types[typeId].Kind;
+    return k == EKind::I1 || k == EKind::I8 || k == EKind::I16 || k == EKind::I32 || k == EKind::I64;
+}
+
+bool TTypeTable::IsUnsigned(int typeId) const {
+    if (typeId < 0 || typeId >= (int)Types.size()) return false;
+    auto k = Types[typeId].Kind;
+    return k == EKind::U8 || k == EKind::U16 || k == EKind::U32 || k == EKind::U64;
 }
 
 bool TTypeTable::IsPointer(int typeId) const {

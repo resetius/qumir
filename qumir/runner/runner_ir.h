@@ -25,6 +25,7 @@ struct TIRRunnerOptions {
     bool PrintIr = false;
     bool PrintByteCode = false;
     bool CoreInput = false;
+    bool ResolveCoreInput = true;
     int OptLevel = 0;
 };
 

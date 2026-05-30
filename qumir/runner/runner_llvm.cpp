@@ -71,6 +71,12 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
     scope->AllowsRedeclare = true; // TODO: move to options?
     scope->RootLevel = false;
 
+    if (Options.CoreInput && Options.ResolveCoreInput) {
+        if (auto err = Resolver.Resolve(ast)) {
+            return std::unexpected(*err);
+        }
+    }
+
     if (Options.PrintAst) {
         std::cerr << "=========== AST: ===========\n";
         std::cerr << ast << std::endl;

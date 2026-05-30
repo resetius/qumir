@@ -29,11 +29,10 @@ bool WideningIntOK(TTypePtr typeSrc, TTypePtr typeDst) {
         return false;
     }
 
-    // For now we have only one integer type, so this is trivial
-    int wSrc = 64;
-    int wDst = 64;
-    bool signedSrc = true; // we have only signed int for now
-    bool signedDst = true; // we have only signed int for now
+    int wSrc = src->BitWidth();
+    int wDst = dst->BitWidth();
+    bool signedSrc = src->IsSigned();
+    bool signedDst = dst->IsSigned();
 
     if (signedSrc == signedDst) {
         return wDst >= wSrc;
@@ -60,8 +59,7 @@ bool EqualTypes(TTypePtr a, TTypePtr b) {
     auto maybeAInt = TMaybeType<TIntegerType>(a);
     auto maybeBInt = TMaybeType<TIntegerType>(b);
     if (maybeAInt && maybeBInt) {
-        // we have 1 int type for now
-        return true;
+        return maybeAInt.Cast()->Kind == maybeBInt.Cast()->Kind;
     }
 
     auto maybeAFloat = TMaybeType<TFloatType>(a);
@@ -256,7 +254,7 @@ TTypePtr CommonValueType(TTypePtr a, TTypePtr b, NSemantics::TNameResolver& ctx)
 }
 
 TExprPtr AnnotateNumber(std::shared_ptr<TNumberExpr> num) {
-    if (num->Type && TMaybeType<TNamedType>(num->Type)) {
+    if (num->Type) {
         return num;
     }
     if (num->IsFloat) {

@@ -121,7 +121,8 @@ AST node forms:
 
 Types:
   Primitive:
-      i64       -> TIntegerType, TypeId = "Int"
+      i8/i16/i32/i64/u8/u16/u32/u64
+                -> TIntegerType, TypeId = "Int"
       f64       -> TFloatType, TypeId = "Float"
       bool      -> TBoolType, TypeId = "Bool"
       string    -> TStringType, TypeId = "String"
@@ -153,6 +154,7 @@ Types:
 
   Type examples:
       i64
+      u32
       f64
       bool
       string

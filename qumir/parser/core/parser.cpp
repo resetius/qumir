@@ -27,6 +27,19 @@ struct TParserContext {
     TWrappedTokenStream& Stream;
 };
 
+std::shared_ptr<TIntegerType> IntegerTypeByName(const std::string& name) {
+    using K = TIntegerType::EKind;
+    if (name == "i8") return std::make_shared<TIntegerType>(K::I8);
+    if (name == "i16") return std::make_shared<TIntegerType>(K::I16);
+    if (name == "i32") return std::make_shared<TIntegerType>(K::I32);
+    if (name == "i64") return std::make_shared<TIntegerType>(K::I64);
+    if (name == "u8") return std::make_shared<TIntegerType>(K::U8);
+    if (name == "u16") return std::make_shared<TIntegerType>(K::U16);
+    if (name == "u32") return std::make_shared<TIntegerType>(K::U32);
+    if (name == "u64") return std::make_shared<TIntegerType>(K::U64);
+    return nullptr;
+}
+
 bool IsEof(const TToken& token) {
     return token.Type == TToken::Operator && token.Value.i64 == -1;
 }
@@ -556,8 +569,8 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
     // Scalar types wrapped in angle brackets: <i64 (mutable)> etc.
     {
         TTypePtr scalar;
-        if (head == "i64") {
-            scalar = std::make_shared<TIntegerType>();
+        if (auto integerType = IntegerTypeByName(head)) {
+            scalar = std::move(integerType);
         } else if (head == "f64") {
             scalar = std::make_shared<TFloatType>();
         } else if (head == "bool") {
@@ -644,7 +657,7 @@ TTypeTask ParseType(TParserContext& context) {
     auto token = context.Stream.Next();
     if (IsNil(token)) co_return TTypePtr{};
     if (token.Type == TToken::Identifier) {
-        if (token.Name == "i64") co_return std::make_shared<TIntegerType>();
+        if (auto integerType = IntegerTypeByName(token.Name)) co_return integerType;
         if (token.Name == "f64") co_return std::make_shared<TFloatType>();
         if (token.Name == "bool") co_return std::make_shared<TBoolType>();
         if (token.Name == "string") co_return std::make_shared<TStringType>();

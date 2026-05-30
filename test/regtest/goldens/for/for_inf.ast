@@ -14,7 +14,7 @@
             (call output_string "\n"))
           (cond (== i 3) (block (seq (call output_string "break") (call output_string "\n")) break))
           (= after (+ after 10)))
-        (cast 1 bool))
+        (cast #t bool))
       (seq
         (call output_string "loop ended i=")
         (call output_int64 i 0)

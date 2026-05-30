@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <unordered_set>
+#include <cassert>
 
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/IRBuilder.h>
@@ -785,8 +786,10 @@ llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, NIR::TModule& module)
             if (op.Imm.TypeId == lowFloatTypeId) {
                 return llvm::ConstantFP::get(f64, std::bit_cast<double>(op.Imm.Value));
             } else if (op.Imm.TypeId == lowIntTypeId) {
-                // TODO: other immediate types
                 return llvm::ConstantInt::get(i64, op.Imm.Value, true);
+            } else if (module.Types.IsInteger(op.Imm.TypeId)) {
+                auto* ty = GetTypeById(op.Imm.TypeId, module.Types, ctx);
+                return llvm::ConstantInt::get(ty, op.Imm.Value, module.Types.IsSigned(op.Imm.TypeId));
             } else if (op.Imm.TypeId == lowStringTypeId) {
                 // assume char* for now
                 int id = (int)op.Imm.Value;
@@ -811,7 +814,8 @@ llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, NIR::TModule& module)
             } else if (op.Imm.TypeId == lowBoolTypeId) {
                 return llvm::ConstantInt::get(llvm::Type::getInt1Ty(ctx), op.Imm.Value != 0 ? 1 : 0, false);
             } else {
-                throw std::runtime_error("unsupported immediate type");
+                assert(op.Imm.TypeId >= 0 && "immediate TypeId must be assigned before LLVM lowering");
+                throw std::runtime_error("unsupported immediate typeId: " + std::to_string(op.Imm.TypeId));
             }
         case TOperand::EType::Tmp: {
             if (op.Tmp.Idx < 0 || op.Tmp.Idx >= CurFun->TmpValues.size()) {
@@ -920,6 +924,21 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
         }
         return cache[idx];
     };
+    auto operandTypeId = [&](const TOperand& op) -> int {
+        switch (op.Type) {
+            case TOperand::EType::Tmp:
+                return typeId(op.Tmp.Idx, CurFun->Fun->TmpTypes);
+            case TOperand::EType::Slot:
+                return typeId(op.Slot.Idx, module.GlobalTypes);
+            case TOperand::EType::Local:
+                return typeId(op.Local.Idx, CurFun->Fun->LocalTypes);
+            case TOperand::EType::Imm:
+                return op.Imm.TypeId;
+            case TOperand::EType::Label:
+                return -1;
+        }
+        return -1;
+    };
     auto printType = [&](std::ostream& out, int tid) {
         if (tid >= 0) {
             out << ",";
@@ -1006,6 +1025,9 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
         if (actualTy->isIntegerTy() && expectedIsPtr) {
             return irb->CreateIntToPtr(val, expectedType, "cast");
         }
+        if (actualTy->isIntegerTy() && expectedType->isFloatingPointTy()) {
+            return irb->CreateSIToFP(val, expectedType, "cast");
+        }
 
         throw std::runtime_error(
             "unexpected cast request while lowering IR instruction: " + formatInstr()
@@ -1039,7 +1061,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                 if (it == fbinOpMap.end()) throw std::runtime_error("unsupported fbinop opcode");
                 return storeTmp(binOp(it->second));
             } else if (outputType->isIntegerTy()) {
-                if (true /*module.Types.IsSigned(outputTypeId) always signed*/) {
+                if (IsSignedIntegerType(module.Types, outputTypeId)) {
                     // signed integer ops
                     auto it = ibinOpMap.find(opcode);
                     if (it == ibinOpMap.end()) throw std::runtime_error("unsupported ibinop opcode");
@@ -1114,14 +1136,31 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             auto lhs = GetOp(instr.Operands[0], module);
             auto rhs = GetOp(instr.Operands[1], module);
             if (lhs->getType()->isFloatingPointTy()) {
+                rhs = cast(rhs, lhs->getType());
                 auto it = fcmpMap.find(opcode);
                 if (it == fcmpMap.end()) throw std::runtime_error("unsupported fcmp opcode");
                 return storeTmp(cmpInsr(it->second, lhs, rhs));
             } else if (lhs->getType()->isIntegerTy()) {
-                // todo: unsigned?
-                auto it = icmpMap.find(opcode);
-                if (it == icmpMap.end()) throw std::runtime_error("unsupported icmp opcode");
-                return storeTmp(cmpInsr(it->second, lhs, rhs));
+                rhs = cast(rhs, lhs->getType());
+                auto pred = [&]() {
+                    const int lhsTypeId = operandTypeId(instr.Operands[0]);
+                    const bool isSigned = lhsTypeId < 0 || IsSignedIntegerType(module.Types, lhsTypeId);
+                    if (isSigned) {
+                        auto it = icmpMap.find(opcode);
+                        if (it == icmpMap.end()) throw std::runtime_error("unsupported icmp opcode");
+                        return it->second;
+                    }
+                    switch (opcode) {
+                        case "<"_op: return llvm::CmpInst::ICMP_ULT;
+                        case "<="_op: return llvm::CmpInst::ICMP_ULE;
+                        case ">"_op: return llvm::CmpInst::ICMP_UGT;
+                        case ">="_op: return llvm::CmpInst::ICMP_UGE;
+                        case "=="_op: return llvm::CmpInst::ICMP_EQ;
+                        case "!="_op: return llvm::CmpInst::ICMP_NE;
+                    }
+                    throw std::runtime_error("unsupported icmp opcode");
+                }();
+                return storeTmp(cmpInsr(pred, lhs, rhs));
             } else if (lhs->getType()->isPointerTy()) {
                 if (opcode != "=="_op && opcode != "!="_op) {
                     throw std::runtime_error("only == and != supported for pointer comparison");
@@ -1313,12 +1352,18 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
         case "i2f"_op: {
             auto v = GetOp(instr.Operands[0], module);
             if (!outputType) throw std::runtime_error("cast/mov needs typed dest");
-            return storeTmp(irb->CreateSIToFP(v, outputType, "i2f"));
+            const int sourceTypeId = operandTypeId(instr.Operands[0]);
+            const bool sourceSigned = sourceTypeId < 0 || IsSignedIntegerType(module.Types, sourceTypeId);
+            return storeTmp(sourceSigned
+                ? irb->CreateSIToFP(v, outputType, "i2f")
+                : irb->CreateUIToFP(v, outputType, "u2f"));
         }
         case "f2i"_op: {
             auto v = GetOp(instr.Operands[0], module);
             if (!outputType) throw std::runtime_error("cast/mov needs typed dest");
-            return storeTmp(irb->CreateFPToSI(v, outputType, "f2i"));
+            return storeTmp(IsSignedIntegerType(module.Types, outputTypeId)
+                ? irb->CreateFPToSI(v, outputType, "f2i")
+                : irb->CreateFPToUI(v, outputType, "f2u"));
         }
         case "mov"_op: {
             auto v = GetOp(instr.Operands[0], module);
@@ -1326,7 +1371,9 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             if (v->getType() != outputType) {
                 auto sourceType = v->getType();
                 if (sourceType->isIntegerTy() && outputType->isIntegerTy()) {
-                    v = irb->CreateIntCast(v, outputType, /*isSigned=*/true, "movcast");
+                    const int sourceTypeId = operandTypeId(instr.Operands[0]);
+                    const bool sourceSigned = sourceTypeId < 0 || module.Types.IsSigned(sourceTypeId);
+                    v = irb->CreateIntCast(v, outputType, sourceSigned, "movcast");
                 } else {
                     throw std::runtime_error("mov type mismatch");
                 }

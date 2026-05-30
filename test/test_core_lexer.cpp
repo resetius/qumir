@@ -148,6 +148,36 @@ TEST(CoreTypeTest, FutureTypesPrintAndParse) {
     EXPECT_TRUE(TMaybeType<TIntegerType>(future->ResultType));
 }
 
+TEST(CoreTypeTest, IntegerWidthsPrintAndParse) {
+    EXPECT_EQ(PrintType(std::make_shared<TIntegerType>(TIntegerType::I8)), "i8");
+    EXPECT_EQ(PrintType(std::make_shared<TIntegerType>(TIntegerType::I16)), "i16");
+    EXPECT_EQ(PrintType(std::make_shared<TIntegerType>(TIntegerType::I32)), "i32");
+    EXPECT_EQ(PrintType(std::make_shared<TIntegerType>(TIntegerType::I64)), "i64");
+    EXPECT_EQ(PrintType(std::make_shared<TIntegerType>(TIntegerType::U8)), "u8");
+    EXPECT_EQ(PrintType(std::make_shared<TIntegerType>(TIntegerType::U16)), "u16");
+    EXPECT_EQ(PrintType(std::make_shared<TIntegerType>(TIntegerType::U32)), "u32");
+    EXPECT_EQ(PrintType(std::make_shared<TIntegerType>(TIntegerType::U64)), "u64");
+
+    std::istringstream input("(var x u32)");
+    TTokenStream tokens(input);
+    TParser parser;
+
+    auto parsed = parser.Parse(tokens);
+    ASSERT_TRUE(parsed.has_value()) << parsed.error().ToString();
+    EXPECT_EQ(PrintAst(*parsed, TPrintOptions{.Pretty = false}), "(var x u32)");
+}
+
+TEST(CoreParserTest, NonDefaultIntegerLiteralKeepsTypeAnnotation) {
+    std::istringstream input("(output (: 42 u32))");
+    TTokenStream tokens(input);
+    TParser parser;
+
+    auto parsed = parser.Parse(tokens);
+    ASSERT_TRUE(parsed.has_value()) << parsed.error().ToString();
+
+    EXPECT_EQ(PrintAst(*parsed, TPrintOptions{.Pretty = false}), "(output (: 42 u32))");
+}
+
 TEST(CoreParserTest, AwaitPrintAndParse) {
     std::istringstream input("(await (call f))");
     TTokenStream tokens(input);

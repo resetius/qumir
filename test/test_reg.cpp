@@ -7,6 +7,8 @@
 #include <algorithm>
 
 #include <qumir/parser/lexer.h>
+#include <qumir/parser/core/lexer.h>
+#include <qumir/parser/core/parser.h>
 #include <qumir/parser/core/printer.h>
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
@@ -76,8 +78,11 @@ void WriteAll(const fs::path& p, const std::string& s) {
 
 struct ProgCase { fs::path base; }; // base without extension
 
-std::vector<ProgCase> Collect(const fs::path& root) {
+std::vector<ProgCase> Collect(const fs::path& root, std::string_view extension = ".kum") {
     std::vector<ProgCase> v;
+    if (!fs::exists(root)) {
+        return v;
+    }
 
     auto casePath = [&](const fs::path& p) {
         auto rel = fs::relative(p, root);
@@ -85,7 +90,7 @@ std::vector<ProgCase> Collect(const fs::path& root) {
     };
 
     for (auto& e : fs::recursive_directory_iterator(root)) {
-        if (e.is_regular_file() && e.path().extension() == ".kum") {
+        if (e.is_regular_file() && e.path().extension() == extension) {
             auto path = e.path();
             v.push_back({ casePath(path) });
         }
@@ -142,18 +147,33 @@ std::string BuildCoreSource(NAst::TTokenStream& ts) {
     return NAst::NCore::PrintAst(expr, {.TypeMode = NAst::NCore::ETypePrintMode::All});
 }
 
-// TODO: move to utils
-std::string BuildIR(NAst::TTokenStream& ts) {
+std::string BuildIR(std::istream& input, bool coreInput = false) {
     NSemantics::TNameResolver resolver;
     RegisterRuntimeModules(resolver);
 
-    NAst::TParser p;
-    auto parsed = p.parse(ts, &resolver);
+    std::expected<NAst::TExprPtr, TError> parsed;
+    if (coreInput) {
+        NAst::NCore::TTokenStream ts(input);
+        NAst::NCore::TParser p;
+        parsed = p.Parse(ts);
+    } else {
+        NAst::TTokenStream ts(input);
+        NAst::TParser p;
+        parsed = p.parse(ts, &resolver);
+    }
     if (!parsed) {
         return "Error: " + parsed.error().ToString() + "\n";
     }
 
     auto expr = parsed.value();
+    if (coreInput) {
+        auto scope = resolver.GetOrCreateRootScope();
+        scope->AllowsRedeclare = true;
+        scope->RootLevel = false;
+        if (auto resolveError = resolver.Resolve(expr)) {
+            return "Error: " + resolveError->ToString() + "\n";
+        }
+    }
     auto error = NTransform::Pipeline(expr, resolver, {.EnableCoroutineAnalysis = true});
     if (!error) {
         return "Error: " + error.error().ToString() + "\n";
@@ -176,6 +196,7 @@ std::string BuildIR(NAst::TTokenStream& ts) {
 
 class RegAst : public ::testing::TestWithParam<ProgCase> {};
 class RegExec : public ::testing::TestWithParam<ProgCase> {};
+class RegCoreLang : public ::testing::TestWithParam<ProgCase> {};
 
 std::string ResultString(const std::expected<std::optional<std::string>, TError>& res) {
     if (!res) {
@@ -225,6 +246,75 @@ void CheckExecGoldens(
     }
 }
 
+enum class EExecBackend {
+    IR,
+    LLVM,
+};
+
+bool IsExecDisabled(const std::string& code) {
+    auto header = code.substr(0, code.find('\n'));
+    return header.find("disable_exec") != std::string::npos;
+}
+
+std::pair<std::string, std::string> RunExec(
+    const std::string& code,
+    const fs::path& stdin,
+    bool coreInput,
+    EExecBackend backend,
+    int optLevel)
+{
+    std::istringstream input(code);
+
+    std::ostringstream out;
+    NRuntime::SetOutputStream(&out);
+    std::istream* inStream = nullptr;
+    std::ifstream fin;
+    if (fs::exists(stdin)) {
+        fin.open(stdin, std::ios::binary);
+        inStream = &fin;
+    }
+    NRuntime::SetInputStream(inStream);
+
+    std::expected<std::optional<std::string>, TError> res;
+    if (backend == EExecBackend::IR) {
+        TIRRunner runner(std::cout, std::cin, {
+            .CoreInput = coreInput,
+            .ResolveCoreInput = coreInput,
+            .OptLevel = optLevel,
+        });
+        res = runner.Run(input);
+    } else {
+        TLLVMRunner runner({
+            .CoreInput = coreInput,
+            .ResolveCoreInput = coreInput,
+            .OptLevel = optLevel,
+        });
+        res = runner.Run(input);
+    }
+    return {ResultString(res), out.str()};
+}
+
+void CheckExecCase(
+    const fs::path& src,
+    const fs::path& base,
+    bool coreInput,
+    EExecBackend backend,
+    int optLevel,
+    std::string_view label)
+{
+    const fs::path stdin = fs::path(src).replace_extension(".stdin");
+    const fs::path golden = fs::path(GoldensDir / base).replace_extension(".result");
+    const fs::path goldenStdOut = fs::path(GoldensDir / base).replace_extension(".result.stdout");
+
+    const auto code = ReadAll(src);
+    if (IsExecDisabled(code)) {
+        GTEST_SKIP() << "Execution disabled for this test case";
+    }
+
+    auto [got, stdoutText] = RunExec(code, stdin, coreInput, backend, optLevel);
+    CheckExecGoldens(src, golden, goldenStdOut, got, stdoutText, label);
+}
+
 TEST_P(RegAst, Ast) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
     const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".ast");
@@ -260,8 +350,7 @@ TEST_P(RegAst, IR) {
     const auto code = ReadAll(src);
     std::istringstream input(code);
 
-    NAst::TTokenStream ts(input);
-    std::string got = BuildIR(ts);
+    std::string got = BuildIR(input);
 
     if (printOutput) {
         std::cout << "=== Output IR for " << src << " ===\n";
@@ -283,122 +372,22 @@ TEST_P(RegAst, IR) {
 
 TEST_P(RegExec, ExecIR) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
-    const fs::path stdin = fs::path(CasesDir / GetParam().base).replace_extension(".stdin");
-    const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
-    const fs::path goldenStdOut = fs::path(GoldensDir / GetParam().base).replace_extension(".result.stdout");
-
-    const auto code = ReadAll(src);
-    auto header = code.substr(0, code.find('\n'));
-    if (header.find("disable_exec") != std::string::npos) {
-        GTEST_SKIP() << "Execution disabled for this test case";
-    }
-    std::istringstream input(code);
-
-    std::ostringstream out;
-    NRuntime::SetOutputStream(&out);
-    std::istream* inStream = nullptr;
-    std::ifstream fin;
-    if (fs::exists(stdin)) {
-        fin.open(stdin, std::ios::binary);
-        inStream = &fin;
-    }
-    NRuntime::SetInputStream(inStream);
-
-    TIRRunner runner(std::cout, std::cin, {});
-    auto res = runner.Run(input);
-    auto got = ResultString(res);
-
-    CheckExecGoldens(src, golden, goldenStdOut, got, out.str(), "IR RUN");
+    CheckExecCase(src, GetParam().base, false, EExecBackend::IR, 0, "IR RUN");
 }
 
 TEST_P(RegExec, ExecIROPT) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
-    const fs::path stdin = fs::path(CasesDir / GetParam().base).replace_extension(".stdin");
-    const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
-    const fs::path goldenStdOut = fs::path(GoldensDir / GetParam().base).replace_extension(".result.stdout");
-
-    const auto code = ReadAll(src);
-    auto header = code.substr(0, code.find('\n'));
-    if (header.find("disable_exec") != std::string::npos) {
-        GTEST_SKIP() << "Execution disabled for this test case";
-    }
-    std::istringstream input(code);
-
-    std::ostringstream out;
-    NRuntime::SetOutputStream(&out);
-    std::istream* inStream = nullptr;
-    std::ifstream fin;
-    if (fs::exists(stdin)) {
-        fin.open(stdin, std::ios::binary);
-        inStream = &fin;
-    }
-    NRuntime::SetInputStream(inStream);
-
-    TIRRunner runner(std::cout, std::cin, {.OptLevel = 1});
-    auto res = runner.Run(input);
-    auto got = ResultString(res);
-
-    CheckExecGoldens(src, golden, goldenStdOut, got, out.str(), "IR OPT RUN");
+    CheckExecCase(src, GetParam().base, false, EExecBackend::IR, 1, "IR OPT RUN");
 }
 
 TEST_P(RegExec, ExecLLVM) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
-    const fs::path stdin = fs::path(CasesDir / GetParam().base).replace_extension(".stdin");
-    const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
-    const fs::path goldenStdOut = fs::path(GoldensDir / GetParam().base).replace_extension(".result.stdout");
-
-    const auto code = ReadAll(src);
-    auto header = code.substr(0, code.find('\n'));
-    if (header.find("disable_exec") != std::string::npos) {
-        GTEST_SKIP() << "Execution disabled for this test case";
-    }
-    std::istringstream input(code);
-
-    std::ostringstream out;
-    NRuntime::SetOutputStream(&out);
-    std::istream* inStream = nullptr;
-    std::ifstream fin;
-    if (fs::exists(stdin)) {
-        fin.open(stdin, std::ios::binary);
-        inStream = &fin;
-    }
-    NRuntime::SetInputStream(inStream);
-
-    TLLVMRunner runner;
-    auto res = runner.Run(input);
-    auto got = ResultString(res);
-
-    CheckExecGoldens(src, golden, goldenStdOut, got, out.str(), "LLVM RUN");
+    CheckExecCase(src, GetParam().base, false, EExecBackend::LLVM, 0, "LLVM RUN");
 }
 
 TEST_P(RegExec, ExecLLVMOPT) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
-    const fs::path stdin = fs::path(CasesDir / GetParam().base).replace_extension(".stdin");
-    const fs::path golden = fs::path(GoldensDir / GetParam().base).replace_extension(".result");
-    const fs::path goldenStdOut = fs::path(GoldensDir / GetParam().base).replace_extension(".result.stdout");
-
-    const auto code = ReadAll(src);
-    auto header = code.substr(0, code.find('\n'));
-    if (header.find("disable_exec") != std::string::npos) {
-        GTEST_SKIP() << "Execution disabled for this test case";
-    }
-    std::istringstream input(code);
-
-    std::ostringstream out;
-    NRuntime::SetOutputStream(&out);
-    std::istream* inStream = nullptr;
-    std::ifstream fin;
-    if (fs::exists(stdin)) {
-        fin.open(stdin, std::ios::binary);
-        inStream = &fin;
-    }
-    NRuntime::SetInputStream(inStream);
-
-    TLLVMRunner runner({.OptLevel = 1});
-    auto res = runner.Run(input);
-    auto got = ResultString(res);
-
-    CheckExecGoldens(src, golden, goldenStdOut, got, out.str(), "LLVM OPT RUN");
+    CheckExecCase(src, GetParam().base, false, EExecBackend::LLVM, 1, "LLVM OPT RUN");
 }
 
 TEST_P(RegExec, CoreExec) {
@@ -432,11 +421,65 @@ TEST_P(RegExec, CoreExec) {
     }
     NRuntime::SetInputStream(inStream);
 
-    TIRRunner runner(std::cout, std::cin, {.CoreInput = true});
+    TIRRunner runner(std::cout, std::cin, {
+        .CoreInput = true,
+        .ResolveCoreInput = false,
+    });
     auto res = runner.Run(coreInput);
     auto got = ResultString(res);
 
     CheckExecGoldens(src, golden, goldenStdOut, got, out.str(), "CORE RUN");
+}
+
+TEST_P(RegCoreLang, IR) {
+    const fs::path relBase = fs::path("corelang") / GetParam().base;
+    const fs::path src = fs::path(CasesDir / relBase).replace_extension(".oz");
+    const fs::path golden = fs::path(GoldensDir / relBase).replace_extension(".ir");
+
+    const auto code = ReadAll(src);
+    std::istringstream input(code);
+
+    std::string got = BuildIR(input, true);
+
+    if (printOutput) {
+        std::cout << "=== Output CORE IR for " << src << " ===\n";
+        std::cout << got << "\n";
+        std::cout << "=== End of output ===\n";
+    }
+
+    if (updateGoldens) {
+        WriteAll(golden, got);
+    }
+    if (!fs::exists(golden)) {
+        std::cerr << "Missing golden CORE IR file: " << golden << "\n";
+        FAIL();
+    }
+    const auto exp = ReadAll(golden);
+    EXPECT_EQ(got, exp);
+}
+
+TEST_P(RegCoreLang, ExecIR) {
+    const fs::path relBase = fs::path("corelang") / GetParam().base;
+    const fs::path src = fs::path(CasesDir / relBase).replace_extension(".oz");
+    CheckExecCase(src, relBase, true, EExecBackend::IR, 0, "CORE IR RUN");
+}
+
+TEST_P(RegCoreLang, ExecIROPT) {
+    const fs::path relBase = fs::path("corelang") / GetParam().base;
+    const fs::path src = fs::path(CasesDir / relBase).replace_extension(".oz");
+    CheckExecCase(src, relBase, true, EExecBackend::IR, 1, "CORE IR OPT RUN");
+}
+
+TEST_P(RegCoreLang, ExecLLVM) {
+    const fs::path relBase = fs::path("corelang") / GetParam().base;
+    const fs::path src = fs::path(CasesDir / relBase).replace_extension(".oz");
+    CheckExecCase(src, relBase, true, EExecBackend::LLVM, 0, "CORE LLVM RUN");
+}
+
+TEST_P(RegCoreLang, ExecLLVMOPT) {
+    const fs::path relBase = fs::path("corelang") / GetParam().base;
+    const fs::path src = fs::path(CasesDir / relBase).replace_extension(".oz");
+    CheckExecCase(src, relBase, true, EExecBackend::LLVM, 1, "CORE LLVM OPT RUN");
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -450,6 +493,12 @@ INSTANTIATE_TEST_SUITE_P(
     RegExec,
     ::testing::ValuesIn(Collect(CasesDir)),
     [](const ::testing::TestParamInfo<ProgCase>& i){ return "EXEC_" + NameFromPath(i.param.base); });
+
+INSTANTIATE_TEST_SUITE_P(
+    RegCoreLangProg,
+    RegCoreLang,
+    ::testing::ValuesIn(Collect(CasesDir / "corelang", ".oz")),
+    [](const ::testing::TestParamInfo<ProgCase>& i){ return "CORE_" + NameFromPath(i.param.base); });
 
 int main(int argc, char** argv) {
     if (argc > 1) {

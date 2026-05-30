@@ -1,7 +1,7 @@
 function ф () { ; i64
   block {
     label: label(0)
-    i2b tmp(0,i1) = imm(1,i64) 
+    mov tmp(0,i1) = imm(1,i64) 
     cmp tmp(0,i1) label(2) label(3) 
   }
   block {

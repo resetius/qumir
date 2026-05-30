@@ -77,7 +77,17 @@ private:
                 && !TMaybeNode<TCastExpr>(expr);
         }
         return TMaybeType<TNamedType>(expr->Type)
-            || TMaybeNode<TStructConstructExpr>(expr);
+            || TMaybeNode<TStructConstructExpr>(expr)
+            || IsNonDefaultIntegerLiteral(expr);
+    }
+
+    bool IsNonDefaultIntegerLiteral(const TExprPtr& expr) const {
+        auto number = TMaybeNode<TNumberExpr>(expr);
+        if (!number || number.Cast()->IsFloat) {
+            return false;
+        }
+        auto integerType = TMaybeType<TIntegerType>(expr->Type);
+        return integerType && integerType.Cast()->Kind != TIntegerType::I64;
     }
 
     void PrintExpr(TExprPtr expr, bool allowTypeWrap, int level) {
@@ -233,7 +243,7 @@ private:
     }
 
     // Prints a simple (scalar) type, wrapping in <> with attrs if flags are non-default.
-    void PrintScalarType(const char* name, TTypePtr type) {
+    void PrintScalarType(std::string_view name, TTypePtr type) {
         if (HasPrintableTypeAttrs(type)) {
             Out << '<' << name;
             PrintTypeAttrs(type);
@@ -246,8 +256,8 @@ private:
     void PrintType(TTypePtr type, int level) {
         if (!type) {
             Out << "nil";
-        } else if (TMaybeType<TIntegerType>(type)) {
-            PrintScalarType("i64", type);
+        } else if (auto t = TMaybeType<TIntegerType>(type)) {
+            PrintScalarType(t.Cast()->ToString(), type);
         } else if (TMaybeType<TFloatType>(type)) {
             PrintScalarType("f64", type);
         } else if (TMaybeType<TBoolType>(type)) {

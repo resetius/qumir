@@ -60,6 +60,8 @@ public:
     bool IsPrimitive(int typeId) const;
     bool IsFloat(int typeId) const;
     bool IsInteger(int typeId) const;
+    bool IsSigned(int typeId) const;
+    bool IsUnsigned(int typeId) const;
     bool IsVoid(int typeId) const;
     bool IsPointer(int typeId) const;
     EKind GetKind(int typeId) const;

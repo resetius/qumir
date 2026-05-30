@@ -24,6 +24,7 @@ struct TLLVMRunnerOptions {
     bool PrintIr = false;
     bool PrintLlvm = false;
     bool CoreInput = false;
+    bool ResolveCoreInput = true;
     int OptLevel = 0; // 0-3
 };
 

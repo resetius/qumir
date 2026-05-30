@@ -38,7 +38,70 @@ struct TMaybeType {
 struct TIntegerType : TType {
     static constexpr const char* TypeId = "Int";
 
-    // Only 1 integer type
+    enum EKind {
+        I8,
+        I16,
+        I32,
+        I64,
+        U8,
+        U16,
+        U32,
+        U64,
+    } Kind = I64;
+
+    TIntegerType() = default;
+    explicit TIntegerType(EKind kind)
+        : Kind(kind)
+    {}
+
+    int BitWidth() const {
+        switch (Kind) {
+            case I8:
+            case U8:
+                return 8;
+            case I16:
+            case U16:
+                return 16;
+            case I32:
+            case U32:
+                return 32;
+            case I64:
+            case U64:
+                return 64;
+        }
+        return 64;
+    }
+
+    bool IsSigned() const {
+        switch (Kind) {
+            case I8:
+            case I16:
+            case I32:
+            case I64:
+                return true;
+            case U8:
+            case U16:
+            case U32:
+            case U64:
+                return false;
+        }
+        return true;
+    }
+
+    std::string ToString() const override {
+        switch (Kind) {
+            case I8: return "i8";
+            case I16: return "i16";
+            case I32: return "i32";
+            case I64: return "i64";
+            case U8: return "u8";
+            case U16: return "u16";
+            case U32: return "u32";
+            case U64: return "u64";
+        }
+        return "i64";
+    }
+
     const std::string_view TypeName() const override {
         return TIntegerType::TypeId;
     }

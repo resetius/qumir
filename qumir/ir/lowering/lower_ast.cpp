@@ -420,6 +420,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         } else if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TSymbolType>(cast->Operand->Type)) {
             // oposite of above: int to symbol
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
+        } else if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TIntegerType>(cast->Operand->Type)) {
+            tmp = Builder.Emit1("mov"_op, {*operand.Value});
         } else if (FromAstType(NAst::UnwrapNamedType(expr->Type), Module.Types)
             == FromAstType(NAst::UnwrapNamedType(cast->Operand->Type), Module.Types)) {
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
@@ -433,7 +435,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (num->IsFloat) {
             co_return TValueWithBlock{ TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .TypeId = Module.Types.I(EKind::F64)}, Builder.CurrentBlockLabel() };
         } else {
-            co_return TValueWithBlock{ TImm{.Value = num->IntValue, .TypeId = Module.Types.I(EKind::I64)}, Builder.CurrentBlockLabel() };
+            int typeId = num->Type && NAst::TMaybeType<NAst::TIntegerType>(num->Type)
+                ? FromAstType(num->Type, Module.Types)
+                : Module.Types.I(EKind::I64);
+            co_return TValueWithBlock{ TImm{.Value = num->IntValue, .TypeId = typeId}, Builder.CurrentBlockLabel() };
         }
     } else if (auto maybeStringLiteral = NAst::TMaybeNode<NAst::TStringLiteralExpr>(expr)) {
         auto str = maybeStringLiteral.Cast();

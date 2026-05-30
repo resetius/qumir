@@ -3,5 +3,5 @@
     (block
       (var $$return i64)
       (var i i64)
-      (cond (cast 1 bool) (block (= i 1)) (block (= i 2)))
+      (cond (cast #t bool) (block (= i 1)) (block (= i 2)))
       (= $$return i))))
