@@ -355,7 +355,26 @@ int TTypeTable::UnderlyingType(int typeId) const {
 
 int TTypeTable::SizeInBytes(int typeId) const {
     if (typeId < 0 || typeId >= (int)Types.size()) return 8;
-    if (Types[typeId].Kind == EKind::Struct) {
+    switch (Types[typeId].Kind) {
+    case EKind::I1:
+    case EKind::I8:
+    case EKind::U8:
+        return 1;
+    case EKind::I16:
+    case EKind::U16:
+        return 2;
+    case EKind::I32:
+    case EKind::U32:
+        return 4;
+    case EKind::I64:
+    case EKind::U64:
+    case EKind::F64:
+    case EKind::Ptr:
+    case EKind::Func:
+        return 8;
+    case EKind::Void:
+        return 0;
+    case EKind::Struct: {
         int total = 0;
         for (int f : Structs[Types[typeId].Aux].FieldTypes) {
             total += SizeInBytes(f);
@@ -363,7 +382,8 @@ int TTypeTable::SizeInBytes(int typeId) const {
         // round up to 8-byte alignment
         return (total + 7) & ~7;
     }
-    return 8; // all primitives and pointers occupy one 8-byte slot
+    }
+    return 8;
 }
 
 const std::vector<int>& TTypeTable::GetStructFields(int typeId) const {

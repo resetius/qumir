@@ -42,25 +42,27 @@ fs::path GoldensDir = RootDir / "goldens";
 bool updateGoldens = false;
 bool printOutput = false;
 
-void RegisterRuntimeModules(NSemantics::TNameResolver& resolver) {
-    static NRegistry::SystemModule system;
-    static NRegistry::TurtleModule turtle;
-    static NRegistry::RobotModule robot;
-    static NRegistry::DrawerModule drawer;
-    static NRegistry::PainterModule painter;
-    static NRegistry::ComplexModule complex;
-    static NRegistry::ColorsModule colors;
-    static NRegistry::KeyboardModule keyboard;
+struct TModuleSet {
+    NRegistry::SystemModule system;
+    NRegistry::TurtleModule turtle;
+    NRegistry::RobotModule robot;
+    NRegistry::DrawerModule drawer;
+    NRegistry::PainterModule painter;
+    NRegistry::ComplexModule complex;
+    NRegistry::ColorsModule colors;
+    NRegistry::KeyboardModule keyboard;
+};
 
-    resolver.RegisterModule(&system);
-    resolver.RegisterModule(&turtle);
-    resolver.RegisterModule(&robot);
-    resolver.RegisterModule(&drawer);
-    resolver.RegisterModule(&painter);
-    resolver.RegisterModule(&complex);
-    resolver.RegisterModule(&colors);
-    resolver.RegisterModule(&keyboard);
-    resolver.ImportModule(system.Name());
+void RegisterRuntimeModules(NSemantics::TNameResolver& resolver, TModuleSet& mods) {
+    resolver.RegisterModule(&mods.system);
+    resolver.RegisterModule(&mods.turtle);
+    resolver.RegisterModule(&mods.robot);
+    resolver.RegisterModule(&mods.drawer);
+    resolver.RegisterModule(&mods.painter);
+    resolver.RegisterModule(&mods.complex);
+    resolver.RegisterModule(&mods.colors);
+    resolver.RegisterModule(&mods.keyboard);
+    resolver.ImportModule(mods.system.Name());
 }
 
 std::string ReadAll(const fs::path& p) {
@@ -109,8 +111,9 @@ std::string NameFromPath(const fs::path& p) {
 // TODO: move to utils
 std::string BuildAst(NAst::TTokenStream& ts) {
     NAst::TParser p;
+    TModuleSet mods;
     NSemantics::TNameResolver nr;
-    RegisterRuntimeModules(nr);
+    RegisterRuntimeModules(nr, mods);
 
     auto parsed = p.parse(ts, &nr);
     if (!parsed) {
@@ -130,8 +133,9 @@ std::string BuildAst(NAst::TTokenStream& ts) {
 
 std::string BuildCoreSource(NAst::TTokenStream& ts) {
     NAst::TParser p;
+    TModuleSet mods;
     NSemantics::TNameResolver nr;
-    RegisterRuntimeModules(nr);
+    RegisterRuntimeModules(nr, mods);
 
     auto parsed = p.parse(ts, &nr);
     if (!parsed) {
@@ -148,8 +152,9 @@ std::string BuildCoreSource(NAst::TTokenStream& ts) {
 }
 
 std::string BuildIR(std::istream& input, bool coreInput = false) {
+    TModuleSet mods;
     NSemantics::TNameResolver resolver;
-    RegisterRuntimeModules(resolver);
+    RegisterRuntimeModules(resolver, mods);
 
     std::expected<NAst::TExprPtr, TError> parsed;
     if (coreInput) {

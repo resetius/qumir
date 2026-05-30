@@ -11,13 +11,14 @@ using namespace NRuntime;
 
 ColorsModule::ColorsModule() {
     auto integerType  = std::make_shared<NAst::TIntegerType>();
+    auto colorStorageType = std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::EKind::U32);
     auto floatType    = std::make_shared<NAst::TFloatType>();
     auto boolType     = std::make_shared<NAst::TBoolType>();
     auto voidType     = std::make_shared<NAst::TVoidType>();
     auto stringType   = std::make_shared<NAst::TStringType>();
     auto intArrayType = std::make_shared<NAst::TArrayType>(integerType, 1);
 
-    auto colorType = std::make_shared<NAst::TNamedType>("цвет", integerType);
+    auto colorType = std::make_shared<NAst::TNamedType>("цвет", colorStorageType);
 
     auto colorConst = [colorType](int64_t value) {
         return [colorType, value](std::vector<NAst::TExprPtr>) -> NAst::TExprPtr {
@@ -80,13 +81,16 @@ ColorsModule::ColorsModule() {
             return binary("|", std::move(left), std::move(right), std::move(type));
         };
 
-        return bor(
+        auto packed = bor(
             bor(
                 bor(shift(std::move(a), 24), shift(std::move(r), 16), integerType),
                 shift(std::move(g), 8),
                 integerType),
             mask(std::move(b)),
-            colorType);
+            integerType);
+        auto expr = std::make_shared<NAst::TCastExpr>(packed->Location, std::move(packed), colorType);
+        expr->Type = colorType;
+        return expr;
     };
 
     auto inlineCmyk = [integerType, colorPack, intLiteral, binary, cast](bool withAlpha) {
@@ -581,7 +585,7 @@ ColorsModule::ColorsModule() {
     ExternalTypes_ = {
         {
             .Name = "цвет",
-            .Type = integerType,
+            .Type = colorStorageType,
         },
     };
 

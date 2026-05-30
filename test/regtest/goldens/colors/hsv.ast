@@ -2,7 +2,7 @@
   (use "Цвета")
   (fun <main> void () ()
     (block
-      (var c <named цвет i64>)
+      (var c <named цвет u32>)
       (var r i64)
       (var g i64)
       (var b i64)
@@ -19,57 +19,59 @@
                               ($$p (* $$vf (- 1 $$sf)))
                               ($$q (* $$vf (- 1 (* $$f $$sf))))
                               ($$t (* $$vf (- 1 (* (- 1 $$f) $$sf)))))
-                            (: (| (| (| (<< (& 255 255) 24)
+                            (: (cast
+                                (| (| (| (<< (& 255 255) 24)
+                                      (<< (& (cast
+                                            (+ (* (if
+                                                  (== $$i 0)
+                                                  $$vf
+                                                  (if
+                                                    (== $$i 1)
+                                                    $$q
+                                                    (if (== $$i 2) $$p (if (== $$i 3) $$p (if (== $$i 4) $$t $$vf)))))
+                                                255)
+                                              0.5)
+                                            i64)
+                                          255)
+                                        16))
                                     (<< (& (cast
                                           (+ (* (if
                                                 (== $$i 0)
-                                                $$vf
+                                                $$t
                                                 (if
                                                   (== $$i 1)
-                                                  $$q
-                                                  (if (== $$i 2) $$p (if (== $$i 3) $$p (if (== $$i 4) $$t $$vf)))))
+                                                  $$vf
+                                                  (if (== $$i 2) $$vf (if (== $$i 3) $$q (if (== $$i 4) $$p $$p)))))
                                               255)
                                             0.5)
                                           i64)
                                         255)
-                                      16))
-                                  (<< (& (cast
-                                        (+ (* (if
-                                              (== $$i 0)
-                                              $$t
-                                              (if
-                                                (== $$i 1)
-                                                $$vf
-                                                (if (== $$i 2) $$vf (if (== $$i 3) $$q (if (== $$i 4) $$p $$p)))))
-                                            255)
-                                          0.5)
-                                        i64)
-                                      255)
-                                    8))
-                                (& (cast
-                                    (+ (* (if
-                                          (== $$i 0)
-                                          $$p
-                                          (if
-                                            (== $$i 1)
+                                      8))
+                                  (& (cast
+                                      (+ (* (if
+                                            (== $$i 0)
                                             $$p
-                                            (if (== $$i 2) $$t (if (== $$i 3) $$vf (if (== $$i 4) $$vf $$q)))))
-                                        255)
-                                      0.5)
-                                    i64)
-                                  255))
-                              <named цвет i64>))
-                          <named цвет i64>))
-                      <named цвет i64>))
-                  <named цвет i64>))
-              <named цвет i64>))
-          <named цвет i64>))
+                                            (if
+                                              (== $$i 1)
+                                              $$p
+                                              (if (== $$i 2) $$t (if (== $$i 3) $$vf (if (== $$i 4) $$vf $$q)))))
+                                          255)
+                                        0.5)
+                                      i64)
+                                    255))
+                                <named цвет u32>)
+                              <named цвет u32>))
+                          <named цвет u32>))
+                      <named цвет u32>))
+                  <named цвет u32>))
+              <named цвет u32>))
+          <named цвет u32>))
       (block
-        (var $$color_decompose_rgb_18 i64)
-        (= $$color_decompose_rgb_18 (cast (: c <named цвет i64>) i64))
-        (= r (& (>> $$color_decompose_rgb_18 16) 255))
-        (= g (& (>> $$color_decompose_rgb_18 8) 255))
-        (= b (& $$color_decompose_rgb_18 255)))
+        (var $$color_decompose_rgb_0 i64)
+        (= $$color_decompose_rgb_0 (cast (: c <named цвет u32>) i64))
+        (= r (& (>> $$color_decompose_rgb_0 16) 255))
+        (= g (& (>> $$color_decompose_rgb_0 8) 255))
+        (= b (& $$color_decompose_rgb_0 255)))
       (seq
         (call output_string "hsv red: r=")
         (call output_int64 r 0)
@@ -91,57 +93,59 @@
                               ($$p (* $$vf (- 1 $$sf)))
                               ($$q (* $$vf (- 1 (* $$f $$sf))))
                               ($$t (* $$vf (- 1 (* (- 1 $$f) $$sf)))))
-                            (: (| (| (| (<< (& 255 255) 24)
+                            (: (cast
+                                (| (| (| (<< (& 255 255) 24)
+                                      (<< (& (cast
+                                            (+ (* (if
+                                                  (== $$i 0)
+                                                  $$vf
+                                                  (if
+                                                    (== $$i 1)
+                                                    $$q
+                                                    (if (== $$i 2) $$p (if (== $$i 3) $$p (if (== $$i 4) $$t $$vf)))))
+                                                255)
+                                              0.5)
+                                            i64)
+                                          255)
+                                        16))
                                     (<< (& (cast
                                           (+ (* (if
                                                 (== $$i 0)
-                                                $$vf
+                                                $$t
                                                 (if
                                                   (== $$i 1)
-                                                  $$q
-                                                  (if (== $$i 2) $$p (if (== $$i 3) $$p (if (== $$i 4) $$t $$vf)))))
+                                                  $$vf
+                                                  (if (== $$i 2) $$vf (if (== $$i 3) $$q (if (== $$i 4) $$p $$p)))))
                                               255)
                                             0.5)
                                           i64)
                                         255)
-                                      16))
-                                  (<< (& (cast
-                                        (+ (* (if
-                                              (== $$i 0)
-                                              $$t
-                                              (if
-                                                (== $$i 1)
-                                                $$vf
-                                                (if (== $$i 2) $$vf (if (== $$i 3) $$q (if (== $$i 4) $$p $$p)))))
-                                            255)
-                                          0.5)
-                                        i64)
-                                      255)
-                                    8))
-                                (& (cast
-                                    (+ (* (if
-                                          (== $$i 0)
-                                          $$p
-                                          (if
-                                            (== $$i 1)
+                                      8))
+                                  (& (cast
+                                      (+ (* (if
+                                            (== $$i 0)
                                             $$p
-                                            (if (== $$i 2) $$t (if (== $$i 3) $$vf (if (== $$i 4) $$vf $$q)))))
-                                        255)
-                                      0.5)
-                                    i64)
-                                  255))
-                              <named цвет i64>))
-                          <named цвет i64>))
-                      <named цвет i64>))
-                  <named цвет i64>))
-              <named цвет i64>))
-          <named цвет i64>))
+                                            (if
+                                              (== $$i 1)
+                                              $$p
+                                              (if (== $$i 2) $$t (if (== $$i 3) $$vf (if (== $$i 4) $$vf $$q)))))
+                                          255)
+                                        0.5)
+                                      i64)
+                                    255))
+                                <named цвет u32>)
+                              <named цвет u32>))
+                          <named цвет u32>))
+                      <named цвет u32>))
+                  <named цвет u32>))
+              <named цвет u32>))
+          <named цвет u32>))
       (block
-        (var $$color_decompose_rgb_19 i64)
-        (= $$color_decompose_rgb_19 (cast (: c <named цвет i64>) i64))
-        (= r (& (>> $$color_decompose_rgb_19 16) 255))
-        (= g (& (>> $$color_decompose_rgb_19 8) 255))
-        (= b (& $$color_decompose_rgb_19 255)))
+        (var $$color_decompose_rgb_1 i64)
+        (= $$color_decompose_rgb_1 (cast (: c <named цвет u32>) i64))
+        (= r (& (>> $$color_decompose_rgb_1 16) 255))
+        (= g (& (>> $$color_decompose_rgb_1 8) 255))
+        (= b (& $$color_decompose_rgb_1 255)))
       (seq
         (call output_string "hsv green: r=")
         (call output_int64 r 0)
@@ -163,57 +167,59 @@
                               ($$p (* $$vf (- 1 $$sf)))
                               ($$q (* $$vf (- 1 (* $$f $$sf))))
                               ($$t (* $$vf (- 1 (* (- 1 $$f) $$sf)))))
-                            (: (| (| (| (<< (& 255 255) 24)
+                            (: (cast
+                                (| (| (| (<< (& 255 255) 24)
+                                      (<< (& (cast
+                                            (+ (* (if
+                                                  (== $$i 0)
+                                                  $$vf
+                                                  (if
+                                                    (== $$i 1)
+                                                    $$q
+                                                    (if (== $$i 2) $$p (if (== $$i 3) $$p (if (== $$i 4) $$t $$vf)))))
+                                                255)
+                                              0.5)
+                                            i64)
+                                          255)
+                                        16))
                                     (<< (& (cast
                                           (+ (* (if
                                                 (== $$i 0)
-                                                $$vf
+                                                $$t
                                                 (if
                                                   (== $$i 1)
-                                                  $$q
-                                                  (if (== $$i 2) $$p (if (== $$i 3) $$p (if (== $$i 4) $$t $$vf)))))
+                                                  $$vf
+                                                  (if (== $$i 2) $$vf (if (== $$i 3) $$q (if (== $$i 4) $$p $$p)))))
                                               255)
                                             0.5)
                                           i64)
                                         255)
-                                      16))
-                                  (<< (& (cast
-                                        (+ (* (if
-                                              (== $$i 0)
-                                              $$t
-                                              (if
-                                                (== $$i 1)
-                                                $$vf
-                                                (if (== $$i 2) $$vf (if (== $$i 3) $$q (if (== $$i 4) $$p $$p)))))
-                                            255)
-                                          0.5)
-                                        i64)
-                                      255)
-                                    8))
-                                (& (cast
-                                    (+ (* (if
-                                          (== $$i 0)
-                                          $$p
-                                          (if
-                                            (== $$i 1)
+                                      8))
+                                  (& (cast
+                                      (+ (* (if
+                                            (== $$i 0)
                                             $$p
-                                            (if (== $$i 2) $$t (if (== $$i 3) $$vf (if (== $$i 4) $$vf $$q)))))
-                                        255)
-                                      0.5)
-                                    i64)
-                                  255))
-                              <named цвет i64>))
-                          <named цвет i64>))
-                      <named цвет i64>))
-                  <named цвет i64>))
-              <named цвет i64>))
-          <named цвет i64>))
+                                            (if
+                                              (== $$i 1)
+                                              $$p
+                                              (if (== $$i 2) $$t (if (== $$i 3) $$vf (if (== $$i 4) $$vf $$q)))))
+                                          255)
+                                        0.5)
+                                      i64)
+                                    255))
+                                <named цвет u32>)
+                              <named цвет u32>))
+                          <named цвет u32>))
+                      <named цвет u32>))
+                  <named цвет u32>))
+              <named цвет u32>))
+          <named цвет u32>))
       (block
-        (var $$color_decompose_rgb_20 i64)
-        (= $$color_decompose_rgb_20 (cast (: c <named цвет i64>) i64))
-        (= r (& (>> $$color_decompose_rgb_20 16) 255))
-        (= g (& (>> $$color_decompose_rgb_20 8) 255))
-        (= b (& $$color_decompose_rgb_20 255)))
+        (var $$color_decompose_rgb_2 i64)
+        (= $$color_decompose_rgb_2 (cast (: c <named цвет u32>) i64))
+        (= r (& (>> $$color_decompose_rgb_2 16) 255))
+        (= g (& (>> $$color_decompose_rgb_2 8) 255))
+        (= b (& $$color_decompose_rgb_2 255)))
       (seq
         (call output_string "hsv blue: r=")
         (call output_int64 r 0)
@@ -235,57 +241,59 @@
                               ($$p (* $$vf (- 1 $$sf)))
                               ($$q (* $$vf (- 1 (* $$f $$sf))))
                               ($$t (* $$vf (- 1 (* (- 1 $$f) $$sf)))))
-                            (: (| (| (| (<< (& 255 255) 24)
+                            (: (cast
+                                (| (| (| (<< (& 255 255) 24)
+                                      (<< (& (cast
+                                            (+ (* (if
+                                                  (== $$i 0)
+                                                  $$vf
+                                                  (if
+                                                    (== $$i 1)
+                                                    $$q
+                                                    (if (== $$i 2) $$p (if (== $$i 3) $$p (if (== $$i 4) $$t $$vf)))))
+                                                255)
+                                              0.5)
+                                            i64)
+                                          255)
+                                        16))
                                     (<< (& (cast
                                           (+ (* (if
                                                 (== $$i 0)
-                                                $$vf
+                                                $$t
                                                 (if
                                                   (== $$i 1)
-                                                  $$q
-                                                  (if (== $$i 2) $$p (if (== $$i 3) $$p (if (== $$i 4) $$t $$vf)))))
+                                                  $$vf
+                                                  (if (== $$i 2) $$vf (if (== $$i 3) $$q (if (== $$i 4) $$p $$p)))))
                                               255)
                                             0.5)
                                           i64)
                                         255)
-                                      16))
-                                  (<< (& (cast
-                                        (+ (* (if
-                                              (== $$i 0)
-                                              $$t
-                                              (if
-                                                (== $$i 1)
-                                                $$vf
-                                                (if (== $$i 2) $$vf (if (== $$i 3) $$q (if (== $$i 4) $$p $$p)))))
-                                            255)
-                                          0.5)
-                                        i64)
-                                      255)
-                                    8))
-                                (& (cast
-                                    (+ (* (if
-                                          (== $$i 0)
-                                          $$p
-                                          (if
-                                            (== $$i 1)
+                                      8))
+                                  (& (cast
+                                      (+ (* (if
+                                            (== $$i 0)
                                             $$p
-                                            (if (== $$i 2) $$t (if (== $$i 3) $$vf (if (== $$i 4) $$vf $$q)))))
-                                        255)
-                                      0.5)
-                                    i64)
-                                  255))
-                              <named цвет i64>))
-                          <named цвет i64>))
-                      <named цвет i64>))
-                  <named цвет i64>))
-              <named цвет i64>))
-          <named цвет i64>))
+                                            (if
+                                              (== $$i 1)
+                                              $$p
+                                              (if (== $$i 2) $$t (if (== $$i 3) $$vf (if (== $$i 4) $$vf $$q)))))
+                                          255)
+                                        0.5)
+                                      i64)
+                                    255))
+                                <named цвет u32>)
+                              <named цвет u32>))
+                          <named цвет u32>))
+                      <named цвет u32>))
+                  <named цвет u32>))
+              <named цвет u32>))
+          <named цвет u32>))
       (block
-        (var $$color_decompose_rgb_21 i64)
-        (= $$color_decompose_rgb_21 (cast (: c <named цвет i64>) i64))
-        (= r (& (>> $$color_decompose_rgb_21 16) 255))
-        (= g (& (>> $$color_decompose_rgb_21 8) 255))
-        (= b (& $$color_decompose_rgb_21 255)))
+        (var $$color_decompose_rgb_3 i64)
+        (= $$color_decompose_rgb_3 (cast (: c <named цвет u32>) i64))
+        (= r (& (>> $$color_decompose_rgb_3 16) 255))
+        (= g (& (>> $$color_decompose_rgb_3 8) 255))
+        (= b (& $$color_decompose_rgb_3 255)))
       (seq
         (call output_string "hsv black: r=")
         (call output_int64 r 0)

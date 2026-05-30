@@ -67,7 +67,7 @@ public:
     EKind GetKind(int typeId) const;
     int UnderlyingType(int typeId) const; // for Ptr, Func, Struct
     const std::vector<int>& GetStructFields(int typeId) const;
-    // Size of a value of this type in the stack frame, rounded up to 8-byte alignment.
+    // Size of the type payload in bytes. Stack frames may add their own alignment.
     int SizeInBytes(int typeId) const;
 
 private:

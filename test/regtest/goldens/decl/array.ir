@@ -43,7 +43,7 @@ function $$module_constructor () { ; void
     * tmp(22,i64) = imm(1,i64) tmp(21,i64) 
     stre slot(93,i64) tmp(22,i64) 
     load tmp(23,i64) = slot(93,i64) 
-    * tmp(24,i64) = tmp(23,i64) imm(8,i64) 
+    * tmp(24,i64) = tmp(23,i64) imm(1,i64) 
     arg tmp(24,i64) 
     call tmp(25,ptr to i1) = array_create 
     stre slot(78,ptr to i1) tmp(25,ptr to i1) 

@@ -216,15 +216,23 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
             int64_t intAddr = ReadOperand<int64_t>(Runtime.Regs, instr.Operands[0]);
             void* addr = reinterpret_cast<void*>(intAddr);
             int64_t value = ReadOperand<int64_t>(Runtime.Regs, instr.Operands[1]);
+            size_t size = static_cast<size_t>(instr.Operands[2].Imm.Value);
+            if (size == 0 || size > sizeof(int64_t)) {
+                size = sizeof(int64_t);
+            }
             //std::cerr << "ste addr " << std::hex << addr << std::dec << " = " << value << "\n";
-            std::memcpy(addr, &value, sizeof(int64_t)); // TODO: size (add size operand?)
+            std::memcpy(addr, &value, size);
             break;
         }
         case EVMOp::Lde: {
             int64_t intAddr = ReadOperand<int64_t>(Runtime.Regs, instr.Operands[1]);
             void* addr = reinterpret_cast<void*>(intAddr);
             int64_t value = 0;
-            std::memcpy(&value, addr, sizeof(int64_t)); // TODO: size (add size operand?)
+            size_t size = static_cast<size_t>(instr.Operands[2].Imm.Value);
+            if (size == 0 || size > sizeof(int64_t)) {
+                size = sizeof(int64_t);
+            }
+            std::memcpy(&value, addr, size);
             assert(instr.Operands[0].Tmp.Idx >= 0);
             Runtime.Regs[instr.Operands[0].Tmp.Idx] = value;
             break;
