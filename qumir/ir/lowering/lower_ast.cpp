@@ -420,7 +420,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         } else if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TSymbolType>(cast->Operand->Type)) {
             // oposite of above: int to symbol
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
-        } else if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TIntegerType>(cast->Operand->Type)) {
+        } else if (NAst::TMaybeType<NAst::TIntegerType>(NAst::UnwrapNamedType(expr->Type))
+            && NAst::TMaybeType<NAst::TIntegerType>(NAst::UnwrapNamedType(cast->Operand->Type))) {
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
         } else if (FromAstType(NAst::UnwrapNamedType(expr->Type), Module.Types)
             == FromAstType(NAst::UnwrapNamedType(cast->Operand->Type), Module.Types)) {

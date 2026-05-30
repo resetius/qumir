@@ -31,7 +31,8 @@ function <main> () { ; void
     | tmp(7,i64) = tmp(4,i64) tmp(6,i64) 
     & tmp(8,i64) = imm(0,i64) imm(255,i64) 
     | tmp(9,i64) = tmp(7,i64) tmp(8,i64) 
-    arg tmp(9,i64) 
+    mov tmp(10,u32) = tmp(9,i64) 
+    arg tmp(10,u32) 
     call вывод 
     arg imm(1,ptr to i8) 
     call output_string 

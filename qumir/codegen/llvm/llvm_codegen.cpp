@@ -1007,7 +1007,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
         return v;
     };
 
-    auto cast = [&](llvm::Value* val, llvm::Type* expectedType) -> llvm::Value* {
+    auto cast = [&](llvm::Value* val, llvm::Type* expectedType, bool sourceSigned = true) -> llvm::Value* {
         auto* actualTy = val->getType();
 
         if (actualTy == expectedType) {
@@ -1025,8 +1025,13 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
         if (actualTy->isIntegerTy() && expectedIsPtr) {
             return irb->CreateIntToPtr(val, expectedType, "cast");
         }
+        if (actualTy->isIntegerTy() && expectedType->isIntegerTy()) {
+            return irb->CreateIntCast(val, expectedType, sourceSigned, "cast");
+        }
         if (actualTy->isIntegerTy() && expectedType->isFloatingPointTy()) {
-            return irb->CreateSIToFP(val, expectedType, "cast");
+            return sourceSigned
+                ? irb->CreateSIToFP(val, expectedType, "cast")
+                : irb->CreateUIToFP(val, expectedType, "cast");
         }
 
         throw std::runtime_error(
@@ -1269,7 +1274,8 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                 if (lidx < 0 || lidx >= CurFun->Allocas.size()) throw std::runtime_error("invalid local index");
                 auto ptr = CurFun->Allocas[lidx];
                 auto val = irb->CreateLoad(ptr->getAllocatedType(), ptr, "loadtmp");
-                return storeTmp(cast(val, outputType));
+                const bool localSigned = IsSignedIntegerType(module.Types, CurFun->Fun->LocalTypes[lidx]);
+                return storeTmp(cast(val, outputType, localSigned));
             } else {
                 throw std::runtime_error("load operand must be slot or local");
             }

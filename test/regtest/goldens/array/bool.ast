@@ -1,0 +1,10 @@
+(block
+  (fun <main> void () ()
+    (block
+      (var б <array bool 1> [1 4])
+      (var i i64)
+      (= б [1] (cast #t bool))
+      (= б [2] (cast #f bool))
+      (= б [3] (cast #t bool))
+      (= б [4] (cast #f bool))
+      (for i 1 4 1 (block (seq (call output_bool (index i б)) (call output_string "\n")))))))

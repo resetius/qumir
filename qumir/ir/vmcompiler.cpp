@@ -215,11 +215,13 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case "ste"_op: {
                 require(ins, 0, 2);
                 out.Op = EVMOp::Ste;
+                out.Operands[2] = TUntypedImm{Module.Types.SizeInBytes(typeIdOp(ins.Operands[1]))};
                 break;
             }
             case "lde"_op: {
                 require(ins, 1, 1);
                 out.Op = EVMOp::Lde;
+                out.Operands[2] = TUntypedImm{Module.Types.SizeInBytes(typeId(ins.Dest))};
                 break;
             }
             case "lea"_op: {
