@@ -1411,6 +1411,12 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                     const int sourceTypeId = operandTypeId(instr.Operands[0]);
                     const bool sourceSigned = sourceTypeId < 0 || module.Types.IsSigned(sourceTypeId);
                     v = irb->CreateIntCast(v, outputType, sourceSigned, "movcast");
+                } else if (sourceType->isPointerTy() && outputType->isIntegerTy()) {
+                    v = irb->CreatePtrToInt(v, outputType, "ptrtoint");
+                } else if (sourceType->isIntegerTy() && outputType->isPointerTy()) {
+                    v = irb->CreateIntToPtr(v, outputType, "inttoptr");
+                } else if (sourceType->isPointerTy() && outputType->isPointerTy()) {
+                    v = irb->CreateBitCast(v, outputType, "ptrcast");
                 } else {
                     throw std::runtime_error("mov type mismatch");
                 }

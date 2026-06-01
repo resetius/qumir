@@ -227,6 +227,18 @@ void* TLLVMRunner::CompileKernelAst(NAst::TExprPtr ast, std::string* error) {
         return nullptr;
     }
 
+    if (Options.PrintIr) {
+        std::cerr << "=========== IR: ============\n";
+        for (const auto& function : Module.Functions) {
+            if (PrintedChunks.insert(function.UniqueId).second) {
+                std::ostringstream oss;
+                function.Print(oss, Module);
+                std::cerr << oss.str() << std::endl;
+            }
+        }
+        std::cerr << "============================\n\n";
+    }
+
     if (Module.Functions.empty()) {
         if (error) *error = "no functions after lowering";
         return nullptr;

@@ -375,12 +375,21 @@ int TTypeTable::SizeInBytes(int typeId) const {
     case EKind::Void:
         return 0;
     case EKind::Struct: {
-        int total = 0;
+        // Compute size with C-compatible field alignment so that qumir struct
+        // layout matches the C ABI (required for external structs like TColumn).
+        int offset = 0;
+        int maxAlign = 1;
         for (int f : Structs[Types[typeId].Aux].FieldTypes) {
-            total += SizeInBytes(f);
+            int fieldSize = SizeInBytes(f);
+            int fieldAlign = std::min(fieldSize, 8);
+            if (fieldAlign > 1) {
+                offset = (offset + fieldAlign - 1) & ~(fieldAlign - 1);
+            }
+            maxAlign = std::max(maxAlign, fieldAlign);
+            offset += fieldSize;
         }
-        // round up to 8-byte alignment
-        return (total + 7) & ~7;
+        int structAlign = std::min(maxAlign, 8);
+        return (offset + structAlign - 1) & ~(structAlign - 1);
     }
     }
     return 8;

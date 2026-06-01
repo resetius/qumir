@@ -38,16 +38,18 @@ function div_mod () { ; void
     arg imm(2,i64) 
     call tmp(12,f64) = fpow 
     * tmp(13,f64) = imm(4611686018427387904,f64) tmp(12,f64) 
-    load tmp(14,i64) = local(1,i64) 
+    f2i tmp(14,i64) = tmp(13,f64) 
     i2f tmp(15,f64) = tmp(14,i64) 
-    arg tmp(15,f64) 
+    load tmp(16,i64) = local(1,i64) 
+    i2f tmp(17,f64) = tmp(16,i64) 
+    arg tmp(17,f64) 
     arg imm(3,i64) 
-    call tmp(16,f64) = fpow 
-    + tmp(17,f64) = tmp(13,f64) tmp(16,f64) 
-    f2i tmp(18,i64) = tmp(17,f64) 
-    stre local(3,i64) tmp(18,i64) 
-    load tmp(19,i64) = local(3,i64) 
-    arg tmp(19,i64) 
+    call tmp(18,f64) = fpow 
+    + tmp(19,f64) = tmp(15,f64) tmp(18,f64) 
+    f2i tmp(20,i64) = tmp(19,f64) 
+    stre local(3,i64) tmp(20,i64) 
+    load tmp(21,i64) = local(3,i64) 
+    arg tmp(21,i64) 
     arg imm(0,i64) 
     call output_int64 
     jmp label(1) 

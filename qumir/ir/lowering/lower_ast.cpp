@@ -434,9 +434,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto i64 = Module.Types.I(EKind::I64);
 
         TOperand byteOffset;
-        auto symbolNode = Context.GetSymbolNode(NSemantics::TSymbolId{arraySymbol->Id});
-        auto symbolType = symbolNode ? NAst::UnwrapReferenceType(NAst::UnwrapNamedType(symbolNode->Type)) : nullptr;
-        if (NAst::TMaybeType<NAst::TPointerType>(symbolType)) {
+        auto collectionType = NAst::UnwrapReferenceType(NAst::UnwrapNamedType(index->Collection->Type));
+        if (NAst::TMaybeType<NAst::TPointerType>(collectionType)) {
             auto offset = Builder.Emit1("*"_op, {*indexValue.Value, TImm{elemByteSize, i64}});
             Builder.SetType(offset, i64);
             byteOffset = offset;
@@ -519,6 +518,25 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     co_return TError(expr->Location, TErrorString::Get<EErrorId::ARG_REF_MUST_BE_IDENTIFIER>());
 }
 
+static bool IsAddressableFieldBase(const NAst::TExprPtr& expr) {
+    if (!expr) {
+        return false;
+    }
+    if (NAst::TMaybeNode<NAst::TIdentExpr>(expr)) {
+        return true;
+    }
+    if (NAst::TMaybeNode<NAst::TIndexExpr>(expr) || NAst::TMaybeNode<NAst::TMultiIndexExpr>(expr)) {
+        return true;
+    }
+    if (NAst::TMaybeNode<NAst::TFieldAccessExpr>(expr)) {
+        return true;
+    }
+    if (auto maybeCast = NAst::TMaybeNode<NAst::TCastExpr>(expr)) {
+        return IsAddressableFieldBase(maybeCast.Cast()->Operand);
+    }
+    return false;
+}
+
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& inputExpr, TBlockScope scope) {
     int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
     NAst::TExprPtr expr = inputExpr;
@@ -554,6 +572,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
         } else if (FromAstType(NAst::UnwrapNamedType(expr->Type), Module.Types)
             == FromAstType(NAst::UnwrapNamedType(cast->Operand->Type), Module.Types)) {
+            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+        } else if (NAst::TMaybeType<NAst::TPointerType>(NAst::UnwrapNamedType(expr->Type))
+            && NAst::TMaybeType<NAst::TPointerType>(NAst::UnwrapNamedType(cast->Operand->Type))) {
+            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+        } else if (NAst::TMaybeType<NAst::TIntegerType>(NAst::UnwrapNamedType(expr->Type))
+            && NAst::TMaybeType<NAst::TPointerType>(NAst::UnwrapNamedType(cast->Operand->Type))) {
+            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+        } else if (NAst::TMaybeType<NAst::TPointerType>(NAst::UnwrapNamedType(expr->Type))
+            && NAst::TMaybeType<NAst::TIntegerType>(NAst::UnwrapNamedType(cast->Operand->Type))) {
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
         } else {
             co_return TError(cast->Location, TErrorString::Get<EErrorId::UNSUPPORTED_CAST_TYPES>(std::string(cast->Operand->Type->TypeName()), std::string(expr->Type->TypeName())));
@@ -1065,16 +1092,23 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         int fieldIndex = maybeRead ? maybeRead.Cast()->FieldIndex : maybeWrite.Cast()->FieldIndex;
         const std::string& fieldName = maybeRead ? maybeRead.Cast()->FieldName : maybeWrite.Cast()->FieldName;
 
-        // We need the ADDRESS of the struct, not its value.
-        // For a direct variable (TIdentExpr), lea gives the alloca/slot address in both VM and LLVM.
-        // For other sub-expressions (e.g. nested field access), Lower already returns a pointer.
         TOperand objAddr;
-        if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(object)) {
-            auto tmp = co_await LoadVar(maybeIdent.Cast()->Name, scope, object->Location,
-                                        /*takeRefOfNotRef=*/true);
-            objAddr = tmp;
+        if (maybeRead) {
+            if (IsAddressableFieldBase(object)) {
+                auto res = co_await LowerLValueAddress(object, scope);
+                if (!res.Value) {
+                    co_return TError(object->Location, "Не удалось вычислить объект при обращении к полю '" + fieldName + "'.");
+                }
+                objAddr = *res.Value;
+            } else {
+                auto res = co_await Lower(object, scope);
+                if (!res.Value) {
+                    co_return TError(object->Location, "Не удалось вычислить объект при обращении к полю '" + fieldName + "'.");
+                }
+                objAddr = *res.Value;
+            }
         } else {
-            auto res = co_await Lower(object, scope);
+            auto res = co_await LowerLValueAddress(object, scope);
             if (!res.Value) {
                 co_return TError(object->Location, "Не удалось вычислить объект при обращении к полю '" + fieldName + "'.");
             }
