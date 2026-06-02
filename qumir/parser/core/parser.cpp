@@ -23,8 +23,14 @@ using TBindingListTask = TExpectedTask<std::vector<TLetExpr::TBinding>, TError, 
 using TParamListTask = TExpectedTask<std::vector<TParam>, TError, TLocation>;
 using TBoundsTask = TExpectedTask<std::vector<std::pair<TExprPtr, TExprPtr>>, TError, TLocation>;
 
+struct TParserContext;
+
+using TListHandler = std::function<TAstTask(TParserContext&, TLocation)>;
+using TListHandlerMap = std::unordered_map<std::string, TListHandler>;
+
 struct TParserContext {
     TWrappedTokenStream& Stream;
+    TListHandlerMap Handlers;
 };
 
 std::shared_ptr<TIntegerType> IntegerTypeByName(const std::string& name) {
@@ -306,190 +312,8 @@ TAstTask ParseList(TParserContext& context, TLocation location) {
     }
     const auto head = TokenText(headToken);
 
-    if (head == ":") {
-        auto expr = co_await ParseExpr(context);
-        auto type = co_await ParseType(context);
-        expr = ApplyTypeAnnotation(std::move(expr), std::move(type));
-        co_await Expect(context, ')');
-        co_return expr;
-    }
-    if (head == "=") {
-        auto name = co_await ParseName(context);
-        auto token = context.Stream.Next();
-        if (IsOp(token, '[')) {
-            context.Stream.Unget(token);
-            auto indices = co_await ParseIndexVector(context);
-            auto value = co_await ParseExpr(context);
-            co_await Expect(context, ')');
-            co_return std::make_shared<TArrayAssignExpr>(location, std::move(name), std::move(indices), std::move(value));
-        }
-        context.Stream.Unget(token);
-        auto value = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TAssignExpr>(location, std::move(name), std::move(value));
-    }
-    if (head == "block" || head == "seq" || head == "vars" || head == "input") {
-        auto items = co_await ParseExprsUntil(context, ')');
-        if (head == "block") co_return std::make_shared<TBlockExpr>(location, std::move(items));
-        if (head == "seq") co_return std::make_shared<TSeqExpr>(location, std::move(items));
-        if (head == "vars") co_return std::make_shared<TVarsBlockExpr>(location, std::move(items));
-        co_return std::make_shared<TInputExpr>(location, std::move(items));
-    }
-    if (head == "cond" || head == "if") {
-        auto cond = co_await ParseExpr(context);
-        auto thenBranch = co_await ParseExpr(context);
-        TExprPtr elseBranch;
-        auto token = context.Stream.Next();
-        if (!IsOp(token, ')')) {
-            context.Stream.Unget(token);
-            elseBranch = co_await ParseExpr(context);
-            co_await Expect(context, ')');
-        }
-        if (head == "cond") co_return std::make_shared<TIfStmt>(location, std::move(cond), std::move(thenBranch), std::move(elseBranch));
-        co_return std::make_shared<TIfExpr>(location, std::move(cond), std::move(thenBranch), std::move(elseBranch));
-    }
-    if (head == "let") {
-        auto bindings = co_await ParseBindings(context);
-        auto body = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TLetExpr>(location, std::move(bindings), std::move(body));
-    }
-    if (head == "while") {
-        auto cond = co_await ParseExpr(context);
-        auto body = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TWhileStmtExpr>(location, std::move(cond), std::move(body));
-    }
-    if (head == "repeat") {
-        auto body = co_await ParseExpr(context);
-        auto cond = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TRepeatStmtExpr>(location, std::move(body), std::move(cond));
-    }
-    if (head == "for") {
-        auto name = co_await ParseName(context);
-        auto from = co_await ParseExpr(context);
-        auto to = co_await ParseExpr(context);
-        auto step = co_await ParseExpr(context);
-        auto body = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TForStmtExpr>(location, std::move(name), std::move(from), std::move(to), std::move(step), std::move(body));
-    }
-    if (head == "times") {
-        auto count = co_await ParseExpr(context);
-        auto body = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TTimesStmtExpr>(location, std::move(count), std::move(body));
-    }
-    if (head == "var") {
-        auto name = co_await ParseName(context);
-        auto type = co_await ParseType(context);
-        auto bounds = co_await ParseBounds(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TVarStmt>(location, std::move(name), std::move(type), std::move(bounds));
-    }
-    if (head == "fun") {
-        auto name = co_await ParseName(context);
-        auto returnType = co_await ParseType(context);
-        auto params = co_await ParseParams(context);
-        auto attrs = co_await ParseFunAttrs(context);
-        auto bodyExpr = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        auto body = TMaybeNode<TBlockExpr>(bodyExpr).Cast();
-        if (!body) {
-            co_return TError(bodyExpr ? bodyExpr->Location : location, "function body must be block");
-        }
-        auto funDecl = std::make_shared<TFunDecl>(location, std::move(name), std::move(params), std::move(body), std::move(returnType));
-        funDecl->LastAssert = std::move(attrs.After);
-        std::vector<TTypePtr> paramTypes;
-        for (const auto& param : funDecl->Params) {
-            paramTypes.push_back(param->Type);
-        }
-        funDecl->Type = std::make_shared<TFunctionType>(std::move(paramTypes), funDecl->RetType);
-        co_return funDecl;
-    }
-    if (head == "call") {
-        auto callee = co_await ParseExpr(context);
-        auto args = co_await ParseExprsUntil(context, ')');
-        co_return std::make_shared<TCallExpr>(location, std::move(callee), std::move(args));
-    }
-    if (head == "await") {
-        auto operand = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TAwaitExpr>(location, std::move(operand));
-    }
-    if (head == "output") {
-        auto args = co_await ParseOutputArgs(context);
-        co_return std::make_shared<TOutputExpr>(location, std::move(args));
-    }
-    if (head == "cast") {
-        auto operand = co_await ParseExpr(context);
-        auto type = co_await ParseType(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TCastExpr>(location, std::move(operand), std::move(type));
-    }
-    if (head == "index") {
-        auto token = context.Stream.Next();
-        if (IsOp(token, '[')) {
-            context.Stream.Unget(token);
-            auto indices = co_await ParseIndexVector(context);
-            auto collection = co_await ParseExpr(context);
-            co_await Expect(context, ')');
-            co_return std::make_shared<TMultiIndexExpr>(location, std::move(collection), std::move(indices));
-        }
-        context.Stream.Unget(token);
-        auto index = co_await ParseExpr(context);
-        auto collection = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TIndexExpr>(location, std::move(collection), std::move(index));
-    }
-    if (head == "slice") {
-        auto bounds = co_await ParseIndexVector(context);
-        if (bounds.empty() || bounds.size() > 2) {
-            co_return TError(location, "slice expects one or two bounds");
-        }
-        auto collection = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TSliceExpr>(location, std::move(collection), std::move(bounds[0]), bounds.size() == 2 ? std::move(bounds[1]) : nullptr);
-    }
-    if (head == "use") {
-        auto moduleName = co_await ParseNameLike(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TUseExpr>(location, std::move(moduleName));
-    }
-    if (head == "assert") {
-        auto expr = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TAssertStmt>(location, std::move(expr));
-    }
-    if (head == "field") {
-        auto fieldName = co_await ParseName(context);
-        auto object = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TFieldAccessExpr>(location, std::move(object), std::move(fieldName));
-    }
-    if (head == "struct") {
-        co_await Expect(context, '(');
-        std::vector<std::pair<std::string, TTypePtr>> fieldTypes;
-        std::vector<TExprPtr> fields;
-        while (true) {
-            auto token = context.Stream.Next();
-            if (IsOp(token, ')')) break;
-            if (!IsOp(token, '(')) co_return Error(token, "expected struct field");
-            auto name = co_await ParseName(context);
-            fields.push_back(co_await ParseExpr(context));
-            fieldTypes.emplace_back(std::move(name), nullptr);
-            co_await Expect(context, ')');
-        }
-        co_await Expect(context, ')');
-        co_return std::make_shared<TStructConstructExpr>(location, std::make_shared<TStructType>(std::move(fieldTypes)), std::move(fields));
-    }
-    if (head == "field_assign") {
-        auto object = co_await ParseExpr(context);
-        auto fieldName = co_await ParseName(context);
-        auto value = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        co_return std::make_shared<TFieldAssignExpr>(location, std::move(object), std::move(fieldName), std::move(value));
+    if (auto it = context.Handlers.find(head); it != context.Handlers.end()) {
+        co_return co_await it->second(context, location);
     }
 
     auto args = co_await ParseExprsUntil(context, ')');
@@ -672,11 +496,217 @@ TTypeTask ParseType(TParserContext& context) {
     co_return Error(token, "expected type");
 }
 
+TListHandlerMap MakeDefaultHandlers() {
+    return TListHandlerMap{
+        {":", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto expr = co_await ParseExpr(ctx);
+            auto type = co_await ParseType(ctx);
+            expr = ApplyTypeAnnotation(std::move(expr), std::move(type));
+            co_await Expect(ctx, ')');
+            co_return expr;
+        }},
+        {"=", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto name = co_await ParseName(ctx);
+            auto token = ctx.Stream.Next();
+            if (IsOp(token, '[')) {
+                ctx.Stream.Unget(token);
+                auto indices = co_await ParseIndexVector(ctx);
+                auto value = co_await ParseExpr(ctx);
+                co_await Expect(ctx, ')');
+                co_return std::make_shared<TArrayAssignExpr>(loc, std::move(name), std::move(indices), std::move(value));
+            }
+            ctx.Stream.Unget(token);
+            auto value = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TAssignExpr>(loc, std::move(name), std::move(value));
+        }},
+        {"block", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            co_return std::make_shared<TBlockExpr>(loc, co_await ParseExprsUntil(ctx, ')'));
+        }},
+        {"seq", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            co_return std::make_shared<TSeqExpr>(loc, co_await ParseExprsUntil(ctx, ')'));
+        }},
+        {"vars", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            co_return std::make_shared<TVarsBlockExpr>(loc, co_await ParseExprsUntil(ctx, ')'));
+        }},
+        {"input", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            co_return std::make_shared<TInputExpr>(loc, co_await ParseExprsUntil(ctx, ')'));
+        }},
+        {"cond", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto cond = co_await ParseExpr(ctx);
+            auto thenBranch = co_await ParseExpr(ctx);
+            TExprPtr elseBranch;
+            auto token = ctx.Stream.Next();
+            if (!IsOp(token, ')')) {
+                ctx.Stream.Unget(token);
+                elseBranch = co_await ParseExpr(ctx);
+                co_await Expect(ctx, ')');
+            }
+            co_return std::make_shared<TIfStmt>(loc, std::move(cond), std::move(thenBranch), std::move(elseBranch));
+        }},
+        {"if", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto cond = co_await ParseExpr(ctx);
+            auto thenBranch = co_await ParseExpr(ctx);
+            TExprPtr elseBranch;
+            auto token = ctx.Stream.Next();
+            if (!IsOp(token, ')')) {
+                ctx.Stream.Unget(token);
+                elseBranch = co_await ParseExpr(ctx);
+                co_await Expect(ctx, ')');
+            }
+            co_return std::make_shared<TIfExpr>(loc, std::move(cond), std::move(thenBranch), std::move(elseBranch));
+        }},
+        {"let", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto bindings = co_await ParseBindings(ctx);
+            auto body = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TLetExpr>(loc, std::move(bindings), std::move(body));
+        }},
+        {"while", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto cond = co_await ParseExpr(ctx);
+            auto body = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TWhileStmtExpr>(loc, std::move(cond), std::move(body));
+        }},
+        {"repeat", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto body = co_await ParseExpr(ctx);
+            auto cond = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TRepeatStmtExpr>(loc, std::move(body), std::move(cond));
+        }},
+        {"for", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto name = co_await ParseName(ctx);
+            auto from = co_await ParseExpr(ctx);
+            auto to = co_await ParseExpr(ctx);
+            auto step = co_await ParseExpr(ctx);
+            auto body = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TForStmtExpr>(loc, std::move(name), std::move(from), std::move(to), std::move(step), std::move(body));
+        }},
+        {"times", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto count = co_await ParseExpr(ctx);
+            auto body = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TTimesStmtExpr>(loc, std::move(count), std::move(body));
+        }},
+        {"var", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto name = co_await ParseName(ctx);
+            auto type = co_await ParseType(ctx);
+            auto bounds = co_await ParseBounds(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TVarStmt>(loc, std::move(name), std::move(type), std::move(bounds));
+        }},
+        {"fun", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto name = co_await ParseName(ctx);
+            auto returnType = co_await ParseType(ctx);
+            auto params = co_await ParseParams(ctx);
+            auto attrs = co_await ParseFunAttrs(ctx);
+            auto bodyExpr = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            auto body = TMaybeNode<TBlockExpr>(bodyExpr).Cast();
+            if (!body) {
+                co_return TError(bodyExpr ? bodyExpr->Location : loc, "function body must be block");
+            }
+            auto funDecl = std::make_shared<TFunDecl>(loc, std::move(name), std::move(params), std::move(body), std::move(returnType));
+            funDecl->LastAssert = std::move(attrs.After);
+            std::vector<TTypePtr> paramTypes;
+            for (const auto& param : funDecl->Params) {
+                paramTypes.push_back(param->Type);
+            }
+            funDecl->Type = std::make_shared<TFunctionType>(std::move(paramTypes), funDecl->RetType);
+            co_return funDecl;
+        }},
+        {"call", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto callee = co_await ParseExpr(ctx);
+            auto args = co_await ParseExprsUntil(ctx, ')');
+            co_return std::make_shared<TCallExpr>(loc, std::move(callee), std::move(args));
+        }},
+        {"await", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto operand = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TAwaitExpr>(loc, std::move(operand));
+        }},
+        {"output", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto args = co_await ParseOutputArgs(ctx);
+            co_return std::make_shared<TOutputExpr>(loc, std::move(args));
+        }},
+        {"cast", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto operand = co_await ParseExpr(ctx);
+            auto type = co_await ParseType(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TCastExpr>(loc, std::move(operand), std::move(type));
+        }},
+        {"index", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto token = ctx.Stream.Next();
+            if (IsOp(token, '[')) {
+                ctx.Stream.Unget(token);
+                auto indices = co_await ParseIndexVector(ctx);
+                auto collection = co_await ParseExpr(ctx);
+                co_await Expect(ctx, ')');
+                co_return std::make_shared<TMultiIndexExpr>(loc, std::move(collection), std::move(indices));
+            }
+            ctx.Stream.Unget(token);
+            auto index = co_await ParseExpr(ctx);
+            auto collection = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TIndexExpr>(loc, std::move(collection), std::move(index));
+        }},
+        {"slice", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto bounds = co_await ParseIndexVector(ctx);
+            if (bounds.empty() || bounds.size() > 2) {
+                co_return TError(loc, "slice expects one or two bounds");
+            }
+            auto collection = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TSliceExpr>(loc, std::move(collection), std::move(bounds[0]), bounds.size() == 2 ? std::move(bounds[1]) : nullptr);
+        }},
+        {"use", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto moduleName = co_await ParseNameLike(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TUseExpr>(loc, std::move(moduleName));
+        }},
+        {"assert", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto expr = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TAssertStmt>(loc, std::move(expr));
+        }},
+        {"field", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto fieldName = co_await ParseName(ctx);
+            auto object = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TFieldAccessExpr>(loc, std::move(object), std::move(fieldName));
+        }},
+        {"struct", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            co_await Expect(ctx, '(');
+            std::vector<std::pair<std::string, TTypePtr>> fieldTypes;
+            std::vector<TExprPtr> fields;
+            while (true) {
+                auto token = ctx.Stream.Next();
+                if (IsOp(token, ')')) break;
+                if (!IsOp(token, '(')) co_return Error(token, "expected struct field");
+                auto name = co_await ParseName(ctx);
+                fields.push_back(co_await ParseExpr(ctx));
+                fieldTypes.emplace_back(std::move(name), nullptr);
+                co_await Expect(ctx, ')');
+            }
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TStructConstructExpr>(loc, std::make_shared<TStructType>(std::move(fieldTypes)), std::move(fields));
+        }},
+        {"field_assign", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto object = co_await ParseExpr(ctx);
+            auto fieldName = co_await ParseName(ctx);
+            auto value = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TFieldAssignExpr>(loc, std::move(object), std::move(fieldName), std::move(value));
+        }},
+    };
+}
+
 } // namespace
 
 std::expected<TExprPtr, TError> TParser::Parse(TTokenStream& baseStream) {
     TWrappedTokenStream stream(baseStream, 4);
-    TParserContext context{stream};
+    TParserContext context{stream, MakeDefaultHandlers()};
     auto result = ParseExpr(context).result();
     if (!result) {
         return std::unexpected(result.error());
