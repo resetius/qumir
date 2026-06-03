@@ -702,11 +702,38 @@ TListHandlerMap MakeDefaultHandlers() {
     };
 }
 
+struct TParseHandleImpl : NQumir::NAst::NCore::IParseHandle {
+    TParserContext& Ctx;
+    explicit TParseHandleImpl(TParserContext& ctx) : Ctx(ctx) {}
+
+    TAstTask Expr() override {
+        co_return co_await ParseExpr(Ctx);
+    }
+    TExpectedTask<TTypePtr, TError, TLocation> Type() override {
+        co_return co_await ParseType(Ctx);
+    }
+    TToken Next() override {
+        return Ctx.Stream.Next();
+    }
+    void Unget(TToken tok) override {
+        Ctx.Stream.Unget(std::move(tok));
+    }
+    TExpectedTask<std::monostate, TError, TLocation> Take(char op) override {
+        co_return co_await Expect(Ctx, op);
+    }
+};
+
 } // namespace
 
 std::expected<TExprPtr, TError> TParser::Parse(TTokenStream& baseStream) {
     TWrappedTokenStream stream(baseStream, 4);
     TParserContext context{stream, MakeDefaultHandlers()};
+    for (auto& [key, handler] : NodeParsers) {
+        context.Handlers[key] = [h = handler](TParserContext& ctx, TLocation loc) -> TAstTask {
+            TParseHandleImpl handle{ctx};
+            co_return co_await h(handle, loc);
+        };
+    }
     auto result = ParseExpr(context).result();
     if (!result) {
         return std::unexpected(result.error());

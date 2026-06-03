@@ -2,7 +2,9 @@
 
 #include <qumir/location.h>
 #include <qumir/parser/ast.h>
+#include <qumir/parser/core/parser.h>
 #include <qumir/parser/core/printer.h>
+#include <sstream>
 
 using namespace NQumir;
 using namespace NQumir::NAst;
@@ -100,6 +102,81 @@ TEST(PrinterCustomNodes, UnknownNodeThrows) {
     auto expr = std::make_shared<TUnknown>();
     TPrintOptions opts;
     EXPECT_THROW(PrintAst(expr, opts), std::runtime_error);
+}
+
+namespace {
+
+TParser MakeParser() {
+    TParser p;
+    p.NodeParsers["tag"] = [](IParseHandle& h, TLocation loc) -> TAstTask {
+        auto tok = h.Next();
+        if (tok.Type != TToken::String) {
+            co_return IParseHandle::MakeError(tok, "expected string label for tag");
+        }
+        auto child = co_await h.Expr();
+        co_await h.Take(')');
+        co_return std::make_shared<TTagExpr>(tok.Name, std::move(child));
+    };
+    p.NodeParsers["pair"] = [](IParseHandle& h, TLocation loc) -> TAstTask {
+        auto left = co_await h.Expr();
+        auto right = co_await h.Expr();
+        co_await h.Take(')');
+        co_return std::make_shared<TPairExpr>(std::move(left), std::move(right));
+    };
+    return p;
+}
+
+TExprPtr Parse(const std::string& src) {
+    std::istringstream in(src);
+    TTokenStream ts(in);
+    auto result = MakeParser().Parse(ts);
+    EXPECT_TRUE(result.has_value()) << (result ? "" : result.error().ToString());
+    return result.value_or(nullptr);
+}
+
+} // namespace
+
+TEST(ParserCustomNodes, TagSimple) {
+    auto expr = Parse(R"((tag "hello" x))");
+    ASSERT_NE(expr, nullptr);
+    auto* tag = dynamic_cast<TTagExpr*>(expr.get());
+    ASSERT_NE(tag, nullptr);
+    EXPECT_EQ(tag->Label, "hello");
+    auto* child = dynamic_cast<TIdentExpr*>(tag->Child.get());
+    ASSERT_NE(child, nullptr);
+    EXPECT_EQ(child->Name, "x");
+}
+
+TEST(ParserCustomNodes, PairSimple) {
+    auto expr = Parse("(pair a b)");
+    ASSERT_NE(expr, nullptr);
+    auto* pair = dynamic_cast<TPairExpr*>(expr.get());
+    ASSERT_NE(pair, nullptr);
+    EXPECT_EQ(dynamic_cast<TIdentExpr*>(pair->Left.get())->Name, "a");
+    EXPECT_EQ(dynamic_cast<TIdentExpr*>(pair->Right.get())->Name, "b");
+}
+
+TEST(ParserCustomNodes, NestedCustomNodes) {
+    auto expr = Parse(R"((tag "wrap" (pair x y)))");
+    ASSERT_NE(expr, nullptr);
+    auto* tag = dynamic_cast<TTagExpr*>(expr.get());
+    ASSERT_NE(tag, nullptr);
+    EXPECT_EQ(tag->Label, "wrap");
+    auto* pair = dynamic_cast<TPairExpr*>(tag->Child.get());
+    ASSERT_NE(pair, nullptr);
+}
+
+TEST(ParserCustomNodes, UnknownFormFallsBackToBinaryOp) {
+    auto expr = Parse("(+ a b)");
+    ASSERT_NE(expr, nullptr);
+    EXPECT_NE(dynamic_cast<TBinaryExpr*>(expr.get()), nullptr);
+}
+
+TEST(ParserCustomNodes, UnknownFormErrors) {
+    std::istringstream in("(mystery a b c)");
+    TTokenStream ts(in);
+    auto result = MakeParser().Parse(ts);
+    EXPECT_FALSE(result.has_value());
 }
 
 int main(int argc, char** argv) {
