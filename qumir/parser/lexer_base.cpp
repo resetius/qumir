@@ -1,5 +1,5 @@
 #include "lexer_base.h"
-
+#include <iostream>
 namespace NQumir {
 namespace NAst {
 
@@ -105,6 +105,9 @@ TToken ITokenStream::Next() {
         };
     }
     TToken token = std::move(Tokens.front()); Tokens.pop_front();
+    if (token.Type != TToken::Operator || token.Value.i64 != (uint8_t)-2) {
+        SeenFirstToken = true;
+    }
     return token;
 }
 

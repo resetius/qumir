@@ -76,7 +76,7 @@ enum class EKeyword : uint8_t {
 
 enum class EOperator : uint8_t {
     // Arithmetic operators
-    Pow, // **
+    Pow = 1, // **
     Mul, // *
     FDiv, // /
     Plus, // +
@@ -101,7 +101,7 @@ enum class EOperator : uint8_t {
     Or,
     Not,
     // Special operators
-    Eol, // \n
+    Eol = (unsigned char)-2, // \n
     Eof = (unsigned char)-1, // end of file
 };
 
@@ -111,6 +111,12 @@ public:
     virtual void ImportTypeNames(const std::vector<std::string>& names) = 0;
     virtual void ImportLiteralSuffix(const std::string& suffix, const std::string& ctorFn) = 0;
     virtual const std::unordered_map<std::string, std::string>& GetLiteralSuffixes() const = 0;
+};
+
+struct TPragma {
+    std::string Group;
+    std::vector<std::string> Values;
+    TLocation Location;
 };
 
 struct TLexerContext : public ILexerContext {
@@ -130,6 +136,7 @@ struct TLexerContext : public ILexerContext {
 
     std::unordered_set<std::string> TypeNames;
     std::unordered_map<std::string, std::string> LiteralSuffixMap;
+    std::vector<TPragma> Pragmas;
 };
 
 class TTokenStream : public ITokenStream

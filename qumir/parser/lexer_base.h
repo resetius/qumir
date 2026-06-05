@@ -61,6 +61,7 @@ protected:
 
     std::istream& In;
     std::deque<TToken> Tokens;
+    bool SeenFirstToken = false;
     TLocation CurrentLocation;
 };
 

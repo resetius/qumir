@@ -1,9 +1,12 @@
 #include "lexer.h"
 
+#include <qumir/error.h>
 #include <qumir/location.h>
 
+#include <cctype>
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <variant>
 #include <iostream>
@@ -90,6 +93,78 @@ std::map<std::string, EOperator> OperatorMap = {
     {"или", EOperator::Or},
     {"не", EOperator::Not},
 };
+
+std::string_view TrimLeft(std::string_view value) {
+    while (!value.empty() && std::isspace(value.front())) {
+        value.remove_prefix(1);
+    }
+    return value;
+}
+
+std::string_view Trim(std::string_view value) {
+    value = TrimLeft(value);
+    while (!value.empty() && std::isspace(value.back())) {
+        value.remove_suffix(1);
+    }
+    return value;
+}
+
+std::string ReadPragmaWord(std::string_view& value) {
+    value = TrimLeft(value);
+    size_t end = 0;
+    while (end < value.size() && !std::isspace(value[end]) && value[end] != ':') {
+        ++end;
+    }
+    std::string word(value.substr(0, end));
+    value.remove_prefix(end);
+    return word;
+}
+
+std::optional<TPragma> ParsePragmaComment(std::string_view comment, TLocation location) {
+    comment = Trim(comment);
+    if (!comment.starts_with("#")) {
+        return std::nullopt;
+    }
+
+    comment.remove_prefix(1);
+    comment = TrimLeft(comment);
+    auto namespaceName = ReadPragmaWord(comment);
+    if (namespaceName != "qumir") {
+        return std::nullopt;
+    }
+
+    auto group = ReadPragmaWord(comment);
+    if (group.empty()) {
+        throw TError(location, "ожидалась группа прагмы после 'qumir'");
+    }
+
+    comment = TrimLeft(comment);
+    if (comment.empty() || comment.front() != ':') {
+        throw TError(location, "ожидалось ':' после группы прагмы");
+    }
+    comment.remove_prefix(1);
+    comment = Trim(comment);
+    if (comment.empty()) {
+        throw TError(location, "ожидалось значение прагмы после ':'");
+    }
+
+    std::vector<std::string> values;
+    comment = TrimLeft(comment);
+    while (!comment.empty()) {
+        auto value = ReadPragmaWord(comment);
+        if (value.empty()) {
+            throw TError(location, "пустое значение прагмы");
+        }
+        values.push_back(std::move(value));
+        comment = TrimLeft(comment);
+    }
+
+    return TPragma{
+        .Group = std::move(group),
+        .Values = std::move(values),
+        .Location = location,
+    };
+}
 
 enum EState {
     Start,
@@ -181,6 +256,19 @@ void TTokenStream::Read() {
     int expSign = 1;
     int expValue = 0;
     int utf8bytesLeft = -1;
+    std::string lineCommentValue;
+    TLocation lineCommentLocation = CurrentLocation;
+
+    auto finishLineComment = [&]() {
+        auto pragma = ParsePragmaComment(lineCommentValue, lineCommentLocation);
+        if (!pragma) {
+            return;
+        }
+        if (SeenFirstToken) {
+            throw TError(lineCommentLocation, "прагмы qumir должны идти до первого значимого токена");
+        }
+        Context.Pragmas.push_back(std::move(*pragma));
+    };
 
     auto emitKeyword = [&](EKeyword kw, const std::string& rawValue) {
         Tokens.emplace_back(TToken {
@@ -377,6 +465,8 @@ void TTokenStream::Read() {
                         token = (int64_t)(ch - '0');
                         rawTokenValue += ch;
                     } else if (ch == '|') {
+                        lineCommentValue.clear();
+                        lineCommentLocation = CurrentLocation;
                         state = InLineComment;
                     } else if (ch == '.') {
                         state = InNumber;
@@ -451,8 +541,11 @@ void TTokenStream::Read() {
                 }
                 case InLineComment:
                     if (ch == '\n') {
+                        finishLineComment();
                         state = Start;
                         repeat = true;
+                    } else {
+                        lineCommentValue += ch;
                     }
                     break;
                 case InNumber:
@@ -506,6 +599,9 @@ void TTokenStream::Read() {
         } while (repeat);
     }
 
+    if (state == InLineComment) {
+        finishLineComment();
+    }
     flush();
 }
 
