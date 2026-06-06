@@ -118,13 +118,13 @@ std::string BuildAst(NAst::TTokenStream& ts) {
 
     auto parsed = p.parse(ts, &nr);
     if (!parsed) {
-        return "Error: " + parsed.error().ToString() + "\n";
+        return parsed.error().ToString() + "\n";
     }
 
     auto expr = parsed.value();
     auto error = NTransform::Pipeline(expr, nr, {.EnableCoroutineAnalysis = true});
     if (!error) {
-        return "Error: " + error.error().ToString() + "\n";
+        return error.error().ToString() + "\n";
     }
 
     std::ostringstream out;
@@ -140,13 +140,13 @@ std::string BuildCoreSource(NAst::TTokenStream& ts) {
 
     auto parsed = p.parse(ts, &nr);
     if (!parsed) {
-        return "Error: " + parsed.error().ToString() + "\n";
+        return parsed.error().ToString() + "\n";
     }
 
     auto expr = parsed.value();
     auto error = NTransform::Pipeline(expr, nr);
     if (!error) {
-        return "Error: " + error.error().ToString() + "\n";
+        return error.error().ToString() + "\n";
     }
 
     return NAst::NCore::PrintAst(expr, {.TypeMode = NAst::NCore::ETypePrintMode::All});
@@ -171,7 +171,7 @@ std::string BuildIR(std::istream& input, bool coreInput = false) {
         parsed = p.parse(ts, &resolver);
     }
     if (!parsed) {
-        return "Error: " + parsed.error().ToString() + "\n";
+        return parsed.error().ToString() + "\n";
     }
 
     auto expr = parsed.value();
@@ -180,12 +180,12 @@ std::string BuildIR(std::istream& input, bool coreInput = false) {
         // scope->AllowsRedeclare = true;
         scope->RootLevel = false;
         if (auto resolveError = resolver.Resolve(expr)) {
-            return "Error: " + resolveError->ToString() + "\n";
+            return resolveError->ToString() + "\n";
         }
     }
     auto error = NTransform::Pipeline(expr, resolver, {.EnableCoroutineAnalysis = true});
     if (!error) {
-        return "Error: " + error.error().ToString() + "\n";
+        return error.error().ToString() + "\n";
     }
 
     NIR::TModule module;
@@ -193,7 +193,7 @@ std::string BuildIR(std::istream& input, bool coreInput = false) {
     NIR::TAstLowerer lowerer(module, builder, resolver);
     auto lowerRes = lowerer.LowerTop(expr);
     if (!lowerRes) {
-        return "Error: " + lowerRes.error().ToString() + "\n";
+        return lowerRes.error().ToString();
     }
 
     std::ostringstream out;
@@ -209,7 +209,7 @@ class RegCoreLang : public ::testing::TestWithParam<ProgCase> {};
 
 std::string ResultString(const std::expected<std::optional<std::string>, TError>& res) {
     if (!res) {
-        return "Error: " + res.error().ToString() + "\n";
+        return res.error().ToString();
     }
     std::ostringstream out;
     if (res.value().has_value()) {
