@@ -90,6 +90,10 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
                 return TError(loc, "Неизвестный тип: " + named->Name);
             }
             named->UnderlyingType = it->second;
+            auto modIt = ImportedModuleSymbols.find(named->Name);
+            if (modIt != ImportedModuleSymbols.end()) {
+                named->Reference = modIt->second; // marks type as imported from this module
+            }
             return self(self, named->UnderlyingType, loc);
         } else if (auto maybeRef = TMaybeType<TReferenceType>(type)) {
             return self(self, maybeRef.Cast()->ReferencedType, loc);
@@ -246,6 +250,12 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
             co_return res.error();
         }
         co_return {};
+    } else if (auto maybeTypeDecl = TMaybeNode<TTypeDeclStmt>(node)) {
+        if (auto maybeNamed = TMaybeType<TNamedType>(maybeTypeDecl.Cast()->Type)) {
+            auto named = maybeNamed.Cast();
+            RegisterType(named->Name, named->UnderlyingType);
+        }
+        co_return {};
     }
 
     for (const auto& child : node->Children()) {
@@ -266,6 +276,10 @@ std::optional<TError> TNameResolver::Resolve(TExprPtr root) {
     auto scope = GetOrCreateRootScope();
     if (auto block = TMaybeNode<TBlockExpr>(root)) {
         block.Cast()->Scope = scope->Id.Id;
+    }
+    ImportUseStmts(root);
+    if (auto err = RegisterTypeDecls(root)) {
+        return err;
     }
     auto funcRes = ResolveTopFuncDecl(root, scope).result();
     if (!funcRes) {
@@ -608,6 +622,37 @@ NAst::TTypePtr TNameResolver::LookupType(const std::string& name) const {
     auto it = ImportedTypes.find(name);
     if (it != ImportedTypes.end()) return it->second;
     return nullptr;
+}
+
+void TNameResolver::RegisterType(const std::string& name, NAst::TTypePtr underlying) {
+    ImportedTypes[name] = std::move(underlying);
+}
+
+std::optional<TError> TNameResolver::RegisterTypeDecls(const NAst::TExprPtr& root) {
+    auto block = TMaybeNode<TBlockExpr>(root);
+    if (!block) return {};
+    for (const auto& stmt : block.Cast()->Stmts) {
+        auto td = TMaybeNode<TTypeDeclStmt>(stmt);
+        if (!td) continue;
+        auto named = TMaybeType<TNamedType>(td.Cast()->Type);
+        if (!named) continue;
+        auto n = named.Cast();
+        if (ImportedModuleSymbols.contains(n->Name)) {
+            return TError(stmt->Location, "Тип уже объявлен или импортирован: " + n->Name);
+        }
+        RegisterType(n->Name, n->UnderlyingType);
+    }
+    return {};
+}
+
+void TNameResolver::ImportUseStmts(const NAst::TExprPtr& root) {
+    auto block = TMaybeNode<TBlockExpr>(root);
+    if (!block) return;
+    for (const auto& stmt : block.Cast()->Stmts) {
+        auto use = TMaybeNode<TUseExpr>(stmt);
+        if (!use) continue;
+        ImportModule(use.Cast()->ModuleName);
+    }
 }
 
 std::optional<std::string> TNameResolver::GetCast(const NAst::TTypePtr& from, const NAst::TTypePtr& to) const {

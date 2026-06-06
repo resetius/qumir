@@ -140,7 +140,7 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
                 ? exec->ArgByteOffsets[i] : i * 8;
             const int typeId = (i < (int)exec->ArgTypeIds.size()) ? exec->ArgTypeIds[i] : -1;
             const int argSize = Module.Types.SizeInBytes(typeId);
-            if (argSize > 8) {
+            if (typeId >= 0 && Module.Types.GetKind(typeId) == EKind::Struct) {
                 // struct arg: value is a pointer — copy the struct into the frame
                 std::memcpy(frameBase + byteOff, reinterpret_cast<const void*>(srcArgs[i]), argSize);
             } else {

@@ -34,6 +34,7 @@ void TMultiIndexExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TSliceExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TUseExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TAssertStmt::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TTypeDeclStmt::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TFieldAccessExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TStructConstructExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TFieldAssignExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }

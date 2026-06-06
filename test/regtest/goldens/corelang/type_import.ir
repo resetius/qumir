@@ -1,0 +1,24 @@
+function <main> () { ; void
+  block {
+    label: label(0)
+    salloc tmp(0,ptr to i64) = imm(16,i64) 
+    + tmp(1,ptr to i64) = tmp(0,ptr to i64) imm(0,i64) 
+    ste tmp(1,ptr to i64) imm(4294901760,i64) 
+    + tmp(2,ptr to i64) = tmp(0,ptr to i64) imm(4,i64) 
+    ste tmp(2,ptr to i64) imm(42,i64) 
+    stre local(0,struct { u32; i64}) tmp(0,ptr to i64) 
+    lea tmp(3,struct { u32; i64}) = local(0,struct { u32; i64}) 
+    + tmp(4,ptr to i8) = tmp(3,struct { u32; i64}) imm(4,i64) 
+    lde tmp(5,i64) = tmp(4,ptr to i8) 
+    arg tmp(5,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

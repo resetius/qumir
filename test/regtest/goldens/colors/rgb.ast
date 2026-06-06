@@ -2,16 +2,16 @@
   (use "Цвета")
   (fun <main> void () ()
     (block
-      (var c <named цвет u32>)
+      (var c <named цвет>)
       (var r i64)
       (var g i64)
       (var b i64)
       (= c
-        (: (cast (| (| (| (<< (& 255 255) 24) (<< (& 255 255) 16)) (<< (& 128 255) 8)) (& 0 255)) <named цвет u32>)
-          <named цвет u32>))
+        (: (cast (| (| (| (<< (& 255 255) 24) (<< (& 255 255) 16)) (<< (& 128 255) 8)) (& 0 255)) <named цвет>)
+          <named цвет>))
       (block
         (var $$color_decompose_rgb_0 i64)
-        (= $$color_decompose_rgb_0 (cast (: c <named цвет u32>) i64))
+        (= $$color_decompose_rgb_0 (cast (: c <named цвет>) i64))
         (= r (& (>> $$color_decompose_rgb_0 16) 255))
         (= g (& (>> $$color_decompose_rgb_0 8) 255))
         (= b (& $$color_decompose_rgb_0 255)))
@@ -24,11 +24,11 @@
         (call output_int64 b 0)
         (call output_string "\n"))
       (= c
-        (: (cast (| (| (| (<< (& 128 255) 24) (<< (& 10 255) 16)) (<< (& 20 255) 8)) (& 30 255)) <named цвет u32>)
-          <named цвет u32>))
+        (: (cast (| (| (| (<< (& 128 255) 24) (<< (& 10 255) 16)) (<< (& 20 255) 8)) (& 30 255)) <named цвет>)
+          <named цвет>))
       (block
         (var $$color_decompose_rgb_1 i64)
-        (= $$color_decompose_rgb_1 (cast (: c <named цвет u32>) i64))
+        (= $$color_decompose_rgb_1 (cast (: c <named цвет>) i64))
         (= r (& (>> $$color_decompose_rgb_1 16) 255))
         (= g (& (>> $$color_decompose_rgb_1 8) 255))
         (= b (& $$color_decompose_rgb_1 255)))
@@ -41,11 +41,11 @@
         (call output_int64 b 0)
         (call output_string "\n"))
       (= c
-        (: (cast (| (| (| (<< (& 255 255) 24) (<< (& 0 255) 16)) (<< (& 0 255) 8)) (& 0 255)) <named цвет u32>)
-          <named цвет u32>))
+        (: (cast (| (| (| (<< (& 255 255) 24) (<< (& 0 255) 16)) (<< (& 0 255) 8)) (& 0 255)) <named цвет>)
+          <named цвет>))
       (block
         (var $$color_decompose_rgb_2 i64)
-        (= $$color_decompose_rgb_2 (cast (: c <named цвет u32>) i64))
+        (= $$color_decompose_rgb_2 (cast (: c <named цвет>) i64))
         (= r (& (>> $$color_decompose_rgb_2 16) 255))
         (= g (& (>> $$color_decompose_rgb_2 8) 255))
         (= b (& $$color_decompose_rgb_2 255)))
@@ -58,11 +58,11 @@
         (call output_int64 b 0)
         (call output_string "\n"))
       (= c
-        (: (cast (| (| (| (<< (& 255 255) 24) (<< (& 255 255) 16)) (<< (& 255 255) 8)) (& 255 255)) <named цвет u32>)
-          <named цвет u32>))
+        (: (cast (| (| (| (<< (& 255 255) 24) (<< (& 255 255) 16)) (<< (& 255 255) 8)) (& 255 255)) <named цвет>)
+          <named цвет>))
       (block
         (var $$color_decompose_rgb_3 i64)
-        (= $$color_decompose_rgb_3 (cast (: c <named цвет u32>) i64))
+        (= $$color_decompose_rgb_3 (cast (: c <named цвет>) i64))
         (= r (& (>> $$color_decompose_rgb_3 16) 255))
         (= g (& (>> $$color_decompose_rgb_3 8) 255))
         (= b (& $$color_decompose_rgb_3 255)))

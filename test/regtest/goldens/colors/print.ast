@@ -3,23 +3,23 @@
   (fun <main> void () ()
     (block
       (seq
-        (call __unop_вывод_Named::цвет (: 4278190080 <named цвет u32>))
+        (call __unop_вывод_Named::цвет (: 4278190080 <named цвет>))
         (call output_string "\n"))
       (seq
-        (call __unop_вывод_Named::цвет (: 4294967295 <named цвет u32>))
+        (call __unop_вывод_Named::цвет (: 4294967295 <named цвет>))
         (call output_string "\n"))
       (seq
-        (call __unop_вывод_Named::цвет (: 4294901760 <named цвет u32>))
+        (call __unop_вывод_Named::цвет (: 4294901760 <named цвет>))
         (call output_string "\n"))
       (seq
-        (call __unop_вывод_Named::цвет (: 4278222848 <named цвет u32>))
+        (call __unop_вывод_Named::цвет (: 4278222848 <named цвет>))
         (call output_string "\n"))
       (seq
-        (call __unop_вывод_Named::цвет (: 4278190335 <named цвет u32>))
+        (call __unop_вывод_Named::цвет (: 4278190335 <named цвет>))
         (call output_string "\n"))
       (seq
         (call
           __unop_вывод_Named::цвет
-          (: (cast (| (| (| (<< (& 255 255) 24) (<< (& 255 255) 16)) (<< (& 128 255) 8)) (& 0 255)) <named цвет u32>)
-            <named цвет u32>))
+          (: (cast (| (| (| (<< (& 255 255) 24) (<< (& 255 255) 16)) (<< (& 128 255) 8)) (& 0 255)) <named цвет>)
+            <named цвет>))
         (call output_string "\n")))))

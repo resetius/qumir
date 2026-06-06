@@ -128,10 +128,14 @@ Blocks and sequencing:
 `block` introduces a nested lexical scope. `seq` evaluates items in order
 without introducing a nested scope.
 
-Pragmas may appear at the start of the outermost `block` (depth 1), before
-any real statements. They are virtual nodes — not represented in the AST —
-and are collected into `TParser::Pragmas` for the caller to apply after
-`Parse()` returns.
+The outermost `block` (depth 1) enforces a strict statement order:
+
+```
+(pragma ...)* → (use ...)* → (type ...)* → other statements
+```
+
+**Pragmas** are virtual nodes — not represented in the AST — collected into
+`TParser::Pragmas` for the caller to apply after `Parse()` returns.
 
 ```core
 (block
@@ -140,8 +144,20 @@ and are collected into `TParser::Pragmas` for the caller to apply after
   stmt2 ...)
 ```
 
-A pragma has the form `(pragma group value1 value2 ...)`. Placing a pragma
-after a non-pragma statement, or inside a nested block, is an error.
+A pragma has the form `(pragma group value1 value2 ...)`. Pragmas must appear
+before `use` and `type` declarations.
+
+**`use`** imports a module, making its functions and types available in scope.
+`use` must appear after pragmas and before type declarations.
+
+```core
+(block
+  (use "Цвета")
+  ...)
+```
+
+**`type`** declares a named type alias. It must appear after `use` statements.
+Declaring a type whose name is already imported from a module is an error.
 
 Currently defined pragmas:
 
@@ -213,6 +229,44 @@ function attributes are:
 
 The parser currently stores `expect_after` on `TFunDecl::LastAssert`.
 `expect_before` is parsed for forward compatibility.
+
+Non-void functions return their result by assigning to a local variable named
+`$$return` (two dollar signs), declared with the function's return type:
+
+```core
+(fun square i64 ((var x i64)) ()
+  (block
+    (var $$return i64)
+    (= $$return (* x x))))
+```
+
+This convention applies to all return types including structs and named types.
+The function body must assign to `$$return` on every execution path; there is no
+`return` statement in core lang.
+
+Type declarations:
+
+```core
+(type name underlying_type)
+```
+
+Declares a named type alias. `name` becomes available as a bare type identifier
+in the surrounding block scope. Named types are transparent to the IR — the IR
+type is the same as the underlying type. In type position the long form is
+`<named name>` or `<named name underlying_type>`:
+
+```core
+(block
+  (type имя <struct (val i64)>)
+  (fun make_name <named имя> ((var v i64)) ()
+    (block
+      (var $$return <named имя>)
+      (= $$return (: (struct ((val v))) <named имя>))))
+  (fun <main> void () ()
+    (block
+      (var n <named имя>)
+      (= n (call make_name 42)))))
+```
 
 Calls and I/O:
 

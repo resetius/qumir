@@ -193,11 +193,14 @@ public:
         const NAst::TTypePtr& operand) const;
 
     NAst::TTypePtr LookupType(const std::string& name) const override;
+    void RegisterType(const std::string& name, NAst::TTypePtr type);
 
 private:
     using TTask = TExpectedTask<std::monostate, TError, TLocation>;
     TTask Resolve(NAst::TExprPtr node, TScopePtr parentScope, TScopePtr funcScope);
     TTask ResolveTopFuncDecl(NAst::TExprPtr node, TScopePtr scope);
+    std::optional<TError> RegisterTypeDecls(const NAst::TExprPtr& root);
+    void ImportUseStmts(const NAst::TExprPtr& root);
     std::expected<TSymbolId, TError> Declare(const std::string& name, NAst::TExprPtr node, TScopePtr scope, TScopePtr funcScope);
     TScopePtr NewScope(TScopePtr parent, TScopePtr funcScope);
 

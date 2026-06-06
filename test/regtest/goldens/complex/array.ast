@@ -2,7 +2,7 @@
   (use "Комплексные числа")
   (fun <main> void () ()
     (block
-      (var arr <array <named компл <struct (re f64) (im f64)>> 1> [0 2])
+      (var arr <array <named компл> 1> [0 2])
       (var j i64)
       (for j
         0
@@ -11,11 +11,11 @@
         (block
           (= arr
             [j]
-            (: (struct ((re (+ (field re (: (struct ((re (cast j f64)) (im 0))) <named компл <struct (re f64) (im f64)>>))
-                    (field re (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>))))
-                  (im (+ (field im (: (struct ((re (cast j f64)) (im 0))) <named компл <struct (re f64) (im f64)>>))
-                    (field im (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>))))))
-              <named компл <struct (re f64) (im f64)>>))))
+            (: (struct ((re (+ (field re (: (struct ((re (cast j f64)) (im 0))) <named компл>))
+                    (field re (: (struct ((re 0) (im 1))) <named компл>))))
+                  (im (+ (field im (: (struct ((re (cast j f64)) (im 0))) <named компл>))
+                    (field im (: (struct ((re 0) (im 1))) <named компл>))))))
+              <named компл>))))
       (for j
         0
         2
@@ -25,7 +25,7 @@
             (call output_string "arr[")
             (call output_int64 j 0)
             (call output_string "] Re=")
-            (call output_double (field re (: (index j arr) <named компл <struct (re f64) (im f64)>>)) 0 -1)
+            (call output_double (field re (: (index j arr) <named компл>)) 0 -1)
             (call output_string " Im=")
-            (call output_double (field im (: (index j arr) <named компл <struct (re f64) (im f64)>>)) 0 -1)
+            (call output_double (field im (: (index j arr) <named компл>)) 0 -1)
             (call output_string "\n")))))))

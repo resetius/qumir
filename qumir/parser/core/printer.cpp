@@ -2,6 +2,7 @@
 
 #include <iomanip>
 #include <limits>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 
@@ -151,16 +152,16 @@ void TPrinter::PrintType(TTypePtr type, int level) {
         PrintTypeAttrs(type);
         *Out << '>';
     } else if (auto t = TMaybeType<TNamedType>(type)) {
+        *Out << "<named ";
         if (Options.ShortNamedTypes.contains(t.Cast()->Name)) {
             PrintIdentifier(t.Cast()->Name);
         } else {
-            *Out << "<named ";
             PrintIdentifier(t.Cast()->Name);
             *Out << ' ';
             PrintType(t.Cast()->UnderlyingType, level);
             PrintTypeAttrs(type);
-            *Out << '>';
         }
+        *Out << '>';
     } else if (auto t = TMaybeType<TStructType>(type)) {
         PrintStructType(t.Cast(), level);
     } else {
@@ -458,6 +459,59 @@ void TPrinter::PrintStructType(const std::shared_ptr<TStructType>& type, int lev
 
 namespace NImpl {
 
+namespace {
+
+using TNamedTypeMap = std::map<std::string, std::shared_ptr<TNamedType>>;
+
+void CollectFromType(const TTypePtr& type, TNamedTypeMap& out) {
+    if (!type) return;
+    if (auto t = TMaybeType<TNamedType>(type)) {
+        auto named = t.Cast();
+        if (named->UnderlyingType && !out.contains(named->Name)) {
+            out[named->Name] = named;
+            CollectFromType(named->UnderlyingType, out);
+        }
+        return;
+    }
+    if (auto t = TMaybeType<TFunctionType>(type)) {
+        for (const auto& p : t.Cast()->ParamTypes) CollectFromType(p, out);
+        CollectFromType(t.Cast()->ReturnType, out);
+    } else if (auto t = TMaybeType<TFutureType>(type)) {
+        CollectFromType(t.Cast()->ResultType, out);
+    } else if (auto t = TMaybeType<TArrayType>(type)) {
+        CollectFromType(t.Cast()->ElementType, out);
+    } else if (auto t = TMaybeType<TPointerType>(type)) {
+        CollectFromType(t.Cast()->PointeeType, out);
+    } else if (auto t = TMaybeType<TReferenceType>(type)) {
+        CollectFromType(t.Cast()->ReferencedType, out);
+    } else if (auto t = TMaybeType<TStructType>(type)) {
+        for (const auto& [name, fieldType] : t.Cast()->Fields) {
+            CollectFromType(fieldType, out);
+        }
+    }
+}
+
+void CollectTypesFromExpr(const TExprPtr& expr, TNamedTypeMap& out) {
+    if (!expr) return;
+    CollectFromType(expr->Type, out);
+    if (auto fd = TMaybeNode<TFunDecl>(expr)) {
+        CollectFromType(fd.Cast()->RetType, out);
+        for (const auto& p : fd.Cast()->Params) {
+            CollectFromType(p->Type, out);
+        }
+    } else if (auto le = TMaybeNode<TLetExpr>(expr)) {
+        for (const auto& b : le.Cast()->Bindings) {
+            CollectFromType(b.Type, out);
+        }
+    }
+    for (const auto& child : expr->Children()) {
+        CollectTypesFromExpr(child, out);
+    }
+}
+
+
+} // anonymous namespace
+
 struct TPrintExpr : public IVisitor {
     TPrintExpr(std::ostream* out, TPrinter& printer, TPrintFrame frame)
         : Out(out)
@@ -504,7 +558,51 @@ struct TPrintExpr : public IVisitor {
     }
 
     void Visit(TBlockExpr& node) override {
-        Printer.PrintExprList("block", node.Stmts, Frame.Level);
+        if (Frame.Level == 0) {
+            TNamedTypeMap collected;
+            for (const auto& stmt : node.Stmts) {
+                CollectTypesFromExpr(stmt, collected);
+            }
+            for (const auto& [name, _] : collected) {
+                Printer.Options.ShortNamedTypes.insert(name);
+            }
+            *Out << "(block";
+            // Pass 1: use statements
+            for (const auto& stmt : node.Stmts) {
+                if (!TMaybeNode<TUseExpr>(stmt)) continue;
+                Printer.Separator(1);
+                Printer.PrintExpr(stmt, true, 1);
+            }
+            // Pass 2: locally declared types (not imported from modules)
+            for (const auto& [name, namedType] : collected) {
+                if (namedType->Reference.has_value()) continue;
+                Printer.Separator(1);
+                *Out << "(type ";
+                Printer.PrintIdentifier(name);
+                Printer.Space();
+                Printer.PrintType(namedType->UnderlyingType, 1);
+                *Out << ')';
+            }
+            // Pass 3: everything else
+            for (const auto& stmt : node.Stmts) {
+                if (TMaybeNode<TTypeDeclStmt>(stmt)) continue;
+                if (TMaybeNode<TUseExpr>(stmt)) continue;
+                Printer.Separator(1);
+                Printer.PrintExpr(stmt, true, 1);
+            }
+            *Out << ')';
+        } else {
+            Printer.PrintExprList("block", node.Stmts, Frame.Level);
+        }
+    }
+
+    void Visit(TTypeDeclStmt& node) override {
+        auto named = TMaybeType<TNamedType>(node.Type);
+        *Out << "(type ";
+        Printer.PrintIdentifier(named.Cast()->Name);
+        Printer.Space();
+        Printer.PrintType(named.Cast()->UnderlyingType, Frame.Level + 1);
+        *Out << ')';
     }
 
     void Visit(TSeqExpr& node) override {

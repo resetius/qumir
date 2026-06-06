@@ -1081,6 +1081,24 @@ public:
     void Accept(IVisitor& visitor) override;
 };
 
+class TTypeDeclStmt : public TExpr {
+public:
+    static constexpr const char* NodeId = "TypeDecl";
+
+    explicit TTypeDeclStmt(TLocation loc, TTypePtr type)
+        : TExpr(std::move(loc), std::move(type))
+    { }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+
+    std::vector<TExprPtr> Children() const override { return {}; }
+    std::vector<TExprPtr*> MutableChildren() override { return {}; }
+
+    void Accept(IVisitor& visitor) override;
+};
+
 class TFieldAccessExpr : public TExpr {
 public:
     static constexpr const char* NodeId = "FieldAccess";
@@ -1199,6 +1217,7 @@ struct IVisitor {
     virtual void Visit(TSliceExpr& node) = 0;
     virtual void Visit(TUseExpr& node) = 0;
     virtual void Visit(TAssertStmt& node) = 0;
+    virtual void Visit(TTypeDeclStmt& node) = 0;
     virtual void Visit(TFieldAccessExpr& node) = 0;
     virtual void Visit(TStructConstructExpr& node) = 0;
     virtual void Visit(TFieldAssignExpr& node) = 0;

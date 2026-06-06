@@ -460,6 +460,11 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
     }
     if (head == "named") {
         auto name = co_await ParseName(context);
+        auto tok = context.Stream.Next();
+        if (IsOp(tok, '>')) {
+            co_return std::make_shared<TNamedType>(std::move(name), nullptr);
+        }
+        context.Stream.Unget(tok);
         auto underlying = co_await ParseType(context);
         auto type = std::make_shared<TNamedType>(std::move(name), std::move(underlying));
         co_await ParseTypeAttrs(context, *type);
@@ -529,12 +534,25 @@ TListHandlerMap MakeDefaultHandlers() {
             ++ctx.BlockDepth;
             auto exprs = co_await ParseExprsUntil(ctx, ')');
             --ctx.BlockDepth;
+            // validate order: null(pragma)... -> TUseExpr... -> TTypeDeclStmt... -> real expr...
+            auto isTypeDecl = [](const TExprPtr& e) { return e && TMaybeNode<TTypeDeclStmt>(e); };
+            auto isUseExpr  = [](const TExprPtr& e) { return e && TMaybeNode<TUseExpr>(e); };
             auto firstNonNull = std::find_if(exprs.begin(), exprs.end(), [](const TExprPtr& e) { return !!e; });
             auto badNull = std::find_if(firstNonNull, exprs.end(), [](const TExprPtr& e) { return !e; });
             if (badNull != exprs.end()) {
                 auto goodPragmas = std::count_if(exprs.begin(), firstNonNull, [](const TExprPtr& e) { return !e; });
                 auto badLoc = goodPragmas < (ptrdiff_t)ctx.Pragmas.size() ? ctx.Pragmas[goodPragmas].Location : loc;
                 co_return TError(badLoc, "pragma допускается только в начале первого блока");
+            }
+            auto firstNonUse      = std::find_if(firstNonNull, exprs.end(), [&](const TExprPtr& e) { return !isUseExpr(e); });
+            auto badUse           = std::find_if(firstNonUse, exprs.end(), isUseExpr);
+            if (badUse != exprs.end()) {
+                co_return TError((*badUse)->Location, "use допускается только в начале первого блока, после прагм");
+            }
+            auto firstNonTypeDecl = std::find_if(firstNonUse, exprs.end(), [&](const TExprPtr& e) { return !isTypeDecl(e); });
+            auto badTypeDecl      = std::find_if(firstNonTypeDecl, exprs.end(), isTypeDecl);
+            if (badTypeDecl != exprs.end()) {
+                co_return TError((*badTypeDecl)->Location, "объявление типа допускается только в начале первого блока, после прагм и use");
             }
             exprs.erase(std::remove_if(exprs.begin(), exprs.end(), [](const TExprPtr& e) { return !e; }), exprs.end());
             co_return std::make_shared<TBlockExpr>(loc, std::move(exprs));
@@ -696,6 +714,16 @@ TListHandlerMap MakeDefaultHandlers() {
             }
             ctx.Pragmas.push_back(TPragma{std::move(group), std::move(values), loc});
             co_return TExprPtr{};
+        }},
+        {"type", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            if (ctx.BlockDepth != 1) {
+                co_return TError(loc, "объявление типа допускается только в первом блоке");
+            }
+            auto name = co_await ParseName(ctx);
+            auto underlying = co_await ParseType(ctx);
+            co_await Expect(ctx, ')');
+            auto namedType = std::make_shared<TNamedType>(std::move(name), std::move(underlying));
+            co_return std::make_shared<TTypeDeclStmt>(loc, std::move(namedType));
         }},
         {"assert", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto expr = co_await ParseExpr(ctx);

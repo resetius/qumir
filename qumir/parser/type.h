@@ -276,6 +276,7 @@ struct TNamedType : TType {
     static constexpr const char* TypeId = "Named";
     std::string Name;
     TTypePtr UnderlyingType; // Resolved on name resolution phase, exported by modules
+    std::optional<std::string> Reference; // Set = imported from this module; not printed in AST
 
     explicit TNamedType(std::string name, TTypePtr underlying)
         : Name(std::move(name))

@@ -449,6 +449,9 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
                     if (auto maybeVarDecl = NAst::TMaybeNode<NAst::TVarStmt>(stmt)) {
                         continue;
                     }
+                    if (auto maybeTypeDecl = NAst::TMaybeNode<NAst::TTypeDeclStmt>(stmt)) {
+                        continue;
+                    }
                     if (stmt->Type) {
                         auto maybeVoidType = NAst::TMaybeType<NAst::TVoidType>(stmt->Type);
                         auto futureResultType = NAst::FutureResultType(stmt->Type);

@@ -401,6 +401,12 @@ void TTokenStream::Read() {
             take();
             continue;
         }
+        if (next == ';') {
+            while (In.peek() != Eof && In.peek() != '\n') {
+                take();
+            }
+            continue;
+        }
 
         TLocation tokenLocation = CurrentLocation;
 

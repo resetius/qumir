@@ -2,11 +2,11 @@
   (use "Комплексные числа")
   (fun <main> void () ()
     (block
-      (var z <named компл <struct (re f64) (im f64)>>)
-      (= z (: (struct ((re 0) (im 1))) <named компл <struct (re f64) (im f64)>>))
+      (var z <named компл>)
+      (= z (: (struct ((re 0) (im 1))) <named компл>))
       (seq
         (call output_string "i Re=")
-        (call output_double (field re (: z <named компл <struct (re f64) (im f64)>>)) 0 -1)
+        (call output_double (field re (: z <named компл>)) 0 -1)
         (call output_string " Im=")
-        (call output_double (field im (: z <named компл <struct (re f64) (im f64)>>)) 0 -1)
+        (call output_double (field im (: z <named компл>)) 0 -1)
         (call output_string "\n")))))
