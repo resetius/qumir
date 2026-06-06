@@ -1,6 +1,7 @@
 #pragma once
 
 #include <qumir/location.h>
+#include <qumir/parser/pragma.h>
 
 #include <string>
 #include <deque>
@@ -111,12 +112,7 @@ public:
     virtual void ImportTypeNames(const std::vector<std::string>& names) = 0;
     virtual void ImportLiteralSuffix(const std::string& suffix, const std::string& ctorFn) = 0;
     virtual const std::unordered_map<std::string, std::string>& GetLiteralSuffixes() const = 0;
-};
-
-struct TPragma {
-    std::string Group;
-    std::vector<std::string> Values;
-    TLocation Location;
+    virtual const std::vector<TPragma>& GetPragmas() const = 0;
 };
 
 struct TLexerContext : public ILexerContext {
@@ -132,6 +128,10 @@ struct TLexerContext : public ILexerContext {
 
     const std::unordered_map<std::string, std::string>& GetLiteralSuffixes() const override {
         return LiteralSuffixMap;
+    }
+
+    const std::vector<TPragma>& GetPragmas() const override {
+        return Pragmas;
     }
 
     std::unordered_set<std::string> TypeNames;

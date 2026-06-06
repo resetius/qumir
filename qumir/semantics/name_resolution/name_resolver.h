@@ -70,6 +70,7 @@ struct TSuggestion {
 };
 
 struct TNameResolverOptions {
+    bool AllowOverloads = false;
 };
 
 struct TScope;
@@ -128,6 +129,7 @@ public:
     TNameResolver(const TNameResolverOptions& options = {});
 
     std::optional<TError> Resolve(NAst::TExprPtr root);
+    void ApplyPragmas(const std::vector<NAst::TPragma>& pragmas) override;
     TScopePtr GetOrCreateRootScope();
 
     std::optional<TSymbolInfo> Lookup(const std::string& name, TScopeId scope) const;

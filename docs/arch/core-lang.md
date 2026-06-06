@@ -128,6 +128,27 @@ Blocks and sequencing:
 `block` introduces a nested lexical scope. `seq` evaluates items in order
 without introducing a nested scope.
 
+Pragmas may appear at the start of the outermost `block` (depth 1), before
+any real statements. They are virtual nodes — not represented in the AST —
+and are collected into `TParser::Pragmas` for the caller to apply after
+`Parse()` returns.
+
+```core
+(block
+  (pragma language overloads)
+  stmt1
+  stmt2 ...)
+```
+
+A pragma has the form `(pragma group value1 value2 ...)`. Placing a pragma
+after a non-pragma statement, or inside a nested block, is an error.
+
+Currently defined pragmas:
+
+| Group | Value | Effect |
+|-------|-------|--------|
+| `language` | `overloads` | Enable user-defined function overloading (off by default) |
+
 Conditionals:
 
 ```core

@@ -59,10 +59,16 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
         NCore::TTokenStream ts(input);
         NCore::TParser p;
         parsed = p.Parse(ts);
+        if (parsed) {
+            Resolver.ApplyPragmas(p.Pragmas);
+        }
     } else {
         TTokenStream ts(input);
         TParser p;
         parsed = p.parse(ts, &Resolver);
+        if (parsed) {
+            Resolver.ApplyPragmas(ts.GetContext()->GetPragmas());
+        }
     }
     if (!parsed) {
         return std::unexpected(parsed.error());

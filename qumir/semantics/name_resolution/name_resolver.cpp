@@ -21,6 +21,18 @@ TNameResolver::TNameResolver(const TNameResolverOptions& options)
     : Options(options)
 { }
 
+void TNameResolver::ApplyPragmas(const std::vector<NAst::TPragma>& pragmas) {
+    for (const auto& pragma : pragmas) {
+        if (pragma.Group == "language") {
+            for (const auto& value : pragma.Values) {
+                if (value == "overloads") {
+                    Options.AllowOverloads = true;
+                }
+            }
+        }
+    }
+}
+
 // Function declaration may be at the top level only
 // They can be in any order, so we need to do two passes
 TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TScopePtr scope)
@@ -413,7 +425,7 @@ std::optional<TSuggestion> TNameResolver::Suggest(const std::string& name, TScop
 std::expected<TSymbolId, TError> TNameResolver::Declare(const std::string& name, TExprPtr node, TScopePtr scope, TScopePtr funcScope) {
     auto maybeSymbolId = scope->NameToSymbolId.find(name);
     TSymbolId symbolId{-1};
-    if (NAst::TMaybeNode<NAst::TFunDecl>(node)) {
+    if (Options.AllowOverloads && NAst::TMaybeNode<NAst::TFunDecl>(node)) {
         auto ovIt = scope->OverloadSets.find(name);
         if (ovIt != scope->OverloadSets.end()) {
             return RegisterOverloadEntry(name, node, ovIt->second);
@@ -423,7 +435,7 @@ std::expected<TSymbolId, TError> TNameResolver::Declare(const std::string& name,
     if (maybeSymbolId != scope->NameToSymbolId.end()) {
         if (!scope->AllowsRedeclare) {
             auto& existingSymbol = Symbols[maybeSymbolId->second.Id];
-            if (NAst::TMaybeNode<NAst::TFunDecl>(existingSymbol.Node) && NAst::TMaybeNode<NAst::TFunDecl>(node)) {
+            if (Options.AllowOverloads && NAst::TMaybeNode<NAst::TFunDecl>(existingSymbol.Node) && NAst::TMaybeNode<NAst::TFunDecl>(node)) {
                 return StartOverloadSet(name, maybeSymbolId->second, node, scope);
             }
             std::ostringstream ss;

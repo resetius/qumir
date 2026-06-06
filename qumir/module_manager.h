@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include <qumir/parser/pragma.h>
 #include <qumir/parser/type.h>
 
 namespace NQumir {
@@ -30,6 +31,8 @@ public:
     virtual std::vector<std::string> GetAllImportedTypeNames() const = 0;
     // All literal suffixes currently imported (including transitive dependencies)
     virtual std::vector<NRegistry::TLiteralSuffix> GetAllImportedLiteralSuffixes() const = 0;
+
+    virtual void ApplyPragmas(const std::vector<NAst::TPragma>& pragmas) {}
 };
 
 } // namespace NQumir

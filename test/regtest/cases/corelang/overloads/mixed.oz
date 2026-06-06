@@ -1,4 +1,5 @@
 (block
+  (pragma language overloads)
   (fun pick i64 ((var x i64)) ()
     (block
       (var $$return i64)

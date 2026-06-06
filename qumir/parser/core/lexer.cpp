@@ -33,6 +33,14 @@ AST node forms:
   (block stmt1 stmt2 ... stmtN)
       TBlockExpr, NodeId = "Block", introduces a nested lexical scope.
 
+  (pragma group value1 value2 ...)
+      Virtual node — not represented in the AST. Pragmas are collected into
+      TParser::Pragmas and applied by the caller after Parse() returns.
+      Pragmas are only valid at the start of the outermost (first) block,
+      before any non-pragma statements:
+          (block (pragma language overloads) stmt1 stmt2 ...)
+      A pragma after a real statement, or in a nested block, is an error.
+
   (seq stmt1 stmt2 ... stmtN)
       TSeqExpr, NodeId = "Seq", evaluates statements in order without
       introducing a nested lexical scope.

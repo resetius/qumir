@@ -1,4 +1,5 @@
 (block
+  (pragma language overloads)
   (fun double i32 ((var x i32)) ()
     (block
       (var $$return i32)

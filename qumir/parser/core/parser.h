@@ -10,6 +10,7 @@
 #include <qumir/optional.h>
 #include <qumir/parser/ast.h>
 #include <qumir/parser/core/lexer.h>
+#include <qumir/parser/pragma.h>
 
 namespace NQumir {
 namespace NAst {
@@ -40,6 +41,7 @@ using TNodeParserMap = std::unordered_map<std::string, TNodeParser>;
 class TParser {
 public:
     TNodeParserMap NodeParsers;
+    std::vector<TPragma> Pragmas;
 
     std::expected<TExprPtr, TError> Parse(TTokenStream& stream);
 };

@@ -2,7 +2,10 @@
 
 #include <qumir/optional.h>
 #include <qumir/parser/operator.h>
+#include <qumir/parser/pragma.h>
 #include <qumir/parser/type.h>
+
+#include <algorithm>
 
 #include <string>
 #include <vector>
@@ -31,6 +34,8 @@ using TListHandlerMap = std::unordered_map<std::string, TListHandler>;
 struct TParserContext {
     TWrappedTokenStream& Stream;
     TListHandlerMap Handlers;
+    std::vector<TPragma> Pragmas;
+    int BlockDepth = 0;
 };
 
 std::shared_ptr<TIntegerType> IntegerTypeByName(const std::string& name) {
@@ -521,7 +526,18 @@ TListHandlerMap MakeDefaultHandlers() {
             co_return std::make_shared<TAssignExpr>(loc, std::move(name), std::move(value));
         }},
         {"block", [](TParserContext& ctx, TLocation loc) -> TAstTask {
-            co_return std::make_shared<TBlockExpr>(loc, co_await ParseExprsUntil(ctx, ')'));
+            ++ctx.BlockDepth;
+            auto exprs = co_await ParseExprsUntil(ctx, ')');
+            --ctx.BlockDepth;
+            auto firstNonNull = std::find_if(exprs.begin(), exprs.end(), [](const TExprPtr& e) { return !!e; });
+            auto badNull = std::find_if(firstNonNull, exprs.end(), [](const TExprPtr& e) { return !e; });
+            if (badNull != exprs.end()) {
+                auto goodPragmas = std::count_if(exprs.begin(), firstNonNull, [](const TExprPtr& e) { return !e; });
+                auto badLoc = goodPragmas < (ptrdiff_t)ctx.Pragmas.size() ? ctx.Pragmas[goodPragmas].Location : loc;
+                co_return TError(badLoc, "pragma допускается только в начале первого блока");
+            }
+            exprs.erase(std::remove_if(exprs.begin(), exprs.end(), [](const TExprPtr& e) { return !e; }), exprs.end());
+            co_return std::make_shared<TBlockExpr>(loc, std::move(exprs));
         }},
         {"seq", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             co_return std::make_shared<TSeqExpr>(loc, co_await ParseExprsUntil(ctx, ')'));
@@ -665,6 +681,22 @@ TListHandlerMap MakeDefaultHandlers() {
             co_await Expect(ctx, ')');
             co_return std::make_shared<TUseExpr>(loc, std::move(moduleName));
         }},
+        {"pragma", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            if (ctx.BlockDepth != 1) {
+                co_return TError(loc, "pragma допускается только в первом блоке");
+            }
+            auto group = co_await ParseName(ctx);
+            std::vector<std::string> values;
+            while (true) {
+                auto vt = ctx.Stream.Next();
+                if (IsOp(vt, ')')) break;
+                if (IsEof(vt)) co_return Error(vt, "unexpected eof in pragma");
+                if (vt.Type != TToken::Identifier) co_return Error(vt, "expected pragma value");
+                values.push_back(vt.Name);
+            }
+            ctx.Pragmas.push_back(TPragma{std::move(group), std::move(values), loc});
+            co_return TExprPtr{};
+        }},
         {"assert", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto expr = co_await ParseExpr(ctx);
             co_await Expect(ctx, ')');
@@ -742,6 +774,7 @@ std::expected<TExprPtr, TError> TParser::Parse(TTokenStream& baseStream) {
     if (!IsEof(token)) {
         return std::unexpected(Error(token, "expected eof"));
     }
+    Pragmas = std::move(context.Pragmas);
     return result;
 }
 

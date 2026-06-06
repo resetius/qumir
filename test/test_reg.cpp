@@ -162,6 +162,9 @@ std::string BuildIR(std::istream& input, bool coreInput = false) {
         NAst::NCore::TTokenStream ts(input);
         NAst::NCore::TParser p;
         parsed = p.Parse(ts);
+        if (parsed) {
+            resolver.ApplyPragmas(p.Pragmas);
+        }
     } else {
         NAst::TTokenStream ts(input);
         NAst::TParser p;

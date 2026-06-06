@@ -1682,7 +1682,11 @@ std::expected<TExprPtr, TError> TParser::parse(TTokenStream& stream, IModuleMana
     TWrappedTokenStream wrappedStream(stream, /*windowSize = */ 10);
     TParserContext context(wrappedStream, mm, stream.GetContext());
     auto task = stmt_list(context, {});
-    return task.result();
+    auto result = task.result();
+    if (result && mm) {
+        mm->ApplyPragmas(stream.GetContext()->GetPragmas());
+    }
+    return result;
 }
 
 } // namespace NAst

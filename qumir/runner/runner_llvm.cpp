@@ -75,6 +75,9 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
         NAst::NCore::TTokenStream ts(input);
         NAst::NCore::TParser p;
         parsed = p.Parse(ts);
+        if (parsed) {
+            Resolver.ApplyPragmas(p.Pragmas);
+        }
     } else {
         NAst::TTokenStream ts(input);
         NAst::TParser p;
