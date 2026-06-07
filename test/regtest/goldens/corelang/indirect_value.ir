@@ -1,0 +1,86 @@
+function <main> () { ; void
+  block {
+    label: label(0)
+    stre local(0,func(i64, i64) -> i64) imm(76,func(i64, i64) -> i64) 
+    arg imm(76,func(i64, i64) -> i64) 
+    arg imm(3,i64) 
+    arg imm(4,i64) 
+    call tmp(0,i64) = apply 
+    arg tmp(0,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(79,func(i64, i64) -> i64) 
+    arg imm(3,i64) 
+    arg imm(4,i64) 
+    call tmp(1,i64) = apply 
+    arg tmp(1,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    load tmp(2,func(i64, i64) -> i64) = local(0,func(i64, i64) -> i64) 
+    arg imm(10,i64) 
+    arg imm(20,i64) 
+    calli tmp(3,i64) = tmp(2,func(i64, i64) -> i64) 
+    arg tmp(3,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}
+function add (local(0), local(1)) { ; i64
+  block {
+    label: label(0)
+    load tmp(0,i64) = local(0,i64) 
+    load tmp(1,i64) = local(1,i64) 
+    + tmp(2,i64) = tmp(0,i64) tmp(1,i64) 
+    stre local(2,i64) tmp(2,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(3,i64) = local(2,i64) 
+    ret tmp(3,i64) 
+  }
+}
+function mul (local(0), local(1)) { ; i64
+  block {
+    label: label(0)
+    load tmp(0,i64) = local(0,i64) 
+    load tmp(1,i64) = local(1,i64) 
+    * tmp(2,i64) = tmp(0,i64) tmp(1,i64) 
+    stre local(2,i64) tmp(2,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(3,i64) = local(2,i64) 
+    ret tmp(3,i64) 
+  }
+}
+function apply (local(0), local(1), local(2)) { ; i64
+  block {
+    label: label(0)
+    load tmp(0,func(i64, i64) -> i64) = local(0,func(i64, i64) -> i64) 
+    load tmp(1,i64) = local(1,i64) 
+    load tmp(2,i64) = local(2,i64) 
+    arg tmp(1,i64) 
+    arg tmp(2,i64) 
+    calli tmp(3,i64) = tmp(0,func(i64, i64) -> i64) 
+    stre local(3,i64) tmp(3,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(4,i64) = local(3,i64) 
+    ret tmp(4,i64) 
+  }
+}

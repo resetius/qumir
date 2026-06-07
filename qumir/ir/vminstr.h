@@ -70,6 +70,7 @@ enum class EVMOp : uint8_t {
     ArgTmp, // temporary to argument
     ArgConst, // constant to argument
     Call,
+    CallInd, // indirect call: callee function id is read from a register at runtime
     ECall, // external call
     Await,
     AwaitVoid,

@@ -94,6 +94,11 @@ private:
     // Map from SymId to lowered LLVM function for call lowering
     std::unordered_map<int, llvm::Function*> SymIdToLFun;
     std::unordered_map<int, int> SymIdToUniqueFunId; // for updating code of updated functions
+    // Global table of generic function pointers indexed directly by SymId,
+    // used to resolve "calli" (indirect call) at runtime: a function value
+    // is its SymId, table[SymId] is the actual callee. Null when the module
+    // has no functions (so nothing can ever be taken as a value).
+    llvm::GlobalVariable* FuncTable {nullptr};
 };
 
 } // namespace NQumir::NCodeGen
