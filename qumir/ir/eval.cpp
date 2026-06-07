@@ -587,6 +587,87 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
             });
             break;
         }
+        case EVMOp::CallInd: {
+            // Indirect call: unlike "call", the callee SymId is only known at
+            // runtime (it travels through the program as an ordinary integer
+            // value of IR type Func — see lowering of TIdentExpr referring to
+            // a TFunDecl). Resolve it the same way "call" is resolved at
+            // compile time — internal vs external — but here, at the call site.
+            const int64_t calleeId = ReadOperand(Runtime.Regs, instr.Operands[1]);
+
+            auto internalIt = Module.SymIdToFuncIdx.find(calleeId);
+            if (internalIt != Module.SymIdToFuncIdx.end()) {
+                const int64_t calleeIdx = internalIt->second;
+                assert(calleeIdx >= 0 && calleeIdx < (int64_t)Module.Functions.size() && "Invalid callee idx");
+                TFunction* calleeFn = Module.Functions.data() + calleeIdx;
+
+                if (!calleeFn->Exec) {
+                    calleeFn->Exec = &Compiler.Compile(*calleeFn);
+                }
+                auto* calleeExec = calleeFn->Exec;
+
+                const auto& localArgs = calleeFn->ArgLocals;
+                const int argCount = (int)Runtime.Args.size();
+                assert(argCount <= (int)localArgs.size() && "too many arguments for callee");
+
+                const size_t savedRegsBytes = frame.UsedRegs * 8;
+                const size_t oldSize = Runtime.Stack.size();
+                Runtime.Stack.resize(oldSize + savedRegsBytes);
+                std::memcpy(Runtime.Stack.data() + oldSize, Runtime.Regs.data(), savedRegsBytes);
+                auto base = Runtime.Stack.size();
+
+                Runtime.Regs.resize(calleeExec->MaxTmpIdx + 1, 0);
+                Runtime.Stack.resize(Runtime.Stack.size() + calleeExec->NumLocals, 0); // NumLocals is bytes
+                if (Runtime.Stack.size() > MaxStackSize) {
+                    throw std::runtime_error("Stack overflow in interpreter");
+                }
+
+                copyArgsToFrame(Runtime.Stack.data() + base, calleeExec,
+                                Runtime.Args.data(), argCount);
+
+                ReturnLinks.emplace_back(TReturnLink {
+                    .FrameIdx = (int64_t) callStack.size() - 1,
+                    .CallerDst = instr.Operands[0].Tmp.Idx,
+                    .CalleeIsCoroutine = calleeFn->IsCoroutine,
+                    .CalleeReturnsVoid = calleeFn->CoroutineResultTypeId >= 0
+                        && Module.Types.IsVoid(calleeFn->CoroutineResultTypeId),
+                });
+
+                Runtime.Args.clear();
+                callStack.push_back(TFrame {
+                    .Exec = calleeExec,
+                    .UsedRegs = calleeExec->MaxTmpIdx + 1,
+                    .StackBase = base,
+                    .PC = &calleeExec->VMCode[0],
+                    .Name = calleeFn->Name,
+                });
+                break;
+            }
+
+            auto externalIt = Module.SymIdToExtFuncIdx.find(calleeId);
+            if (externalIt == Module.SymIdToExtFuncIdx.end()) {
+                throw std::runtime_error("Unknown callee id in indirect call: " + std::to_string(calleeId));
+            }
+
+            using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
+            void* addr = reinterpret_cast<void*>(Module.ExternalFunctions[externalIt->second].Packed);
+            TPacked func = reinterpret_cast<TPacked>(addr);
+            const int32_t dstTmp = instr.Operands[0].Tmp.Idx;
+            auto structDst = materializeStructTmp(frame, dstTmp, nullptr);
+            if (structDst) {
+                Runtime.Args.insert(Runtime.Args.begin(), *structDst);
+            }
+
+            if (dstTmp >= 0) {
+                auto ret = func(reinterpret_cast<const uint64_t*>(Runtime.Args.data()), Runtime.Args.size());
+                Runtime.Regs[dstTmp] = structDst.value_or(static_cast<int64_t>(ret));
+            } else {
+                func(reinterpret_cast<const uint64_t*>(Runtime.Args.data()), Runtime.Args.size());
+            }
+            Runtime.Args.clear();
+
+            break;
+        }
         case EVMOp::Await: {
             ITypeErasedFuture* future = reinterpret_cast<ITypeErasedFuture*>(ReadOperand(Runtime.Regs, instr.Operands[1]));
             auto value = co_await AwaitTypeErasedFuture<uint64_t>(future);

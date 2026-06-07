@@ -1269,10 +1269,20 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         co_return TValueWithBlock{ {}, Builder.CurrentBlockLabel() };
     } else if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(expr)) {
         auto ident = maybeIdent.Cast();
+        auto var = Context.Lookup(ident->Name, scope.Id);
+        if (!var) {
+            co_return TError(ident->Location, TErrorString::Get<EErrorId::UNDEFINED_VARIABLE>(ident->Name));
+        }
+        auto node = Context.GetSymbolNode(NSemantics::TSymbolId{var->Id});
+        if (NAst::TMaybeNode<NAst::TFunDecl>(node)) {
+            // A function name used as a value: there is no variable slot to load from —
+            // represent the function by its symbol id, a constant that "calli" resolves
+            // to the actual callee at runtime (see indirect calls).
+            co_return TValueWithBlock{ TImm{var->Id, FromAstType(ident->Type, Module.Types)},
+                Builder.CurrentBlockLabel(), EOwnership::Borrowed };
+        }
         auto tmp = co_await LoadVar(ident->Name, scope, ident->Location);
         // if variable is a ref, need to dereference
-        auto var = Context.Lookup(ident->Name, scope.Id);
-        auto node = Context.GetSymbolNode(NSemantics::TSymbolId{var->Id});
         // tmp contains the address of the variable
         if (auto maybeRef = NAst::TMaybeType<NAst::TReferenceType>(node->Type)) {
             auto ref = maybeRef.Cast();
@@ -1496,34 +1506,51 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto call = maybeCall.Cast();
         // Evaluate callee and perform a function call.
 
+        // Try to resolve the callee statically to a known TFunDecl — this is
+        // the fast direct-call path (TImm{symId}). If the callee is an
+        // arbitrary expression of TFunctionType (a value loaded from a
+        // variable, struct field, array element, etc.), the concrete function
+        // is only known at runtime — fall back to an indirect call ("calli")
+        // dispatched by the function's symbol id (see indirect calls).
         int32_t calleeSymId = -1;
-        std::string calleeName;
+        std::shared_ptr<NAst::TFunDecl> funDecl;
         if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(call->Callee)) {
             auto ident = maybeIdent.Cast();
             auto sidOpt = Context.Lookup(ident->Name, scope.Id);
-            calleeName = ident->Name;
-                if (!sidOpt) co_return TError(ident->Location, TErrorString::Get<EErrorId::UNBOUND_FUNCTION_SYMBOL>(ident->Name, scope.Id.Id));
+            if (!sidOpt) co_return TError(ident->Location, TErrorString::Get<EErrorId::UNBOUND_FUNCTION_SYMBOL>(ident->Name, scope.Id.Id));
             calleeSymId = sidOpt->Id;
-        } else {
-            co_return TError(call->Callee->Location, TErrorString::Get<EErrorId::FUNCTION_CALL_NON_IDENTIFIER>());
+            funDecl = NAst::TMaybeNode<NAst::TFunDecl>(Context.GetSymbolNode(NSemantics::TSymbolId{calleeSymId})).Cast();
         }
 
-        auto funDecl = NAst::TMaybeNode<NAst::TFunDecl>(Context.GetSymbolNode(NSemantics::TSymbolId{calleeSymId})).Cast();
-        if (!funDecl) {
-            co_return TError(call->Callee->Location, TErrorString::Get<EErrorId::NOT_A_FUNCTION>());
-        }
-        auto futureResultType = NAst::FutureResultType(funDecl->RetType);
-        NAst::TTypePtr returnType = futureResultType
-            ? std::make_shared<NAst::TPointerType>(std::make_shared<NAst::TVoidType>())
-            : PhysicalCallResultType(funDecl->RetType);
+        NAst::TTypePtr returnType;
         std::vector<NAst::TTypePtr>* argTypes = nullptr;
-        if (auto maybeFuncType = NAst::TMaybeType<NAst::TFunctionType>(funDecl->Type)) {
-            argTypes = &maybeFuncType.Cast()->ParamTypes;
-        }
+        std::optional<TOperand> indirectCallee;
 
-        bool isExternalCall = funDecl->IsExternal();
-        if (isExternalCall && !Module.SymIdToExtFuncIdx.contains(calleeSymId)) {
-            ImportExternalFunction(calleeSymId, *funDecl);
+        if (funDecl) {
+            auto futureResultType = NAst::FutureResultType(funDecl->RetType);
+            returnType = futureResultType
+                ? std::make_shared<NAst::TPointerType>(std::make_shared<NAst::TVoidType>())
+                : PhysicalCallResultType(funDecl->RetType);
+            if (auto maybeFuncType = NAst::TMaybeType<NAst::TFunctionType>(funDecl->Type)) {
+                argTypes = &maybeFuncType.Cast()->ParamTypes;
+            }
+
+            bool isExternalCall = funDecl->IsExternal();
+            if (isExternalCall && !Module.SymIdToExtFuncIdx.contains(calleeSymId)) {
+                ImportExternalFunction(calleeSymId, *funDecl);
+            }
+        } else {
+            auto maybeFuncType = NAst::TMaybeType<NAst::TFunctionType>(call->Callee->Type);
+            if (!maybeFuncType) {
+                co_return TError(call->Callee->Location, TErrorString::Get<EErrorId::NOT_A_FUNCTION>());
+            }
+            auto funcType = maybeFuncType.Cast();
+            returnType = PhysicalCallResultType(funcType->ReturnType);
+            argTypes = &funcType->ParamTypes;
+
+            auto callee = co_await Lower(call->Callee, scope);
+            if (!callee.Value) co_return TError(call->Callee->Location, TErrorString::Get<EErrorId::INVALID_ARGUMENT>());
+            indirectCallee = *callee.Value;
         }
 
         std::vector<std::pair<TOperand, EOwnership>> argv;
@@ -1546,7 +1573,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
             if (!av.Value) co_return TError(a->Location, TErrorString::Get<EErrorId::INVALID_ARGUMENT>());
 
-            if (av.Value->Type == TOperand::EType::Imm && av.Value->Imm.TypeId == lowStringTypeId && (!funDecl->IsExternal() || funDecl->RequireArgsMaterialization)) {
+            if (av.Value->Type == TOperand::EType::Imm && av.Value->Imm.TypeId == lowStringTypeId && (!funDecl || !funDecl->IsExternal() || funDecl->RequireArgsMaterialization)) {
                 // Argument is a string literal pointer: materialize to string object
                 if (NAst::TMaybeType<NAst::TStringType>(argType)) {
                     auto constructorId = co_await GlobalSymbolId("str_from_lit");
@@ -1570,12 +1597,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             returnsValue = true;
         }
 
+        TOp callOp = indirectCallee ? "calli"_op : "call"_op;
+        TOperand calleeOperand = indirectCallee ? *indirectCallee : TOperand{ TImm{calleeSymId} };
+
         std::optional<TOperand> tmp = std::nullopt;
         if (returnsValue) {
-            tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
+            tmp = Builder.Emit1(callOp, {calleeOperand});
             Builder.SetType(tmp->Tmp, FromAstType(returnType, Module.Types));
         } else {
-            Builder.Emit0("call"_op, {TImm{calleeSymId}});
+            Builder.Emit0(callOp, {calleeOperand});
         }
         for (auto [arg, ownership] : argv) {
             // For string arguments passed as owned temporaries: release after call

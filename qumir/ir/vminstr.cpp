@@ -59,6 +59,7 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::ArgTmp: return os << "ArgTmp";
     case EVMOp::ArgConst: return os << "ArgConst";
     case EVMOp::Call: return os << "Call";
+    case EVMOp::CallInd: return os << "CallInd";
     case EVMOp::ECall: return os << "ECall";
     case EVMOp::Await: return os << "Await";
     case EVMOp::AwaitVoid: return os << "AwaitVoid";
