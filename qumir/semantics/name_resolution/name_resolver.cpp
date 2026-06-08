@@ -85,6 +85,14 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         if (!type) return {};
         if (auto maybeNamed = TMaybeType<TNamedType>(type)) {
             auto named = maybeNamed.Cast();
+            if (named->Template) {
+                // Generic type parameter placeholder ("<named K (template)>"):
+                // intentionally left unresolved here — the concrete type is
+                // bound per call site and the function gets instantiated for
+                // it. Treating it as an unknown type would make it impossible
+                // to declare generic functions at all.
+                return {};
+            }
             auto it = ImportedTypes.find(named->Name);
             if (it == ImportedTypes.end()) {
                 return TError(loc, "Неизвестный тип: " + named->Name);
@@ -499,6 +507,32 @@ TSymbolId TNameResolver::DeclareFunction(const std::string& name, TExprPtr node)
     }
 
     return res.value();
+}
+
+std::expected<TSymbolId, TError> TNameResolver::ResolveInstantiatedFunDecl(std::shared_ptr<TFunDecl> fdecl) {
+    auto rootScope = GetOrCreateRootScope();
+    auto declRes = Declare(fdecl->Name, fdecl, rootScope, nullptr);
+    if (!declRes) {
+        return std::unexpected(declRes.error());
+    }
+
+    auto funcScope = NewScope(rootScope, nullptr);
+    fdecl->Scope = funcScope->Id.Id;
+    for (auto& param : fdecl->Params) {
+        auto paramRes = Declare(param->Name, param, funcScope, funcScope);
+        if (!paramRes) {
+            return std::unexpected(paramRes.error());
+        }
+    }
+
+    auto bodyRes = Resolve(fdecl->Body, funcScope, funcScope).result();
+    if (!bodyRes) {
+        return std::unexpected(bodyRes.error());
+    }
+
+    GenericInstantiations.push_back(fdecl);
+
+    return declRes.value();
 }
 
 std::vector<std::pair<int, std::shared_ptr<NAst::TFunDecl>>> TNameResolver::GetExternalFunctions() {

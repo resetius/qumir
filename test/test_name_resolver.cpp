@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <qumir/modules/robot/robot.h>
+#include <qumir/modules/system/system.h>
 #include <qumir/modules/turtle/turtle.h>
 #include <qumir/parser/lexer.h>
 #include <qumir/parser/parser.h>
@@ -113,6 +114,50 @@ TExprPtr annotateWithRobotCoroutines(const std::string& src) {
     }
     return ast;
 }
+
+// Synthetic module exercising GENERICS_PLAN.md, этап 5: a module can export
+// an external function whose signature mentions a `template` placeholder
+// type. There is no native implementation to point Ptr/Packed at for an
+// arbitrary concrete type, so — exactly like the realistic path documented
+// at the этап-5 instantiation branch — it is type-agnostic and expressed via
+// an Inline factory (a transparent passthrough), which the transform pass
+// splices into every call site before lowering ever sees the function.
+class GenericExternalModule : public IModule {
+public:
+    GenericExternalModule() {
+        auto placeholder = std::make_shared<TNamedType>("K", nullptr);
+        placeholder->Template = true;
+        placeholder->Readable = true;
+        placeholder->Mutable = true;
+
+        ExternalFunctions_ = {
+            {
+                .Name = "extId",
+                .MangledName = "ext_id",
+                .ArgTypes = { placeholder },
+                .ReturnType = placeholder,
+                .Inline = [](std::vector<TExprPtr> args) -> TExprPtr {
+                    return args[0];
+                },
+            },
+        };
+    }
+
+    const std::string& Name() const override {
+        static const std::string name = "GenericExternalTest";
+        return name;
+    }
+    const std::vector<TExternalFunction>& ExternalFunctions() const override { return ExternalFunctions_; }
+    const std::vector<TExternalType>& ExternalTypes() const override { return ExternalTypes_; }
+    const std::vector<TLiteralSuffix>& LiteralSuffixes() const override { return LiteralSuffixes_; }
+    const std::vector<std::string>& Dependencies() const override { return Dependencies_; }
+
+private:
+    std::vector<TExternalFunction> ExternalFunctions_;
+    std::vector<TExternalType> ExternalTypes_;
+    std::vector<TLiteralSuffix> LiteralSuffixes_;
+    std::vector<std::string> Dependencies_;
+};
 
 std::optional<NIR::TModule> buildRobotCoroutineModule(const std::string& src) {
     RobotModule robot;
@@ -236,6 +281,108 @@ std::string emitTurtleCoroutineLLVM(const std::string& src) {
 }
 
 } // namespace
+
+TEST(TypeAnnotation, GenericExternalModuleFunctionInstantiatesPerCallSite) {
+    // GENERICS_PLAN.md, этап 5: a module-registered external function with a
+    // `template` placeholder in its signature must monomorphize at call
+    // sites exactly like a user-written generic — producing one bodyless
+    // concrete clone per distinct argument type, each carrying over the
+    // original's MangledName/Ptr/Packed/InlineFactory. Unlike user-written
+    // generics (which gain an annotated body and get spliced into the
+    // top-level Stmts for lowering — GetGenericInstantiations), bodyless
+    // clones are registered straight into the symbol table via
+    // DeclareFunction, exactly like ImportModule registers ordinary external
+    // functions: GetExternalFunctions/ImportExternalFunctions discover them
+    // there, keyed by symbol id, with no AST presence required.
+    GenericExternalModule mod;
+    SystemModule system; // вывод(...) lowers to output_int64/output_string/... from this module
+    TNameResolver resolver;
+    resolver.RegisterModule(&mod);
+    resolver.RegisterModule(&system);
+    ASSERT_TRUE(resolver.ImportModule(mod.Name()));
+    ASSERT_TRUE(resolver.ImportModule(system.Name()));
+
+    auto src = R"__(
+алг
+нач
+    вывод extId(5), нс
+    вывод extId("hello"), нс
+кон
+)__";
+    std::istringstream in(src);
+    TTokenStream ts(in);
+    TParser parser;
+    auto parsed = parser.parse(ts, &resolver);
+    ASSERT_TRUE(parsed) << parsed.error().ToString();
+    auto ast = std::move(parsed.value());
+    auto pipelineResult = NTransform::Pipeline(ast, resolver, NTransform::TPipelineOptions{});
+    ASSERT_TRUE(pipelineResult) << pipelineResult.error().ToString();
+
+    auto lookupFunDecl = [&](const std::string& name) -> std::shared_ptr<TFunDecl> {
+        auto sym = resolver.Lookup(name, NSemantics::TScopeId{0});
+        if (!sym) {
+            return nullptr;
+        }
+        return TMaybeNode<TFunDecl>(resolver.GetSymbolNode(NSemantics::TSymbolId{sym->Id})).Cast();
+    };
+
+    auto intClone = lookupFunDecl("__generic_extId$Int");
+    auto stringClone = lookupFunDecl("__generic_extId$String");
+    ASSERT_TRUE(intClone) << "expected a monomorphized clone for extId(i64)";
+    ASSERT_TRUE(stringClone) << "expected a monomorphized clone for extId(string)";
+    EXPECT_NE(intClone, stringClone);
+
+    // Bodyless external clones (этап 5's dedicated branch in
+    // InstantiateGenericFunction), not annotated user-function clones —
+    // carrying over MangledName/InlineFactory from the template declaration.
+    EXPECT_EQ(intClone->Body, nullptr);
+    EXPECT_EQ(stringClone->Body, nullptr);
+    EXPECT_EQ(intClone->MangledName, "ext_id");
+    EXPECT_EQ(stringClone->MangledName, "ext_id");
+    ASSERT_TRUE(intClone->InlineFactory.has_value());
+    ASSERT_TRUE(stringClone->InlineFactory.has_value());
+
+    auto intFunType = TMaybeType<TFunctionType>(intClone->Type).Cast();
+    ASSERT_TRUE(intFunType);
+    ASSERT_EQ(intFunType->ParamTypes.size(), 1u);
+    EXPECT_TRUE(TMaybeType<TIntegerType>(intFunType->ParamTypes[0]));
+    EXPECT_TRUE(TMaybeType<TIntegerType>(intClone->RetType));
+
+    auto stringFunType = TMaybeType<TFunctionType>(stringClone->Type).Cast();
+    ASSERT_TRUE(stringFunType);
+    ASSERT_EQ(stringFunType->ParamTypes.size(), 1u);
+    EXPECT_TRUE(TMaybeType<TStringType>(stringFunType->ParamTypes[0]));
+    EXPECT_TRUE(TMaybeType<TStringType>(stringClone->RetType));
+
+    // GetExternalFunctions must surface both clones for lowering to import —
+    // the same mechanism that picks up ordinary module-registered builtins.
+    auto externs = resolver.GetExternalFunctions();
+    auto hasExternal = [&](const std::shared_ptr<TFunDecl>& fn) {
+        for (auto& [symId, decl] : externs) {
+            if (decl == fn) return true;
+        }
+        return false;
+    };
+    EXPECT_TRUE(hasExternal(intClone));
+    EXPECT_TRUE(hasExternal(stringClone));
+
+    // Inline substitution (transform.cpp's PostTypeAnnotationTransform) must
+    // have spliced the factory's passthrough AST into both call sites —
+    // `вывод extId(5)` becomes `вывод 5`, `вывод extId("hello")` becomes
+    // `вывод "hello"` — leaving no call to the clone for lowering to resolve.
+    EXPECT_FALSE(findCall(ast, "__generic_extId$Int"));
+    EXPECT_FALSE(findCall(ast, "__generic_extId$String"));
+    EXPECT_FALSE(findCall(ast, "extId"));
+
+    auto main = findFunction(ast, "<main>");
+    ASSERT_TRUE(main);
+    std::ostringstream rendered;
+    rendered << TExprPtr(main->Body);
+    EXPECT_NE(rendered.str().find("output_int64 5"), std::string::npos)
+        << "expected extId(5) to be inlined to a bare 5:\n" << rendered.str();
+    EXPECT_NE(rendered.str().find("output_string \"hello\""), std::string::npos)
+        << "expected extId(\"hello\") to be inlined to a bare \"hello\":\n" << rendered.str();
+}
 
 TEST(NameResolver, DeclBindsSymbolIds) {
     auto ast = parseStmtList(R"__(

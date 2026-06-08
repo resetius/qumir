@@ -11,6 +11,7 @@
 #include <span>
 #include <tuple>
 #include <string>
+#include <utility>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -141,6 +142,39 @@ public:
     NAst::TExprPtr GetSymbolNode(TSymbolId id) const;
     std::vector<std::pair<int, std::shared_ptr<NAst::TFunDecl>>> GetExternalFunctions();
 
+    // Registers and resolves a synthetic TFunDecl produced by generic
+    // instantiation: declares it in the root scope under its (already
+    // mangled) name, creates a fresh function scope, declares its params and
+    // resolves its body — mirroring what ResolveTopFuncDecl +
+    // Resolve(TFunDecl) do for ordinary top-level functions. Cloned function
+    // bodies cannot reuse the template's scopes: Symbols bind scope entries
+    // to specific AST node identities, so a shared scope would make lookups
+    // resolve to the template's (wrongly-typed) nodes.
+    std::expected<TSymbolId, TError> ResolveInstantiatedFunDecl(std::shared_ptr<NAst::TFunDecl> fdecl);
+
+    // All generic-function clones registered via ResolveInstantiatedFunDecl
+    // since the last TakeGenericInstantiations() call, in creation order
+    // (transitive instantiations included — a clone's body gets annotated,
+    // and any further instantiations it triggers are appended before the
+    // recursive call returns). The type annotator appends these to the
+    // top-level block's statement list so lowering finds and compiles them
+    // exactly like ordinary top-level functions — no changes to
+    // lower_ast.cpp are needed.
+    const std::vector<std::shared_ptr<NAst::TFunDecl>>& GetGenericInstantiations() const {
+        return GenericInstantiations;
+    }
+
+    // Returns the accumulated clones and clears the list. The annotation
+    // pipeline runs to a fixed point (Pipeline's do/while loop re-invokes
+    // TTypeAnnotator::Annotate on the very same top-level block on every
+    // iteration) — without draining the list here, every later iteration
+    // would re-append the same already-spliced-in clones, leaving duplicate
+    // TFunDecl nodes in Stmts (harmless for lowering, which keys functions
+    // by symbol id and simply overwrites — but wasted work and AST bloat).
+    std::vector<std::shared_ptr<NAst::TFunDecl>> TakeGenericInstantiations() {
+        return std::exchange(GenericInstantiations, {});
+    }
+
     TSymbolId Declare(const std::string& name, NAst::TExprPtr node, TSymbolInfo parentSymbol);
 
     // just adds module to dict of modules
@@ -224,6 +258,7 @@ private:
 
     TNameResolverOptions Options;
     std::vector<TSymbol> Symbols;
+    std::vector<std::shared_ptr<NAst::TFunDecl>> GenericInstantiations;
 
     std::vector<TScopePtr> Scopes;
 
