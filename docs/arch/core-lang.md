@@ -315,6 +315,38 @@ integer-to-float conversion, so `(call pick (: 7 i32))` selects the `i64`
 overload in the example above. If two viable overloads have the same best cost,
 the call is rejected as ambiguous.
 
+Generic functions:
+
+```core
+(fun identity <named K (template readable mutable)>
+     ((var x <named K (template readable mutable)>)) ()
+  (block
+    (var $$return <named K (template readable mutable)>)
+    (= $$return x)))
+```
+
+A `TNamedType` marked `template` is a type placeholder, not a real declared
+type — it makes the enclosing `fun` generic. At each call site the concrete
+types bound to placeholders are inferred from argument types by unification,
+and a monomorphized clone of the function is generated for that binding,
+registered under a synthetic name `__generic_<name>$<TypeKey1>$<TypeKey2>...`
+(`__generic_identity$Int`, `__generic_identity$String`, ...) and substituted
+for the call. Repeat calls with the same concrete types reuse the cached
+clone — exactly one definition exists per (function, type-binding) pair,
+regardless of how many call sites use it.
+
+Placeholders may appear nested inside composite types (`<array <named K
+(template)> 1>`, `<ref <named K (template)>>`, ...) and a function may have
+several independent placeholder names; each gets its own binding inferred
+independently. A call is a typing error when a placeholder's binding can't be
+inferred from the arguments, or when the same placeholder name would have to
+bind to two structurally different concrete types.
+
+When an overload set mixes concrete and generic `fun` forms for the same name,
+overload resolution prefers a concrete match over instantiating the generic
+fallback — see `(fun f i64 ((var x i64)) ())` vs. `(fun f i64 ((var x <named K
+(template)>)) ())`.
+
 Casts, indexing, and slicing:
 
 ```core
@@ -435,6 +467,11 @@ type in angle brackets:
 The parser also accepts `(readable)` in the attribute list, but the printer
 omits default attributes. In canonical output, `readable` is not printed; only
 the current non-default case, `mutable` without `readable`, is emitted.
+
+`template` is an additional attribute accepted only on named types
+(`<named K (template)>`, `<named K (template readable mutable)>`). It marks
+the type as a generic placeholder rather than a real declared type — see
+"Generic functions" above.
 
 ## Printer Conventions
 

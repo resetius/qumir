@@ -11,6 +11,10 @@ namespace NAst {
 struct TType {
     bool Mutable = true;
     bool Readable = true;
+    // Marks a TNamedType usage in a function parameter as a generic type
+    // parameter (placeholder): the concrete type is determined per call site
+    // from the argument's type, and the function gets instantiated for it.
+    bool Template = false;
 
     virtual ~TType() = default;
     virtual std::string ToString() const { return ""; }

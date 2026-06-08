@@ -24,6 +24,13 @@ bool SameKind(const TTypePtr& a, const TTypePtr& b) {
     return true;
 }
 
+// Cost of matching a generic type parameter ("<named K (template)>") against
+// any concrete argument type. Deliberately higher than any real coercion cost
+// (the highest of which is 2, for int->float) so that overload resolution
+// always prefers a concrete overload over a generic one, falling back to the
+// generic only when nothing concrete fits — see AnnotateOverloadedCall.
+constexpr int kTemplateParamCost = 1'000'000;
+
 bool WideningInt(const TTypePtr& from, const TTypePtr& to) {
     auto s = TMaybeType<TIntegerType>(from).Cast();
     auto d = TMaybeType<TIntegerType>(to).Cast();
@@ -51,6 +58,15 @@ std::optional<int> ArgCost(
     if (!from || !to) {
         return std::nullopt;
     }
+
+    // Generic type parameter: matches any concrete argument type, but at a
+    // deliberately high fixed cost (see kTemplateParamCost) — the actual type
+    // bound to the parameter, and the function instantiation for it, are
+    // determined once this overload is chosen as the best match.
+    if (auto named = TMaybeType<TNamedType>(to); named && named.Cast()->Template) {
+        return kTemplateParamCost;
+    }
+
     if (SameKind(from, to)) {
         return 0;
     }

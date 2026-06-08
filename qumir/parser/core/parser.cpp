@@ -364,7 +364,7 @@ TAstTask ParseExpr(TParserContext& context) {
     co_return Error(token, "expected expression");
 }
 
-// Reads optional "(readable mutable)" attrs and applies them to type.
+// Reads optional "(readable mutable template)" attrs and applies them to type.
 TExpectedTask<std::monostate, TError, TLocation> ParseTypeAttrs(TParserContext& context, TType& type) {
     auto token = context.Stream.Next();
     if (!IsOp(token, '(')) {
@@ -385,6 +385,11 @@ TExpectedTask<std::monostate, TError, TLocation> ParseTypeAttrs(TParserContext& 
             type.Readable = true;
         } else if (token.Name == "mutable") {
             type.Mutable = true;
+        } else if (token.Name == "template") {
+            if (type.TypeName() != std::string_view(TNamedType::TypeId)) {
+                co_return Error(token, "'template' attribute is only allowed on named types");
+            }
+            type.Template = true;
         } else {
             co_return Error(token, "unknown type attribute: " + token.Name);
         }
@@ -460,13 +465,22 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
     }
     if (head == "named") {
         auto name = co_await ParseName(context);
+        auto type = std::make_shared<TNamedType>(std::move(name), nullptr);
         auto tok = context.Stream.Next();
         if (IsOp(tok, '>')) {
-            co_return std::make_shared<TNamedType>(std::move(name), nullptr);
+            co_return type;
+        }
+        // "<named Name (attrs)>" — a placeholder reference with no underlying
+        // type yet (e.g. a generic type parameter: "<named K (template)>"),
+        // as opposed to "<named Name UnderlyingType (attrs)>".
+        if (IsOp(tok, '(')) {
+            context.Stream.Unget(tok);
+            co_await ParseTypeAttrs(context, *type);
+            co_await Expect(context, '>');
+            co_return type;
         }
         context.Stream.Unget(tok);
-        auto underlying = co_await ParseType(context);
-        auto type = std::make_shared<TNamedType>(std::move(name), std::move(underlying));
+        type->UnderlyingType = co_await ParseType(context);
         co_await ParseTypeAttrs(context, *type);
         co_await Expect(context, '>');
         co_return type;

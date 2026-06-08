@@ -23,6 +23,10 @@ using TTask = TExpectedTask<TExprPtr, TError, TLocation>;
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId);
 
+// Defined further below, needed already in AnnotateFunDecl to skip
+// body-annotation for template-parameterized declarations.
+bool HasTemplateParams(const TFunDecl& decl);
+
 bool WideningIntOK(TTypePtr typeSrc, TTypePtr typeDst) {
     auto src = TMaybeType<TIntegerType>(typeSrc).Cast();
     auto dst = TMaybeType<TIntegerType>(typeDst).Cast();
@@ -330,6 +334,14 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
 
     funDecl->Type = std::make_shared<TFunctionType>(std::move(params), funDecl->RetType);
 
+    if (HasTemplateParams(*funDecl)) {
+        // Generic (template-parameterized) function: its body refers to
+        // placeholder types and cannot be type-checked on its own — only
+        // monomorphized clones (created at call sites by
+        // InstantiateGenericFunction) get annotated.
+        co_return funDecl;
+    }
+
     co_await DoAnnotate(funDecl->Body, context, scopeId);
     if (!funDecl->Body->Type) {
         co_return TError(funDecl->Location, "Не удалось определить тип тела функции");
@@ -520,6 +532,17 @@ TTask AnnotateBlock(std::shared_ptr<TBlockExpr> block, NSemantics::TNameResolver
             co_return TError(s->Location, "Не удалось определить тип выражения внутри блока");
         }
     }
+    // Generic (template-parameterized) function declarations are blueprints,
+    // not real functions — their bodies mention placeholder types and were
+    // never body-annotated (see the HasTemplateParams guard in
+    // AnnotateFunDecl). Only their monomorphized clones, synthesized at call
+    // sites and registered separately, should reach lowering/codegen — drop
+    // the templates themselves here so lowering never encounters an
+    // unresolved `template` type.
+    std::erase_if(block->Stmts, [](const TExprPtr& s) {
+        auto fdecl = TMaybeNode<TFunDecl>(s);
+        return fdecl && HasTemplateParams(*fdecl.Cast());
+    });
     block->Type = std::make_shared<TVoidType>();
     co_return block;
 }
@@ -712,6 +735,600 @@ TTask AnnotateIdent(std::shared_ptr<TIdentExpr> ident, NSemantics::TNameResolver
     co_return ident;
 }
 
+// --- Generic instantiation ---------------------------------------------------
+//
+// A `template` named-type placeholder ("<named K (template)>") in a function
+// parameter marks the function as generic: at each call site the concrete
+// types bound to its placeholders are inferred from argument types, and a
+// monomorphized clone of the function is substituted, registered under a
+// synthetic mangled name and cached by it.
+
+bool ContainsTemplateParam(const TTypePtr& type) {
+    if (!type) {
+        return false;
+    }
+    if (auto named = TMaybeType<TNamedType>(type)) {
+        return named.Cast()->Template;
+    }
+    if (auto arr = TMaybeType<TArrayType>(type)) {
+        return ContainsTemplateParam(arr.Cast()->ElementType);
+    }
+    if (auto ptr = TMaybeType<TPointerType>(type)) {
+        return ContainsTemplateParam(ptr.Cast()->PointeeType);
+    }
+    if (auto ref = TMaybeType<TReferenceType>(type)) {
+        return ContainsTemplateParam(ref.Cast()->ReferencedType);
+    }
+    if (auto future = TMaybeType<TFutureType>(type)) {
+        return ContainsTemplateParam(future.Cast()->ResultType);
+    }
+    if (auto fun = TMaybeType<TFunctionType>(type)) {
+        auto f = fun.Cast();
+        for (auto& p : f->ParamTypes) {
+            if (ContainsTemplateParam(p)) {
+                return true;
+            }
+        }
+        return ContainsTemplateParam(f->ReturnType);
+    }
+    if (auto str = TMaybeType<TStructType>(type)) {
+        for (auto& [_, fieldType] : str.Cast()->Fields) {
+            if (ContainsTemplateParam(fieldType)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool HasTemplateParams(const TFunDecl& decl) {
+    for (auto& param : decl.Params) {
+        if (ContainsTemplateParam(param->Type)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Collects names of `template` placeholders in first-seen order — defines the
+// canonical order used both for mangled-name generation and for checking that
+// every placeholder name got bound by unification.
+void CollectTemplateParamNames(const TTypePtr& type, std::vector<std::string>& names) {
+    if (!type) {
+        return;
+    }
+    if (auto named = TMaybeType<TNamedType>(type)) {
+        auto t = named.Cast();
+        if (t->Template) {
+            const auto& name = t->Name;
+            for (auto& seen : names) {
+                if (seen == name) return;
+            }
+            names.push_back(name);
+        }
+        return;
+    }
+    if (auto arr = TMaybeType<TArrayType>(type)) {
+        CollectTemplateParamNames(arr.Cast()->ElementType, names);
+        return;
+    }
+    if (auto ptr = TMaybeType<TPointerType>(type)) {
+        CollectTemplateParamNames(ptr.Cast()->PointeeType, names);
+        return;
+    }
+    if (auto ref = TMaybeType<TReferenceType>(type)) {
+        CollectTemplateParamNames(ref.Cast()->ReferencedType, names);
+        return;
+    }
+    if (auto future = TMaybeType<TFutureType>(type)) {
+        CollectTemplateParamNames(future.Cast()->ResultType, names);
+        return;
+    }
+    if (auto fun = TMaybeType<TFunctionType>(type)) {
+        auto t = fun.Cast();
+        for (auto& p : t->ParamTypes) {
+            CollectTemplateParamNames(p, names);
+        }
+        CollectTemplateParamNames(t->ReturnType, names);
+        return;
+    }
+    if (auto str = TMaybeType<TStructType>(type)) {
+        for (auto& [_, fieldType] : str.Cast()->Fields) {
+            CollectTemplateParamNames(fieldType, names);
+        }
+    }
+}
+
+// Rebuilds a fresh TType instance with the same derived "shape" (kind, name,
+// nested types...) as `shape`, but default base TType attributes — the
+// starting point for substituting a `template` placeholder: the result must
+// structurally equal the bound concrete type, while the placeholder usage
+// site's own attributes get overlaid on top (see SubstituteTemplateType).
+TTypePtr CloneTypeShape(const TTypePtr& shape) {
+    if (!shape) {
+        return shape;
+    }
+    if (auto t = TMaybeType<TIntegerType>(shape)) {
+        return std::make_shared<TIntegerType>(t.Cast()->Kind);
+    }
+    if (TMaybeType<TFloatType>(shape)) {
+        return std::make_shared<TFloatType>();
+    }
+    if (TMaybeType<TBoolType>(shape)) {
+        return std::make_shared<TBoolType>();
+    }
+    if (TMaybeType<TStringType>(shape)) {
+        return std::make_shared<TStringType>();
+    }
+    if (TMaybeType<TSymbolType>(shape)) {
+        return std::make_shared<TSymbolType>();
+    }
+    if (TMaybeType<TFileType>(shape)) {
+        return std::make_shared<TFileType>();
+    }
+    if (TMaybeType<TVoidType>(shape)) {
+        return std::make_shared<TVoidType>();
+    }
+    if (auto t = TMaybeType<TFunctionType>(shape)) {
+        auto src = t.Cast();
+        return std::make_shared<TFunctionType>(src->ParamTypes, src->ReturnType);
+    }
+    if (auto t = TMaybeType<TFutureType>(shape)) {
+        return std::make_shared<TFutureType>(t.Cast()->ResultType);
+    }
+    if (auto t = TMaybeType<TArrayType>(shape)) {
+        auto src = t.Cast();
+        return std::make_shared<TArrayType>(src->ElementType, src->Arity);
+    }
+    if (auto t = TMaybeType<TPointerType>(shape)) {
+        return std::make_shared<TPointerType>(t.Cast()->PointeeType);
+    }
+    if (auto t = TMaybeType<TReferenceType>(shape)) {
+        return std::make_shared<TReferenceType>(t.Cast()->ReferencedType);
+    }
+    if (auto t = TMaybeType<TNamedType>(shape)) {
+        auto src = t.Cast();
+        auto result = std::make_shared<TNamedType>(src->Name, src->UnderlyingType);
+        result->Reference = src->Reference;
+        return result;
+    }
+    if (auto t = TMaybeType<TStructType>(shape)) {
+        return std::make_shared<TStructType>(t.Cast()->Fields);
+    }
+    return shape;
+}
+
+// Replaces every `template` placeholder reachable in `type` with its bound
+// concrete type from `bindings`, recursing into composite wrappers exactly
+// like resolveTypeRef does (name_resolver.cpp:84-123). Preserves every TType
+// attribute of the *placeholder usage site*: copies the whole base TType
+// sub-object onto the cloned shape, then clears `Template` — so any present
+// or future boolean attribute survives without this code needing to know its
+// name.
+TTypePtr SubstituteTemplateType(const TTypePtr& type, const std::map<std::string, TTypePtr>& bindings) {
+    if (!type) {
+        return type;
+    }
+    if (auto named = TMaybeType<TNamedType>(type)) {
+        auto placeholder = named.Cast();
+        if (!placeholder->Template) {
+            return type;
+        }
+        auto it = bindings.find(placeholder->Name);
+        if (it == bindings.end()) {
+            return type; // left for the caller to detect (unbound generic parameter)
+        }
+        auto result = CloneTypeShape(it->second);
+        static_cast<TType&>(*result) = static_cast<const TType&>(*placeholder);
+        result->Template = false;
+        return result;
+    }
+    if (auto arr = TMaybeType<TArrayType>(type)) {
+        auto src = arr.Cast();
+        auto elem = SubstituteTemplateType(src->ElementType, bindings);
+        if (elem == src->ElementType) return type;
+        auto result = std::make_shared<TArrayType>(std::move(elem), src->Arity);
+        static_cast<TType&>(*result) = static_cast<const TType&>(*src);
+        return result;
+    }
+    if (auto ptr = TMaybeType<TPointerType>(type)) {
+        auto src = ptr.Cast();
+        auto pointee = SubstituteTemplateType(src->PointeeType, bindings);
+        if (pointee == src->PointeeType) return type;
+        auto result = std::make_shared<TPointerType>(std::move(pointee));
+        static_cast<TType&>(*result) = static_cast<const TType&>(*src);
+        return result;
+    }
+    if (auto ref = TMaybeType<TReferenceType>(type)) {
+        auto src = ref.Cast();
+        auto referenced = SubstituteTemplateType(src->ReferencedType, bindings);
+        if (referenced == src->ReferencedType) return type;
+        auto result = std::make_shared<TReferenceType>(std::move(referenced));
+        static_cast<TType&>(*result) = static_cast<const TType&>(*src);
+        return result;
+    }
+    if (auto future = TMaybeType<TFutureType>(type)) {
+        auto src = future.Cast();
+        auto inner = SubstituteTemplateType(src->ResultType, bindings);
+        if (inner == src->ResultType) return type;
+        auto result = std::make_shared<TFutureType>(std::move(inner));
+        static_cast<TType&>(*result) = static_cast<const TType&>(*src);
+        return result;
+    }
+    if (auto fun = TMaybeType<TFunctionType>(type)) {
+        auto src = fun.Cast();
+        bool changed = false;
+        std::vector<TTypePtr> params;
+        params.reserve(src->ParamTypes.size());
+        for (auto& p : src->ParamTypes) {
+            auto sp = SubstituteTemplateType(p, bindings);
+            changed = changed || (sp != p);
+            params.push_back(std::move(sp));
+        }
+        auto ret = SubstituteTemplateType(src->ReturnType, bindings);
+        changed = changed || (ret != src->ReturnType);
+        if (!changed) return type;
+        auto result = std::make_shared<TFunctionType>(std::move(params), std::move(ret));
+        static_cast<TType&>(*result) = static_cast<const TType&>(*src);
+        return result;
+    }
+    if (auto str = TMaybeType<TStructType>(type)) {
+        auto src = str.Cast();
+        bool changed = false;
+        std::vector<std::pair<std::string, TTypePtr>> fields;
+        fields.reserve(src->Fields.size());
+        for (auto& [name, fieldType] : src->Fields) {
+            auto sf = SubstituteTemplateType(fieldType, bindings);
+            changed = changed || (sf != fieldType);
+            fields.emplace_back(name, std::move(sf));
+        }
+        if (!changed) return type;
+        auto result = std::make_shared<TStructType>(std::move(fields));
+        static_cast<TType&>(*result) = static_cast<const TType&>(*src);
+        return result;
+    }
+    return type;
+}
+
+// Unifies a (possibly template-parameterized) declared parameter type against
+// the concrete type of an actual argument, extending `bindings`. Returns an
+// error message when the same placeholder name would have to bind to two
+// structurally different concrete types.
+std::optional<std::string> UnifyTemplateType(
+    const TTypePtr& paramType,
+    const TTypePtr& argType,
+    std::map<std::string, TTypePtr>& bindings)
+{
+    if (!paramType || !argType) {
+        return std::nullopt;
+    }
+    if (auto named = TMaybeType<TNamedType>(paramType)) {
+        auto placeholder = named.Cast();
+        if (!placeholder->Template) {
+            return std::nullopt;
+        }
+        auto concrete = UnwrapReferenceType(argType);
+        auto [it, inserted] = bindings.try_emplace(placeholder->Name, concrete);
+        if (!inserted && TypeKey(it->second) != TypeKey(concrete)) {
+            return "тип обобщённого параметра '" + placeholder->Name + "' определяется неоднозначно: то как '"
+                + std::string(it->second->TypeName()) + "', то как '" + std::string(concrete->TypeName()) + "'";
+        }
+        return std::nullopt;
+    }
+    if (auto arr = TMaybeType<TArrayType>(paramType)) {
+        if (auto argArr = TMaybeType<TArrayType>(argType)) {
+            return UnifyTemplateType(arr.Cast()->ElementType, argArr.Cast()->ElementType, bindings);
+        }
+        return std::nullopt;
+    }
+    if (auto ptr = TMaybeType<TPointerType>(paramType)) {
+        if (auto argPtr = TMaybeType<TPointerType>(argType)) {
+            return UnifyTemplateType(ptr.Cast()->PointeeType, argPtr.Cast()->PointeeType, bindings);
+        }
+        return std::nullopt;
+    }
+    if (auto ref = TMaybeType<TReferenceType>(paramType)) {
+        auto argRef = TMaybeType<TReferenceType>(argType);
+        return UnifyTemplateType(ref.Cast()->ReferencedType, argRef ? argRef.Cast()->ReferencedType : argType, bindings);
+    }
+    if (auto future = TMaybeType<TFutureType>(paramType)) {
+        if (auto argFuture = TMaybeType<TFutureType>(argType)) {
+            return UnifyTemplateType(future.Cast()->ResultType, argFuture.Cast()->ResultType, bindings);
+        }
+        return std::nullopt;
+    }
+    if (auto fun = TMaybeType<TFunctionType>(paramType)) {
+        auto argFun = TMaybeType<TFunctionType>(argType);
+        if (!argFun) {
+            return std::nullopt;
+        }
+        auto pf = fun.Cast();
+        auto af = argFun.Cast();
+        if (pf->ParamTypes.size() != af->ParamTypes.size()) {
+            return std::nullopt;
+        }
+        for (size_t i = 0; i < pf->ParamTypes.size(); ++i) {
+            if (auto err = UnifyTemplateType(pf->ParamTypes[i], af->ParamTypes[i], bindings)) {
+                return err;
+            }
+        }
+        return UnifyTemplateType(pf->ReturnType, af->ReturnType, bindings);
+    }
+    if (auto str = TMaybeType<TStructType>(paramType)) {
+        auto argStr = TMaybeType<TStructType>(argType);
+        if (!argStr) {
+            return std::nullopt;
+        }
+        auto ps = str.Cast();
+        auto as = argStr.Cast();
+        if (ps->Fields.size() != as->Fields.size()) {
+            return std::nullopt;
+        }
+        for (size_t i = 0; i < ps->Fields.size(); ++i) {
+            if (auto err = UnifyTemplateType(ps->Fields[i].second, as->Fields[i].second, bindings)) {
+                return err;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+// Polymorphic shallow copy of one AST node (same scalar fields, shared child
+// pointers) — dispatches on NodeName like the rest of this codebase
+// (TMaybeNode), so we don't need a virtual Clone() across ~28 node types.
+TExprPtr ShallowCloneNode(const TExprPtr& node) {
+    if (auto n = TMaybeNode<TIdentExpr>(node)) {
+        return std::make_shared<TIdentExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TAssignExpr>(node)) {
+        return std::make_shared<TAssignExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TArrayAssignExpr>(node)) {
+        return std::make_shared<TArrayAssignExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TNumberExpr>(node)) {
+        return std::make_shared<TNumberExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TStringLiteralExpr>(node)) {
+        return std::make_shared<TStringLiteralExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TUnaryExpr>(node)) {
+        return std::make_shared<TUnaryExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TBinaryExpr>(node)) {
+        return std::make_shared<TBinaryExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TBlockExpr>(node)) {
+        return std::make_shared<TBlockExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TSeqExpr>(node)) {
+        return std::make_shared<TSeqExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TIfStmt>(node)) {
+        return std::make_shared<TIfStmt>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TIfExpr>(node)) {
+        return std::make_shared<TIfExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TLetExpr>(node)) {
+        return std::make_shared<TLetExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TWhileStmtExpr>(node)) {
+        return std::make_shared<TWhileStmtExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TRepeatStmtExpr>(node)) {
+        return std::make_shared<TRepeatStmtExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TForStmtExpr>(node)) {
+        return std::make_shared<TForStmtExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TTimesStmtExpr>(node)) {
+        return std::make_shared<TTimesStmtExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TBreakStmt>(node)) {
+        return std::make_shared<TBreakStmt>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TContinueStmt>(node)) {
+        return std::make_shared<TContinueStmt>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TVarStmt>(node)) {
+        return std::make_shared<TVarStmt>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TVarsBlockExpr>(node)) {
+        return std::make_shared<TVarsBlockExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TFunDecl>(node)) {
+        return std::make_shared<TFunDecl>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TCallExpr>(node)) {
+        return std::make_shared<TCallExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TAwaitExpr>(node)) {
+        return std::make_shared<TAwaitExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TInputExpr>(node)) {
+        return std::make_shared<TInputExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TOutputExpr>(node)) {
+        return std::make_shared<TOutputExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TCastExpr>(node)) {
+        return std::make_shared<TCastExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TIndexExpr>(node)) {
+        return std::make_shared<TIndexExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TMultiIndexExpr>(node)) {
+        return std::make_shared<TMultiIndexExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TSliceExpr>(node)) {
+        return std::make_shared<TSliceExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TUseExpr>(node)) {
+        return std::make_shared<TUseExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TAssertStmt>(node)) {
+        return std::make_shared<TAssertStmt>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TTypeDeclStmt>(node)) {
+        return std::make_shared<TTypeDeclStmt>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TFieldAccessExpr>(node)) {
+        return std::make_shared<TFieldAccessExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TStructConstructExpr>(node)) {
+        return std::make_shared<TStructConstructExpr>(*n.Cast());
+    }
+    if (auto n = TMaybeNode<TFieldAssignExpr>(node)) {
+        return std::make_shared<TFieldAssignExpr>(*n.Cast());
+    }
+    return node;
+}
+
+// Deep-clones an AST subtree, substituting `template` placeholders in every
+// declared/annotated type along the way (TVarStmt::Type, TCastExpr's target
+// type, ...) and resetting scope bookkeeping (TBlockExpr/TFunDecl/TLetExpr
+// ::Scope, TLetExpr::TBinding::Symbol) so the clone gets fresh symbol-table
+// entries on the next name-resolution pass: a cloned body cannot share scopes
+// with its template — Symbols bind scope entries to specific AST node
+// identities, and sharing would make lookups resolve to the template's
+// (wrongly-typed) original nodes instead of this clone's.
+TExprPtr CloneAndSubstituteExpr(const TExprPtr& node, const std::map<std::string, TTypePtr>& bindings) {
+    if (!node) {
+        return node;
+    }
+    auto clone = ShallowCloneNode(node);
+    if (clone->Type) {
+        clone->Type = SubstituteTemplateType(clone->Type, bindings);
+    }
+    if (auto block = TMaybeNode<TBlockExpr>(clone)) {
+        block.Cast()->Scope = -1;
+    } else if (auto fdecl = TMaybeNode<TFunDecl>(clone)) {
+        fdecl.Cast()->Scope = -1;
+    } else if (auto let = TMaybeNode<TLetExpr>(clone)) {
+        auto l = let.Cast();
+        l->Scope = -1;
+        for (auto& binding : l->Bindings) {
+            binding.Symbol = nullptr;
+            binding.Type = SubstituteTemplateType(binding.Type, bindings);
+        }
+    }
+    for (auto* child : clone->MutableChildren()) {
+        *child = CloneAndSubstituteExpr(*child, bindings);
+    }
+    return clone;
+}
+
+using TFunDeclTask = TExpectedTask<std::shared_ptr<TFunDecl>, TError, TLocation>;
+
+// Clones+substitutes a generic TFunDecl for the concrete types inferred from
+// `args`, registers the result under a synthetic mangled name and
+// (re-)resolves+annotates its body. Caching by that name (via a root-scope
+// symbol lookup — DeclareFunction inside ResolveInstantiatedFunDecl registers
+// it there) both deduplicates repeat instantiations and guards against
+// infinite recursion for mutually-recursive generics: the symbol is
+// look-up-able before its body gets annotated, so a recursive call resolves
+// to the already-registered (in-progress) clone instead of re-entering.
+TFunDeclTask InstantiateGenericFunction(
+    std::shared_ptr<TFunDecl> templateDecl,
+    const std::vector<TExprPtr>& args,
+    NSemantics::TNameResolver& context,
+    TLocation callLoc)
+{
+    std::map<std::string, TTypePtr> bindings;
+    for (size_t i = 0; i < templateDecl->Params.size() && i < args.size(); ++i) {
+        if (auto err = UnifyTemplateType(templateDecl->Params[i]->Type, args[i]->Type, bindings)) {
+            co_return TError(callLoc, "Не удалось вывести типы обобщённых параметров функции '" + templateDecl->Name + "': " + *err);
+        }
+    }
+
+    std::vector<std::string> paramNames;
+    for (auto& param : templateDecl->Params) {
+        CollectTemplateParamNames(param->Type, paramNames);
+    }
+    CollectTemplateParamNames(templateDecl->RetType, paramNames);
+    for (auto& name : paramNames) {
+        if (!bindings.contains(name)) {
+            co_return TError(callLoc, "Не удалось определить тип обобщённого параметра '" + name +
+                "' функции '" + templateDecl->Name + "' по аргументам вызова.");
+        }
+    }
+
+    std::string mangledName = "__generic_" + templateDecl->Name;
+    for (auto& name : paramNames) {
+        mangledName += "$" + TypeKey(bindings[name]);
+    }
+
+    auto rootScopeId = context.GetOrCreateRootScope()->Id;
+    if (auto found = context.Lookup(mangledName, rootScopeId)) {
+        if (auto cached = TMaybeNode<TFunDecl>(context.GetSymbolNode(NSemantics::TSymbolId{found->Id})).Cast()) {
+            co_return cached;
+        }
+    }
+
+    std::vector<TParam> params;
+    params.reserve(templateDecl->Params.size());
+    for (auto& param : templateDecl->Params) {
+        auto clonedParam = std::make_shared<TVarStmt>(*param);
+        clonedParam->Type = SubstituteTemplateType(param->Type, bindings);
+        for (auto& bound : clonedParam->Bounds) {
+            bound.first = CloneAndSubstituteExpr(bound.first, bindings);
+            bound.second = CloneAndSubstituteExpr(bound.second, bindings);
+        }
+        params.push_back(std::move(clonedParam));
+    }
+    auto retType = SubstituteTemplateType(templateDecl->RetType, bindings);
+
+    if (!templateDecl->Body) {
+        // Generic external/built-in function: no AST body to clone, just a
+        // concrete signature wrapping the same native implementation
+        // (Ptr/Packed/MangledName/InlineFactory carried over unchanged —
+        // type-dependent natives are expected to branch on the InlineFactory's
+        // already-annotated, concretely-typed call arguments). Registered
+        // directly via DeclareFunction so it's picked up by
+        // GetExternalFunctions/ImportExternalFunctions like any other builtin.
+        std::vector<TTypePtr> externParamTypes;
+        externParamTypes.reserve(params.size());
+        for (auto& param : params) {
+            externParamTypes.push_back(param->Type);
+        }
+        auto cloned = std::make_shared<TFunDecl>(templateDecl->Location, mangledName, std::move(params), nullptr, retType);
+        cloned->MangledName = templateDecl->MangledName;
+        cloned->Ptr = templateDecl->Ptr;
+        cloned->Packed = templateDecl->Packed;
+        cloned->RequireArgsMaterialization = templateDecl->RequireArgsMaterialization;
+        cloned->InlineFactory = templateDecl->InlineFactory;
+        cloned->Type = std::make_shared<TFunctionType>(std::move(externParamTypes), cloned->RetType);
+
+        context.DeclareFunction(mangledName, cloned);
+        co_return cloned;
+    }
+
+    auto body = TMaybeNode<TBlockExpr>(CloneAndSubstituteExpr(templateDecl->Body, bindings)).Cast();
+
+    auto cloned = std::make_shared<TFunDecl>(templateDecl->Location, mangledName, std::move(params), body, retType);
+    cloned->LastAssert = CloneAndSubstituteExpr(templateDecl->LastAssert, bindings);
+
+    std::vector<TTypePtr> paramTypes;
+    paramTypes.reserve(cloned->Params.size());
+    for (auto& param : cloned->Params) {
+        paramTypes.push_back(param->Type);
+    }
+    cloned->Type = std::make_shared<TFunctionType>(std::move(paramTypes), cloned->RetType);
+
+    auto declRes = context.ResolveInstantiatedFunDecl(cloned);
+    if (!declRes) {
+        co_return declRes.error();
+    }
+
+    co_await DoAnnotate(cloned->Body, context, NSemantics::TScopeId{cloned->Scope});
+    if (!cloned->Body->Type) {
+        co_return TError(callLoc, "Не удалось определить тип тела инстанциированной функции '" + templateDecl->Name + "'");
+    }
+
+    co_return cloned;
+}
+
 TTask AnnotateOverloadedCall(
     std::shared_ptr<TCallExpr> call,
     const std::vector<NSemantics::TSymbolId>& overloads,
@@ -763,6 +1380,11 @@ TTask AnnotateOverloadedCall(
         co_return TError(call->Location, "ambiguous overload for '" + TMaybeNode<TIdentExpr>(call->Callee).Cast()->Name + "'");
     }
 
+    if (HasTemplateParams(*bestDecl)) {
+        auto instantiated = co_await InstantiateGenericFunction(bestDecl, call->Args, context, call->Location);
+        bestDecl = instantiated;
+    }
+
     for (size_t i = 0; i < call->Args.size(); ++i) {
         call->Args[i] = InsertImplicitCastIfNeeded(call->Args[i], bestDecl->Params[i]->Type, &context);
     }
@@ -787,6 +1409,27 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
         auto overloads = context.LookupOverloads(maybeIdent.Cast()->Name, scopeId);
         if (overloads.size() > 1) {
             co_return co_await AnnotateOverloadedCall(call, overloads, context, scopeId);
+        }
+        // The single candidate has `template` parameters — instantiate it
+        // for the call's argument types and re-target the callee at the
+        // synthesized clone, registered in the root scope under a mangled
+        // name that ordinary identifier resolution can find.
+        if (overloads.size() == 1) {
+            auto templateDecl = TMaybeNode<TFunDecl>(context.GetSymbolNode(overloads[0])).Cast();
+            if (templateDecl && HasTemplateParams(*templateDecl)) {
+                for (auto& arg : call->Args) {
+                    arg = co_await DoAnnotate(arg, context, scopeId);
+                    if (!arg->Type) {
+                        co_return TError(arg->Location, "argument has no type");
+                    }
+                }
+                if (templateDecl->Params.size() != call->Args.size()) {
+                    co_return TError(call->Location, "Неверное количество аргументов при вызове функции '" + templateDecl->Name +
+                        "': ожидается " + std::to_string(templateDecl->Params.size()) + ", передано " + std::to_string(call->Args.size()) + ".");
+                }
+                auto instantiated = co_await InstantiateGenericFunction(templateDecl, call->Args, context, call->Location);
+                call->Callee = std::make_shared<TIdentExpr>(call->Callee->Location, instantiated->Name);
+            }
         }
     }
 
@@ -1313,7 +1956,22 @@ TTypeAnnotator::TTypeAnnotator(NSemantics::TNameResolver& context)
 
 std::expected<TExprPtr, TError> TTypeAnnotator::Annotate(TExprPtr expr)
 {
-    return DoAnnotate(expr, Context, NSemantics::TScopeId{0}).result();
+    auto result = DoAnnotate(expr, Context, NSemantics::TScopeId{0}).result();
+    if (!result) {
+        return result;
+    }
+    // Append monomorphized generic-function clones to the top-level block so
+    // lowering compiles them exactly like ordinary top-level functions — see
+    // GetGenericInstantiations' comment for why. Drained (not just read):
+    // Annotate runs once per fixed-point iteration of the same top-level
+    // block (NTransform::Pipeline's do/while loop), so a non-draining read
+    // would re-splice already-spliced clones every time.
+    if (auto block = TMaybeNode<TBlockExpr>(*result)) {
+        for (auto& fdecl : Context.TakeGenericInstantiations()) {
+            block.Cast()->Stmts.push_back(fdecl);
+        }
+    }
+    return result;
 }
 
 } // namespace NTypeAnnotation
