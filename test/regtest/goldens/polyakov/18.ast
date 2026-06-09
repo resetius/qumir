@@ -19,10 +19,10 @@
         (> (call длин s) 0)
         (block
           (= p (call позиция wOld s))
-          (cond (< p 0) (block (= res (call str_concat res s)) break))
-          (cond (> p 1) (block (= res (call str_concat res (call str_slice s 1 (- p 1))))))
+          (if (< p 0) (block (= res (call str_concat res s)) break))
+          (if (> p 1) (block (= res (call str_concat res (call str_slice s 1 (- p 1))))))
           (= res (call str_concat res wNew))
-          (cond
+          (if
             (> (+ p len) (call длин s))
             (block
               (= s ""))

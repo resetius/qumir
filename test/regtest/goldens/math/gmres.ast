@@ -42,7 +42,7 @@
           (call compute_residual n x b r w)
           (= beta (call norm2 n r))
           (= rnorm beta)
-          (cond (<= rnorm tol) (block break))
+          (if (<= rnorm tol) (block break))
           (for i 0 (- n 1) 1 (block (= V [0 i] (/ (index r i) beta))))
           (= g [0] beta)
           (for j 1 m 1 (block (= g [j] 0)))
@@ -67,7 +67,7 @@
                   (for k 0 (- n 1) 1 (block (= w [k] (- (index w k) (* hi (index V [i k]))))))))
               (= hip1 (call norm2 n w))
               (= H [(+ j 1) j] hip1)
-              (cond
+              (if
                 (!= hip1 0)
                 (block
                   (for k 0 (- n 1) 1 (block (= V [(+ j 1) k] (/ (index w k) hip1)))))
@@ -83,7 +83,7 @@
                   (= H [i j] tmp)))
               (= denom
                 (call sqrt (+ (* (index H [j j]) (index H [j j])) (* (index H [(+ j 1) j]) (index H [(+ j 1) j])))))
-              (cond
+              (if
                 (!= denom 0)
                 (block
                   (= cs [j] (/ (index H [j j]) denom))
@@ -97,8 +97,8 @@
               (= g [(+ j 1)] (* (- (index sn j)) (index g j)))
               (= g [j] tmp)
               (= rnorm (index g (+ j 1)))
-              (cond (< rnorm 0) (block (= rnorm (- rnorm))))
-              (cond (<= rnorm tol) (block (= jArn j) break))))
+              (if (< rnorm 0) (block (= rnorm (- rnorm))))
+              (if (<= rnorm tol) (block (= jArn j) break))))
           (for i 0 jArn 1 (block (= y [i] 0)))
           (for i
             jArn
@@ -107,7 +107,7 @@
             (block
               (= sum (index g i))
               (for k (+ i 1) jArn 1 (block (= sum (- sum (* (index H [i k]) (index y k))))))
-              (cond (!= (index H [i i]) 0) (block (= y [i] (/ sum (index H [i i])))) (block (= y [i] 0)))))
+              (if (!= (index H [i i]) 0) (block (= y [i] (/ sum (index H [i i])))) (block (= y [i] 0)))))
           (for k
             0
             (- n 1)
@@ -118,7 +118,7 @@
               (= x [k] (+ (index x k) sum))))
           (call compute_residual n x b r w)
           (= rnorm (call norm2 n r))
-          (cond (<= rnorm tol) (block break))
+          (if (<= rnorm tol) (block break))
           (= it (+ it 1))))
       (call compute_residual n x b r w)
       (var res_l2_sq f64)
@@ -133,9 +133,9 @@
         1
         (block
           (= vabs (index r i))
-          (cond (< vabs 0) (block (= vabs (- vabs))))
+          (if (< vabs 0) (block (= vabs (- vabs))))
           (= res_l2_sq (+ res_l2_sq (* (index r i) (index r i))))
-          (cond (> vabs res_inf) (block (= res_inf vabs)))))
+          (if (> vabs res_inf) (block (= res_inf vabs)))))
       (= res_l2 (call sqrt res_l2_sq))
       (seq
         (call output_string "gmres: n=")

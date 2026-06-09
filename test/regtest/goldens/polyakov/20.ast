@@ -27,7 +27,7 @@
             i
             (- 1)
             (block
-              (cond
+              (if
                 (< (call str_compare (index S (+ j 1)) (index S j)) 0)
                 (block
                   (= s1 (index S j))

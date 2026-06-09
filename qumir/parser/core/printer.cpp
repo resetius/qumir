@@ -618,10 +618,6 @@ struct TPrintExpr : public IVisitor {
         Printer.PrintExprList("seq", node.Stmts, Frame.Level);
     }
 
-    void Visit(TIfStmt& node) override {
-        Printer.PrintIfLike("cond", node.Cond, node.Then, node.Else, Frame.Level);
-    }
-
     void Visit(TIfExpr& node) override {
         Printer.PrintIfLike("if", node.Cond, node.Then, node.Else, Frame.Level);
     }

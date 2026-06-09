@@ -109,7 +109,7 @@
                       (= uex (* (* (call sin (* pi x)) (call sin (* pi y))) (call sin (* pi z))))
                       (= diff (let (($$value (- (index u [i j k]) uex))) (if (< $$value 0) (- $$value) $$value)))
                       (= err (let (($$left err) ($$right diff)) (if (> $$left $$right) $$left $$right)))))))))
-          (cond (< err tol) (block break))))
+          (if (< err tol) (block break))))
       (= err 0)
       (for i
         0
@@ -138,4 +138,4 @@
         (call output_string " max|u-uex|=")
         (call output_double err 8 8)
         (call output_symbol (cast 10 char)))
-      (cond (< err tol) (block (seq (call output_string "OK\n"))) (block (seq (call output_string "FAIL\n")))))))
+      (if (< err tol) (block (seq (call output_string "OK\n"))) (block (seq (call output_string "FAIL\n")))))))

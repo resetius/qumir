@@ -486,7 +486,7 @@ ColorsModule::ColorsModule() {
             chroma->Stmts.push_back(assignTarget(args[2], percent(idf("$gf"))));
             chroma->Stmts.push_back(assignTarget(args[3], percent(idf("$bf"))));
             chroma->Stmts.push_back(assignTarget(args[4], roundToInt(binary("*", idf("$kf"), f(100.0), floatType))));
-            auto stmt = std::make_shared<NAst::TIfStmt>(
+            auto stmt = std::make_shared<NAst::TIfExpr>(
                 loc,
                 binary(">=", idf("$kf"), f(1.0), boolType),
                 std::move(black),
@@ -524,7 +524,7 @@ ColorsModule::ColorsModule() {
             chroma->Stmts.push_back(assignLocal("$hf", binary("/", idf("$hf"), f(6.0), floatType)));
             auto noop = std::make_shared<NAst::TBlockExpr>(loc, std::vector<NAst::TExprPtr>{});
             noop->Type = voidType;
-            auto stmt = std::make_shared<NAst::TIfStmt>(
+            auto stmt = std::make_shared<NAst::TIfExpr>(
                 loc,
                 binary("!=", idf("$mx"), idf("$mn"), boolType),
                 std::move(chroma),
@@ -563,7 +563,7 @@ ColorsModule::ColorsModule() {
             chroma->Stmts.push_back(assignLocal("$hf", binary("/", idf("$hf"), f(6.0), floatType)));
             auto noop = std::make_shared<NAst::TBlockExpr>(loc, std::vector<NAst::TExprPtr>{});
             noop->Type = voidType;
-            auto stmt = std::make_shared<NAst::TIfStmt>(
+            auto stmt = std::make_shared<NAst::TIfExpr>(
                 loc,
                 binary("!=", idf("$d"), f(0.0), boolType),
                 std::move(chroma),

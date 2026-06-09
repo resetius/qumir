@@ -8,7 +8,7 @@
       (var w0 string)
       (var N i64))
     (block
-      (cond (== N (call длин w0)) (block (seq (call output_string w0) (call output_string "\n")) break))
+      (if (== N (call длин w0)) (block (seq (call output_string w0) (call output_string "\n")) break))
       (var i i64)
       (var w string)
       (= w (call str_slice w0 1 (call длин w0)))

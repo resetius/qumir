@@ -46,7 +46,7 @@ AST node forms:
       introducing a nested lexical scope.
 
   (cond cond then else)
-      TIfStmt, NodeId = "IfStmt".
+      TIfExpr, NodeId = "IfExpr".
 
   (if cond then else)
       TIfExpr, NodeId = "IfExpr".

@@ -115,10 +115,6 @@ TDefiniteAssignmentChecker::CheckExpr(
         return state;
     }
 
-    if (auto maybeIf = TMaybeNode<TIfStmt>(expr)) {
-        return CheckIf(maybeIf.Cast(), scopeId, inAssigned);
-    }
-
     if (auto maybeIf = TMaybeNode<TIfExpr>(expr)) {
         return CheckIfExpr(maybeIf.Cast(), scopeId, inAssigned);
     }
@@ -291,36 +287,6 @@ TDefiniteAssignmentChecker::CheckBlock(
 }
 
 std::expected<TDefiniteAssignmentChecker::TAssignedSet, TError>
-TDefiniteAssignmentChecker::CheckIf(
-    const std::shared_ptr<TIfStmt>& ifExpr,
-    TScopeId scopeId,
-    const TAssignedSet& inAssigned)
-{
-    auto condRes = CheckExpr(ifExpr->Cond, scopeId, inAssigned);
-    if (!condRes) {
-        return std::unexpected(condRes.error());
-    }
-    TAssignedSet afterCond = std::move(*condRes);
-
-    auto thenRes = CheckExpr(ifExpr->Then, scopeId, afterCond);
-    if (!thenRes) {
-        return std::unexpected(thenRes.error());
-    }
-    TAssignedSet thenState = std::move(*thenRes);
-
-    if (ifExpr->Else) {
-        auto elseRes = CheckExpr(ifExpr->Else, scopeId, afterCond);
-        if (!elseRes) {
-            return std::unexpected(elseRes.error());
-        }
-        TAssignedSet elseState = std::move(*elseRes);
-        return Intersect(thenState, elseState);
-    }
-
-    return inAssigned;
-}
-
-std::expected<TDefiniteAssignmentChecker::TAssignedSet, TError>
 TDefiniteAssignmentChecker::CheckIfExpr(
     const std::shared_ptr<TIfExpr>& ifExpr,
     TScopeId scopeId,
@@ -335,6 +301,10 @@ TDefiniteAssignmentChecker::CheckIfExpr(
     auto thenRes = CheckExpr(ifExpr->Then, scopeId, afterCond);
     if (!thenRes) {
         return std::unexpected(thenRes.error());
+    }
+
+    if (!ifExpr->Else) {
+        return inAssigned;
     }
 
     auto elseRes = CheckExpr(ifExpr->Else, scopeId, afterCond);

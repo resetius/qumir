@@ -3,7 +3,7 @@
     (block
       (var v i64)
       (= v 30)
-      (cond
+      (if
         (&& (>= v 25) (<= v 40))
         (block
           (seq

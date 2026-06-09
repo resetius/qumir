@@ -580,17 +580,8 @@ TListHandlerMap MakeDefaultHandlers() {
         {"input", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             co_return std::make_shared<TInputExpr>(loc, co_await ParseExprsUntil(ctx, ')'));
         }},
-        {"cond", [](TParserContext& ctx, TLocation loc) -> TAstTask {
-            auto cond = co_await ParseExpr(ctx);
-            auto thenBranch = co_await ParseExpr(ctx);
-            TExprPtr elseBranch;
-            auto token = ctx.Stream.Next();
-            if (!IsOp(token, ')')) {
-                ctx.Stream.Unget(token);
-                elseBranch = co_await ParseExpr(ctx);
-                co_await Expect(ctx, ')');
-            }
-            co_return std::make_shared<TIfStmt>(loc, std::move(cond), std::move(thenBranch), std::move(elseBranch));
+        {"cond", [](TParserContext&, TLocation loc) -> TAstTask {
+            co_return TError(loc, "форма (cond ...) устарела, используйте (if ...)");
         }},
         {"if", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto cond = co_await ParseExpr(ctx);

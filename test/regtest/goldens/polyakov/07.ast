@@ -5,13 +5,13 @@
       (= a 10)
       (var b i64)
       (= b 11)
-      (cond
+      (if
         (> a b)
         (block
           (seq
             (call output_string "Андрей старше")))
         (block
-          (cond
+          (if
             (== a b)
             (block
               (seq

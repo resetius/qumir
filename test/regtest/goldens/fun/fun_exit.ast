@@ -19,13 +19,13 @@
     (block
       (var знач i64)
       (= знач 0)
-      (cond (== 1 1) (block (= знач 5) break))
+      (if (== 1 1) (block (= знач 5) break))
       (= знач 99)))
   (fun i () -> i64
     (block
       (var знач i64)
       (= знач 1)
-      (cond (== 2 3) (block break))
+      (if (== 2 3) (block break))
       (= знач 7)
       break
       (= знач 100))))

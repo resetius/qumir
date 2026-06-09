@@ -79,7 +79,7 @@
               $$color_decompose_cmyk_0$gf
               $$color_decompose_cmyk_0$bf)))
         (= $$color_decompose_cmyk_0$kf (- 1 $$color_decompose_cmyk_0$mx))
-        (cond
+        (if
           (>= $$color_decompose_cmyk_0$kf 1)
           (block
             (= cc 0)
@@ -166,7 +166,7 @@
         (= $$color_decompose_hsl_1$lf (/ (+ $$color_decompose_hsl_1$mx $$color_decompose_hsl_1$mn) 2))
         (= $$color_decompose_hsl_1$sf 0)
         (= $$color_decompose_hsl_1$hf 0)
-        (cond
+        (if
           (!= $$color_decompose_hsl_1$mx $$color_decompose_hsl_1$mn)
           (block
             (= $$color_decompose_hsl_1$d (- $$color_decompose_hsl_1$mx $$color_decompose_hsl_1$mn))
@@ -245,7 +245,7 @@
         (= $$color_decompose_hsv_2$sf
           (if (== $$color_decompose_hsv_2$mx 0) 0 (/ $$color_decompose_hsv_2$d $$color_decompose_hsv_2$mx)))
         (= $$color_decompose_hsv_2$hf 0)
-        (cond
+        (if
           (!= $$color_decompose_hsv_2$d 0)
           (block
             (= $$color_decompose_hsv_2$hf
@@ -318,7 +318,7 @@
         (= $$color_decompose_hsl_3$lf (/ (+ $$color_decompose_hsl_3$mx $$color_decompose_hsl_3$mn) 2))
         (= $$color_decompose_hsl_3$sf 0)
         (= $$color_decompose_hsl_3$hf 0)
-        (cond
+        (if
           (!= $$color_decompose_hsl_3$mx $$color_decompose_hsl_3$mn)
           (block
             (= $$color_decompose_hsl_3$d (- $$color_decompose_hsl_3$mx $$color_decompose_hsl_3$mn))

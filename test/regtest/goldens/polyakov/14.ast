@@ -19,7 +19,7 @@
       (var R i64)
       (var c i64)
       (var X i64)
-      (cond (>= nStart nEnd) (block break))
+      (if (>= nStart nEnd) (block break))
       (= L nStart)
       (= R nEnd)
       (= X (index A (call div (+ L R) 2)))
@@ -28,6 +28,6 @@
         (block
           (while (< (index A L) X) (block (= L (+ L 1))))
           (while (> (index A R) X) (block (= R (- R 1))))
-          (cond (<= L R) (block (= c (index A L)) (= A [L] (index A R)) (= A [R] c) (= L (+ L 1)) (= R (- R 1))))))
+          (if (<= L R) (block (= c (index A L)) (= A [L] (index A R)) (= A [R] c) (= L (+ L 1)) (= R (- R 1))))))
       (call qSort nStart R)
       (call qSort L nEnd))))

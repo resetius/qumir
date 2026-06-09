@@ -8,73 +8,73 @@
         12
         1
         (block
-          (cond
+          (if
             (== m 1)
             (block
               (seq
                 (call output_string "январь")
                 (call output_string "\n")))
-            (cond
+            (if
               (== m 2)
               (block
                 (seq
                   (call output_string "февраль")
                   (call output_string "\n")))
-              (cond
+              (if
                 (== m 3)
                 (block
                   (seq
                     (call output_string "март")
                     (call output_string "\n")))
-                (cond
+                (if
                   (== m 4)
                   (block
                     (seq
                       (call output_string "апрель")
                       (call output_string "\n")))
-                  (cond
+                  (if
                     (== m 5)
                     (block
                       (seq
                         (call output_string "май")
                         (call output_string "\n")))
-                    (cond
+                    (if
                       (== m 6)
                       (block
                         (seq
                           (call output_string "июнь")
                           (call output_string "\n")))
-                      (cond
+                      (if
                         (== m 7)
                         (block
                           (seq
                             (call output_string "июль")
                             (call output_string "\n")))
-                        (cond
+                        (if
                           (== m 8)
                           (block
                             (seq
                               (call output_string "август")
                               (call output_string "\n")))
-                          (cond
+                          (if
                             (== m 9)
                             (block
                               (seq
                                 (call output_string "сентябрь")
                                 (call output_string "\n")))
-                            (cond
+                            (if
                               (== m 10)
                               (block
                                 (seq
                                   (call output_string "октябрь")
                                   (call output_string "\n")))
-                              (cond
+                              (if
                                 (== m 11)
                                 (block
                                   (seq
                                     (call output_string "ноябрь")
                                     (call output_string "\n")))
-                                (cond
+                                (if
                                   (== m 12)
                                   (block
                                     (seq

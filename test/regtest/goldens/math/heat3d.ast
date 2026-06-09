@@ -54,7 +54,7 @@
                   (= u [i j k] (* (* (call sin (* pi x)) (call sin (* pi y))) (call sin (* pi z))))
                   (= un [i j k] 0)))))))
       (= nt (call int (/ T dt)))
-      (cond (< nt 1) (block (= nt 1)))
+      (if (< nt 1) (block (= nt 1)))
       (= t (* (cast nt f64) dt))
       (for n
         0
@@ -127,4 +127,4 @@
         (call output_string ", max|u-uex|=")
         (call output_double err 8 8)
         (call output_symbol (cast 10 char)))
-      (cond (< err 0.01) (block (seq (call output_string "OK\n"))) (block (seq (call output_string "FAIL\n")))))))
+      (if (< err 0.01) (block (seq (call output_string "OK\n"))) (block (seq (call output_string "FAIL\n")))))))

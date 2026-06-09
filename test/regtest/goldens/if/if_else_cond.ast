@@ -6,5 +6,5 @@
       (var j i64)
       (= i 1)
       (= j 2)
-      (cond (!= i j) (block (= i 1)) (block (= i 2)))
+      (if (!= i j) (block (= i 1)) (block (= i 2)))
       (= знач i))))

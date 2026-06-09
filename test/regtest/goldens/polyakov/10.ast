@@ -11,5 +11,5 @@
         (block
           (= count 0)
           (= k 2)
-          (while (<= (* k k) n) (block (cond (== (call mod n k) 0) (block (= count (+ count 1)))) (= k (+ k 1))))
-          (cond (== count 0) (block (seq (call output_int64 n 0) (call output_string "\n")))))))))
+          (while (<= (* k k) n) (block (if (== (call mod n k) 0) (block (= count (+ count 1)))) (= k (+ k 1))))
+          (if (== count 0) (block (seq (call output_int64 n 0) (call output_string "\n")))))))))

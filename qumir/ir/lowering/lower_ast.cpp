@@ -777,6 +777,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto cond = co_await Lower(ife->Cond, scope);
         if (!cond.Value) co_return TError(ife->Cond->Location, TErrorString::Get<EErrorId::IF_CONDITION_NOT_NUMBER>());
 
+        bool isVoid = NAst::TMaybeType<NAst::TVoidType>(ife->Type);
+
         auto entryId = Builder.CurrentBlockIdx();
         auto [thenLabel, thenId] = Builder.NewBlock();
         auto [elseLabel, elseId] = Builder.NewBlock();
@@ -787,38 +789,51 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         Builder.SetCurrentBlock(thenId);
         auto thenRes = co_await Lower(ife->Then, scope);
-        if (!thenRes.Value) {
-            co_return TError(ife->Then->Location, "Ветвь then в if-expression не возвращает значение");
-        }
         Builder.SetCurrentBlock(thenRes.ProducingLabel);
-        if (Builder.IsCurrentBlockTerminated()) {
-            co_return TError(ife->Then->Location, "Ветвь then в if-expression не должна завершать управление до merge-блока");
+        if (!Builder.IsCurrentBlockTerminated()) {
+            Builder.Emit0("jmp"_op, {endLabel});
         }
-        Builder.Emit0("jmp"_op, {endLabel});
         auto thenEdgeLabel = Builder.CurrentBlockLabel();
 
         Builder.SetCurrentBlock(elseId);
-        auto elseRes = co_await Lower(ife->Else, scope);
-        if (!elseRes.Value) {
-            co_return TError(ife->Else->Location, "Ветвь else в if-expression не возвращает значение");
+        if (ife->Else) {
+            auto elseRes = co_await Lower(ife->Else, scope);
+            Builder.SetCurrentBlock(elseRes.ProducingLabel);
+
+            if (!isVoid) {
+                // Expression if: emit phi to merge values
+                if (!thenRes.Value) {
+                    co_return TError(ife->Then->Location, "Ветвь `то' в `если'-выражении не возвращает значение");
+                }
+                if (!elseRes.Value) {
+                    co_return TError(ife->Else->Location, "Ветвь `иначе' в `если'-выражении не возвращает значение");
+                }
+                if (!Builder.IsCurrentBlockTerminated()) {
+                    Builder.Emit0("jmp"_op, {endLabel});
+                }
+                auto elseEdgeLabel = Builder.CurrentBlockLabel();
+                Builder.NewBlock(endLabel);
+                auto res = Builder.Emit1("phi"_op, {*thenRes.Value, thenEdgeLabel, *elseRes.Value, elseEdgeLabel});
+                Builder.SetType(res, FromAstType(expr->Type, Module.Types));
+                if (thenRes.Value->Type == TOperand::EType::Tmp) {
+                    Builder.UnifyTypes(res, thenRes.Value->Tmp);
+                }
+                if (elseRes.Value->Type == TOperand::EType::Tmp) {
+                    Builder.UnifyTypes(res, elseRes.Value->Tmp);
+                }
+                co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
+            }
+
+            if (!Builder.IsCurrentBlockTerminated()) {
+                Builder.Emit0("jmp"_op, {endLabel});
+            }
+        } else {
+            // No else branch: just jump to end
+            Builder.Emit0("jmp"_op, {endLabel});
         }
-        Builder.SetCurrentBlock(elseRes.ProducingLabel);
-        if (Builder.IsCurrentBlockTerminated()) {
-            co_return TError(ife->Else->Location, "Ветвь else в if-expression не должна завершать управление до merge-блока");
-        }
-        Builder.Emit0("jmp"_op, {endLabel});
-        auto elseEdgeLabel = Builder.CurrentBlockLabel();
 
         Builder.NewBlock(endLabel);
-        auto res = Builder.Emit1("phi"_op, {*thenRes.Value, thenEdgeLabel, *elseRes.Value, elseEdgeLabel});
-        Builder.SetType(res, FromAstType(expr->Type, Module.Types));
-        if (thenRes.Value->Type == TOperand::EType::Tmp) {
-            Builder.UnifyTypes(res, thenRes.Value->Tmp);
-        }
-        if (elseRes.Value->Type == TOperand::EType::Tmp) {
-            Builder.UnifyTypes(res, elseRes.Value->Tmp);
-        }
-        co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
+        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
 
     } else if (auto maybeLetExpr = NAst::TMaybeNode<NAst::TLetExpr>(expr)) {
         auto letExpr = maybeLetExpr.Cast();
@@ -854,41 +869,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(letExpr->Location, "LetExpr body does not return a value.");
         }
         co_return bodyRes;
-
-    } else if (auto maybeIfe = NAst::TMaybeNode<NAst::TIfStmt>(expr)) {
-        // If is a statement in this language: no result value, no phi merge.
-        auto ife = maybeIfe.Cast();
-        auto cond = co_await Lower(ife->Cond, scope);
-        if (!cond.Value) co_return TError(ife->Cond->Location, TErrorString::Get<EErrorId::IF_CONDITION_NOT_NUMBER>());
-
-        auto entryId = Builder.CurrentBlockIdx();
-        auto [thenLabel, thenId] = Builder.NewBlock();
-        auto [elseLabel, elseId] = Builder.NewBlock();
-        auto endLabel = Builder.NewLabel();
-
-        // Branch on condition
-        Builder.SetCurrentBlock(entryId);
-        Builder.Emit0("cmp"_op, {*cond.Value, thenLabel, elseLabel});
-
-        // Then branch
-        Builder.SetCurrentBlock(thenId);
-        co_await Lower(ife->Then, scope);
-        if (!Builder.IsCurrentBlockTerminated()) {
-            Builder.Emit0("jmp"_op, {endLabel});
-        }
-
-        // Else branch (may be present). If absent, just jump to end.
-        Builder.SetCurrentBlock(elseId);
-        if (ife->Else) {
-            co_await Lower(ife->Else, scope);
-        }
-        if (!Builder.IsCurrentBlockTerminated()) {
-            Builder.Emit0("jmp"_op, {endLabel});
-        }
-
-        // End/merge block without phi, as if is a statement
-        Builder.NewBlock(endLabel);
-        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
 
     } else if (auto maybeLoop = NAst::TMaybeNode<NAst::TWhileStmtExpr>(expr)) {
         co_return co_await LowerWhile(maybeLoop.Cast(), scope);

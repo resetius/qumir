@@ -30,7 +30,7 @@
         (block
           (call matvec n p Ap)
           (= pAp (call dot n p Ap))
-          (cond (== pAp 0) (block break))
+          (if (== pAp 0) (block break))
           (= alpha (/ rsold pAp))
           (for i
             0
@@ -40,9 +40,9 @@
               (= x [i] (+ (index x i) (* alpha (index p i))))
               (= r [i] (- (index r i) (* alpha (index Ap i))))))
           (= rnorm (call norm2 n r))
-          (cond (<= rnorm tol) (block break))
+          (if (<= rnorm tol) (block break))
           (= rsnew (call dot n r r))
-          (cond
+          (if
             (!= rsold 0)
             (block
               (var beta f64)
@@ -64,9 +64,9 @@
         1
         (block
           (= vabs (index r i))
-          (cond (< vabs 0) (block (= vabs (- vabs))))
+          (if (< vabs 0) (block (= vabs (- vabs))))
           (= res_l2_sq (+ res_l2_sq (* (index r i) (index r i))))
-          (cond (> vabs res_inf) (block (= res_inf vabs)))))
+          (if (> vabs res_inf) (block (= res_inf vabs)))))
       (= res_l2 (call sqrt res_l2_sq))
       (seq
         (call output_string "cg: n=")

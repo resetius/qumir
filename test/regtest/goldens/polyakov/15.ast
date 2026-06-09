@@ -17,8 +17,8 @@
       (var c i64)
       (= L 1)
       (= R (+ N 1))
-      (while (< L (- R 1)) (block (= c (call div (+ L R) 2)) (cond (< X (index A c)) (block (= R c)) (block (= L c)))))
-      (cond
+      (while (< L (- R 1)) (block (= c (call div (+ L R) 2)) (if (< X (index A c)) (block (= R c)) (block (= L c)))))
+      (if
         (== (index A L) X)
         (block
           (seq

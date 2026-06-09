@@ -364,34 +364,6 @@ struct TSeqExpr : TExpr {
     void Accept(IVisitor& visitor) override;
 };
 
-struct TIfStmt : TExpr {
-    static constexpr const char* NodeId = "IfStmt";
-
-    TExprPtr Cond;
-    TExprPtr Then;
-    TExprPtr Else;
-    TIfStmt(TLocation loc, TExprPtr c, TExprPtr t, TExprPtr e)
-        : TExpr(std::move(loc))
-        , Cond(std::move(c))
-        , Then(std::move(t))
-        , Else(std::move(e))
-    { }
-
-    std::vector<TExprPtr> Children() const override {
-        return { Cond, Then, Else };
-    }
-
-    std::vector<TExprPtr*> MutableChildren() override {
-        return { &Cond, &Then, &Else };
-    }
-
-    const std::string_view NodeName() const override {
-        return NodeId;
-    }
-
-    void Accept(IVisitor& visitor) override;
-};
-
 struct TIfExpr : TExpr {
     static constexpr const char* NodeId = "IfExpr";
 
@@ -406,11 +378,13 @@ struct TIfExpr : TExpr {
     { }
 
     std::vector<TExprPtr> Children() const override {
-        return { Cond, Then, Else };
+        if (Else) return { Cond, Then, Else };
+        return { Cond, Then };
     }
 
     std::vector<TExprPtr*> MutableChildren() override {
-        return { &Cond, &Then, &Else };
+        if (Else) return { &Cond, &Then, &Else };
+        return { &Cond, &Then };
     }
 
     const std::string_view NodeName() const override {
@@ -1195,7 +1169,6 @@ struct IVisitor {
     virtual void Visit(TBinaryExpr& node) = 0;
     virtual void Visit(TBlockExpr& node) = 0;
     virtual void Visit(TSeqExpr& node) = 0;
-    virtual void Visit(TIfStmt& node) = 0;
     virtual void Visit(TIfExpr& node) = 0;
     virtual void Visit(TLetExpr& node) = 0;
     virtual void Visit(TWhileStmtExpr& node) = 0;

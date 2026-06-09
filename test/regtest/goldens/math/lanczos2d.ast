@@ -68,13 +68,13 @@
       (= s 0)
       (for i 1 NI 1 (block (for j 1 NJ 1 (block (= s (+ s (* (index Q [0 i j]) (index w [i j]))))))))
       (for i 1 NI 1 (block (for j 1 NJ 1 (block (= w [i j] (- (index w [i j]) (* s (index Q [0 i j]))))))))
-      (cond (> m 1) (block (= beta [0] (call norm2_2d NI NJ w))))
+      (if (> m 1) (block (= beta [0] (call norm2_2d NI NJ w))))
       (for k
         1
         (- m 1)
         1
         (block
-          (cond (== (index beta (- k 1)) 0) (block (= alpha [k] 0) break))
+          (if (== (index beta (- k 1)) 0) (block (= alpha [k] 0) break))
           (= inv (/ 1 (index beta (- k 1))))
           (for i
             1
@@ -104,7 +104,7 @@
               (= s 0)
               (for i 1 NI 1 (block (for j 1 NJ 1 (block (= s (+ s (* (index Q [r i j]) (index w [i j]))))))))
               (for i 1 NI 1 (block (for j 1 NJ 1 (block (= w [i j] (- (index w [i j]) (* s (index Q [r i j]))))))))))
-          (cond (< k (- m 1)) (block (= beta [k] (call norm2_2d NI NJ w))))
+          (if (< k (- m 1)) (block (= beta [k] (call norm2_2d NI NJ w))))
           (for i 1 NI 1 (block (for j 1 NJ 1 (block (= v0 [i j] (index v1 [i j]))))))))
       (= a (index alpha 0))
       (= b (index alpha 0))
@@ -114,9 +114,9 @@
         (- m 1)
         1
         (block
-          (cond (< (index alpha k) a) (block (= a (index alpha k))))
-          (cond (> (index alpha k) b) (block (= b (index alpha k))))
-          (cond (&& (< k (- m 1)) (> (index beta k) s)) (block (= s (index beta k))))))
+          (if (< (index alpha k) a) (block (= a (index alpha k))))
+          (if (> (index alpha k) b) (block (= b (index alpha k))))
+          (if (&& (< k (- m 1)) (> (index beta k) s)) (block (= s (index beta k))))))
       (= lo (- a (* 2 s)))
       (= hi (+ b (* 2 s)))
       (var evals <array f64 1> [0 (- want 1)])
@@ -136,7 +136,7 @@
             (block
               (= mid (* 0.5 (+ a b)))
               (= cnt (cast (call sturm_count m alpha beta mid) f64))
-              (cond (>= cnt (cast t f64)) (block (= b mid)) (block (= a mid)))))
+              (if (>= cnt (cast t f64)) (block (= b mid)) (block (= a mid)))))
           (= evals [(- t 1)] (* 0.5 (+ a b)))))
       (seq
         (call output_string "Lanczos2D: N=")
@@ -263,10 +263,10 @@
             1
             (block
               (= c (* 4 (index x [i j])))
-              (cond (> i 1) (block (= c (- c (index x [(- i 1) j])))))
-              (cond (< i NI) (block (= c (- c (index x [(+ i 1) j])))))
-              (cond (> j 1) (block (= c (- c (index x [i (- j 1)])))))
-              (cond (< j NJ) (block (= c (- c (index x [i (+ j 1)])))))
+              (if (> i 1) (block (= c (- c (index x [(- i 1) j])))))
+              (if (< i NI) (block (= c (- c (index x [(+ i 1) j])))))
+              (if (> j 1) (block (= c (- c (index x [i (- j 1)])))))
+              (if (< j NJ) (block (= c (- c (index x [i (+ j 1)])))))
               (= y [i j] (/ c h2))))))))
   (fun sturm_count ((var m i64)
       (var alpha <array f64 1> [0 (- m 1)])
@@ -280,16 +280,16 @@
       (var prev f64)
       (= count 0)
       (= d (- (index alpha 0) lam))
-      (cond (< d 0) (block (= count (+ count 1))))
+      (if (< d 0) (block (= count (+ count 1))))
       (for i
         1
         (- m 1)
         1
         (block
-          (cond
+          (if
             (< (let (($$value d)) (if (< $$value 0) (- $$value) $$value)) 1e-14)
             (block
-              (cond (>= d 0) (block (= d 1e-14)) (block (= d (- 1e-14))))))
+              (if (>= d 0) (block (= d 1e-14)) (block (= d (- 1e-14))))))
           (= d (- (- (index alpha i) lam) (/ (* (index beta (- i 1)) (index beta (- i 1))) d)))
-          (cond (< d 0) (block (= count (+ count 1))))))
+          (if (< d 0) (block (= count (+ count 1))))))
       (= знач count))))

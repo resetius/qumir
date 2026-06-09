@@ -11,7 +11,7 @@
     (block
       (var знач i64)
       (var i i64)
-      (cond
+      (if
         (== число 1)
         (block
           (= знач 1))

@@ -24,13 +24,13 @@
       (= строка1 "яблоко")
       (= строка2 "яблоко")
       (= строка3 "груша")
-      (cond
+      (if
         (== (call str_compare строка1 строка2) 0)
         (block
           (seq
             (call output_string "строка1 = строка2: истина")
             (call output_string "\n"))))
-      (cond
+      (if
         (== (call str_compare строка1 строка3) 0)
         (block
           (seq
@@ -40,7 +40,7 @@
           (seq
             (call output_string "строка1 = строка3: ложь")
             (call output_string "\n"))))
-      (cond
+      (if
         (< (call str_compare строка3 строка2) 0)
         (block
           (seq

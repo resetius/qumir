@@ -19,7 +19,7 @@
         (- n 1)
         1
         (block
-          (for j 0 (- n 1) 1 (block (cond (<= j i) (block (= A [i j] 1)) (block (= A [i j] 0)))))
+          (for j 0 (- n 1) 1 (block (if (<= j i) (block (= A [i j] 1)) (block (= A [i j] 0)))))
           (= x [i] 1)))
       (for i
         0
@@ -38,9 +38,9 @@
         (block
           (= err (- (index y i) (+ (cast i f64) 1)))
           (= absv err)
-          (cond (< absv 0) (block (= absv (- absv))))
+          (if (< absv 0) (block (= absv (- absv))))
           (= res_l2_sq (+ res_l2_sq (* err err)))
-          (cond (> absv res_inf) (block (= res_inf absv)))))
+          (if (> absv res_inf) (block (= res_inf absv)))))
       (= res_l2 (call sqrt res_l2_sq))
       (seq
         (call output_string "matvec: ||e||_2^2 = ")
