@@ -113,7 +113,7 @@ function waitUnlessStopped(promise) {
   ]);
 }
 
-const sample = `алг цел цикл\nнач\n    | пример комментария: горячий цикл для теста производительности\n    цел ф, i\n    ф := 1\n    нц для i от 1 до 10000000\n        ф := факториал(13)\n    кц\n    знач := ф\nкон\n\nалг цел факториал(цел число)\nнач\n    | пример комментария внутри функции\n    цел i\n    знач := 1\n    нц для i от 1 до число\n        знач := знач * i\n    кц\nкон\n`;
+const sample = document.getElementById('code')?.value || '';
 
 function parseAlgHeader(code) {
   const lines = code.split(/\r?\n/);
@@ -4914,27 +4914,38 @@ if (btnShare) {
   });
 })();
 
-// Onboarding tour
-(async function setupTour() {
-  try {
-    const tour = await import('./tour.js');
+// Auto-start onboarding when desktop initialization is idle; mobile users can start it manually.
+(function setupTour() {
+  const restartBtn = document.getElementById('tour-restart-btn');
+  if (!restartBtn) return;
 
-    // Button to restart tour
-    const restartBtn = document.getElementById('tour-restart-btn');
-    if (restartBtn) {
-      restartBtn.addEventListener('click', () => {
-        tour.resetTour();
-        tour.startTour();
-      });
+  const loadTour = () => import('./tour.js');
+
+  restartBtn.addEventListener('click', async () => {
+    try {
+      const tour = await loadTour();
+      tour.resetTour();
+      tour.startTour();
+    } catch (e) {
+      console.warn('Tour module not available:', e);
     }
+  });
 
-    // Don't auto-start tour if coming from a shared link or example
-    const params = new URLSearchParams(window.location.search);
-    if (!params.get('share') && !params.get('example')) {
+  if (window.innerWidth <= 900) return;
+
+  const initTour = async () => {
+    try {
+      const tour = await loadTour();
       tour.initTour();
+    } catch (e) {
+      console.warn('Tour module not available:', e);
     }
-  } catch (e) {
-    console.warn('Tour module not available:', e);
+  };
+
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(initTour, { timeout: 5000 });
+  } else {
+    window.setTimeout(initTour, 2000);
   }
 })();
 

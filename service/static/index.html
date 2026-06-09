@@ -67,7 +67,27 @@
               <button class="pane-title-btn" type="button" data-pane-action="reset" data-pane-target="code" data-tooltip="Сбросить размер" aria-label="Сбросить размер">↺</button>
             </span>
           </div>
-          <textarea id="code" spellcheck="false"></textarea>
+          <textarea id="code" spellcheck="false">алг цел цикл
+нач
+    | пример комментария: горячий цикл для теста производительности
+    цел ф, i
+    ф := 1
+    нц для i от 1 до 10000000
+        ф := факториал(13)
+    кц
+    знач := ф
+кон
+
+алг цел факториал(цел число)
+нач
+    | пример комментария внутри функции
+    цел i
+    знач := 1
+    нц для i от 1 до число
+        знач := знач * i
+    кц
+кон
+</textarea>
           <div id="status" class="status"></div>
         </section>
         <div id="output-anchor"></div>
