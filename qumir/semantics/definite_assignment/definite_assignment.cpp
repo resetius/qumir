@@ -461,6 +461,19 @@ TDefiniteAssignmentChecker::CheckVar(
     TScopeId scopeId,
     const TAssignedSet& inAssigned)
 {
+    if (var->Init) {
+        auto res = CheckExpr(var->Init, scopeId, inAssigned);
+        if (!res) {
+            return std::unexpected(res.error());
+        }
+        auto symbolId = GetSymbolId(var->Name, scopeId, var);
+        if (!symbolId) {
+            return std::unexpected(symbolId.error());
+        }
+        TAssignedSet out = *res;
+        out.insert(*symbolId);
+        return out;
+    }
     return inAssigned;
 }
 

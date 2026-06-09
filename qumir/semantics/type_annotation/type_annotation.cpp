@@ -694,7 +694,21 @@ TTask AnnotateArrayAssign(std::shared_ptr<TArrayAssignExpr> arrayAssign, NSemant
 
 TTask AnnotateVar(std::shared_ptr<TVarStmt> var, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     if (!var->Type) {
-        co_return TError(var->Location, "Не указан тип переменной при объявлении: " + var->Name);
+        // (var name = expr): type inferred from init expression
+        if (!var->Init) {
+            co_return TError(var->Location, "Переменная без типа должна иметь инициализатор: " + var->Name);
+        }
+        var->Init = co_await DoAnnotate(var->Init, context, scopeId);
+        if (!var->Init->Type) {
+            co_return TError(var->Init->Location, "Не удалось определить тип инициализатора переменной: " + var->Name);
+        }
+        var->Type = UnwrapReferenceType(var->Init->Type);
+        auto sidOpt = context.Lookup(var->Name, scopeId);
+        if (sidOpt) {
+            auto sym = context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id});
+            if (sym) { sym->Type = var->Type; }
+        }
+        co_return var;
     }
     for (auto& [from, to] : var->Bounds) {
         if (from) {

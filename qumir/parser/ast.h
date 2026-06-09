@@ -595,6 +595,7 @@ struct TVarStmt : TExpr {
 
     std::string Name;
     std::vector<std::pair<TExprPtr, TExprPtr>> Bounds; // for array types
+    TExprPtr Init; // for (var name = expr) form; type inferred from Init
 
     TVarStmt(TLocation loc, std::string name, NAst::TTypePtr type, std::vector<std::pair<TExprPtr, TExprPtr>> bounds = {})
         : TExpr(std::move(loc), std::move(type))
@@ -608,6 +609,7 @@ struct TVarStmt : TExpr {
 
     std::vector<TExprPtr> Children() const override {
         std::vector<TExprPtr> result;
+        if (Init) { result.push_back(Init); }
         for (const auto& b : Bounds) {
             result.push_back(b.first);
             result.push_back(b.second);
@@ -617,6 +619,7 @@ struct TVarStmt : TExpr {
 
     std::vector<TExprPtr*> MutableChildren() override {
         std::vector<TExprPtr*> result;
+        if (Init) { result.push_back(&Init); }
         for (auto& b : Bounds) {
             result.push_back(&b.first);
             result.push_back(&b.second);

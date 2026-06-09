@@ -317,15 +317,21 @@ void TPrinter::PrintTimes(TTimesStmtExpr& node, int level) {
 void TPrinter::PrintVar(TVarStmt& node, int level) {
     *Out << "(var ";
     PrintIdentifier(node.Name);
-    Space();
-    PrintType(node.Type, level);
-    for (const auto& [from, to] : node.Bounds) {
-        Separator(level + 1);
-        *Out << '[';
-        PrintExpr(from, true, level + 1);
+    if (node.Init) {
+        *Out << " =";
         Space();
-        PrintExpr(to, true, level + 1);
-        *Out << ']';
+        PrintExpr(node.Init, true, level + 1);
+    } else {
+        Space();
+        PrintType(node.Type, level);
+        for (const auto& [from, to] : node.Bounds) {
+            Separator(level + 1);
+            *Out << '[';
+            PrintExpr(from, true, level + 1);
+            Space();
+            PrintExpr(to, true, level + 1);
+            *Out << ']';
+        }
     }
     *Out << ')';
 }

@@ -630,6 +630,16 @@ TListHandlerMap MakeDefaultHandlers() {
         }},
         {"var", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto name = co_await ParseName(ctx);
+            auto peek = ctx.Stream.Next();
+            if (peek.Type == TToken::Identifier && peek.Name == "=") {
+                // (var name = expr) — type inferred from init expression
+                auto init = co_await ParseExpr(ctx);
+                co_await Expect(ctx, ')');
+                auto var = std::make_shared<TVarStmt>(loc, std::move(name), nullptr);
+                var->Init = std::move(init);
+                co_return var;
+            }
+            ctx.Stream.Unget(peek);
             auto type = co_await ParseType(ctx);
             auto bounds = co_await ParseBounds(ctx);
             co_await Expect(ctx, ')');

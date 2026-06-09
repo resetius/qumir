@@ -1301,6 +1301,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             };
             PendingDestructors.emplace_back(std::move(dtor));
         }
+        if (var->Init) {
+            auto assign = std::make_shared<NAst::TAssignExpr>(var->Location, var->Name, var->Init);
+            assign->Type = std::make_shared<NAst::TVoidType>();
+            auto assignRes = co_await Lower(assign, scope);
+            Builder.SetCurrentBlock(assignRes.ProducingLabel);
+        }
         if (auto maybeArrayType = NAst::TMaybeType<NAst::TArrayType>(var->Type)) {
             auto arrayType = FromAstType(var->Type, Module.Types);
             auto elemType = Module.Types.UnderlyingType(arrayType);
