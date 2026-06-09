@@ -567,7 +567,7 @@ TAstTask fun_decl(TParserContext& context) {
     }
 
     if (!TMaybeType<TVoidType>(returnType)) {
-        bodyStmts.push_back(std::make_shared<TVarStmt>(next.Location, "$$return", returnType));
+        bodyStmts.push_back(std::make_shared<TVarStmt>(next.Location, "знач", returnType));
     }
 
     auto body = co_await stmt_list(context, { EKeyword::End }, std::move(bodyStmts));
@@ -978,7 +978,7 @@ TAstTask factor(TParserContext& context) {
     } else if (token.Type == TToken::Identifier) {
         co_return ident(token.Location, token.Name);
     } else if (token.Type == TToken::Keyword && static_cast<EKeyword>(token.Value.i64) == EKeyword::Return) {
-        co_return ident(token.Location, "$$return");
+        co_return ident(token.Location, "знач");
     } else if (token.Type == TToken::Operator) {
         if ((EOperator)token.Value.i64 == EOperator::LParen) {
             auto ret = co_await expr(context);
@@ -1575,7 +1575,7 @@ TAstTask stmt(TParserContext& context) {
             co_return TError(next.Location, "ожидался ':=' после 'знач'");
         }
         auto value = co_await expr(context);
-        co_return std::make_shared<TAssignExpr>(first.Location, "$$return", value);
+        co_return std::make_shared<TAssignExpr>(first.Location, "знач", value);
     } else if (isKeyword(first, EKeyword::LoopStart)) {
         auto next = stream.Next();
         if (isKeyword(next, EKeyword::For)) {

@@ -173,22 +173,22 @@
   (fun norm2 ((var n i64)
       (var v <array f64 1> [0 (- n 1)])) -> f64
     (block
-      (var $$return f64)
+      (var знач f64)
       (var i i64)
       (var sum f64)
       (= sum 0)
       (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index v i) (index v i))))))
-      (= $$return (call sqrt sum))))
+      (= знач (call sqrt sum))))
   (fun dot ((var n i64)
       (var a <array f64 1> [0 (- n 1)])
       (var b <array f64 1> [0 (- n 1)])) -> f64
     (block
-      (var $$return f64)
+      (var знач f64)
       (var i i64)
       (var sum f64)
       (= sum 0)
       (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index a i) (index b i))))))
-      (= $$return sum)))
+      (= знач sum)))
   (fun compute_residual ((var n i64)
       (var x <array f64 1> [0 (- n 1)])
       (var b <array f64 1> [0 (- n 1)])

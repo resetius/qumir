@@ -1,7 +1,7 @@
 (block
   (fun тест_логика_строки_символы () -> i64
     (block
-      (var $$return i64)
+      (var знач i64)
       (var s1 string)
       (var s2 string)
       (var ch1 char)
@@ -26,4 +26,4 @@
       (cond (> ch2 ch1) (block (= счет (+ счет 1))))
       (cond (<= ch1 (cast 97 char)) (block (= счет (+ счет 1))))
       (cond (>= ch2 (cast 122 char)) (block (= счет (+ счет 1))))
-      (= $$return счет))))
+      (= знач счет))))

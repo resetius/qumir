@@ -8,5 +8,5 @@
         (call output_string "\n"))))
   (fun f () -> char
     (block
-      (var $$return char)
-      (= $$return (cast 1103 char)))))
+      (var знач char)
+      (= знач (cast 1103 char)))))

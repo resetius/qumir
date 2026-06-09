@@ -1,5 +1,5 @@
 (block
   (fun ф () -> i64
     (block
-      (var $$return i64)
-      (= $$return (call длин "строка")))))
+      (var знач i64)
+      (= знач (call длин "строка")))))

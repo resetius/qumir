@@ -1,7 +1,7 @@
 (block
   (fun ф () -> i64
     (block
-      (var $$return i64)
+      (var знач i64)
       (var a i64)
       (= a 10)
       (var b i64)
@@ -10,4 +10,4 @@
       (cond (> a b) (block (= M a)) (block (= M b)))
       (= M a)
       (cond (>= b a) (block (= M b)))
-      (= $$return M))))
+      (= знач M))))

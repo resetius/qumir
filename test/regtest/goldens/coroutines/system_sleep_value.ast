@@ -1,10 +1,10 @@
 (block
   (fun entry () -> <future i64>
     (block
-      (var $$return i64)
-      (= $$return (await (call delayed)))))
+      (var знач i64)
+      (= знач (await (call delayed)))))
   (fun delayed () -> <future i64>
     (block
-      (var $$return i64)
+      (var знач i64)
       (await (call ждать 0))
-      (= $$return 7))))
+      (= знач 7))))

@@ -1,9 +1,9 @@
 (block
   (fun функция () -> i64
     (block
-      (var $$return i64)
+      (var знач i64)
       (call ф 10)
-      (= $$return 1)))
+      (= знач 1)))
   (fun ф ((var i i64))
     (block
       (seq

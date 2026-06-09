@@ -1,9 +1,9 @@
 (block
   (fun функция () -> f64
     (block
-      (var $$return f64)
+      (var знач f64)
       (var i i64)
       (var j f64)
       (= j 0)
       (for i 0 70 6 (block (= j (+ j 1))))
-      (= $$return j))))
+      (= знач j))))

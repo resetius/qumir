@@ -1,7 +1,7 @@
 (block
   (fun функция () -> f64
     (block
-      (var $$return f64)
+      (var знач f64)
       (var i f64)
       (= i (- 2))
-      (= $$return i))))
+      (= знач i))))

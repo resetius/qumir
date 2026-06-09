@@ -1,8 +1,8 @@
 (block
   (fun ф () -> string
     (block
-      (var $$return string)
+      (var знач string)
       (var s string)
       (= s "ABCЙЦУКcbv")
       (call удалить s 5 4)
-      (= $$return s))))
+      (= знач s))))

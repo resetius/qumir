@@ -1,7 +1,7 @@
 (block
   (fun ф () -> string
     (block
-      (var $$return string)
+      (var знач string)
       (var с string)
       (= с "строка")
-      (= $$return (call str_from_unicode (call str_symbol_at (call str_concat с " еще одна") 10))))))
+      (= знач (call str_from_unicode (call str_symbol_at (call str_concat с " еще одна") 10))))))

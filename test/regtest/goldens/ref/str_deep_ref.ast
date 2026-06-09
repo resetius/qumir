@@ -1,10 +1,10 @@
 (block
   (fun f () -> string
     (block
-      (var $$return string)
+      (var знач string)
       (var s string)
       (call инит s)
-      (= $$return s)))
+      (= знач s)))
   (fun инит ((var s <ref <string (mutable)>>))
     (block
       (call deep s)))

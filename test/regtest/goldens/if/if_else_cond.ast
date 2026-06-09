@@ -1,10 +1,10 @@
 (block
   (fun ф () -> i64
     (block
-      (var $$return i64)
+      (var знач i64)
       (var i i64)
       (var j i64)
       (= i 1)
       (= j 2)
       (cond (!= i j) (block (= i 1)) (block (= i 2)))
-      (= $$return i))))
+      (= знач i))))

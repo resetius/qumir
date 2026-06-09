@@ -1,18 +1,18 @@
 (block
   (fun main () -> string
     (block
-      (var $$return string)
+      (var знач string)
       (var s string)
       (= s (call str_concat "11 " "10"))
       (= s (call ф 10))
-      (= $$return s)))
+      (= знач s)))
   (fun ф ((var k i64)) -> string
     (block
-      (var $$return string)
+      (var знач string)
       (var стр string)
       (var i i64)
       (var j i64)
       (= стр "ыыы")
-      (= $$return стр)
+      (= знач стр)
       (= j 0)
       (for i 0 10 1 (block (= j (+ j 1)))))))

@@ -1,11 +1,11 @@
 (block
   (fun f () -> string
     (block
-      (var $$return string)
+      (var знач string)
       (var s string)
       (= s "s12345")
       (call g s)
-      (= $$return s)))
+      (= знач s)))
   (fun g ((var s <ref string>))
     (block
       (var a char)

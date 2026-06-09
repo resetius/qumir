@@ -1,6 +1,6 @@
 (block
   (fun ф () -> i64
     (block
-      (var $$return i64)
-      (= $$return 0)
-      (times (+ 8 2) (block (= $$return (+ $$return 1)))))))
+      (var знач i64)
+      (= знач 0)
+      (times (+ 8 2) (block (= знач (+ знач 1)))))))

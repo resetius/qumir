@@ -1,8 +1,8 @@
 (block
   (fun функция () -> i64
     (block
-      (var $$return i64)
+      (var знач i64)
       (var ф i64)
       (= ф 0)
       (cond (< ф 10) (block (= ф (+ ф 1))) (cond (> ф 20) (block (= ф 102))))
-      (= $$return ф))))
+      (= знач ф))))
