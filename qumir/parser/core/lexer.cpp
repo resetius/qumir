@@ -51,12 +51,6 @@ AST node forms:
   (if cond then else)
       TIfExpr, NodeId = "IfExpr".
 
-  (let
-      ((name1 value1) (name2 value2) ... (nameN valueN))
-      body)
-      TLetExpr, NodeId = "LetExpr". Bindings are visible in body only;
-      bindings are not visible to each other.
-
   (while cond body)
       TWhileStmtExpr, NodeId = "WhileStmt".
 
