@@ -1125,9 +1125,6 @@ TExprPtr ShallowCloneNode(const TExprPtr& node) {
     if (auto n = TMaybeNode<TIfExpr>(node)) {
         return std::make_shared<TIfExpr>(*n.Cast());
     }
-    if (auto n = TMaybeNode<TLetExpr>(node)) {
-        return std::make_shared<TLetExpr>(*n.Cast());
-    }
     if (auto n = TMaybeNode<TWhileStmtExpr>(node)) {
         return std::make_shared<TWhileStmtExpr>(*n.Cast());
     }
@@ -1220,13 +1217,6 @@ TExprPtr CloneAndSubstituteExpr(const TExprPtr& node, const std::map<std::string
         block.Cast()->Scope = -1;
     } else if (auto fdecl = TMaybeNode<TFunDecl>(clone)) {
         fdecl.Cast()->Scope = -1;
-    } else if (auto let = TMaybeNode<TLetExpr>(clone)) {
-        auto l = let.Cast();
-        l->Scope = -1;
-        for (auto& binding : l->Bindings) {
-            binding.Symbol = nullptr;
-            binding.Type = SubstituteTemplateType(binding.Type, bindings);
-        }
     }
     for (auto* child : clone->MutableChildren()) {
         *child = CloneAndSubstituteExpr(*child, bindings);
@@ -1587,47 +1577,6 @@ TTask AnnotateIfExpr(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver&
     co_return ifExpr;
 }
 
-TTask AnnotateLetExpr(std::shared_ptr<TLetExpr> letExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
-    if (letExpr->Scope < 0) {
-        co_return TError(letExpr->Location, "LetExpr has no resolved scope.");
-    }
-
-    auto letScope = NSemantics::TScopeId{letExpr->Scope};
-    for (auto& binding : letExpr->Bindings) {
-        if (!binding.Value) {
-            co_return TError(letExpr->Location, "LetExpr binding '" + binding.Name + "' has no value.");
-        }
-        binding.Value = co_await DoAnnotate(binding.Value, context, letScope);
-        if (!binding.Value->Type) {
-            co_return TError(binding.Value->Location, "LetExpr binding '" + binding.Name + "' has no type.");
-        }
-
-        auto bindingType = UnwrapReferenceType(binding.Value->Type);
-        if (TMaybeType<TVoidType>(bindingType)) {
-            co_return TError(binding.Value->Location, "LetExpr binding '" + binding.Name + "' cannot have void type.");
-        }
-
-        binding.Type = binding.Value->Type;
-        if (auto maybeVar = TMaybeNode<TVarStmt>(binding.Symbol)) {
-            auto var = maybeVar.Cast();
-            var->Type = binding.Type;
-        } else {
-            co_return TError(letExpr->Location, "LetExpr binding '" + binding.Name + "' has no variable symbol.");
-        }
-    }
-
-    if (!letExpr->Body) {
-        co_return TError(letExpr->Location, "LetExpr has no body.");
-    }
-    letExpr->Body = co_await DoAnnotate(letExpr->Body, context, letScope);
-    if (!letExpr->Body->Type) {
-        co_return TError(letExpr->Body->Location, "LetExpr body has no type.");
-    }
-    letExpr->Type = letExpr->Body->Type;
-
-    co_return letExpr;
-}
-
 TTask AnnotateWhile(std::shared_ptr<TWhileStmtExpr> loop, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     loop->Cond = co_await DoAnnotate(loop->Cond, context, scopeId);
     loop->Cond = InsertImplicitCastIfNeeded(loop->Cond, std::make_shared<TBoolType>(), &context);
@@ -1896,8 +1845,6 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         co_return co_await AnnotateAwait(maybeAwait.Cast(), context, scopeId);
     } else if (auto maybeIf = TMaybeNode<TIfExpr>(expr)) {
         co_return co_await AnnotateIfExpr(maybeIf.Cast(), context, scopeId);
-    } else if (auto maybeLet = TMaybeNode<TLetExpr>(expr)) {
-        co_return co_await AnnotateLetExpr(maybeLet.Cast(), context, scopeId);
     } else if (auto maybeIndex = TMaybeNode<TIndexExpr>(expr)) {
         co_return co_await AnnotateIndex(maybeIndex.Cast(), context, scopeId);
     } else if (auto maybeSlice = TMaybeNode<TSliceExpr>(expr)) {

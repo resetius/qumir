@@ -474,26 +474,6 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
             return true; // transform all nodes
         });
 
-    if (changed) {
-        int lastScope = -1;
-        // update scopes in block nodes
-        PreorderTransformAst(expr, expr,
-            [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
-                if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(node)) {
-                    auto block = maybeBlock.Cast();
-                    if (block->Scope == -1) {
-                        block->Scope = lastScope;
-                    } else {
-                        lastScope = block->Scope;
-                    }
-                }
-                return node;
-            },
-            [](const NAst::TExprPtr& node) {
-                return !NAst::TMaybeNode<NAst::TBinaryExpr>(node);
-            });
-    }
-
     if (!errors.empty()) {
         return std::unexpected(TError(expr->Location, errors));
     }
@@ -564,9 +544,6 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
             } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(node)) {
                 auto block = maybeBlock.Cast();
                 scopeId = block->Scope;
-            } else if (auto maybeLet = NAst::TMaybeNode<NAst::TLetExpr>(node)) {
-                auto letExpr = maybeLet.Cast();
-                scopeId = letExpr->Scope;
             }
             return node;
         },
@@ -663,11 +640,6 @@ struct TCoroutineAnalysis {
             if (block->Scope >= 0) {
                 scopeId = NSemantics::TScopeId{block->Scope};
             }
-        } else if (auto maybeLet = NAst::TMaybeNode<NAst::TLetExpr>(expr)) {
-            auto let = maybeLet.Cast();
-            if (let->Scope >= 0) {
-                scopeId = NSemantics::TScopeId{let->Scope};
-            }
         } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(expr)) {
             auto call = maybeCall.Cast();
             if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(call->Callee)) {
@@ -753,11 +725,6 @@ struct TCoroutineAnalysis {
             auto block = maybeBlock.Cast();
             if (block->Scope >= 0) {
                 scopeId = NSemantics::TScopeId{block->Scope};
-            }
-        } else if (auto maybeLet = NAst::TMaybeNode<NAst::TLetExpr>(expr)) {
-            auto let = maybeLet.Cast();
-            if (let->Scope >= 0) {
-                scopeId = NSemantics::TScopeId{let->Scope};
             }
         } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(expr)) {
             auto call = maybeCall.Cast();

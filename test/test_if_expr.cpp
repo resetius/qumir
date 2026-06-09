@@ -149,12 +149,9 @@ TExprPtr ifExpr(TExprPtr cond, TExprPtr thenExpr, TExprPtr elseExpr) {
 }
 
 TExprPtr letExpr(std::string name, TExprPtr value, TExprPtr body) {
-    std::vector<TLetExpr::TBinding> bindings;
-    bindings.push_back(TLetExpr::TBinding{
-        .Name = std::move(name),
-        .Value = std::move(value),
-    });
-    return std::make_shared<TLetExpr>(TLocation{}, std::move(bindings), std::move(body));
+    auto var = std::make_shared<TVarStmt>(TLocation{}, std::move(name), nullptr);
+    var->Init = std::move(value);
+    return std::make_shared<TBlockExpr>(TLocation{}, std::vector<TExprPtr>{std::move(var), std::move(body)});
 }
 
 TExprPtr assign(const std::string& name, TExprPtr value) {

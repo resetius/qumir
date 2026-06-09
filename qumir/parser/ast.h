@@ -394,60 +394,6 @@ struct TIfExpr : TExpr {
     void Accept(IVisitor& visitor) override;
 };
 
-struct TLetExpr : TExpr {
-    // Expression form of hidden local bindings: works like Var/Assign prelude,
-    // but can be used inside another expression and returns Body's value.
-    // Current limitation: bindings are not a sequential let* contract; binding
-    // values should not depend on sibling bindings. Put dependent temporaries in
-    // nested TLetExpr bodies instead.
-    // TODO: either enforce this restriction in name resolution with a clear
-    // diagnostic, or define and implement sequential binding semantics.
-    struct TBinding {
-        std::string Name;
-        TExprPtr Value;
-        TTypePtr Type;
-        TExprPtr Symbol;
-    };
-
-    static constexpr const char* NodeId = "LetExpr";
-
-    std::vector<TBinding> Bindings;
-    TExprPtr Body;
-    int32_t Scope = -1;
-
-    TLetExpr(TLocation loc, std::vector<TBinding> bindings, TExprPtr body)
-        : TExpr(std::move(loc))
-        , Bindings(std::move(bindings))
-        , Body(std::move(body))
-    { }
-
-    std::vector<TExprPtr> Children() const override {
-        std::vector<TExprPtr> result;
-        result.reserve(Bindings.size() + 1);
-        for (const auto& binding : Bindings) {
-            result.push_back(binding.Value);
-        }
-        result.push_back(Body);
-        return result;
-    }
-
-    std::vector<TExprPtr*> MutableChildren() override {
-        std::vector<TExprPtr*> result;
-        result.reserve(Bindings.size() + 1);
-        for (auto& binding : Bindings) {
-            result.push_back(&binding.Value);
-        }
-        result.push_back(&Body);
-        return result;
-    }
-
-    const std::string_view NodeName() const override {
-        return NodeId;
-    }
-
-    void Accept(IVisitor& visitor) override;
-};
-
 struct TWhileStmtExpr : TExpr {
     static constexpr const char* NodeId = "WhileStmt";
 
@@ -1173,7 +1119,6 @@ struct IVisitor {
     virtual void Visit(TBlockExpr& node) = 0;
     virtual void Visit(TSeqExpr& node) = 0;
     virtual void Visit(TIfExpr& node) = 0;
-    virtual void Visit(TLetExpr& node) = 0;
     virtual void Visit(TWhileStmtExpr& node) = 0;
     virtual void Visit(TRepeatStmtExpr& node) = 0;
     virtual void Visit(TForStmtExpr& node) = 0;

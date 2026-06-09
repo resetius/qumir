@@ -59,57 +59,48 @@ SystemModule::SystemModule() {
         return std::make_shared<NAst::TIdentExpr>(TLocation{}, name);
     };
 
+    auto letBlock = [](std::vector<std::pair<std::string, NAst::TExprPtr>> vars, NAst::TExprPtr body) -> NAst::TExprPtr {
+        auto bodyType = body->Type;
+        std::vector<NAst::TExprPtr> stmts;
+        for (auto& [name, value] : vars) {
+            auto var = std::make_shared<NAst::TVarStmt>(TLocation{}, std::move(name), nullptr);
+            var->Init = std::move(value);
+            stmts.push_back(std::move(var));
+        }
+        stmts.push_back(std::move(body));
+        auto block = std::make_shared<NAst::TBlockExpr>(TLocation{}, std::move(stmts));
+        block->Type = bodyType;
+        return block;
+    };
+
     auto inlineMin = [&](NAst::TTypePtr type) {
-        return [type, boolType, &ident](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
-            std::vector<NAst::TLetExpr::TBinding> bindings;
-            bindings.push_back(NAst::TLetExpr::TBinding{
-                .Name = "$$left",
-                .Value = args[0],
-            });
-            bindings.push_back(NAst::TLetExpr::TBinding{
-                .Name = "$$right",
-                .Value = args[1],
-            });
+        return [type, boolType, &ident, &letBlock](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
             auto body = ifExpr(
                 binary("<", ident("$$left"), ident("$$right"), boolType),
                 ident("$$left"),
                 ident("$$right"),
                 type);
-            return std::make_shared<NAst::TLetExpr>(TLocation{}, std::move(bindings), std::move(body));
+            return letBlock({{"$$left", args[0]}, {"$$right", args[1]}}, std::move(body));
         };
     };
     auto inlineMax = [&](NAst::TTypePtr type) {
-        return [type, boolType, &ident](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
-            std::vector<NAst::TLetExpr::TBinding> bindings;
-            bindings.push_back(NAst::TLetExpr::TBinding{
-                .Name = "$$left",
-                .Value = args[0],
-            });
-            bindings.push_back(NAst::TLetExpr::TBinding{
-                .Name = "$$right",
-                .Value = args[1],
-            });
+        return [type, boolType, &ident, &letBlock](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
             auto body = ifExpr(
                 binary(">", ident("$$left"), ident("$$right"), boolType),
                 ident("$$left"),
                 ident("$$right"),
                 type);
-            return std::make_shared<NAst::TLetExpr>(TLocation{}, std::move(bindings), std::move(body));
+            return letBlock({{"$$left", args[0]}, {"$$right", args[1]}}, std::move(body));
         };
     };
     auto inlineAbs = [&](NAst::TTypePtr type) {
-        return [type, boolType, &ident](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
-            std::vector<NAst::TLetExpr::TBinding> bindings;
-            bindings.push_back(NAst::TLetExpr::TBinding{
-                .Name = "$$value",
-                .Value = args[0],
-            });
+        return [type, boolType, &ident, &letBlock](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
             auto body = ifExpr(
                 binary("<", ident("$$value"), number(type, 0), boolType),
                 unary("-", ident("$$value"), type),
                 ident("$$value"),
                 type);
-            return std::make_shared<NAst::TLetExpr>(TLocation{}, std::move(bindings), std::move(body));
+            return letBlock({{"$$value", args[0]}}, std::move(body));
         };
     };
 
@@ -119,12 +110,7 @@ SystemModule::SystemModule() {
             .MangledName = "sign",
             .ArgTypes = { floatType },
             .ReturnType = integerType,
-            .Inline = [integerType, floatType, boolType, &ident](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
-                std::vector<NAst::TLetExpr::TBinding> bindings;
-                bindings.push_back(NAst::TLetExpr::TBinding{
-                    .Name = "$$value",
-                    .Value = args[0],
-                });
+            .Inline = [integerType, floatType, boolType, &ident, &letBlock](std::vector<NAst::TExprPtr> args) -> NAst::TExprPtr {
                 auto zero = number(floatType, 0);
                 auto body = ifExpr(
                     binary(">", ident("$$value"), zero, boolType),
@@ -135,7 +121,7 @@ SystemModule::SystemModule() {
                         number(integerType, 0),
                         integerType),
                     integerType);
-                return std::make_shared<NAst::TLetExpr>(TLocation{}, std::move(bindings), std::move(body));
+                return letBlock({{"$$value", args[0]}}, std::move(body));
             },
         },
         {

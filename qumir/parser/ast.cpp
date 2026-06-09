@@ -13,7 +13,6 @@ void TBinaryExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TBlockExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TSeqExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TIfExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
-void TLetExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TWhileStmtExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TRepeatStmtExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TForStmtExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }

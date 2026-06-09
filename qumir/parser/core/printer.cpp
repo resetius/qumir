@@ -255,24 +255,6 @@ void TPrinter::PrintIndexVector(const std::vector<TExprPtr>& indices, int level)
     *Out << ']';
 }
 
-void TPrinter::PrintLet(TLetExpr& node, int level) {
-    *Out << "(let (";
-    for (size_t i = 0; i < node.Bindings.size(); ++i) {
-        if (i != 0) {
-            Separator(level + 2);
-        }
-        *Out << '(';
-        PrintIdentifier(node.Bindings[i].Name);
-        Space();
-        PrintExpr(node.Bindings[i].Value, true, level + 2);
-        *Out << ')';
-    }
-    *Out << ')';
-    Separator(level + 1);
-    PrintExpr(node.Body, true, level + 1);
-    *Out << ')';
-}
-
 void TPrinter::PrintWhile(TWhileStmtExpr& node, int level) {
     *Out << "(while";
     Separator(level + 1);
@@ -514,10 +496,6 @@ void CollectTypesFromExpr(const TExprPtr& expr, TNamedTypeMap& out) {
         for (const auto& p : fd.Cast()->Params) {
             CollectFromType(p->Type, out);
         }
-    } else if (auto le = TMaybeNode<TLetExpr>(expr)) {
-        for (const auto& b : le.Cast()->Bindings) {
-            CollectFromType(b.Type, out);
-        }
     }
     for (const auto& child : expr->Children()) {
         CollectTypesFromExpr(child, out);
@@ -628,9 +606,6 @@ struct TPrintExpr : public IVisitor {
         Printer.PrintIfLike("if", node.Cond, node.Then, node.Else, Frame.Level);
     }
 
-    void Visit(TLetExpr& node) override {
-        Printer.PrintLet(node, Frame.Level);
-    }
 
     void Visit(TWhileStmtExpr& node) override {
         Printer.PrintWhile(node, Frame.Level);

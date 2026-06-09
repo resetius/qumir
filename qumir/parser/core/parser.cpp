@@ -22,7 +22,6 @@ using TExprListTask = TExpectedTask<std::vector<TExprPtr>, TError, TLocation>;
 using TTypeListTask = TExpectedTask<std::vector<TTypePtr>, TError, TLocation>;
 using TOutputArgTask = TExpectedTask<TOutputArg, TError, TLocation>;
 using TOutputArgListTask = TExpectedTask<std::vector<TOutputArg>, TError, TLocation>;
-using TBindingListTask = TExpectedTask<std::vector<TLetExpr::TBinding>, TError, TLocation>;
 using TParamListTask = TExpectedTask<std::vector<TParam>, TError, TLocation>;
 using TBoundsTask = TExpectedTask<std::vector<std::pair<TExprPtr, TExprPtr>>, TError, TLocation>;
 
@@ -179,27 +178,6 @@ TBoundsTask ParseBounds(TParserContext& context) {
 TExprListTask ParseIndexVector(TParserContext& context) {
     co_await Expect(context, '[');
     co_return co_await ParseExprsUntil(context, ']');
-}
-
-TBindingListTask ParseBindings(TParserContext& context) {
-    co_await Expect(context, '(');
-    std::vector<TLetExpr::TBinding> result;
-    while (true) {
-        auto token = context.Stream.Next();
-        if (IsOp(token, ')')) {
-            co_return result;
-        }
-        if (!IsOp(token, '(')) {
-            co_return Error(token, "expected binding");
-        }
-        auto name = co_await ParseName(context);
-        auto value = co_await ParseExpr(context);
-        co_await Expect(context, ')');
-        result.push_back(TLetExpr::TBinding{
-            .Name = std::move(name),
-            .Value = std::move(value),
-        });
-    }
 }
 
 TParamListTask ParseParams(TParserContext& context) {
@@ -594,12 +572,6 @@ TListHandlerMap MakeDefaultHandlers() {
                 co_await Expect(ctx, ')');
             }
             co_return std::make_shared<TIfExpr>(loc, std::move(cond), std::move(thenBranch), std::move(elseBranch));
-        }},
-        {"let", [](TParserContext& ctx, TLocation loc) -> TAstTask {
-            auto bindings = co_await ParseBindings(ctx);
-            auto body = co_await ParseExpr(ctx);
-            co_await Expect(ctx, ')');
-            co_return std::make_shared<TLetExpr>(loc, std::move(bindings), std::move(body));
         }},
         {"while", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto cond = co_await ParseExpr(ctx);
