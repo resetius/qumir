@@ -11,7 +11,7 @@
       (= A [4] 7)
       (= A [5] 2)
       (call qSort 1 5)
-      (for i 1 N 1 (block (seq (call output_int64 (index i A) 0) (call output_symbol (cast 32 char)))))))
+      (for i 1 N 1 (block (seq (call output_int64 (index A i) 0) (call output_symbol (cast 32 char)))))))
   (fun qSort void ((var nStart i64)
       (var nEnd i64)) ()
     (block
@@ -22,12 +22,12 @@
       (cond (>= nStart nEnd) (block break))
       (= L nStart)
       (= R nEnd)
-      (= X (index (call div (+ L R) 2) A))
+      (= X (index A (call div (+ L R) 2)))
       (while
         (<= L R)
         (block
-          (while (< (index L A) X) (block (= L (+ L 1))))
-          (while (> (index R A) X) (block (= R (- R 1))))
-          (cond (<= L R) (block (= c (index L A)) (= A [L] (index R A)) (= A [R] c) (= L (+ L 1)) (= R (- R 1))))))
+          (while (< (index A L) X) (block (= L (+ L 1))))
+          (while (> (index A R) X) (block (= R (- R 1))))
+          (cond (<= L R) (block (= c (index A L)) (= A [L] (index A R)) (= A [R] c) (= L (+ L 1)) (= R (- R 1))))))
       (call qSort nStart R)
       (call qSort L nEnd))))

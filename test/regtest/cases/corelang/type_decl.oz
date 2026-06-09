@@ -12,4 +12,4 @@
   (fun get_val i64 ((var n <named имя>)) ()
     (block
       (var $$return i64)
-      (= $$return (field val n)))))
+      (= $$return (field n val)))))

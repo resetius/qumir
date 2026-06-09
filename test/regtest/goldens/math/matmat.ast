@@ -38,7 +38,7 @@
             1
             (block
               (= sum 0)
-              (for k 0 (- n 1) 1 (block (= sum (+ sum (* (index [i k] A) (index [k j] B))))))
+              (for k 0 (- n 1) 1 (block (= sum (+ sum (* (index A [i k]) (index B [k j]))))))
               (= C [i j] sum)))))
       (= res_l2_sq 0)
       (= res_inf 0)
@@ -55,9 +55,9 @@
               (cond
                 (< i j)
                 (block
-                  (= err (- (index [i j] C) (+ (cast i f64) 1))))
+                  (= err (- (index C [i j]) (+ (cast i f64) 1))))
                 (block
-                  (= err (- (index [i j] C) (+ (cast j f64) 1)))))
+                  (= err (- (index C [i j]) (+ (cast j f64) 1)))))
               (= absv err)
               (cond (< absv 0) (block (= absv (- absv))))
               (= res_l2_sq (+ res_l2_sq (* err err)))

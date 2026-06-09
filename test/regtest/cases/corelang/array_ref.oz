@@ -10,16 +10,16 @@
       (= b [0 1] (: 200 i64))
       (= b [1 0] (: 300 i64))
       (= b [1 1] (: 400 i64))
-      (call bump (index (: 1 i64) a))
-      (call bump2 (index [(: 1 i64) (: 0 i64)] b))
+      (call bump (index a (: 1 i64)))
+      (call bump2 (index b [(: 1 i64) (: 0 i64)]))
       (output
-        (index (: 0 i64) a)
+        (index a (: 0 i64))
         " "
-        (index (: 1 i64) a)
+        (index a (: 1 i64))
         " "
-        (index (: 2 i64) a)
+        (index a (: 2 i64))
         " "
-        (index [(: 1 i64) (: 0 i64)] b)
+        (index b [(: 1 i64) (: 0 i64)])
         "\n")))
   (fun bump void ((var x <ref i64>)) ()
     (block

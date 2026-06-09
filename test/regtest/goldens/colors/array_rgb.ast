@@ -30,7 +30,7 @@
         (block
           (block
             (var $$color_decompose_rgb_0 i64)
-            (= $$color_decompose_rgb_0 (cast (: (index i палитра) <named цвет>) i64))
+            (= $$color_decompose_rgb_0 (cast (: (index палитра i) <named цвет>) i64))
             (= r (& (>> $$color_decompose_rgb_0 16) 255))
             (= g (& (>> $$color_decompose_rgb_0 8) 255))
             (= b (& $$color_decompose_rgb_0 255)))

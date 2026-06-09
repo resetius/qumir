@@ -386,9 +386,9 @@ void TPrinter::PrintOutput(TOutputExpr& node, int level) {
 
 void TPrinter::PrintMultiIndex(TMultiIndexExpr& node, int level) {
     *Out << "(index ";
-    PrintIndexVector(node.Indices, level + 1);
-    Separator(level + 1);
     PrintExpr(node.Collection, true, level + 1);
+    Separator(level + 1);
+    PrintIndexVector(node.Indices, level + 1);
     *Out << ')';
 }
 
@@ -688,9 +688,9 @@ struct TPrintExpr : public IVisitor {
     void Visit(TIndexExpr& node) override {
         *Out << "(index";
         Printer.Separator(Frame.Level + 1);
-        Printer.PrintExpr(node.Index, true, Frame.Level + 1);
-        Printer.Separator(Frame.Level + 1);
         Printer.PrintExpr(node.Collection, true, Frame.Level + 1);
+        Printer.Separator(Frame.Level + 1);
+        Printer.PrintExpr(node.Index, true, Frame.Level + 1);
         *Out << ')';
     }
 
@@ -716,10 +716,11 @@ struct TPrintExpr : public IVisitor {
     }
 
     void Visit(TFieldAccessExpr& node) override {
-        *Out << "(field ";
-        Printer.PrintIdentifier(node.FieldName);
+        *Out << "(field";
         Printer.Separator(Frame.Level + 1);
         Printer.PrintExpr(node.Object, true, Frame.Level + 1);
+        Printer.Separator(Frame.Level + 1);
+        Printer.PrintIdentifier(node.FieldName);
         *Out << ')';
     }
 

@@ -27,7 +27,7 @@
         1
         (block
           (= sum 0)
-          (for j 0 (- n 1) 1 (block (= sum (+ sum (* (index [i j] A) (index j x))))))
+          (for j 0 (- n 1) 1 (block (= sum (+ sum (* (index A [i j]) (index x j))))))
           (= y [i] sum)))
       (= res_l2_sq 0)
       (= res_inf 0)
@@ -36,7 +36,7 @@
         (- n 1)
         1
         (block
-          (= err (- (index i y) (+ (cast i f64) 1)))
+          (= err (- (index y i) (+ (cast i f64) 1)))
           (= absv err)
           (cond (< absv 0) (block (= absv (- absv))))
           (= res_l2_sq (+ res_l2_sq (* err err)))

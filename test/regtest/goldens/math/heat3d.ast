@@ -80,19 +80,19 @@
                         [i
                           j
                           k]
-                        (+ (index [i j k] u)
+                        (+ (index u [i j k])
                           (* alpha
-                            (- (+ (+ (+ (+ (+ (index [(+ i 1) j k] u) (index [(- i 1) j k] u)) (index [i (+ j 1) k] u))
-                                    (index [i (- j 1) k] u))
-                                  (index [i j (+ k 1)] u))
-                                (index [i j (- k 1)] u))
-                              (* 6 (index [i j k] u))))))))))))
+                            (- (+ (+ (+ (+ (+ (index u [(+ i 1) j k]) (index u [(- i 1) j k])) (index u [i (+ j 1) k]))
+                                    (index u [i (- j 1) k]))
+                                  (index u [i j (+ k 1)]))
+                                (index u [i j (- k 1)]))
+                              (* 6 (index u [i j k]))))))))))))
           (for i
             1
             (- Nx 2)
             1
             (block
-              (for j 1 (- Ny 2) 1 (block (for k 1 (- Nz 2) 1 (block (= u [i j k] (index [i j k] un))))))))))
+              (for j 1 (- Ny 2) 1 (block (for k 1 (- Nz 2) 1 (block (= u [i j k] (index un [i j k]))))))))))
       (var decay f64)
       (= decay (call exp (* (* (* (- 3) pi) pi) t)))
       (= err 0)
@@ -115,7 +115,7 @@
                 (block
                   (= z (* (cast k f64) h))
                   (= uex (* (* (* decay (call sin (* pi x))) (call sin (* pi y))) (call sin (* pi z))))
-                  (= diff (let (($$value (- (index [i j k] u) uex))) (if (< $$value 0) (- $$value) $$value)))
+                  (= diff (let (($$value (- (index u [i j k]) uex))) (if (< $$value 0) (- $$value) $$value)))
                   (= err (let (($$left err) ($$right diff)) (if (> $$left $$right) $$left $$right)))))))))
       (seq
         (call output_string "Heat3D (explicit): N=")

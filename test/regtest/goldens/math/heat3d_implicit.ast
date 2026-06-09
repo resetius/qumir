@@ -73,7 +73,7 @@
             (- Nx 1)
             1
             (block
-              (for j 0 (- Ny 1) 1 (block (for k 0 (- Nz 1) 1 (block (= u [(+ n 1) i j k] (index [n i j k] u))))))))
+              (for j 0 (- Ny 1) 1 (block (for k 0 (- Nz 1) 1 (block (= u [(+ n 1) i j k] (index u [n i j k]))))))))
           (for it
             0
             (- maxIt 1)
@@ -95,16 +95,16 @@
                         (- Nz 2)
                         1
                         (block
-                          (= oldv (index [(+ n 1) i j k] u))
-                          (= rhs (index [n i j k] u))
+                          (= oldv (index u [(+ n 1) i j k]))
+                          (= rhs (index u [n i j k]))
                           (= newv
                             (/ (+ rhs
                                 (* lam
-                                  (+ (+ (+ (+ (+ (index [(+ n 1) (+ i 1) j k] u) (index [(+ n 1) (- i 1) j k] u))
-                                          (index [(+ n 1) i (+ j 1) k] u))
-                                        (index [(+ n 1) i (- j 1) k] u))
-                                      (index [(+ n 1) i j (+ k 1)] u))
-                                    (index [(+ n 1) i j (- k 1)] u))))
+                                  (+ (+ (+ (+ (+ (index u [(+ n 1) (+ i 1) j k]) (index u [(+ n 1) (- i 1) j k]))
+                                          (index u [(+ n 1) i (+ j 1) k]))
+                                        (index u [(+ n 1) i (- j 1) k]))
+                                      (index u [(+ n 1) i j (+ k 1)]))
+                                    (index u [(+ n 1) i j (- k 1)]))))
                               denom))
                           (= u [(+ n 1) i j k] newv)
                           (= diff (let (($$value (- newv oldv))) (if (< $$value 0) (- $$value) $$value)))
@@ -132,7 +132,7 @@
                 (block
                   (= z (* (cast k f64) h))
                   (= uex (* (* (* decay (call sin (* pi x))) (call sin (* pi y))) (call sin (* pi z))))
-                  (= diff (let (($$value (- (index [nt i j k] u) uex))) (if (< $$value 0) (- $$value) $$value)))
+                  (= diff (let (($$value (- (index u [nt i j k]) uex))) (if (< $$value 0) (- $$value) $$value)))
                   (= err (let (($$left err) ($$right diff)) (if (> $$left $$right) $$left $$right)))))))))
       (seq
         (call output_string "Heat3D implicit (4D): N=")

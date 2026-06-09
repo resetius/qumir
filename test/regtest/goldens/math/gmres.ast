@@ -43,7 +43,7 @@
           (= beta (call norm2 n r))
           (= rnorm beta)
           (cond (<= rnorm tol) (block break))
-          (for i 0 (- n 1) 1 (block (= V [0 i] (/ (index i r) beta))))
+          (for i 0 (- n 1) 1 (block (= V [0 i] (/ (index r i) beta))))
           (= g [0] beta)
           (for j 1 m 1 (block (= g [j] 0)))
           (= jArn (- m 1))
@@ -54,23 +54,23 @@
             (block
               (= jArn j)
               (for i 0 (- n 1) 1 (block (= w [i] 0)))
-              (for k 0 (- n 1) 1 (block (= tmpv [k] (index [j k] V))))
+              (for k 0 (- n 1) 1 (block (= tmpv [k] (index V [j k]))))
               (call matvec n tmpv w)
               (for i
                 0
                 j
                 1
                 (block
-                  (for k 0 (- n 1) 1 (block (= tmpv [k] (index [i k] V))))
+                  (for k 0 (- n 1) 1 (block (= tmpv [k] (index V [i k]))))
                   (= hi (call dot n w tmpv))
                   (= H [i j] hi)
-                  (for k 0 (- n 1) 1 (block (= w [k] (- (index k w) (* hi (index [i k] V))))))))
+                  (for k 0 (- n 1) 1 (block (= w [k] (- (index w k) (* hi (index V [i k]))))))))
               (= hip1 (call norm2 n w))
               (= H [(+ j 1) j] hip1)
               (cond
                 (!= hip1 0)
                 (block
-                  (for k 0 (- n 1) 1 (block (= V [(+ j 1) k] (/ (index k w) hip1)))))
+                  (for k 0 (- n 1) 1 (block (= V [(+ j 1) k] (/ (index w k) hip1)))))
                 (block
                   (for k 0 (- n 1) 1 (block (= V [(+ j 1) k] 0)))))
               (for i
@@ -78,25 +78,25 @@
                 (- j 1)
                 1
                 (block
-                  (= tmp (+ (* (index i cs) (index [i j] H)) (* (index i sn) (index [(+ i 1) j] H))))
-                  (= H [(+ i 1) j] (+ (* (- (index i sn)) (index [i j] H)) (* (index i cs) (index [(+ i 1) j] H))))
+                  (= tmp (+ (* (index cs i) (index H [i j])) (* (index sn i) (index H [(+ i 1) j]))))
+                  (= H [(+ i 1) j] (+ (* (- (index sn i)) (index H [i j])) (* (index cs i) (index H [(+ i 1) j]))))
                   (= H [i j] tmp)))
               (= denom
-                (call sqrt (+ (* (index [j j] H) (index [j j] H)) (* (index [(+ j 1) j] H) (index [(+ j 1) j] H)))))
+                (call sqrt (+ (* (index H [j j]) (index H [j j])) (* (index H [(+ j 1) j]) (index H [(+ j 1) j])))))
               (cond
                 (!= denom 0)
                 (block
-                  (= cs [j] (/ (index [j j] H) denom))
-                  (= sn [j] (/ (index [(+ j 1) j] H) denom)))
+                  (= cs [j] (/ (index H [j j]) denom))
+                  (= sn [j] (/ (index H [(+ j 1) j]) denom)))
                 (block
                   (= cs [j] 1)
                   (= sn [j] 0)))
-              (= H [j j] (+ (* (index j cs) (index [j j] H)) (* (index j sn) (index [(+ j 1) j] H))))
+              (= H [j j] (+ (* (index cs j) (index H [j j])) (* (index sn j) (index H [(+ j 1) j]))))
               (= H [(+ j 1) j] 0)
-              (= tmp (* (index j cs) (index j g)))
-              (= g [(+ j 1)] (* (- (index j sn)) (index j g)))
+              (= tmp (* (index cs j) (index g j)))
+              (= g [(+ j 1)] (* (- (index sn j)) (index g j)))
               (= g [j] tmp)
-              (= rnorm (index (+ j 1) g))
+              (= rnorm (index g (+ j 1)))
               (cond (< rnorm 0) (block (= rnorm (- rnorm))))
               (cond (<= rnorm tol) (block (= jArn j) break))))
           (for i 0 jArn 1 (block (= y [i] 0)))
@@ -105,17 +105,17 @@
             0
             (- 1)
             (block
-              (= sum (index i g))
-              (for k (+ i 1) jArn 1 (block (= sum (- sum (* (index [i k] H) (index k y))))))
-              (cond (!= (index [i i] H) 0) (block (= y [i] (/ sum (index [i i] H)))) (block (= y [i] 0)))))
+              (= sum (index g i))
+              (for k (+ i 1) jArn 1 (block (= sum (- sum (* (index H [i k]) (index y k))))))
+              (cond (!= (index H [i i]) 0) (block (= y [i] (/ sum (index H [i i])))) (block (= y [i] 0)))))
           (for k
             0
             (- n 1)
             1
             (block
               (= sum 0)
-              (for i 0 jArn 1 (block (= sum (+ sum (* (index [i k] V) (index i y))))))
-              (= x [k] (+ (index k x) sum))))
+              (for i 0 jArn 1 (block (= sum (+ sum (* (index V [i k]) (index y i))))))
+              (= x [k] (+ (index x k) sum))))
           (call compute_residual n x b r w)
           (= rnorm (call norm2 n r))
           (cond (<= rnorm tol) (block break))
@@ -132,9 +132,9 @@
         (- n 1)
         1
         (block
-          (= vabs (index i r))
+          (= vabs (index r i))
           (cond (< vabs 0) (block (= vabs (- vabs))))
-          (= res_l2_sq (+ res_l2_sq (* (index i r) (index i r))))
+          (= res_l2_sq (+ res_l2_sq (* (index r i) (index r i))))
           (cond (> vabs res_inf) (block (= res_inf vabs)))))
       (= res_l2 (call sqrt res_l2_sq))
       (seq
@@ -168,7 +168,7 @@
         1
         (block
           (= sum 0)
-          (for j 0 (- n 1) 1 (block (= sum (+ sum (* (/ 1 (+ (cast (+ i j) f64) 1)) (index j v))))))
+          (for j 0 (- n 1) 1 (block (= sum (+ sum (* (/ 1 (+ (cast (+ i j) f64) 1)) (index v j))))))
           (= w [i] sum)))))
   (fun norm2 f64 ((var n i64)
       (var v <array f64 1> [0 (- n 1)])) ()
@@ -177,7 +177,7 @@
       (var i i64)
       (var sum f64)
       (= sum 0)
-      (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index i v) (index i v))))))
+      (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index v i) (index v i))))))
       (= $$return (call sqrt sum))))
   (fun dot f64 ((var n i64)
       (var a <array f64 1> [0 (- n 1)])
@@ -187,7 +187,7 @@
       (var i i64)
       (var sum f64)
       (= sum 0)
-      (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index i a) (index i b))))))
+      (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index a i) (index b i))))))
       (= $$return sum)))
   (fun compute_residual void ((var n i64)
       (var x <array f64 1> [0 (- n 1)])
@@ -197,4 +197,4 @@
     (block
       (var i i64)
       (call matvec n x w)
-      (for i 0 (- n 1) 1 (block (= r [i] (- (index i b) (index i w))))))))
+      (for i 0 (- n 1) 1 (block (= r [i] (- (index b i) (index w i))))))))

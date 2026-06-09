@@ -6,7 +6,7 @@
       (= z (: (struct ((re 0) (im 1))) <named компл>))
       (seq
         (call output_string "i Re=")
-        (call output_double (field re (: z <named компл>)) 0 -1)
+        (call output_double (field (: z <named компл>) re) 0 -1)
         (call output_string " Im=")
-        (call output_double (field im (: z <named компл>)) 0 -1)
+        (call output_double (field (: z <named компл>) im) 0 -1)
         (call output_string "\n")))))

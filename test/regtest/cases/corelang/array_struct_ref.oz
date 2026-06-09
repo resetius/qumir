@@ -10,31 +10,31 @@
           <struct (lo i8) (mid i16) (wide i32) (huge i64)>))
       (output
         "before idx1: "
-        (cast (field lo (: (index (: 1 i64) arr) <struct (lo i8) (mid i16) (wide i32) (huge i64)>)) i64)
+        (cast (field (: (index arr (: 1 i64)) <struct (lo i8) (mid i16) (wide i32) (huge i64)>) lo) i64)
         " "
-        (cast (field mid (: (index (: 1 i64) arr) <struct (lo i8) (mid i16) (wide i32) (huge i64)>)) i64)
+        (cast (field (: (index arr (: 1 i64)) <struct (lo i8) (mid i16) (wide i32) (huge i64)>) mid) i64)
         " "
-        (cast (field wide (: (index (: 1 i64) arr) <struct (lo i8) (mid i16) (wide i32) (huge i64)>)) i64)
+        (cast (field (: (index arr (: 1 i64)) <struct (lo i8) (mid i16) (wide i32) (huge i64)>) wide) i64)
         " "
-        (field huge (: (index (: 1 i64) arr) <struct (lo i8) (mid i16) (wide i32) (huge i64)>))
+        (field (: (index arr (: 1 i64)) <struct (lo i8) (mid i16) (wide i32) (huge i64)>) huge)
         "\n")
-      (call bump_rec (index (: 1 i64) arr))
+      (call bump_rec (index arr (: 1 i64)))
       (output
         "after idx1: "
-        (cast (field lo (: (index (: 1 i64) arr) <struct (lo i8) (mid i16) (wide i32) (huge i64)>)) i64)
+        (cast (field (: (index arr (: 1 i64)) <struct (lo i8) (mid i16) (wide i32) (huge i64)>) lo) i64)
         " "
-        (cast (field mid (: (index (: 1 i64) arr) <struct (lo i8) (mid i16) (wide i32) (huge i64)>)) i64)
+        (cast (field (: (index arr (: 1 i64)) <struct (lo i8) (mid i16) (wide i32) (huge i64)>) mid) i64)
         " "
-        (cast (field wide (: (index (: 1 i64) arr) <struct (lo i8) (mid i16) (wide i32) (huge i64)>)) i64)
+        (cast (field (: (index arr (: 1 i64)) <struct (lo i8) (mid i16) (wide i32) (huge i64)>) wide) i64)
         " "
-        (field huge (: (index (: 1 i64) arr) <struct (lo i8) (mid i16) (wide i32) (huge i64)>))
+        (field (: (index arr (: 1 i64)) <struct (lo i8) (mid i16) (wide i32) (huge i64)>) huge)
         "\n")))
   (fun bump_rec void ((var p <ref <struct (lo i8) (mid i16) (wide i32) (huge i64)>>)) ()
     (block
       (= p
         (: (struct
-             ((lo (+ (field lo p) (: 10 i8)))
-              (mid (+ (field mid p) (: 100 i16)))
-              (wide (+ (field wide p) (: 1000 i32)))
-              (huge (+ (field huge p) (: 10000 i64)))))
+             ((lo (+ (field p lo) (: 10 i8)))
+              (mid (+ (field p mid) (: 100 i16)))
+              (wide (+ (field p wide) (: 1000 i32)))
+              (huge (+ (field p huge) (: 10000 i64)))))
           <struct (lo i8) (mid i16) (wide i32) (huge i64)>)))))
