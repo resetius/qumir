@@ -6,7 +6,7 @@
       (= N 10)
       (var A <array i64 1> [1 N])
       (for i 1 N 1 (block (= A [i] (* i i))))
-      (for i 1 N 1 (block (seq (call output_int64 (index i A) 0) (call output_symbol (cast 32 char)))))
+      (for i 1 N 1 (block (seq (call output_int64 (index A i) 0) (call output_symbol (cast 32 char)))))
       (for i
         1
         N
@@ -19,4 +19,4 @@
             (call output_string "\n"))
           (seq
             (= A [i] (call input_int64)))))
-      (for i 1 N 1 (block (seq (call output_int64 (index i A) 0) (call output_symbol (cast 32 char))))))))
+      (for i 1 N 1 (block (seq (call output_int64 (index A i) 0) (call output_symbol (cast 32 char))))))))

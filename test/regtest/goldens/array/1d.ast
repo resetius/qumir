@@ -4,4 +4,4 @@
       (var $$return f64)
       (var A <array f64 1> [0 10])
       (= A [0] 1)
-      (= $$return (index 0 A)))))
+      (= $$return (index A 0)))))

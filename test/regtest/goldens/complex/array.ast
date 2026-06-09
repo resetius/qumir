@@ -11,10 +11,10 @@
         (block
           (= arr
             [j]
-            (: (struct ((re (+ (field re (: (struct ((re (cast j f64)) (im 0))) <named компл>))
-                    (field re (: (struct ((re 0) (im 1))) <named компл>))))
-                  (im (+ (field im (: (struct ((re (cast j f64)) (im 0))) <named компл>))
-                    (field im (: (struct ((re 0) (im 1))) <named компл>))))))
+            (: (struct ((re (+ (field (: (struct ((re (cast j f64)) (im 0))) <named компл>) re)
+                    (field (: (struct ((re 0) (im 1))) <named компл>) re)))
+                  (im (+ (field (: (struct ((re (cast j f64)) (im 0))) <named компл>) im)
+                    (field (: (struct ((re 0) (im 1))) <named компл>) im)))))
               <named компл>))))
       (for j
         0
@@ -25,7 +25,7 @@
             (call output_string "arr[")
             (call output_int64 j 0)
             (call output_string "] Re=")
-            (call output_double (field re (: (index j arr) <named компл>)) 0 -1)
+            (call output_double (field (: (index arr j) <named компл>) re) 0 -1)
             (call output_string " Im=")
-            (call output_double (field im (: (index j arr) <named компл>)) 0 -1)
+            (call output_double (field (: (index arr j) <named компл>) im) 0 -1)
             (call output_string "\n")))))))

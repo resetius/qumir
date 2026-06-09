@@ -4,19 +4,19 @@
     (block
       (var z <named компл>)
       (= z
-        (: (struct ((re (+ (field re (: (struct ((re 3) (im 0))) <named компл>))
-                (field re (: (struct ((re 0) (im 4))) <named компл>))))
-              (im (+ (field im (: (struct ((re 3) (im 0))) <named компл>))
-                (field im (: (struct ((re 0) (im 4))) <named компл>))))))
+        (: (struct ((re (+ (field (: (struct ((re 3) (im 0))) <named компл>) re)
+                (field (: (struct ((re 0) (im 4))) <named компл>) re)))
+              (im (+ (field (: (struct ((re 3) (im 0))) <named компл>) im)
+                (field (: (struct ((re 0) (im 4))) <named компл>) im)))))
           <named компл>))
       (seq
         (call __unop_вывод_Named::компл (: z <named компл>))
         (call output_string "\n"))
       (= z
-        (: (struct ((re (- (field re (: (struct ((re 3) (im 0))) <named компл>))
-                (field re (: (struct ((re 0) (im 4))) <named компл>))))
-              (im (- (field im (: (struct ((re 3) (im 0))) <named компл>))
-                (field im (: (struct ((re 0) (im 4))) <named компл>))))))
+        (: (struct ((re (- (field (: (struct ((re 3) (im 0))) <named компл>) re)
+                (field (: (struct ((re 0) (im 4))) <named компл>) re)))
+              (im (- (field (: (struct ((re 3) (im 0))) <named компл>) im)
+                (field (: (struct ((re 0) (im 4))) <named компл>) im)))))
           <named компл>))
       (seq
         (call __unop_вывод_Named::компл (: z <named компл>))

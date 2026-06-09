@@ -671,17 +671,16 @@ TListHandlerMap MakeDefaultHandlers() {
             co_return std::make_shared<TCastExpr>(loc, std::move(operand), std::move(type));
         }},
         {"index", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto collection = co_await ParseExpr(ctx);
             auto token = ctx.Stream.Next();
             if (IsOp(token, '[')) {
                 ctx.Stream.Unget(token);
                 auto indices = co_await ParseIndexVector(ctx);
-                auto collection = co_await ParseExpr(ctx);
                 co_await Expect(ctx, ')');
                 co_return std::make_shared<TMultiIndexExpr>(loc, std::move(collection), std::move(indices));
             }
             ctx.Stream.Unget(token);
             auto index = co_await ParseExpr(ctx);
-            auto collection = co_await ParseExpr(ctx);
             co_await Expect(ctx, ')');
             co_return std::make_shared<TIndexExpr>(loc, std::move(collection), std::move(index));
         }},
@@ -731,8 +730,8 @@ TListHandlerMap MakeDefaultHandlers() {
             co_return std::make_shared<TAssertStmt>(loc, std::move(expr));
         }},
         {"field", [](TParserContext& ctx, TLocation loc) -> TAstTask {
-            auto fieldName = co_await ParseName(ctx);
             auto object = co_await ParseExpr(ctx);
+            auto fieldName = co_await ParseName(ctx);
             co_await Expect(ctx, ')');
             co_return std::make_shared<TFieldAccessExpr>(loc, std::move(object), std::move(fieldName));
         }},

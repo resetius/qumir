@@ -75,18 +75,18 @@
                         [i
                           j
                           k]
-                        (/ (+ (+ (+ (+ (+ (+ (index [(+ i 1) j k] u) (index [(- i 1) j k] u)) (index [i (+ j 1) k] u))
-                                  (index [i (- j 1) k] u))
-                                (index [i j (+ k 1)] u))
-                              (index [i j (- k 1)] u))
-                            (* h2 (index [i j k] f)))
+                        (/ (+ (+ (+ (+ (+ (+ (index u [(+ i 1) j k]) (index u [(- i 1) j k])) (index u [i (+ j 1) k]))
+                                  (index u [i (- j 1) k]))
+                                (index u [i j (+ k 1)]))
+                              (index u [i j (- k 1)]))
+                            (* h2 (index f [i j k])))
                           6))))))))
           (for i
             1
             (- Nx 2)
             1
             (block
-              (for j 1 (- Ny 2) 1 (block (for k 1 (- Nz 2) 1 (block (= u [i j k] (index [i j k] un))))))))
+              (for j 1 (- Ny 2) 1 (block (for k 1 (- Nz 2) 1 (block (= u [i j k] (index un [i j k]))))))))
           (= err 0)
           (for i
             0
@@ -107,7 +107,7 @@
                     (block
                       (= z (* (cast k f64) h))
                       (= uex (* (* (call sin (* pi x)) (call sin (* pi y))) (call sin (* pi z))))
-                      (= diff (let (($$value (- (index [i j k] u) uex))) (if (< $$value 0) (- $$value) $$value)))
+                      (= diff (let (($$value (- (index u [i j k]) uex))) (if (< $$value 0) (- $$value) $$value)))
                       (= err (let (($$left err) ($$right diff)) (if (> $$left $$right) $$left $$right)))))))))
           (cond (< err tol) (block break))))
       (= err 0)
@@ -130,7 +130,7 @@
                 (block
                   (= z (* (cast k f64) h))
                   (= uex (* (* (call sin (* pi x)) (call sin (* pi y))) (call sin (* pi z))))
-                  (= diff (let (($$value (- (index [i j k] u) uex))) (if (< $$value 0) (- $$value) $$value)))
+                  (= diff (let (($$value (- (index u [i j k]) uex))) (if (< $$value 0) (- $$value) $$value)))
                   (= err (let (($$left err) ($$right diff)) (if (> $$left $$right) $$left $$right)))))))))
       (seq
         (call output_string "Poisson3D: N=")

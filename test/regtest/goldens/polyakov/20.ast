@@ -28,9 +28,9 @@
             (- 1)
             (block
               (cond
-                (< (call str_compare (index (+ j 1) S) (index j S)) 0)
+                (< (call str_compare (index S (+ j 1)) (index S j)) 0)
                 (block
-                  (= s1 (index j S))
-                  (= S [j] (index (+ j 1) S))
+                  (= s1 (index S j))
+                  (= S [j] (index S (+ j 1)))
                   (= S [(+ j 1)] s1)))))))
-      (for i 1 N 1 (block (seq (call output_string (index i S)) (call output_string "\n")))))))
+      (for i 1 N 1 (block (seq (call output_string (index S i)) (call output_string "\n")))))))

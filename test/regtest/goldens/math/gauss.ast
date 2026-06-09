@@ -26,57 +26,57 @@
         1
         (block
           (= _imax k)
-          (= bestSq (* (index [k k] A) (index [k k] A)))
+          (= bestSq (* (index A [k k]) (index A [k k])))
           (for i
             (+ k 1)
             (- n 1)
             1
             (block
-              (= curSq (* (index [i k] A) (index [i k] A)))
+              (= curSq (* (index A [i k]) (index A [i k])))
               (cond (> curSq bestSq) (block (= bestSq curSq) (= _imax i)))))
           (cond
             (!= _imax k)
             (block
-              (for j k (- n 1) 1 (block (= tmp (index [k j] A)) (= A [k j] (index [_imax j] A)) (= A [_imax j] tmp)))
-              (= tmp (index k B))
-              (= B [k] (index _imax B))
+              (for j k (- n 1) 1 (block (= tmp (index A [k j])) (= A [k j] (index A [_imax j])) (= A [_imax j] tmp)))
+              (= tmp (index B k))
+              (= B [k] (index B _imax))
               (= B [_imax] tmp)))
-          (= p (index [k k] A))
+          (= p (index A [k k]))
           (= rowmax 0)
           (for j
             k
             (- n 1)
             1
             (block
-              (= sum (index [k j] A))
+              (= sum (index A [k j]))
               (cond (< sum 0) (block (= sum (- sum))))
               (cond (> sum rowmax) (block (= rowmax sum)))))
           (= scale (* Eps rowmax))
           (= sum p)
           (cond (< sum 0) (block (= sum (- sum))))
           (cond (<= sum scale) (block break))
-          (for j k (- n 1) 1 (block (= A [k j] (/ (index [k j] A) p))))
-          (= B [k] (/ (index k B) p))
+          (for j k (- n 1) 1 (block (= A [k j] (/ (index A [k j]) p))))
+          (= B [k] (/ (index B k) p))
           (for i
             (+ k 1)
             (- n 1)
             1
             (block
-              (= tmp (index [i k] A))
+              (= tmp (index A [i k]))
               (cond
                 (!= tmp 0)
                 (block
-                  (for j k (- n 1) 1 (block (= A [i j] (- (index [i j] A) (* (index [k j] A) tmp)))))
-                  (= B [i] (- (index i B) (* (index k B) tmp)))))))))
+                  (for j k (- n 1) 1 (block (= A [i j] (- (index A [i j]) (* (index A [k j]) tmp)))))
+                  (= B [i] (- (index B i) (* (index B k) tmp)))))))))
       (for t
         0
         (- n 1)
         1
         (block
           (= i (- (- n 1) t))
-          (= sum (index i B))
-          (for j (+ i 1) (- n 1) 1 (block (= sum (- sum (* (index [i j] A) (index j B))))))
-          (cond (!= (index [i i] A) 0) (block (= B [i] (/ sum (index [i i] A)))) (block (= B [i] 0)))))
+          (= sum (index B i))
+          (for j (+ i 1) (- n 1) 1 (block (= sum (- sum (* (index A [i j]) (index B j))))))
+          (cond (!= (index A [i i]) 0) (block (= B [i] (/ sum (index A [i i])))) (block (= B [i] 0)))))
       (var res_l2_sq f64)
       (var res_l2 f64)
       (var res_inf f64)
@@ -90,7 +90,7 @@
         1
         (block
           (= sum 0)
-          (for j 0 (- n 1) 1 (block (= sum (+ sum (* (/ 1 (+ (cast (+ i j) f64) 1)) (index j B))))))
+          (for j 0 (- n 1) 1 (block (= sum (+ sum (* (/ 1 (+ (cast (+ i j) f64) 1)) (index B j))))))
           (= r (- sum 1))
           (= absv r)
           (cond (< absv 0) (block (= absv (- absv))))

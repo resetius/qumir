@@ -5,4 +5,4 @@
     (block
       (var м метка)
       (= м (: (struct ((ц (call красный)) (н (: 42 i64)))) метка))
-      (output (field н м) "\n"))))
+      (output (field м н) "\n"))))
