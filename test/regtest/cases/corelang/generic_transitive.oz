@@ -8,10 +8,10 @@
 
   (fun identity ((var x <named K (template readable mutable)>)) -> <named K (template readable mutable)>
     (block
-      (var $$return <named K (template readable mutable)>)
-      (= $$return x)))
+      (var знач <named K (template readable mutable)>)
+      (= знач x)))
 
   (fun wrap ((var y <named T (template readable mutable)>)) -> <named T (template readable mutable)>
     (block
-      (var $$return <named T (template readable mutable)>)
-      (= $$return (call identity y)))))
+      (var знач <named T (template readable mutable)>)
+      (= знач (call identity y)))))

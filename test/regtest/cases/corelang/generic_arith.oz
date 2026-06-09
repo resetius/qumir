@@ -8,5 +8,5 @@
 
   (fun compute ((var x <named T (template readable mutable)>)) -> <named T (template readable mutable)>
     (block
-      (var $$return <named T (template readable mutable)>)
-      (= $$return (+ (* x x) (- (* x (: 2 i64)) (: 1 i64)))))))
+      (var знач <named T (template readable mutable)>)
+      (= знач (+ (* x x) (- (* x (: 2 i64)) (: 1 i64)))))))

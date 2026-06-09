@@ -1,10 +1,10 @@
 (block
   (fun ф () -> string
     (block
-      (var $$return string)
+      (var знач string)
       (var s string)
       (= s "ABCЙЦУКcbv")
       (var s1 string)
       (= s1 "QWЩЩЯ")
       (call вставить s1 s 5)
-      (= $$return s))))
+      (= знач s))))

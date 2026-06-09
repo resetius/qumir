@@ -1,7 +1,7 @@
 (block
   (fun тест_граничные_пустая_строка () -> i64
     (block
-      (var $$return i64)
+      (var знач i64)
       (var пустая string)
       (var непустая string)
       (= пустая "")
@@ -14,4 +14,4 @@
       (cond (>= (call str_compare непустая пустая) 0) (block (= r (+ r 1))))
       (cond (== (call str_compare пустая "") 0) (block (= r (+ r 1))))
       (cond (!= (call str_compare пустая непустая) 0) (block (= r (+ r 1))))
-      (= $$return r))))
+      (= знач r))))

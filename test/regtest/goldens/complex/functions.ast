@@ -21,17 +21,17 @@
         (call output_string "\n"))))
   (fun real_part ((var z <named компл>)) -> f64
     (block
-      (var $$return f64)
-      (= $$return (field (: z <named компл>) re))))
+      (var знач f64)
+      (= знач (field (: z <named компл>) re))))
   (fun imag_part ((var z <named компл>)) -> f64
     (block
-      (var $$return f64)
-      (= $$return (field (: z <named компл>) im))))
+      (var знач f64)
+      (= знач (field (: z <named компл>) im))))
   (fun make_complex ((var re f64)
       (var im f64)) -> <named компл>
     (block
-      (var $$return <named компл>)
-      (= $$return
+      (var знач <named компл>)
+      (= знач
         (: (struct ((re (+ (field (: (struct ((re re) (im 0))) <named компл>) re)
                 (field
                   (: (struct ((re (- (* (field (: (struct ((re im) (im 0))) <named компл>) re)
@@ -60,8 +60,8 @@
   (fun add_twice ((var a <named компл>)
       (var b <named компл>)) -> <named компл>
     (block
-      (var $$return <named компл>)
-      (= $$return
+      (var знач <named компл>)
+      (= знач
         (: (struct ((re (+ (field
                   (: (struct ((re (+ (field (: a <named компл>) re) (field (: b <named компл>) re)))
                         (im (+ (field (: a <named компл>) im) (field (: b <named компл>) im)))))

@@ -2,18 +2,18 @@
   (pragma language overloads)
   (fun pick ((var x i64)) -> i64
     (block
-      (var $$return i64)
-      (= $$return (+ x (: 10 i64)))))
+      (var знач i64)
+      (= знач (+ x (: 10 i64)))))
 
   (fun pick ((var x f64)) -> f64
     (block
-      (var $$return f64)
-      (= $$return (+ x (: 0.5 f64)))))
+      (var знач f64)
+      (= знач (+ x (: 0.5 f64)))))
 
   (fun pick ((var x string)) -> string
     (block
-      (var $$return string)
-      (= $$return x)))
+      (var знач string)
+      (= знач x)))
 
   (fun <main> ()
     (block

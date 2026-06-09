@@ -1,9 +1,9 @@
 (block
   (fun ф () -> string
     (block
-      (var $$return string)
+      (var знач string)
       (var i i64)
       (var с string)
       (= с "строка")
       (= i 1)
-      (= $$return (call str_from_unicode (call str_symbol_at с (* i 2)))))))
+      (= знач (call str_from_unicode (call str_symbol_at с (* i 2)))))))

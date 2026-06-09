@@ -2,10 +2,10 @@
   (use "Робот")
   (fun caller () -> <future i64>
     (block
-      (var $$return i64)
-      (= $$return (+ (await (call value)) 1))))
+      (var знач i64)
+      (= знач (+ (await (call value)) 1))))
   (fun value () -> <future i64>
     (block
-      (var $$return i64)
+      (var знач i64)
       (await (call вверх))
-      (= $$return 12))))
+      (= знач 12))))

@@ -1,15 +1,15 @@
 (block
   (fun ф () -> i64
     (block
-      (var $$return i64)
+      (var знач i64)
       (var s1 string)
       (var s2 string)
       (= s1 "строка1")
       (= s2 "строка2")
-      (= $$return 0)
-      (cond (== (call str_compare s1 s2) 0) (block (= $$return (+ $$return 1))))
-      (cond (!= (call str_compare s1 s2) 0) (block (= $$return (+ $$return 1))))
-      (cond (<= (call str_compare s1 s2) 0) (block (= $$return (+ $$return 1))))
-      (cond (>= (call str_compare s1 s2) 0) (block (= $$return (+ $$return 1))))
-      (cond (< (call str_compare s1 s2) 0) (block (= $$return (+ $$return 1))))
-      (cond (> (call str_compare s1 s2) 0) (block (= $$return (+ $$return 1)))))))
+      (= знач 0)
+      (cond (== (call str_compare s1 s2) 0) (block (= знач (+ знач 1))))
+      (cond (!= (call str_compare s1 s2) 0) (block (= знач (+ знач 1))))
+      (cond (<= (call str_compare s1 s2) 0) (block (= знач (+ знач 1))))
+      (cond (>= (call str_compare s1 s2) 0) (block (= знач (+ знач 1))))
+      (cond (< (call str_compare s1 s2) 0) (block (= знач (+ знач 1))))
+      (cond (> (call str_compare s1 s2) 0) (block (= знач (+ знач 1)))))))

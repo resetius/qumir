@@ -10,15 +10,15 @@
 
   (fun useA ((var x i64)) -> i64
     (block
-      (var $$return i64)
-      (= $$return (call identity x))))
+      (var знач i64)
+      (= знач (call identity x))))
 
   (fun useB ((var x i64)) -> i64
     (block
-      (var $$return i64)
-      (= $$return (call identity x))))
+      (var знач i64)
+      (= знач (call identity x))))
 
   (fun identity ((var x <named K (template readable mutable)>)) -> <named K (template readable mutable)>
     (block
-      (var $$return <named K (template readable mutable)>)
-      (= $$return x))))
+      (var знач <named K (template readable mutable)>)
+      (= знач x))))

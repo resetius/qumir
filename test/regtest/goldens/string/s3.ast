@@ -1,9 +1,9 @@
 (block
   (fun ф () -> string
     (block
-      (var $$return string)
+      (var знач string)
       (call g "строка")
-      (= $$return "ok")))
+      (= знач "ok")))
   (fun g ((var й string))
     (block
       (var к string)

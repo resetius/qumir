@@ -1301,7 +1301,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.SetType(TLocal{sidOpt->FunctionLevelIdx}, FromAstType(var->Type, Module.Types));
         }
         if (NAst::TMaybeType<NAst::TStringType>(var->Type)
-            && sidOpt->FunctionLevelIdx >= 0 && name != "$$return" /*owned by caller*/)
+            && sidOpt->FunctionLevelIdx >= 0 && name != "знач" /*owned by caller*/)
         {
             auto dtorId = co_await GlobalSymbolId("str_release");
             TOperand arg = (sidOpt->FunctionLevelIdx >= 0)
@@ -1463,8 +1463,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (isCoroutine && NAst::TMaybeType<NAst::TVoidType>(coroutineResultType)) {
             Builder.Emit0("ret"_op, {});
         } else if (!NAst::TMaybeType<NAst::TVoidType>(isCoroutine ? coroutineResultType : fun->RetType)) {
-            // return value = lowered IdentExpr named '$$return' in function scope
-            auto returnVar = co_await LoadVar("$$return", TBlockScope {
+            // return value = lowered IdentExpr named 'знач' in function scope
+            auto returnVar = co_await LoadVar("знач", TBlockScope {
                 .FuncIdx = funcIdx,
                 .Id = NSemantics::TScopeId{funScope},
                 .BreakLabel = std::nullopt,

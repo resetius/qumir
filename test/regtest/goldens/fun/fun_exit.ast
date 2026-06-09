@@ -1,31 +1,31 @@
 (block
   (fun f () -> i64
     (block
-      (var $$return i64)
+      (var знач i64)
       (var a i64)
       (var b i64)
       (var c i64)
       (= a (call g))
       (= b (call h))
       (= c (call i))
-      (= $$return (+ (+ a b) c))))
+      (= знач (+ (+ a b) c))))
   (fun g () -> i64
     (block
-      (var $$return i64)
-      (= $$return 1)
+      (var знач i64)
+      (= знач 1)
       break
-      (= $$return 2)))
+      (= знач 2)))
   (fun h () -> i64
     (block
-      (var $$return i64)
-      (= $$return 0)
-      (cond (== 1 1) (block (= $$return 5) break))
-      (= $$return 99)))
+      (var знач i64)
+      (= знач 0)
+      (cond (== 1 1) (block (= знач 5) break))
+      (= знач 99)))
   (fun i () -> i64
     (block
-      (var $$return i64)
-      (= $$return 1)
+      (var знач i64)
+      (= знач 1)
       (cond (== 2 3) (block break))
-      (= $$return 7)
+      (= знач 7)
       break
-      (= $$return 100))))
+      (= знач 100))))

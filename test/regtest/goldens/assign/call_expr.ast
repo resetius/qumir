@@ -1,11 +1,11 @@
 (block
   (fun функция () -> i64
     (block
-      (var $$return i64)
+      (var знач i64)
       (var i i64)
       (= i (cast (* (call f (+ 3 5)) 10) i64))
-      (= $$return i)))
+      (= знач i)))
   (fun f ((var x f64)) -> f64
     (block
-      (var $$return f64)
-      (= $$return 1))))
+      (var знач f64)
+      (= знач 1))))

@@ -10,22 +10,22 @@
 
   (fun plus ((var a i64) (var b i64)) -> i64
     (block
-      (var $$return i64)
-      (= $$return (+ a b))))
+      (var знач i64)
+      (= знач (+ a b))))
 
   (fun plus ((var a string) (var b string)) -> string
     (block
-      (var $$return string)
-      (= $$return (+ a b))))
+      (var знач string)
+      (= знач (+ a b))))
 
   (fun pairFirst ((var a <named K (template readable mutable)>)
         (var b <named V (template readable mutable)>)) -> <named K (template readable mutable)>
     (block
-      (var $$return <named K (template readable mutable)>)
-      (= $$return (call plus a a))))
+      (var знач <named K (template readable mutable)>)
+      (= знач (call plus a a))))
 
   (fun pairSecond ((var a <named K (template readable mutable)>)
         (var b <named V (template readable mutable)>)) -> <named V (template readable mutable)>
     (block
-      (var $$return <named V (template readable mutable)>)
-      (= $$return (call plus b b)))))
+      (var знач <named V (template readable mutable)>)
+      (= знач (call plus b b)))))

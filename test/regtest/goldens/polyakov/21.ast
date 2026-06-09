@@ -10,7 +10,7 @@
       (var sOld string)
       (var sNew string)) -> string
     (block
-      (var $$return string)
+      (var знач string)
       (var s string)
       (= s s0)
       (var p i64)
@@ -23,4 +23,4 @@
           (call удалить s p len)
           (call вставить sNew s p)
           (= p (call |позиция после| (+ p (call длин sNew)) sOld s))))
-      (= $$return s))))
+      (= знач s))))

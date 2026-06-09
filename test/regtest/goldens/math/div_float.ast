@@ -1,9 +1,9 @@
 (block
   (fun ф () -> f64
     (block
-      (var $$return f64)
+      (var знач f64)
       (var a i64)
       (var b i64)
       (= a 7)
       (= b 2)
-      (= $$return (/ (cast a f64) (cast b f64))))))
+      (= знач (/ (cast a f64) (cast b f64))))))

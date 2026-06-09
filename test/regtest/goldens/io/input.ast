@@ -1,8 +1,8 @@
 (block
   (fun ф () -> i64
     (block
-      (var $$return i64)
+      (var знач i64)
       (var i i64)
       (seq
         (= i (call input_int64)))
-      (= $$return i))))
+      (= знач i))))

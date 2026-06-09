@@ -1,7 +1,7 @@
 (block
   (fun функция () -> f64
     (block
-      (var $$return f64)
+      (var знач f64)
       (var A <array f64 1> [0 10])
       (= A [0] 1)
-      (= $$return (index A 0)))))
+      (= знач (index A 0)))))

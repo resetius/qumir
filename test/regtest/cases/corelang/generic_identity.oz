@@ -10,5 +10,5 @@
 
   (fun identity ((var x <named K (template readable mutable)>)) -> <named K (template readable mutable)>
     (block
-      (var $$return <named K (template readable mutable)>)
-      (= $$return x))))
+      (var знач <named K (template readable mutable)>)
+      (= знач x))))

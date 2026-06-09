@@ -1,7 +1,7 @@
 (block
   (fun ф () -> i64
     (block
-      (var $$return i64)
+      (var знач i64)
       (var i i64)
       (cond (cast #t bool) (block (= i 1)) (block (= i 2)))
-      (= $$return i))))
+      (= знач i))))

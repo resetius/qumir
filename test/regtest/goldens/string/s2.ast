@@ -1,7 +1,7 @@
 (block
   (fun ф () -> string
     (block
-      (var $$return string)
+      (var знач string)
       (var s1 string)
       (var s2 string)
       (var s3 string)
@@ -9,4 +9,4 @@
       (= s2 "b ")
       (= s1 "ыыы")
       (= s1 (call str_concat (call str_concat s1 s2) s3))
-      (= $$return s1))))
+      (= знач s1))))

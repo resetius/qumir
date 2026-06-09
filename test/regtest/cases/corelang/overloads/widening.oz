@@ -2,13 +2,13 @@
   (pragma language overloads)
   (fun square ((var x i64)) -> i64
     (block
-      (var $$return i64)
-      (= $$return (* x x))))
+      (var знач i64)
+      (= знач (* x x))))
 
   (fun square ((var x f64)) -> f64
     (block
-      (var $$return f64)
-      (= $$return (* x x))))
+      (var знач f64)
+      (= знач (* x x))))
 
   (fun <main> ()
     (block
