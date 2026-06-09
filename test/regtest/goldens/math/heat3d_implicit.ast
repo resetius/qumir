@@ -107,8 +107,12 @@
                                     (index u [(+ n 1) i j (- k 1)]))))
                               denom))
                           (= u [(+ n 1) i j k] newv)
-                          (= diff (let (($$value (- newv oldv))) (if (< $$value 0) (- $$value) $$value)))
-                          (= change (let (($$left change) ($$right diff)) (if (> $$left $$right) $$left $$right)))))))))
+                          (= diff (block (var $$value = (- newv oldv)) (if (< $$value 0) (- $$value) $$value)))
+                          (= change
+                            (block
+                              (var $$left = change)
+                              (var $$right = diff)
+                              (if (> $$left $$right) $$left $$right)))))))))
               (if (< change 9.9999999999999995e-07) (block break))))))
       (= t (* (cast nt f64) dt))
       (= decay (call exp (* (* (* (- 3) pi) pi) t)))
@@ -132,8 +136,8 @@
                 (block
                   (= z (* (cast k f64) h))
                   (= uex (* (* (* decay (call sin (* pi x))) (call sin (* pi y))) (call sin (* pi z))))
-                  (= diff (let (($$value (- (index u [nt i j k]) uex))) (if (< $$value 0) (- $$value) $$value)))
-                  (= err (let (($$left err) ($$right diff)) (if (> $$left $$right) $$left $$right)))))))))
+                  (= diff (block (var $$value = (- (index u [nt i j k]) uex)) (if (< $$value 0) (- $$value) $$value)))
+                  (= err (block (var $$left = err) (var $$right = diff) (if (> $$left $$right) $$left $$right)))))))))
       (seq
         (call output_string "Heat3D implicit (4D): N=")
         (call output_int64 Nx 0)

@@ -7,18 +7,23 @@
       (var g i64)
       (var b i64)
       (= c
-        (: (let (($$h 0)
-              ($$s 100)
-              ($$v 100))
-            (: (let (($$hf (/ (cast $$h f64) 60))
-                  ($$sf (/ (cast $$s f64) 100))
-                  ($$vf (/ (cast $$v f64) 100)))
-                (: (let (($$sector (cast $$hf i64)))
-                    (: (let (($$f (- $$hf (cast $$sector f64))))
-                        (: (let (($$i (if (== $$sector 6) 0 $$sector))
-                              ($$p (* $$vf (- 1 $$sf)))
-                              ($$q (* $$vf (- 1 (* $$f $$sf))))
-                              ($$t (* $$vf (- 1 (* (- 1 $$f) $$sf)))))
+        (: (block
+            (var $$h = 0)
+            (var $$s = 100)
+            (var $$v = 100)
+            (: (block
+                (var $$hf = (/ (cast $$h f64) 60))
+                (var $$sf = (/ (cast $$s f64) 100))
+                (var $$vf = (/ (cast $$v f64) 100))
+                (: (block
+                    (var $$sector = (cast $$hf i64))
+                    (: (block
+                        (var $$f = (- $$hf (cast $$sector f64)))
+                        (: (block
+                            (var $$i = (if (== $$sector 6) 0 $$sector))
+                            (var $$p = (* $$vf (- 1 $$sf)))
+                            (var $$q = (* $$vf (- 1 (* $$f $$sf))))
+                            (var $$t = (* $$vf (- 1 (* (- 1 $$f) $$sf))))
                             (: (cast
                                 (| (| (| (<< (& 255 255) 24)
                                       (<< (& (cast
@@ -81,18 +86,23 @@
         (call output_int64 b 0)
         (call output_string "\n"))
       (= c
-        (: (let (($$h 120)
-              ($$s 100)
-              ($$v 100))
-            (: (let (($$hf (/ (cast $$h f64) 60))
-                  ($$sf (/ (cast $$s f64) 100))
-                  ($$vf (/ (cast $$v f64) 100)))
-                (: (let (($$sector (cast $$hf i64)))
-                    (: (let (($$f (- $$hf (cast $$sector f64))))
-                        (: (let (($$i (if (== $$sector 6) 0 $$sector))
-                              ($$p (* $$vf (- 1 $$sf)))
-                              ($$q (* $$vf (- 1 (* $$f $$sf))))
-                              ($$t (* $$vf (- 1 (* (- 1 $$f) $$sf)))))
+        (: (block
+            (var $$h = 120)
+            (var $$s = 100)
+            (var $$v = 100)
+            (: (block
+                (var $$hf = (/ (cast $$h f64) 60))
+                (var $$sf = (/ (cast $$s f64) 100))
+                (var $$vf = (/ (cast $$v f64) 100))
+                (: (block
+                    (var $$sector = (cast $$hf i64))
+                    (: (block
+                        (var $$f = (- $$hf (cast $$sector f64)))
+                        (: (block
+                            (var $$i = (if (== $$sector 6) 0 $$sector))
+                            (var $$p = (* $$vf (- 1 $$sf)))
+                            (var $$q = (* $$vf (- 1 (* $$f $$sf))))
+                            (var $$t = (* $$vf (- 1 (* (- 1 $$f) $$sf))))
                             (: (cast
                                 (| (| (| (<< (& 255 255) 24)
                                       (<< (& (cast
@@ -155,18 +165,23 @@
         (call output_int64 b 0)
         (call output_string "\n"))
       (= c
-        (: (let (($$h 240)
-              ($$s 100)
-              ($$v 100))
-            (: (let (($$hf (/ (cast $$h f64) 60))
-                  ($$sf (/ (cast $$s f64) 100))
-                  ($$vf (/ (cast $$v f64) 100)))
-                (: (let (($$sector (cast $$hf i64)))
-                    (: (let (($$f (- $$hf (cast $$sector f64))))
-                        (: (let (($$i (if (== $$sector 6) 0 $$sector))
-                              ($$p (* $$vf (- 1 $$sf)))
-                              ($$q (* $$vf (- 1 (* $$f $$sf))))
-                              ($$t (* $$vf (- 1 (* (- 1 $$f) $$sf)))))
+        (: (block
+            (var $$h = 240)
+            (var $$s = 100)
+            (var $$v = 100)
+            (: (block
+                (var $$hf = (/ (cast $$h f64) 60))
+                (var $$sf = (/ (cast $$s f64) 100))
+                (var $$vf = (/ (cast $$v f64) 100))
+                (: (block
+                    (var $$sector = (cast $$hf i64))
+                    (: (block
+                        (var $$f = (- $$hf (cast $$sector f64)))
+                        (: (block
+                            (var $$i = (if (== $$sector 6) 0 $$sector))
+                            (var $$p = (* $$vf (- 1 $$sf)))
+                            (var $$q = (* $$vf (- 1 (* $$f $$sf))))
+                            (var $$t = (* $$vf (- 1 (* (- 1 $$f) $$sf))))
                             (: (cast
                                 (| (| (| (<< (& 255 255) 24)
                                       (<< (& (cast
@@ -229,18 +244,23 @@
         (call output_int64 b 0)
         (call output_string "\n"))
       (= c
-        (: (let (($$h 0)
-              ($$s 100)
-              ($$v 0))
-            (: (let (($$hf (/ (cast $$h f64) 60))
-                  ($$sf (/ (cast $$s f64) 100))
-                  ($$vf (/ (cast $$v f64) 100)))
-                (: (let (($$sector (cast $$hf i64)))
-                    (: (let (($$f (- $$hf (cast $$sector f64))))
-                        (: (let (($$i (if (== $$sector 6) 0 $$sector))
-                              ($$p (* $$vf (- 1 $$sf)))
-                              ($$q (* $$vf (- 1 (* $$f $$sf))))
-                              ($$t (* $$vf (- 1 (* (- 1 $$f) $$sf)))))
+        (: (block
+            (var $$h = 0)
+            (var $$s = 100)
+            (var $$v = 0)
+            (: (block
+                (var $$hf = (/ (cast $$h f64) 60))
+                (var $$sf = (/ (cast $$s f64) 100))
+                (var $$vf = (/ (cast $$v f64) 100))
+                (: (block
+                    (var $$sector = (cast $$hf i64))
+                    (: (block
+                        (var $$f = (- $$hf (cast $$sector f64)))
+                        (: (block
+                            (var $$i = (if (== $$sector 6) 0 $$sector))
+                            (var $$p = (* $$vf (- 1 $$sf)))
+                            (var $$q = (* $$vf (- 1 (* $$f $$sf))))
+                            (var $$t = (* $$vf (- 1 (* (- 1 $$f) $$sf))))
                             (: (cast
                                 (| (| (| (<< (& 255 255) 24)
                                       (<< (& (cast

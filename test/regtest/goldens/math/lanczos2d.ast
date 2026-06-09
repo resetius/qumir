@@ -287,7 +287,7 @@
         1
         (block
           (if
-            (< (let (($$value d)) (if (< $$value 0) (- $$value) $$value)) 1e-14)
+            (< (block (var $$value = d) (if (< $$value 0) (- $$value) $$value)) 1e-14)
             (block
               (if (>= d 0) (block (= d 1e-14)) (block (= d (- 1e-14))))))
           (= d (- (- (index alpha i) lam) (/ (* (index beta (- i 1)) (index beta (- i 1))) d)))

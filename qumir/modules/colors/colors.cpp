@@ -117,14 +117,6 @@ ColorsModule::ColorsModule() {
                     integerType);
             };
 
-            std::vector<NAst::TLetExpr::TBinding> bindings;
-            bindings.push_back({ .Name = "$$c", .Value = args[0] });
-            bindings.push_back({ .Name = "$$m", .Value = args[1] });
-            bindings.push_back({ .Name = "$$y", .Value = args[2] });
-            bindings.push_back({ .Name = "$$k", .Value = args[3] });
-            if (withAlpha) {
-                bindings.push_back({ .Name = "$$a", .Value = args[4] });
-            }
             auto alpha = withAlpha
                 ? std::make_shared<NAst::TIdentExpr>(loc, "$$a")
                 : intLiteral(loc, 255);
@@ -134,9 +126,24 @@ ColorsModule::ColorsModule() {
                 roundedComponent("$$m"),
                 roundedComponent("$$y"),
                 std::move(alpha));
-            auto expr = std::make_shared<NAst::TLetExpr>(loc, std::move(bindings), std::move(body));
-            expr->Type = colorPack(intLiteral(loc, 0), intLiteral(loc, 0), intLiteral(loc, 0), intLiteral(loc, 0))->Type;
-            return expr;
+            std::vector<NAst::TExprPtr> stmts;
+            auto addVar = [&](const std::string& name, NAst::TExprPtr value) {
+                auto var = std::make_shared<NAst::TVarStmt>(loc, name, nullptr);
+                var->Init = std::move(value);
+                stmts.push_back(std::move(var));
+            };
+            addVar("$$c", args[0]);
+            addVar("$$m", args[1]);
+            addVar("$$y", args[2]);
+            addVar("$$k", args[3]);
+            if (withAlpha) {
+                addVar("$$a", args[4]);
+            }
+            auto bodyType = body->Type;
+            stmts.push_back(std::move(body));
+            auto block = std::make_shared<NAst::TBlockExpr>(loc, std::move(stmts));
+            block->Type = bodyType;
+            return block;
         };
     };
 
@@ -149,10 +156,19 @@ ColorsModule::ColorsModule() {
             auto round255 = [&](NAst::TExprPtr value) -> NAst::TExprPtr {
                 return cast(binary("+", binary("*", std::move(value), f(255.0), floatType), f(0.5), floatType), integerType);
             };
-            auto makeLet = [&](std::vector<NAst::TLetExpr::TBinding> bindings, NAst::TExprPtr body, NAst::TTypePtr type) {
-                auto expr = std::make_shared<NAst::TLetExpr>(loc, std::move(bindings), std::move(body));
-                expr->Type = std::move(type);
-                return expr;
+            using TVars = std::vector<std::pair<std::string, NAst::TExprPtr>>;
+            auto makeLet = [&](TVars vars, NAst::TExprPtr body) -> NAst::TExprPtr {
+                auto bodyType = body->Type;
+                std::vector<NAst::TExprPtr> stmts;
+                for (auto& [name, value] : vars) {
+                    auto var = std::make_shared<NAst::TVarStmt>(loc, std::move(name), nullptr);
+                    var->Init = std::move(value);
+                    stmts.push_back(std::move(var));
+                }
+                stmts.push_back(std::move(body));
+                auto block = std::make_shared<NAst::TBlockExpr>(loc, std::move(stmts));
+                block->Type = bodyType;
+                return block;
             };
             auto hueToRgb = [&](NAst::TExprPtr tValue) -> NAst::TExprPtr {
                 auto p = idf("$$p");
@@ -169,12 +185,10 @@ ColorsModule::ColorsModule() {
                             binary("+", std::move(p), binary("*", binary("*", qMinusP(), binary("-", f(2.0 / 3.0), idf("$$t"), floatType), floatType), f(6.0), floatType), floatType),
                             idf("$$p"),
                             floatType),
-	                        floatType),
-	                    floatType);
-                std::vector<NAst::TLetExpr::TBinding> normalizedBinding;
-                normalizedBinding.push_back({
-                    .Name = "$$t",
-                    .Value = ifExpr(
+                        floatType),
+                    floatType);
+                auto normalized = makeLet(
+                    {{"$$t", ifExpr(
                         binary("<", idf("$$t_raw"), f(0.0), boolType),
                         binary("+", idf("$$t_raw"), f(1.0), floatType),
                         ifExpr(
@@ -182,60 +196,51 @@ ColorsModule::ColorsModule() {
                             binary("-", idf("$$t_raw"), f(1.0), floatType),
                             idf("$$t_raw"),
                             floatType),
-                        floatType),
-                });
-                auto normalized = makeLet(std::move(normalizedBinding), std::move(body), floatType);
-                std::vector<NAst::TLetExpr::TBinding> rawBinding;
-                rawBinding.push_back({ .Name = "$$t_raw", .Value = std::move(tValue) });
-                return makeLet(std::move(rawBinding), std::move(normalized), floatType);
+                        floatType)}},
+                    std::move(body));
+                return makeLet({{"$$t_raw", std::move(tValue)}}, std::move(normalized));
             };
 
-            std::vector<NAst::TLetExpr::TBinding> bindings;
-            bindings.push_back({ .Name = "$$h", .Value = args[0] });
-            bindings.push_back({ .Name = "$$s", .Value = args[1] });
-            bindings.push_back({ .Name = "$$l", .Value = args[2] });
+            TVars bindings;
+            bindings.push_back({"$$h", args[0]});
+            bindings.push_back({"$$s", args[1]});
+            bindings.push_back({"$$l", args[2]});
             if (withAlpha) {
-                bindings.push_back({ .Name = "$$a", .Value = args[3] });
+                bindings.push_back({"$$a", args[3]});
             }
 
             auto alpha = withAlpha ? idi("$$a") : intLiteral(loc, 255);
             auto gray = round255(idf("$$lf"));
             auto grayBody = colorPack(gray, round255(idf("$$lf")), round255(idf("$$lf")), alpha);
 
-            std::vector<NAst::TLetExpr::TBinding> pBinding;
-            pBinding.push_back({
-                .Name = "$$p",
-                .Value = binary("-", binary("*", f(2.0), idf("$$lf"), floatType), idf("$$q"), floatType),
-            });
             auto chromaBody = colorPack(
                 round255(hueToRgb(binary("+", idf("$$hf"), f(1.0 / 3.0), floatType))),
                 round255(hueToRgb(idf("$$hf"))),
                 round255(hueToRgb(binary("-", idf("$$hf"), f(1.0 / 3.0), floatType))),
                 withAlpha ? idi("$$a") : intLiteral(loc, 255));
-            auto pLet = makeLet(std::move(pBinding), std::move(chromaBody), colorType);
+            auto pLet = makeLet(
+                {{"$$p", binary("-", binary("*", f(2.0), idf("$$lf"), floatType), idf("$$q"), floatType)}},
+                std::move(chromaBody));
 
-            std::vector<NAst::TLetExpr::TBinding> qBinding;
-            qBinding.push_back({
-                .Name = "$$q",
-                .Value = ifExpr(
+            auto chroma = makeLet(
+                {{"$$q", ifExpr(
                     binary("<", idf("$$lf"), f(0.5), boolType),
                     binary("*", idf("$$lf"), binary("+", f(1.0), idf("$$sf"), floatType), floatType),
                     binary("-", binary("+", idf("$$lf"), idf("$$sf"), floatType), binary("*", idf("$$lf"), idf("$$sf"), floatType), floatType),
-                    floatType),
-            });
-            auto chroma = makeLet(std::move(qBinding), std::move(pLet), colorType);
+                    floatType)}},
+                std::move(pLet));
 
             auto body = ifExpr(
                 binary("==", idf("$$sf"), f(0.0), boolType),
                 std::move(grayBody),
                 std::move(chroma),
                 colorType);
-            std::vector<NAst::TLetExpr::TBinding> derivedBindings;
-            derivedBindings.push_back({ .Name = "$$hf", .Value = binary("/", idi("$$h"), f(360.0), floatType) });
-            derivedBindings.push_back({ .Name = "$$sf", .Value = binary("/", idi("$$s"), f(100.0), floatType) });
-            derivedBindings.push_back({ .Name = "$$lf", .Value = binary("/", idi("$$l"), f(100.0), floatType) });
-            auto derived = makeLet(std::move(derivedBindings), std::move(body), colorType);
-            return makeLet(std::move(bindings), std::move(derived), colorType);
+            auto derived = makeLet(
+                {{"$$hf", binary("/", idi("$$h"), f(360.0), floatType)},
+                 {"$$sf", binary("/", idi("$$s"), f(100.0), floatType)},
+                 {"$$lf", binary("/", idi("$$l"), f(100.0), floatType)}},
+                std::move(body));
+            return makeLet(std::move(bindings), std::move(derived));
         };
     };
 
@@ -245,10 +250,19 @@ ColorsModule::ColorsModule() {
             auto f = [&](double value) { return floatLiteral(loc, value); };
             auto idf = [&](const std::string& name) { return ident(loc, name, floatType); };
             auto idi = [&](const std::string& name) { return ident(loc, name, integerType); };
-            auto makeLet = [&](std::vector<NAst::TLetExpr::TBinding> bindings, NAst::TExprPtr body, NAst::TTypePtr type) {
-                auto expr = std::make_shared<NAst::TLetExpr>(loc, std::move(bindings), std::move(body));
-                expr->Type = std::move(type);
-                return expr;
+            using TVars = std::vector<std::pair<std::string, NAst::TExprPtr>>;
+            auto makeLet = [&](TVars vars, NAst::TExprPtr body) -> NAst::TExprPtr {
+                auto bodyType = body->Type;
+                std::vector<NAst::TExprPtr> stmts;
+                for (auto& [name, value] : vars) {
+                    auto var = std::make_shared<NAst::TVarStmt>(loc, std::move(name), nullptr);
+                    var->Init = std::move(value);
+                    stmts.push_back(std::move(var));
+                }
+                stmts.push_back(std::move(body));
+                auto block = std::make_shared<NAst::TBlockExpr>(loc, std::move(stmts));
+                block->Type = bodyType;
+                return block;
             };
             auto round255 = [&](NAst::TExprPtr value) -> NAst::TExprPtr {
                 return cast(binary("+", binary("*", std::move(value), f(255.0), floatType), f(0.5), floatType), integerType);
@@ -270,42 +284,36 @@ ColorsModule::ColorsModule() {
             auto alpha = withAlpha ? idi("$$a") : intLiteral(loc, 255);
             auto body = colorPack(std::move(r), std::move(g), std::move(b), std::move(alpha));
 
-            std::vector<NAst::TLetExpr::TBinding> colorBindings;
-            colorBindings.push_back({
-                .Name = "$$i",
-                .Value = ifExpr(
+            auto colorLet = makeLet(
+                {{"$$i", ifExpr(
                     binary("==", idi("$$sector"), intLiteral(loc, 6), boolType),
                     intLiteral(loc, 0),
                     idi("$$sector"),
-                    integerType),
-            });
-            colorBindings.push_back({ .Name = "$$p", .Value = binary("*", idf("$$vf"), binary("-", f(1.0), idf("$$sf"), floatType), floatType) });
-            colorBindings.push_back({ .Name = "$$q", .Value = binary("*", idf("$$vf"), binary("-", f(1.0), binary("*", idf("$$f"), idf("$$sf"), floatType), floatType), floatType) });
-            colorBindings.push_back({ .Name = "$$t", .Value = binary("*", idf("$$vf"), binary("-", f(1.0), binary("*", binary("-", f(1.0), idf("$$f"), floatType), idf("$$sf"), floatType), floatType), floatType) });
-            auto colorLet = makeLet(std::move(colorBindings), std::move(body), colorType);
+                    integerType)},
+                 {"$$p", binary("*", idf("$$vf"), binary("-", f(1.0), idf("$$sf"), floatType), floatType)},
+                 {"$$q", binary("*", idf("$$vf"), binary("-", f(1.0), binary("*", idf("$$f"), idf("$$sf"), floatType), floatType), floatType)},
+                 {"$$t", binary("*", idf("$$vf"), binary("-", f(1.0), binary("*", binary("-", f(1.0), idf("$$f"), floatType), idf("$$sf"), floatType), floatType), floatType)}},
+                std::move(body));
+            auto fLet = makeLet(
+                {{"$$f", binary("-", idf("$$hf"), cast(idi("$$sector"), floatType), floatType)}},
+                std::move(colorLet));
+            auto sectorLet = makeLet(
+                {{"$$sector", cast(idf("$$hf"), integerType)}},
+                std::move(fLet));
+            auto derivedLet = makeLet(
+                {{"$$hf", binary("/", idi("$$h"), f(60.0), floatType)},
+                 {"$$sf", binary("/", idi("$$s"), f(100.0), floatType)},
+                 {"$$vf", binary("/", idi("$$v"), f(100.0), floatType)}},
+                std::move(sectorLet));
 
-            std::vector<NAst::TLetExpr::TBinding> fBindings;
-            fBindings.push_back({ .Name = "$$f", .Value = binary("-", idf("$$hf"), cast(idi("$$sector"), floatType), floatType) });
-            auto fLet = makeLet(std::move(fBindings), std::move(colorLet), colorType);
-
-            std::vector<NAst::TLetExpr::TBinding> sectorBindings;
-            sectorBindings.push_back({ .Name = "$$sector", .Value = cast(idf("$$hf"), integerType) });
-            auto sectorLet = makeLet(std::move(sectorBindings), std::move(fLet), colorType);
-
-            std::vector<NAst::TLetExpr::TBinding> derivedBindings;
-            derivedBindings.push_back({ .Name = "$$hf", .Value = binary("/", idi("$$h"), f(60.0), floatType) });
-            derivedBindings.push_back({ .Name = "$$sf", .Value = binary("/", idi("$$s"), f(100.0), floatType) });
-            derivedBindings.push_back({ .Name = "$$vf", .Value = binary("/", idi("$$v"), f(100.0), floatType) });
-            auto derivedLet = makeLet(std::move(derivedBindings), std::move(sectorLet), colorType);
-
-            std::vector<NAst::TLetExpr::TBinding> argBindings;
-            argBindings.push_back({ .Name = "$$h", .Value = args[0] });
-            argBindings.push_back({ .Name = "$$s", .Value = args[1] });
-            argBindings.push_back({ .Name = "$$v", .Value = args[2] });
+            TVars argBindings;
+            argBindings.push_back({"$$h", args[0]});
+            argBindings.push_back({"$$s", args[1]});
+            argBindings.push_back({"$$v", args[2]});
             if (withAlpha) {
-                argBindings.push_back({ .Name = "$$a", .Value = args[3] });
+                argBindings.push_back({"$$a", args[3]});
             }
-            return makeLet(std::move(argBindings), std::move(derivedLet), colorType);
+            return makeLet(std::move(argBindings), std::move(derivedLet));
         };
     };
 

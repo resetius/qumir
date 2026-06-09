@@ -32,11 +32,6 @@ private:
         const std::shared_ptr<NAst::TIfExpr>& ifExpr,
         TScopeId scopeId,
         const TAssignedSet& inAssigned);
-    std::expected<TAssignedSet, TError> CheckLetExpr(
-        const std::shared_ptr<NAst::TLetExpr>& letExpr,
-        TScopeId scopeId,
-        const TAssignedSet& inAssigned);
-
     std::expected<TAssignedSet, TError> CheckWhile(
         const std::shared_ptr<NAst::TWhileStmtExpr>& loop,
         TScopeId scopeId,

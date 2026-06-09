@@ -83,7 +83,6 @@ private:
     void PrintIndexVector(const std::vector<TExprPtr>& indices, int level);
     void PrintExprList(std::string_view head, const std::vector<TExprPtr>& items, int level);
     void PrintIfLike(std::string_view head, TExprPtr cond, TExprPtr thenBranch, TExprPtr elseBranch, int level);
-    void PrintLet(TLetExpr& node, int level);
     void PrintWhile(TWhileStmtExpr& node, int level);
     void PrintRepeat(TRepeatStmtExpr& node, int level);
     void PrintFor(TForStmtExpr& node, int level);
