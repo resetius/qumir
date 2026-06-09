@@ -1,11 +1,11 @@
 (block
-  (fun f string () ()
+  (fun f () -> string
     (block
       (var $$return string)
       (var s string)
       (= s "s12345")
       (call g s)
       (= $$return s)))
-  (fun g void ((var s <ref string>)) ()
+  (fun g ((var s <ref string>))
     (block
       (= s (call str_slice s 1 2)))))

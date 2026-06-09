@@ -1,5 +1,5 @@
 (block
-  (fun |Сортировка строк| void () ()
+  (fun |Сортировка строк| ()
     (block
       (var i i64)
       (var j i64)

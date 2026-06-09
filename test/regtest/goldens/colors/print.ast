@@ -1,6 +1,6 @@
 (block
   (use "Цвета")
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (seq
         (call __unop_вывод_Named::цвет (: 4278190080 <named цвет>))

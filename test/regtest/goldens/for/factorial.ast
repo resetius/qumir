@@ -1,5 +1,5 @@
 (block
-  (fun цикл i64 () ()
+  (fun цикл () -> i64
     (block
       (var $$return i64)
       (var ф i64)
@@ -7,7 +7,7 @@
       (= ф 0)
       (for i 1 1000 1 (block (= ф (call факториал 13))))
       (= $$return ф)))
-  (fun факториал i64 ((var число i64)) ()
+  (fun факториал ((var число i64)) -> i64
     (block
       (var $$return i64)
       (var i i64)

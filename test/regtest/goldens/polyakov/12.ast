@@ -1,5 +1,5 @@
 (block
-  (fun Массив void () ()
+  (fun Массив ()
     (block
       (var i i64)
       (var N i64)

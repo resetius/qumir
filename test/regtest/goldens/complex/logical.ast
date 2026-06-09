@@ -1,6 +1,6 @@
 (block
   (use "Комплексные числа")
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (var a <named компл>)
       (var b <named компл>)

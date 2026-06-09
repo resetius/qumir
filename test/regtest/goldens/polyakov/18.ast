@@ -1,14 +1,14 @@
 (block
-  (fun |Замена всех| void () ()
+  (fun |Замена всех| ()
     (block
       (var s string)
       (= s "12.12.12")
       (call replaceAll s "12" "A12B")
       (seq
         (call output_string s))))
-  (fun replaceAll void ((var s <ref string>)
+  (fun replaceAll ((var s <ref string>)
       (var wOld string)
-      (var wNew string)) ()
+      (var wNew string))
     (block
       (var res string)
       (var p i64)

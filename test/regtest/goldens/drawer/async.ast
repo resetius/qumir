@@ -1,5 +1,5 @@
 (block
   (use "Чертежник")
-  (fun helper <future void> () ()
+  (fun helper () -> <future void>
     (block
       (await (call |сместиться на вектор| 10.5 2.5)))))

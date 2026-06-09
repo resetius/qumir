@@ -1,11 +1,11 @@
 (block
-  (fun функция f64 () ()
+  (fun функция () -> f64
     (block
       (var $$return f64)
       (var x f64)
       (= x 1.5)
       (call g x)
       (= $$return (* x 2))))
-  (fun g void ((var x <ref <f64 (mutable)>>)) ()
+  (fun g ((var x <ref <f64 (mutable)>>))
     (block
       (= x 3.25))))

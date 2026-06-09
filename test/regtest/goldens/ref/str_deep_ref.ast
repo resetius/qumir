@@ -1,13 +1,13 @@
 (block
-  (fun f string () ()
+  (fun f () -> string
     (block
       (var $$return string)
       (var s string)
       (call инит s)
       (= $$return s)))
-  (fun инит void ((var s <ref <string (mutable)>>)) ()
+  (fun инит ((var s <ref <string (mutable)>>))
     (block
       (call deep s)))
-  (fun deep void ((var s <ref <string (mutable)>>)) ()
+  (fun deep ((var s <ref <string (mutable)>>))
     (block
       (= s "abc"))))

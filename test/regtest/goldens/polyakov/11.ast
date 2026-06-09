@@ -1,5 +1,5 @@
 (block
-  (fun Обмен void () ()
+  (fun Обмен ()
     (block
       (var x i64)
       (= x 2)
@@ -10,8 +10,8 @@
         (call output_int64 x 0)
         (call output_symbol (cast 32 char))
         (call output_int64 y 0))))
-  (fun Swap void ((var a <ref i64>)
-      (var b <ref i64>)) ()
+  (fun Swap ((var a <ref i64>)
+      (var b <ref i64>))
     (block
       (var c i64)
       (= c a)

@@ -1,12 +1,12 @@
 (block
-  (fun ЫШЧО void () ()
+  (fun ЫШЧО ()
     (block
       (var word string)
       (= word "...")
       (call TumbaWords "ЫШЧО" word 0)))
-  (fun TumbaWords void ((var A string)
+  (fun TumbaWords ((var A string)
       (var w0 string)
-      (var N i64)) ()
+      (var N i64))
     (block
       (cond (== N (call длин w0)) (block (seq (call output_string w0) (call output_string "\n")) break))
       (var i i64)

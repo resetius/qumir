@@ -1,6 +1,6 @@
 (block
   (use "Комплексные числа")
-  (fun main void () ()
+  (fun main ()
     (block
       (var z <named компл>)
       (var re f64)
@@ -20,15 +20,15 @@
         (call output_string " Im=")
         (call output_double (field (: z <named компл>) im) 0 -1)
         (call output_string "\n"))))
-  (fun split void ((var z <named компл>)
+  (fun split ((var z <named компл>)
       (var re <ref <f64 (mutable)>>)
-      (var im <ref <f64 (mutable)>>)) ()
+      (var im <ref <f64 (mutable)>>))
     (block
       (= re (field (: z <named компл>) re))
       (= im (field (: z <named компл>) im))))
-  (fun make_by_ref void ((var re f64)
+  (fun make_by_ref ((var re f64)
       (var im f64)
-      (var z <ref <named компл>>)) ()
+      (var z <ref <named компл>>))
     (block
       (= z
         (: (struct ((re (+ (field (: (struct ((re re) (im 0))) <named компл>) re)
@@ -56,8 +56,8 @@
                     <named компл>)
                   im)))))
           <named компл>))))
-  (fun add_in_place void ((var z <ref <named компл>>)
-      (var delta <named компл>)) ()
+  (fun add_in_place ((var z <ref <named компл>>)
+      (var delta <named компл>))
     (block
       (= z
         (: (struct ((re (+ (field z re) (field (: delta <named компл>) re)))

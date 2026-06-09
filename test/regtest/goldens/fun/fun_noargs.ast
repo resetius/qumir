@@ -1,5 +1,5 @@
 (block
-  (fun функция void () ()
+  (fun функция ()
     (block
       (var i i64)
       (var j i64)

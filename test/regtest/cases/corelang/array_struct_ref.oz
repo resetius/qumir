@@ -1,5 +1,5 @@
 (block
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (var arr <array <struct (lo i8) (mid i16) (wide i32) (huge i64)> 1> [0 1])
       (= arr [0]
@@ -29,7 +29,7 @@
         " "
         (field (: (index arr (: 1 i64)) <struct (lo i8) (mid i16) (wide i32) (huge i64)>) huge)
         "\n")))
-  (fun bump_rec void ((var p <ref <struct (lo i8) (mid i16) (wide i32) (huge i64)>>)) ()
+  (fun bump_rec ((var p <ref <struct (lo i8) (mid i16) (wide i32) (huge i64)>>))
     (block
       (= p
         (: (struct

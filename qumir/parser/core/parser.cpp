@@ -646,9 +646,50 @@ TListHandlerMap MakeDefaultHandlers() {
         }},
         {"fun", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto name = co_await ParseName(ctx);
-            auto returnType = co_await ParseType(ctx);
+            // params immediately follow name: name(params...)
             auto params = co_await ParseParams(ctx);
-            auto attrs = co_await ParseFunAttrs(ctx);
+
+            // optional return type introduced by '->'
+            TTypePtr returnType = std::make_shared<TVoidType>();
+            auto tok = ctx.Stream.Next();
+            if (tok.Type == TToken::Identifier && tok.Name == "->") {
+                returnType = co_await ParseType(ctx);
+            } else {
+                ctx.Stream.Unget(tok);
+            }
+
+            // optional (attrs ...) block
+            TFunAttrs attrs;
+            tok = ctx.Stream.Next();
+            if (IsOp(tok, '(')) {
+                auto peek = ctx.Stream.Next();
+                if (peek.Type == TToken::Identifier && peek.Name == "attrs") {
+                    while (true) {
+                        auto attrTok = ctx.Stream.Next();
+                        if (IsOp(attrTok, ')')) { break; }
+                        if (IsOp(attrTok, '(')) {
+                            auto attrName = co_await ParseName(ctx);
+                            auto attrExpr = co_await ParseExpr(ctx);
+                            co_await Expect(ctx, ')');
+                            if (attrName == "expect_after") {
+                                attrs.After = std::move(attrExpr);
+                            } else if (attrName == "expect_before") {
+                                attrs.Before = std::move(attrExpr);
+                            }
+                        } else if (attrTok.Type == TToken::Identifier) {
+                            // simple attr (inline etc.) — ignored for now
+                        } else {
+                            co_return Error(attrTok, "expected function attribute");
+                        }
+                    }
+                } else {
+                    ctx.Stream.Unget(peek);
+                    ctx.Stream.Unget(tok);
+                }
+            } else {
+                ctx.Stream.Unget(tok);
+            }
+
             auto bodyExpr = co_await ParseExpr(ctx);
             co_await Expect(ctx, ')');
             auto body = TMaybeNode<TBlockExpr>(bodyExpr).Cast();

@@ -1,5 +1,5 @@
 (block
-  (fun ф string () ()
+  (fun ф () -> string
     (block
       (var $$return string)
       (var s string)

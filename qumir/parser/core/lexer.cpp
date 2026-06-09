@@ -449,6 +449,14 @@ void TTokenStream::Read() {
                 take();
                 emitIdentifier(name, tokenLocation);
             }
+        } else if (next == '-' && [&]() {
+            In.get();
+            auto second = In.peek();
+            In.unget();
+            return second == '>';
+        }()) {
+            take(); take();
+            emitIdentifier("->", tokenLocation);
         } else if (IsSymbolicIdentChar(next)) {
             std::string name;
             do {

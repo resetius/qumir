@@ -1,6 +1,6 @@
 (block
   (use "Цвета")
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (var палитра <array <named цвет> 1> [1 4])
       (var i i64)

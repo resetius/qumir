@@ -1,5 +1,5 @@
 (block
-  (fun lanczos2d void () ()
+  (fun lanczos2d ()
     (block
       (var Nx i64)
       (var Ny i64)
@@ -196,9 +196,9 @@
         (call output_string ", ")
         (call output_double lam22 8 8)
         (call output_symbol (cast 10 char)))))
-  (fun dot f64 ((var N i64)
+  (fun dot ((var N i64)
       (var x <array f64 1> [0 (- N 1)])
-      (var y <array f64 1> [0 (- N 1)])) ()
+      (var y <array f64 1> [0 (- N 1)])) -> f64
     (block
       (var $$return f64)
       (var s f64)
@@ -206,8 +206,8 @@
       (= s 0)
       (for i 0 (- N 1) 1 (block (= s (+ s (* (index x i) (index y i))))))
       (= $$return s)))
-  (fun norm2 f64 ((var N i64)
-      (var x <array f64 1> [0 (- N 1)])) ()
+  (fun norm2 ((var N i64)
+      (var x <array f64 1> [0 (- N 1)])) -> f64
     (block
       (var $$return f64)
       (var s f64)
@@ -216,10 +216,10 @@
       (for i 0 (- N 1) 1 (block (= s (+ s (* (index x i) (index x i))))))
       (= s (call sqrt s))
       (= $$return s)))
-  (fun dot2 f64 ((var NI i64)
+  (fun dot2 ((var NI i64)
       (var NJ i64)
       (var x <array f64 2> [1 NI] [1 NJ])
-      (var y <array f64 2> [1 NI] [1 NJ])) ()
+      (var y <array f64 2> [1 NI] [1 NJ])) -> f64
     (block
       (var $$return f64)
       (var s f64)
@@ -228,9 +228,9 @@
       (= s 0)
       (for i 1 NI 1 (block (for j 1 NJ 1 (block (= s (+ s (* (index x [i j]) (index y [i j]))))))))
       (= $$return s)))
-  (fun norm2_2d f64 ((var NI i64)
+  (fun norm2_2d ((var NI i64)
       (var NJ i64)
-      (var x <array f64 2> [1 NI] [1 NJ])) ()
+      (var x <array f64 2> [1 NI] [1 NJ])) -> f64
     (block
       (var $$return f64)
       (var s f64)
@@ -240,13 +240,13 @@
       (for i 1 NI 1 (block (for j 1 NJ 1 (block (= s (+ s (* (index x [i j]) (index x [i j]))))))))
       (= s (call sqrt s))
       (= $$return s)))
-  (fun matvec_A void ((var Nx i64)
+  (fun matvec_A ((var Nx i64)
       (var Ny i64)
       (var NI i64)
       (var NJ i64)
       (var h2 f64)
       (var x <array f64 2> [1 NI] [1 NJ])
-      (var y <array f64 2> [1 NI] [1 NJ])) ()
+      (var y <array f64 2> [1 NI] [1 NJ]))
     (block
       (var i i64)
       (var j i64)
@@ -268,10 +268,10 @@
               (cond (> j 1) (block (= c (- c (index x [i (- j 1)])))))
               (cond (< j NJ) (block (= c (- c (index x [i (+ j 1)])))))
               (= y [i j] (/ c h2))))))))
-  (fun sturm_count i64 ((var m i64)
+  (fun sturm_count ((var m i64)
       (var alpha <array f64 1> [0 (- m 1)])
       (var beta <array f64 1> [0 (- m 2)])
-      (var lam f64)) ()
+      (var lam f64)) -> i64
     (block
       (var $$return i64)
       (var i i64)

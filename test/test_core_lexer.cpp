@@ -134,7 +134,7 @@ TEST(CoreTypeTest, FutureTypesPrintAndParse) {
     EXPECT_EQ(PrintType(namedFuture), "<future <named color i64>>");
     EXPECT_EQ(TypeKey(namedFuture), "Future::Named::color");
 
-    std::istringstream input("(fun f <future i64> () () (block))");
+    std::istringstream input("(fun f () -> <future i64> (block))");
     TTokenStream tokens(input);
     TParser parser;
 

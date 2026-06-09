@@ -1,5 +1,5 @@
 (block
-  (fun функция bool () ()
+  (fun функция () -> bool
     (block
       (var $$return bool)
       (var i bool)
