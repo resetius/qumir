@@ -1,10 +1,10 @@
 (block
-  (fun функция i64 () ()
+  (fun функция () -> i64
     (block
       (var $$return i64)
       (call ф 10)
       (= $$return 1)))
-  (fun ф void ((var i i64)) ()
+  (fun ф ((var i i64))
     (block
       (seq
         (call output_int64 i 0)))))

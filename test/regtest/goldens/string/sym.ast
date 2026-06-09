@@ -1,12 +1,12 @@
 (block
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (var a char)
       (= a (call f))
       (seq
         (call output_symbol a)
         (call output_string "\n"))))
-  (fun f char () ()
+  (fun f () -> char
     (block
       (var $$return char)
       (= $$return (cast 1103 char)))))

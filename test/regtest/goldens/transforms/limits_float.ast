@@ -1,5 +1,5 @@
 (block
-  (fun ф f64 () ()
+  (fun ф () -> f64
     (block
       (var $$return f64)
       (= $$return (- 1.7976931348623157e+308 11)))))

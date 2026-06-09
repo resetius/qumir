@@ -1,5 +1,5 @@
 (block
-  (fun строки void () ()
+  (fun строки ()
     (block
       (seq
         (call output_string "=== Конкатенация строк ===")

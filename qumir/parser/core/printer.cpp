@@ -328,10 +328,7 @@ void TPrinter::PrintVar(TVarStmt& node, int level) {
 void TPrinter::PrintFun(TFunDecl& node, int level) {
     *Out << "(fun ";
     PrintIdentifier(node.Name);
-    Space();
-    PrintType(node.RetType, level);
-    Space();
-    *Out << '(';
+    *Out << " (";
     for (size_t i = 0; i < node.Params.size(); ++i) {
         if (i != 0) {
             Separator(level + 2);
@@ -339,14 +336,21 @@ void TPrinter::PrintFun(TFunDecl& node, int level) {
         PrintExpr(node.Params[i], true, level + 2);
     }
     *Out << ')';
-    Space();
-    *Out << '(';
+    if (!TMaybeType<TVoidType>(node.RetType)) {
+        *Out << " ->";
+        Space();
+        PrintType(node.RetType, level);
+    }
     if (node.LastAssert) {
-        *Out << "(expect_after ";
+        Space();
+        *Out << "(attrs";
+        Separator(level + 2);
+        *Out << "(expect_after";
+        Space();
         PrintExpr(node.LastAssert, true, level + 2);
         *Out << ')';
+        *Out << ')';
     }
-    *Out << ')';
     Separator(level + 1);
     PrintExpr(node.Body, true, level + 1);
     *Out << ')';

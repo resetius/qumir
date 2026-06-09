@@ -1,5 +1,5 @@
 (block
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (var a f64)
       (var b bool)

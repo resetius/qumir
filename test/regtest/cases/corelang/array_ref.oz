@@ -1,5 +1,5 @@
 (block
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (var a <array i64 1> [0 2])
       (var b <array i64 2> [0 1] [0 1])
@@ -21,9 +21,9 @@
         " "
         (index b [(: 1 i64) (: 0 i64)])
         "\n")))
-  (fun bump void ((var x <ref i64>)) ()
+  (fun bump ((var x <ref i64>))
     (block
       (= x (+ x (: 7 i64)))))
-  (fun bump2 void ((var x <ref i64>)) ()
+  (fun bump2 ((var x <ref i64>))
     (block
       (= x (+ x (: 11 i64))))))

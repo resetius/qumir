@@ -1,5 +1,5 @@
 (block
-  (fun ф i64 () ()
+  (fun ф () -> i64
     (block
       (var $$return i64)
       (var s1 string)

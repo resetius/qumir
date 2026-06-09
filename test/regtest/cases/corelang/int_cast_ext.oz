@@ -1,5 +1,5 @@
 (block
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (output
         (cast (: 255 u8) i64)

@@ -1,6 +1,6 @@
 (block
   (use "Цвета")
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (var c <named цвет>)
       (var r i64)

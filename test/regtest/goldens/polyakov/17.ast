@@ -1,5 +1,5 @@
 (block
-  (fun ФИО void () ()
+  (fun ФИО ()
     (block
       (var s string)
       (var name string)

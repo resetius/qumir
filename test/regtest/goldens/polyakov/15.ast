@@ -1,5 +1,5 @@
 (block
-  (fun binSearch void () ()
+  (fun binSearch ()
     (block
       (var N i64)
       (= N 5)

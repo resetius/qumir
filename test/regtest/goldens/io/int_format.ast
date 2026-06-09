@@ -1,5 +1,5 @@
 (block
-  (fun q void () ()
+  (fun q ()
     (block
       (var a i64)
       (= a 123)

@@ -1,5 +1,5 @@
 (block
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (output
         (: 127 i8)

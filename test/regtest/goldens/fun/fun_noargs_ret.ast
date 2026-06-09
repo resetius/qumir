@@ -1,5 +1,5 @@
 (block
-  (fun функция f64 () ()
+  (fun функция () -> f64
     (block
       (var $$return f64)
       (var i i64)

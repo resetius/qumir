@@ -2,5 +2,5 @@
 (block
   (use "Цвета")
   (type цвет i64)
-  (fun <main> void () ()
+  (fun <main> ()
     (block)))

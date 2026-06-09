@@ -1,6 +1,6 @@
 (block
   (use "Комплексные числа")
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (var x f64)
       (var y f64)

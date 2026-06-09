@@ -1,5 +1,5 @@
 (block
-  (fun qq void () ()
+  (fun qq ()
     (block
       (seq
         (call output_string "2+"))

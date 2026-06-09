@@ -2,7 +2,7 @@
   (var N i64)
   (= N 5)
   (var A <array i64 1> [1 N])
-  (fun |Быстрая сортировка| void () ()
+  (fun |Быстрая сортировка| ()
     (block
       (var i i64)
       (= A [1] 3)
@@ -12,8 +12,8 @@
       (= A [5] 2)
       (call qSort 1 5)
       (for i 1 N 1 (block (seq (call output_int64 (index A i) 0) (call output_symbol (cast 32 char)))))))
-  (fun qSort void ((var nStart i64)
-      (var nEnd i64)) ()
+  (fun qSort ((var nStart i64)
+      (var nEnd i64))
     (block
       (var L i64)
       (var R i64)

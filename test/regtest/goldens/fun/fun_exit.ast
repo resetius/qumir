@@ -1,5 +1,5 @@
 (block
-  (fun f i64 () ()
+  (fun f () -> i64
     (block
       (var $$return i64)
       (var a i64)
@@ -9,19 +9,19 @@
       (= b (call h))
       (= c (call i))
       (= $$return (+ (+ a b) c))))
-  (fun g i64 () ()
+  (fun g () -> i64
     (block
       (var $$return i64)
       (= $$return 1)
       break
       (= $$return 2)))
-  (fun h i64 () ()
+  (fun h () -> i64
     (block
       (var $$return i64)
       (= $$return 0)
       (cond (== 1 1) (block (= $$return 5) break))
       (= $$return 99)))
-  (fun i i64 () ()
+  (fun i () -> i64
     (block
       (var $$return i64)
       (= $$return 1)

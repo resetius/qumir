@@ -1,5 +1,5 @@
 (block
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (var б <array bool 1> [1 4])
       (var i i64)

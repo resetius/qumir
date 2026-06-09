@@ -1,6 +1,6 @@
 (block
   (use "Комплексные числа")
-  (fun <main> void () ()
+  (fun <main> ()
     (block
       (var arr <array <named компл> 1> [0 2])
       (var j i64)

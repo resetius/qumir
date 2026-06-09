@@ -1,6 +1,6 @@
 (block
   (use "Комплексные числа")
-  (fun main void () ()
+  (fun main ()
     (block
       (var a <named компл>)
       (var b <named компл>)
@@ -19,16 +19,16 @@
         (call output_string " Im=")
         (call output_double (field (: b <named компл>) im) 0 -1)
         (call output_string "\n"))))
-  (fun real_part f64 ((var z <named компл>)) ()
+  (fun real_part ((var z <named компл>)) -> f64
     (block
       (var $$return f64)
       (= $$return (field (: z <named компл>) re))))
-  (fun imag_part f64 ((var z <named компл>)) ()
+  (fun imag_part ((var z <named компл>)) -> f64
     (block
       (var $$return f64)
       (= $$return (field (: z <named компл>) im))))
-  (fun make_complex <named компл> ((var re f64)
-      (var im f64)) ()
+  (fun make_complex ((var re f64)
+      (var im f64)) -> <named компл>
     (block
       (var $$return <named компл>)
       (= $$return
@@ -57,8 +57,8 @@
                     <named компл>)
                   im)))))
           <named компл>))))
-  (fun add_twice <named компл> ((var a <named компл>)
-      (var b <named компл>)) ()
+  (fun add_twice ((var a <named компл>)
+      (var b <named компл>)) -> <named компл>
     (block
       (var $$return <named компл>)
       (= $$return
