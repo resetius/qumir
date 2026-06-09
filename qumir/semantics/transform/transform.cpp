@@ -442,7 +442,13 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
                 }
             } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(node)) {
                 auto block = maybeBlock.Cast();
-                for (auto stmt : block->Stmts) {
+                bool blockIsExpr = block->Type && !NAst::TMaybeType<NAst::TVoidType>(block->Type);
+                for (size_t i = 0; i < block->Stmts.size(); ++i) {
+                    auto& stmt = block->Stmts[i];
+                    bool isLast = (i + 1 == block->Stmts.size());
+                    if (blockIsExpr && isLast) {
+                        continue; // last stmt is the block's return value
+                    }
                     if (auto maybeFunDecl = NAst::TMaybeNode<NAst::TFunDecl>(stmt)) {
                         continue;
                     }

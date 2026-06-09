@@ -543,7 +543,11 @@ TTask AnnotateBlock(std::shared_ptr<TBlockExpr> block, NSemantics::TNameResolver
         auto fdecl = TMaybeNode<TFunDecl>(s);
         return fdecl && HasTemplateParams(*fdecl.Cast());
     });
-    block->Type = std::make_shared<TVoidType>();
+    if (!block->Stmts.empty() && block->Stmts.back()->Type) {
+        block->Type = block->Stmts.back()->Type;
+    } else {
+        block->Type = std::make_shared<TVoidType>();
+    }
     co_return block;
 }
 
