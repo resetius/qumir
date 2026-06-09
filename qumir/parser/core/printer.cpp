@@ -71,8 +71,13 @@ bool TPrinter::ShouldWrapType(const TExprPtr& expr) const {
         return false;
     }
     if (Options.TypeMode == ETypePrintMode::All) {
-        return !TMaybeNode<TFunDecl>(expr)
-            && !TMaybeNode<TCastExpr>(expr);
+        if (TMaybeNode<TFunDecl>(expr) || TMaybeNode<TCastExpr>(expr)) {
+            return false;
+        }
+        if (TMaybeNode<TBlockExpr>(expr) && TMaybeType<TVoidType>(expr->Type)) {
+            return false; // void blocks are statements — don't annotate type
+        }
+        return true;
     }
     return TMaybeType<TNamedType>(expr->Type)
         || TMaybeNode<TStructConstructExpr>(expr)
