@@ -7,7 +7,7 @@
       (= s1 "Hello")
       (= s2 " World")
       (= result1 (call str_concat s1 s2))
-      (seq
+      (block
         (call output_string "string + string: ")
         (call output_string result1)
         (call output_string "\n"))
@@ -17,7 +17,7 @@
       (= s3 "Test")
       (= sym1 (cast 33 char))
       (= result2 (call str_concat s3 (call str_from_unicode sym1)))
-      (seq
+      (block
         (call output_string "string + symbol: ")
         (call output_string result2)
         (call output_string "\n"))
@@ -27,7 +27,7 @@
       (= sym2 (cast 65 char))
       (= s4 "BC")
       (= result3 (call str_concat (call str_from_unicode sym2) s4))
-      (seq
+      (block
         (call output_string "symbol + string: ")
         (call output_string result3)
         (call output_string "\n"))
@@ -37,7 +37,7 @@
       (= sym3 (cast 88 char))
       (= sym4 (cast 89 char))
       (= result4 (call str_concat (call str_from_unicode sym3) (call str_from_unicode sym4)))
-      (seq
+      (block
         (call output_string "symbol + symbol: ")
         (call output_string result4)
         (call output_string "\n"))
@@ -50,7 +50,7 @@
             (call str_concat (call str_concat "Start" (call str_from_unicode (cast 45 char))) "Middle")
             (call str_from_unicode (cast 45 char)))
           "End"))
-      (seq
+      (block
         (call output_string "chain: ")
         (call output_string chain)
         (call output_string "\n"))
@@ -58,13 +58,13 @@
       (var result5 string)
       (= empty "")
       (= result5 (call str_concat empty (call str_from_unicode (cast 90 char))))
-      (seq
+      (block
         (call output_string "empty + symbol: ")
         (call output_string result5)
         (call output_string "\n"))
       (var result6 string)
       (= result6 (call str_concat (call str_from_unicode (cast 64 char)) ""))
-      (seq
+      (block
         (call output_string "symbol + empty: ")
         (call output_string result6)
         (call output_string "\n")))))

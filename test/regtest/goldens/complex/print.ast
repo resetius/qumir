@@ -9,7 +9,7 @@
               (im (+ (field (: (struct ((re 3) (im 0))) <named компл>) im)
                 (field (: (struct ((re 0) (im 4))) <named компл>) im)))))
           <named компл>))
-      (seq
+      (block
         (call __unop_вывод_Named::компл (: z <named компл>))
         (call output_string "\n"))
       (= z
@@ -18,10 +18,10 @@
               (im (- (field (: (struct ((re 3) (im 0))) <named компл>) im)
                 (field (: (struct ((re 0) (im 4))) <named компл>) im)))))
           <named компл>))
-      (seq
+      (block
         (call __unop_вывод_Named::компл (: z <named компл>))
         (call output_string "\n"))
       (= z (: (struct ((re 0) (im 2))) <named компл>))
-      (seq
+      (block
         (call __unop_вывод_Named::компл (: z <named компл>))
         (call output_string "\n")))))

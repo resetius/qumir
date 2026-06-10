@@ -5,7 +5,7 @@
       (var a <named компл>)
       (var b <named компл>)
       (= a (: (call make_complex 2 5) <named компл>))
-      (seq
+      (block
         (call output_string "arg Re=")
         (call output_double (call real_part (: a <named компл>)) 0 -1)
         (call output_string " Im=")
@@ -13,7 +13,7 @@
         (call output_string "\n"))
       (= b
         (: (call add_twice (: a <named компл>) (: (struct ((re 0) (im 1))) <named компл>)) <named компл>))
-      (seq
+      (block
         (call output_string "return Re=")
         (call output_double (field (: b <named компл>) re) 0 -1)
         (call output_string " Im=")

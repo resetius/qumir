@@ -8,12 +8,12 @@
       (= d 85)
       (= a (call div d 10))
       (= b (call mod d 10))
-      (seq
+      (block
         (call output_int64 (call div (- 7) 2) 0)
         (call output_symbol (cast 32 char)))
-      (seq
+      (block
         (call output_int64 (call mod (- 7) 2) 0)
         (call output_symbol (cast 32 char)))
       (= y (cast (+ (cast (cast (* 2 (call fpow (cast a f64) 2)) i64) f64) (call fpow (cast b f64) 3)) i64))
-      (seq
+      (block
         (call output_int64 y 0)))))

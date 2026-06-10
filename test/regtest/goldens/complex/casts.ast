@@ -9,7 +9,7 @@
       (var b <named компл>)
       (= x 3.5)
       (= a (: (struct ((re x) (im 0))) <named компл>))
-      (seq
+      (block
         (call output_string "float_to_complex Re=")
         (call output_double (field (: a <named компл>) re) 0 -1)
         (call output_string " Im=")
@@ -17,19 +17,19 @@
         (call output_string "\n"))
       (= n 7)
       (= b (: (struct ((re (cast n f64)) (im 0))) <named компл>))
-      (seq
+      (block
         (call output_string "int_to_complex Re=")
         (call output_double (field (: b <named компл>) re) 0 -1)
         (call output_string " Im=")
         (call output_double (field (: b <named компл>) im) 0 -1)
         (call output_string "\n"))
       (= y (field (: a <named компл>) re))
-      (seq
+      (block
         (call output_string "complex_to_float=")
         (call output_double y 0 -1)
         (call output_string "\n"))
       (= n (cast (field (: a <named компл>) re) i64))
-      (seq
+      (block
         (call output_string "complex_to_int=")
         (call output_int64 n 0)
         (call output_string "\n")))))

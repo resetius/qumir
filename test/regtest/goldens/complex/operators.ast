@@ -61,7 +61,7 @@
         (: (struct ((re (+ (field (: a <named компл>) re) (field (: b <named компл>) re)))
               (im (+ (field (: a <named компл>) im) (field (: b <named компл>) im)))))
           <named компл>))
-      (seq
+      (block
         (call output_string "add Re=")
         (call output_double (field (: c <named компл>) re) 0 -1)
         (call output_string " Im=")
@@ -71,7 +71,7 @@
         (: (struct ((re (- (field (: b <named компл>) re) (field (: a <named компл>) re)))
               (im (- (field (: b <named компл>) im) (field (: a <named компл>) im)))))
           <named компл>))
-      (seq
+      (block
         (call output_string "sub Re=")
         (call output_double (field (: c <named компл>) re) 0 -1)
         (call output_string " Im=")
@@ -83,7 +83,7 @@
               (im (+ (* (field (: a <named компл>) re) (field (: b <named компл>) im))
                 (* (field (: a <named компл>) im) (field (: b <named компл>) re))))))
           <named компл>))
-      (seq
+      (block
         (call output_string "mul Re=")
         (call output_double (field (: c <named компл>) re) 0 -1)
         (call output_string " Im=")
@@ -99,7 +99,7 @@
                 (+ (* (field (: a <named компл>) re) (field (: a <named компл>) re))
                   (* (field (: a <named компл>) im) (field (: a <named компл>) im)))))))
           <named компл>))
-      (seq
+      (block
         (call output_string "div Re=")
         (call output_double (field (: c <named компл>) re) 0 -1)
         (call output_string " Im=")
@@ -108,7 +108,7 @@
       (= c
         (: (struct ((re (- (field (: a <named компл>) re))) (im (- (field (: a <named компл>) im)))))
           <named компл>))
-      (seq
+      (block
         (call output_string "neg Re=")
         (call output_double (field (: c <named компл>) re) 0 -1)
         (call output_string " Im=")

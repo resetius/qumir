@@ -137,21 +137,21 @@
           (= res_l2_sq (+ res_l2_sq (* (index r i) (index r i))))
           (if (> vabs res_inf) (block (= res_inf vabs)))))
       (= res_l2 (call sqrt res_l2_sq))
-      (seq
+      (block
         (call output_string "gmres: n=")
         (call output_int64 n 0)
         (call output_string ", m=")
         (call output_int64 m 0)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "restarts=")
         (call output_int64 it 0)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "||r||_2= ")
         (call output_double res_l2 8 8)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "||r||_inf= ")
         (call output_double res_inf 8 8)
         (call output_string "\n"))))

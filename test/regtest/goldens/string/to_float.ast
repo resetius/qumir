@@ -4,13 +4,13 @@
       (var a f64)
       (var b bool)
       (= a (call лит_в_вещ "1.23" b))
-      (seq
+      (block
         (call output_double a 0 -1)
         (call output_symbol (cast 32 char))
         (call output_bool b)
         (call output_string "\n"))
       (= a (call лит_в_вещ "qqq" b))
-      (seq
+      (block
         (call output_double a 0 -1)
         (call output_symbol (cast 32 char))
         (call output_bool b)

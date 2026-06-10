@@ -4,14 +4,14 @@
     (block
       (var z <named компл>)
       (= z (: (struct ((re 0) (im 2))) <named компл>))
-      (seq
+      (block
         (call output_string "2i: Re=")
         (call output_double (field (: z <named компл>) re) 0 -1)
         (call output_string " Im=")
         (call output_double (field (: z <named компл>) im) 0 -1)
         (call output_string "\n"))
       (= z (: (struct ((re 0) (im 3.5))) <named компл>))
-      (seq
+      (block
         (call output_string "3.5i: Re=")
         (call output_double (field (: z <named компл>) re) 0 -1)
         (call output_string " Im=")
@@ -23,7 +23,7 @@
               (im (+ (field (: (struct ((re 0) (im 2))) <named компл>) im)
                 (field (: (struct ((re (cast 10 f64)) (im 0))) <named компл>) im)))))
           <named компл>))
-      (seq
+      (block
         (call output_string "2i+10: Re=")
         (call output_double (field (: z <named компл>) re) 0 -1)
         (call output_string " Im=")
@@ -39,7 +39,7 @@
                 (* (field (: (struct ((re 0) (im 1))) <named компл>) im)
                   (field (: (struct ((re 0) (im 1))) <named компл>) re))))))
           <named компл>))
-      (seq
+      (block
         (call output_string "i*i: Re=")
         (call output_double (field (: z <named компл>) re) 0 -1)
         (call output_string " Im=")

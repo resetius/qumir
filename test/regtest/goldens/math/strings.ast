@@ -1,7 +1,7 @@
 (block
   (fun строки ()
     (block
-      (seq
+      (block
         (call output_string "=== Конкатенация строк ===")
         (call output_string "\n"))
       (var а string)
@@ -10,12 +10,12 @@
       (= а "Привет, ")
       (= б "мир!")
       (= результат (call str_concat а б))
-      (seq
+      (block
         (call output_string результат)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "=== Сравнение строк ===")
         (call output_string "\n"))
       (var строка1 string)
@@ -27,28 +27,28 @@
       (if
         (== (call str_compare строка1 строка2) 0)
         (block
-          (seq
+          (block
             (call output_string "строка1 = строка2: истина")
             (call output_string "\n"))))
       (if
         (== (call str_compare строка1 строка3) 0)
         (block
-          (seq
+          (block
             (call output_string "строка1 = строка3: истина")
             (call output_string "\n")))
         (block
-          (seq
+          (block
             (call output_string "строка1 = строка3: ложь")
             (call output_string "\n"))))
       (if
         (< (call str_compare строка3 строка2) 0)
         (block
-          (seq
+          (block
             (call output_string "строка3 < строка2")
             (call output_string "\n"))))
-      (seq
+      (block
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "=== Юникод (получить код символа) ===")
         (call output_string "\n"))
       (var текст string)
@@ -57,19 +57,19 @@
       (var код_а i64)
       (= текст "Привет")
       (= код (cast (call str_symbol_at текст 1) i64))
-      (seq
+      (block
         (call output_string "Первый символ строки 'Привет': ")
         (call output_int64 код 0)
         (call output_string "\n"))
       (= символ_а (cast 1040 char))
       (= код_а (cast символ_а i64))
-      (seq
+      (block
         (call output_string "Код символа 'А': ")
         (call output_int64 код_а 0)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "=== Юнисимвол (создать символ из кода) ===")
         (call output_string "\n"))
       (var код1 i64)
@@ -102,13 +102,13 @@
               (call str_from_unicode (cast код4 char)))
             (call str_from_unicode (cast код5 char)))
           (call str_from_unicode (cast код6 char))))
-      (seq
+      (block
         (call output_string "Слово из кодов: ")
         (call output_string слово)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "=== Индексация строк ===")
         (call output_string "\n"))
       (var фраза string)
@@ -119,37 +119,37 @@
       (var длина i64)
       (= фраза "Программирование")
       (= длина (call длин фраза))
-      (seq
+      (block
         (call output_string "Строка: ")
         (call output_string фраза)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "Длина строки: ")
         (call output_int64 длина 0)
         (call output_string "\n"))
       (= первый (call str_from_unicode (call str_symbol_at фраза 1)))
-      (seq
+      (block
         (call output_string "Первый символ (индекс 1): ")
         (call output_string первый)
         (call output_string "\n"))
       (= третий (call str_from_unicode (call str_symbol_at фраза 3)))
-      (seq
+      (block
         (call output_string "Третий символ (индекс 3): ")
         (call output_string третий)
         (call output_string "\n"))
       (= подстрока (call str_slice фраза 1 7))
-      (seq
+      (block
         (call output_string "Подстрока [1:7]: ")
         (call output_string подстрока)
         (call output_string "\n"))
       (= окончание (call str_slice фраза 8 16))
-      (seq
+      (block
         (call output_string "Подстрока [8:16]: ")
         (call output_string окончание)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "=== Поиск подстроки (поз) ===")
         (call output_string "\n"))
       (var предложение string)
@@ -160,31 +160,31 @@
       (= предложение "Это тестовое предложение для теста")
       (= образец "тест")
       (= позиция (call поз предложение образец))
-      (seq
+      (block
         (call output_string "Строка: ")
         (call output_string предложение)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "Ищем: ")
         (call output_string образец)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "Первое вхождение на позиции: ")
         (call output_int64 позиция 0)
         (call output_string "\n"))
       (= не_найдено "xyz")
       (= поз_не_найден (call поз предложение не_найдено))
-      (seq
+      (block
         (call output_string "Ищем: ")
         (call output_string не_найдено)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "Результат (не найдено): ")
         (call output_int64 поз_не_найден 0)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "=== Поиск следующего вхождения (поз после) ===")
         (call output_string "\n"))
       (var текст2 string)
@@ -195,24 +195,24 @@
       (= текст2 "Это тестовое предложение для теста")
       (= образец2 "тест")
       (= первая_поз (call поз текст2 образец2))
-      (seq
+      (block
         (call output_string "Первое вхождение 'тест': ")
         (call output_int64 первая_поз 0)
         (call output_string "\n"))
       (= вторая_поз (call |поз после| (+ первая_поз 1) текст2 образец2))
-      (seq
+      (block
         (call output_string "Второе вхождение 'тест' (поиск после позиции ")
         (call output_int64 (+ первая_поз 1) 0)
         (call output_string "): ")
         (call output_int64 вторая_поз 0)
         (call output_string "\n"))
       (= третья_поз (call |поз после| (+ вторая_поз 1) текст2 образец2))
-      (seq
+      (block
         (call output_string "Третье вхождение (не найдено): ")
         (call output_int64 третья_поз 0)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "=== Все примеры выполнены ===")
         (call output_string "\n")))))

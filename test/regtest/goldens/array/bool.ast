@@ -7,4 +7,4 @@
       (= б [2] (cast #f bool))
       (= б [3] (cast #t bool))
       (= б [4] (cast #f bool))
-      (for i 1 4 1 (block (seq (call output_bool (index б i)) (call output_string "\n")))))))
+      (for i 1 4 1 (block (block (call output_bool (index б i)) (call output_string "\n")))))))

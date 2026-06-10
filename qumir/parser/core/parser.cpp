@@ -549,9 +549,6 @@ TListHandlerMap MakeDefaultHandlers() {
             exprs.erase(std::remove_if(exprs.begin(), exprs.end(), [](const TExprPtr& e) { return !e; }), exprs.end());
             co_return std::make_shared<TBlockExpr>(loc, std::move(exprs));
         }},
-        {"seq", [](TParserContext& ctx, TLocation loc) -> TAstTask {
-            co_return std::make_shared<TSeqExpr>(loc, co_await ParseExprsUntil(ctx, ')'));
-        }},
         {"vars", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             co_return std::make_shared<TVarsBlockExpr>(loc, co_await ParseExprsUntil(ctx, ')'));
         }},

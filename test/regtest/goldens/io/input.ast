@@ -3,6 +3,6 @@
     (block
       (var знач i64)
       (var i i64)
-      (seq
+      (block
         (= i (call input_int64)))
       (= знач i))))

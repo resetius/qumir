@@ -8,14 +8,14 @@
       (repeat
         (block
           (= i (+ i 1))
-          (seq
+          (block
             (call output_string "i=")
             (call output_int64 i 0)
             (call output_string "\n"))
-          (if (== i 3) (block (seq (call output_string "break") (call output_string "\n")) break))
+          (if (== i 3) (block (block (call output_string "break") (call output_string "\n")) break))
           (= after (+ after 10)))
         (cast #t bool))
-      (seq
+      (block
         (call output_string "loop ended i=")
         (call output_int64 i 0)
         (call output_string " after=")

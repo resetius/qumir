@@ -26,5 +26,5 @@
               ". ")
             (call str_from_unicode (call str_symbol_at name2 1)))
           (call str_from_unicode (cast 46 char))))
-      (seq
+      (block
         (call output_string s)))))

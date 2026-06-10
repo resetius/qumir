@@ -56,21 +56,21 @@
                     <named компл>)
                   im)))))
           <named компл>))
-      (seq
+      (block
         (call output_string "eq_same=")
         (call
           output_bool
           (&& (== (field (: a <named компл>) re) (field (: a <named компл>) re))
             (== (field (: a <named компл>) im) (field (: a <named компл>) im))))
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "eq_other=")
         (call
           output_bool
           (&& (== (field (: a <named компл>) re) (field (: b <named компл>) re))
             (== (field (: a <named компл>) im) (field (: b <named компл>) im))))
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "ne_other=")
         (call
           output_bool

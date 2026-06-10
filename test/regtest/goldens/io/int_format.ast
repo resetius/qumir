@@ -3,5 +3,5 @@
     (block
       (var a i64)
       (= a 123)
-      (seq
+      (block
         (call output_int64 a 5)))))

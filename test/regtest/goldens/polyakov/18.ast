@@ -4,7 +4,7 @@
       (var s string)
       (= s "12.12.12")
       (call replaceAll s "12" "A12B")
-      (seq
+      (block
         (call output_string s))))
   (fun replaceAll ((var s <ref string>)
       (var wOld string)

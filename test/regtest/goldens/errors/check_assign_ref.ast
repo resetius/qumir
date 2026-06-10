@@ -4,6 +4,6 @@
       (var успех bool)
       (var k i64)
       (= k (call лит_в_цел "123" успех))
-      (seq
+      (block
         (call output_bool успех)
         (call output_string "\n")))))

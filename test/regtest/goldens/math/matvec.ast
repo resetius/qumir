@@ -42,15 +42,15 @@
           (= res_l2_sq (+ res_l2_sq (* err err)))
           (if (> absv res_inf) (block (= res_inf absv)))))
       (= res_l2 (call sqrt res_l2_sq))
-      (seq
+      (block
         (call output_string "matvec: ||e||_2^2 = ")
         (call output_double res_l2_sq 0 -1)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "matvec: ||e||_2    = ")
         (call output_double res_l2 0 -1)
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "matvec: ||e||_inf  = ")
         (call output_double res_inf 0 -1)
         (call output_string "\n")))))

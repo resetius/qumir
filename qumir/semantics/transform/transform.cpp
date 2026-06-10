@@ -306,7 +306,7 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
                     stmts.push_back(resetFileCall);
                 }
 
-                return std::make_shared<NAst::TSeqExpr>(output->Location, stmts);
+                return std::make_shared<NAst::TBlockExpr>(output->Location, std::move(stmts));
             } else if (auto maybeInput = NAst::TMaybeNode<NAst::TInputExpr>(node)) {
                 auto input = maybeInput.Cast();
                 if (input->Args.size() == 0) {
@@ -401,7 +401,7 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
                     stmts.push_back(resetFileCall);
                 }
 
-                return std::make_shared<NAst::TSeqExpr>(input->Location, std::move(stmts));
+                return std::make_shared<NAst::TBlockExpr>(input->Location, std::move(stmts));
             } else if (auto maybeIndex = NAst::TMaybeNode<NAst::TIndexExpr>(node)) {
                 auto index = maybeIndex.Cast();
                 auto collectionType = UnwrapReferenceType(index->Collection->Type);

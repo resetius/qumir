@@ -4,7 +4,7 @@
       (var i i64)
       (= i 0)
       (call f i)
-      (seq
+      (block
         (call output_int64 i 0)
         (call output_string "\n"))))
   (fun f ((var i <ref i64>))

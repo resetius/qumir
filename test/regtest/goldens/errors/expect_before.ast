@@ -5,5 +5,5 @@
   (fun ф ((var й i64))
     (block
       (call __ensure (< й 10) "(< й 10) @ Line: 7, Byte: 4, Column: 4")
-      (seq
+      (block
         (call output_string "ok")))))

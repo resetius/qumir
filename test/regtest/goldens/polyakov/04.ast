@@ -3,10 +3,10 @@
     (block
       (var a i64)
       (var b i64)
-      (seq
+      (block
         (= a (call input_int64))
         (= b (call input_int64)))
-      (seq
+      (block
         (call output_int64 a 0)
         (call output_symbol (cast 43 char))
         (call output_int64 b 0)

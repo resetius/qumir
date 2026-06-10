@@ -24,7 +24,7 @@
         (= r (& (>> $$color_decompose_rgb_0 16) 255))
         (= g (& (>> $$color_decompose_rgb_0 8) 255))
         (= b (& $$color_decompose_rgb_0 255)))
-      (seq
+      (block
         (call output_string "palette[2]: r=")
         (call output_int64 r 0)
         (call output_string " g=")

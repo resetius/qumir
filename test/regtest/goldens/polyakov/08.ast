@@ -6,8 +6,8 @@
       (if
         (&& (>= v 25) (<= v 40))
         (block
-          (seq
+          (block
             (call output_string "подходит")))
         (block
-          (seq
+          (block
             (call output_string "не подходит")))))))
