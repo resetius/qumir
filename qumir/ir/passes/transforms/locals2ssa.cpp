@@ -407,6 +407,13 @@ struct TSSABuilder {
                 }
             }
         }
+
+        // Predecessors unreachable from entry never decrement openPredCount,
+        // so some blocks may still be unsealed here. Force-seal them;
+        // ReadVariable resolves contributions from such preds as `undef`.
+        for (auto& block : Function.Blocks) {
+            SealBlock(block.Label);
+        }
     }
 
     TModule& Module;
