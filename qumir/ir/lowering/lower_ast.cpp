@@ -131,7 +131,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .BreakLabel = endLabel,
         .ContinueLabel = condLabel,
         .ReturnLabel = scope.ReturnLabel,
-        .RetLocal = scope.RetLocal
+        .RetLocal = scope.RetLocal,
+        .LoopPendingDestructorsMark = PendingDestructors.size(),
+        .FunctionPendingDestructorsMark = scope.FunctionPendingDestructorsMark
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {condLabel});
@@ -158,7 +160,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .BreakLabel = endLabel,
         .ContinueLabel = condLabel,
         .ReturnLabel = scope.ReturnLabel,
-        .RetLocal = scope.RetLocal
+        .RetLocal = scope.RetLocal,
+        .LoopPendingDestructorsMark = PendingDestructors.size(),
+        .FunctionPendingDestructorsMark = scope.FunctionPendingDestructorsMark
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {condLabel});
@@ -251,7 +255,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .BreakLabel = endLabel,
         .ContinueLabel = postLabel,
         .ReturnLabel = scope.ReturnLabel,
-        .RetLocal = scope.RetLocal
+        .RetLocal = scope.RetLocal,
+        .LoopPendingDestructorsMark = PendingDestructors.size(),
+        .FunctionPendingDestructorsMark = scope.FunctionPendingDestructorsMark
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {postLabel});
@@ -314,7 +320,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .BreakLabel = endLabel,
         .ContinueLabel = postLabel,
         .ReturnLabel = scope.ReturnLabel,
-        .RetLocal = scope.RetLocal
+        .RetLocal = scope.RetLocal,
+        .LoopPendingDestructorsMark = PendingDestructors.size(),
+        .FunctionPendingDestructorsMark = scope.FunctionPendingDestructorsMark
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {postLabel});
@@ -571,6 +579,30 @@ TExpectedTask<std::optional<TOperand>, TError, TLocation> TAstLowerer::LowerRetu
     co_return returnValue;
 }
 
+void TAstLowerer::EmitDestructors(size_t from, size_t to) {
+    // Release in reverse order of declaration. Operate on copies: this range
+    // may also be flushed again (resized away) by the enclosing block, and
+    // mutating PendingDestructors[i] in place would leave stale TTmp refs.
+    for (size_t i = to; i-- > from; ) {
+        TDestructor dtor = PendingDestructors[i];
+        for (size_t j = 0; j < dtor.Args.size(); ++j) {
+            auto& operand = dtor.Args[j];
+            if (operand.Type == TOperand::EType::Local || operand.Type == TOperand::EType::Slot) {
+                TTmp val = Builder.Emit1("load"_op, { operand });
+                auto typeId = dtor.TypeIds[j];
+                if (typeId >= 0) {
+                    Builder.SetType(val, typeId);
+                }
+                operand = val;
+            }
+        }
+        for (auto& operand : dtor.Args) {
+            Builder.Emit0("arg"_op, { operand });
+        }
+        Builder.Emit0("call"_op, { TImm{ dtor.FunctionId } });
+    }
+}
+
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& inputExpr, TBlockScope scope) {
     int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
     NAst::TExprPtr expr = inputExpr;
@@ -646,60 +678,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // Track scope for destructors
         size_t initialPendingDestructorsSize = PendingDestructors.size();
 
-        // Emit destructors for objects declared in this block (LIFO).
-        auto emitBlockDestructors = [&]() {
-            // Release in reverse order of declaration
-            for (size_t i = PendingDestructors.size(); i-- > initialPendingDestructorsSize; ) {
-                auto& dtor = PendingDestructors[i];
-                // Load current value of the local (or slot) and call str_release(val)
-                for (size_t j = 0; j < dtor.Args.size(); ++j) {
-                    auto& operand = dtor.Args[j];
-                    if (operand.Type == TOperand::EType::Local || operand.Type == TOperand::EType::Slot) {
-                        TTmp val = Builder.Emit1("load"_op, { operand });
-                        auto typeId = dtor.TypeIds[j];
-                        if (typeId >= 0) {
-                            Builder.SetType(val, typeId);
-                        }
-                        operand = val;
-                    }
-                }
-                for (auto& operand : dtor.Args) {
-                    Builder.Emit0("arg"_op, { operand });
-                }
-                Builder.Emit0("call"_op, { TImm{ dtor.FunctionId } });
-            }
-            // Remove destructors belonging to this block
-            PendingDestructors.resize(initialPendingDestructorsSize);
-        };
-
         for (size_t stmtIdx = 0; stmtIdx < block->Stmts.size(); ++stmtIdx) {
             auto& s = block->Stmts[stmtIdx];
-
-            // A trailing `(return ...)` jumps straight to the function's exit
-            // block, so this block's own destructors must run before it
-            // rather than after the loop (which would be unreachable code).
-            // The return value is computed (and retained, if it's a borrowed
-            // string) BEFORE those destructors run, so returning one of this
-            // block's own locals (e.g. `(return знач)`) transfers ownership
-            // instead of retaining/releasing an already-freed buffer.
-            if (stmtIdx + 1 == block->Stmts.size()
-                && NAst::TMaybeNode<NAst::TReturnExpr>(s)
-                && !block->SkipDestructors
-                && PendingDestructors.size() > initialPendingDestructorsSize)
-            {
-                auto ret = NAst::TMaybeNode<NAst::TReturnExpr>(s).Cast();
-                if (!newScope.ReturnLabel) {
-                    co_return TError(s->Location, TErrorString::Get<EErrorId::RETURN_OUTSIDE_FUNCTION>());
-                }
-                auto returnValue = co_await LowerReturnValue(ret, newScope);
-                emitBlockDestructors();
-                if (returnValue) {
-                    Builder.Emit0("stre"_op, {TOperand{*newScope.RetLocal}, *returnValue});
-                }
-                Builder.Emit0("jmp"_op, {*newScope.ReturnLabel});
-                last = std::nullopt;
-                break;
-            }
 
             auto r = co_await Lower(s, newScope);
             last = r.Value;
@@ -719,14 +699,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         // Emit destructors for objects declared in this block (LIFO)
         if (!block->SkipDestructors && PendingDestructors.size() > initialPendingDestructorsSize) {
-            if (Builder.IsCurrentBlockTerminated()) {
-                // jmp already emitted (break/continue/return); skip emitting
-                // here to avoid "instruction after terminator", just drop
-                // the bookkeeping.
-                PendingDestructors.resize(initialPendingDestructorsSize);
-            } else {
-                emitBlockDestructors();
+            if (!Builder.IsCurrentBlockTerminated()) {
+                EmitDestructors(initialPendingDestructorsSize, PendingDestructors.size());
             }
+            // If terminated, break/continue/return already flushed these
+            // (and possibly outer-scope entries too); just drop bookkeeping.
+            PendingDestructors.resize(initialPendingDestructorsSize);
         }
 
         // TODO: return only if function block and last is 'return'
@@ -902,6 +880,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!scope.BreakLabel) {
             co_return TError(expr->Location, TErrorString::Get<EErrorId::BREAK_NOT_IN_LOOP>());
         }
+        // release locals declared inside the loop body before leaving it
+        EmitDestructors(scope.LoopPendingDestructorsMark, PendingDestructors.size());
         // terminate current block by jumping to the break target
         Builder.Emit0("jmp"_op, {*scope.BreakLabel});
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
@@ -909,6 +889,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!scope.ContinueLabel) {
             co_return TError(expr->Location, TErrorString::Get<EErrorId::CONTINUE_NOT_IN_LOOP>());
         }
+        // release locals declared inside the loop body before the next iteration
+        EmitDestructors(scope.LoopPendingDestructorsMark, PendingDestructors.size());
         // terminate current block by jumping to the continue target
         Builder.Emit0("jmp"_op, {*scope.ContinueLabel});
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
@@ -918,6 +900,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(expr->Location, TErrorString::Get<EErrorId::RETURN_OUTSIDE_FUNCTION>());
         }
         auto returnValue = co_await LowerReturnValue(ret, scope);
+        // release all locals declared in this function before returning
+        // (the return value was retained above, so returning one of these
+        // locals transfers ownership rather than freeing it)
+        EmitDestructors(scope.FunctionPendingDestructorsMark, PendingDestructors.size());
         if (returnValue) {
             // retLocal takes ownership of returnValue (retained above if it was borrowed).
             Builder.Emit0("stre"_op, {TOperand{*scope.RetLocal}, *returnValue});
@@ -1451,13 +1437,16 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // Create a dedicated final return block label beforehand and pass it as ReturnLabel for `return` and early exits.
         auto endLabel = Builder.NewLabel();
 
+        size_t functionPendingDestructorsMark = PendingDestructors.size();
+
         TBlockScope functionBodyScope {
             .FuncIdx = funcIdx,
             .Id = NSemantics::TScopeId{funScope},
             .BreakLabel = std::nullopt,
             .ContinueLabel = std::nullopt,
             .ReturnLabel = endLabel,
-            .RetLocal = retLocal
+            .RetLocal = retLocal,
+            .FunctionPendingDestructorsMark = functionPendingDestructorsMark
         };
         for (auto& param : fun->Params) {
             if (param->Bounds.empty() || !NAst::TMaybeType<NAst::TArrayType>(param->Type)) {
@@ -1476,7 +1465,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             .BreakLabel = std::nullopt,
             .ContinueLabel = std::nullopt,
             .ReturnLabel = endLabel,
-            .RetLocal = retLocal
+            .RetLocal = retLocal,
+            .FunctionPendingDestructorsMark = functionPendingDestructorsMark
         });
         // Jump to final return block unless already terminated by earlier logic (e.g. explicit `return`).
         if (!Builder.IsCurrentBlockTerminated()) {
@@ -1510,7 +1500,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 .BreakLabel = std::nullopt,
                 .ContinueLabel = std::nullopt,
                 .ReturnLabel = endLabel,
-                .RetLocal = retLocal
+                .RetLocal = retLocal,
+                .FunctionPendingDestructorsMark = functionPendingDestructorsMark
             });
         }
         if (retLocal) {

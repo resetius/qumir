@@ -30,6 +30,8 @@ private:
         std::optional<TLabel> ContinueLabel;
         std::optional<TLabel> ReturnLabel; // function's exit block, set for every scope inside a function body
         std::optional<TLocal> RetLocal; // holds the return value; unset for void-returning functions
+        size_t LoopPendingDestructorsMark = 0; // PendingDestructors size at loop body entry; break/continue flush down to here
+        size_t FunctionPendingDestructorsMark = 0; // PendingDestructors size at function body entry; return flushes down to here
     };
 
     struct TDestructor {
@@ -60,6 +62,10 @@ private:
     };
 
     TExpectedTask<TValueWithBlock, TError, TLocation> Lower(const NAst::TExprPtr& expr, TBlockScope scope);
+
+    // Emits PendingDestructors[from, to) in LIFO order without resizing
+    // (used to flush destructors on early exit: break/continue/return).
+    void EmitDestructors(size_t from, size_t to);
 
     // Lowers `ret->Value` (if any) to an operand suitable for storing into
     // `scope.RetLocal`, retaining it if it's a borrowed string. Caller is

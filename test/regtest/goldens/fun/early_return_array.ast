@@ -1,0 +1,10 @@
+(block
+  (fun функция () -> f64
+    (block
+      (var знач f64)
+      (var A <array f64 1> [0 10])
+      (= A [0] 5)
+      (= знач (index A 0))
+      (if (cast #t bool) (block (return знач)))
+      (= знач 99)
+      (return знач))))

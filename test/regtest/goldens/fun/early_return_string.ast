@@ -1,0 +1,8 @@
+(block
+  (fun функция () -> string
+    (block
+      (var знач string)
+      (= знач "hello")
+      (if (cast #t bool) (block (return знач)))
+      (= знач "unreached")
+      (return знач))))
