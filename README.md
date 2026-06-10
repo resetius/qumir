@@ -23,7 +23,7 @@ The language is intentionally small and approachable, borrowing many ideas and s
 
 ## Feature Comparison with KUMIR
 
-Legend: ✔ = supported, ✖ = not supported / not yet implemented. Notes highlight semantic differences.
+Legend: ✔ = supported, ~ = partially supported, ✖ = not supported / not yet implemented. Notes highlight semantic differences.
 
 ### Data Types & Core
 
@@ -57,7 +57,7 @@ Legend: ✔ = supported, ✖ = not supported / not yet implemented. Notes highli
 | Input `арг` | ✔ | ✔ | Passed by value |
 | Output `рез/знач` | ✔ | ✔ | Result via out parameter |
 | Inout `аргрез` | ✔ | ✔ | Combines input & modification |
-| Overloading | ✖ | ✖ | Not supported |
+| Overloading | ✖ | ✔ | Opt-in via `# qumir language: overloads` pragma (`(pragma language overloads)` in oz-lang); multiple `алг`/`fun` definitions with distinct parameter types form an overload set |
 
 ### Control Flow
 
@@ -80,7 +80,7 @@ Legend: ✔ = supported, ✖ = not supported / not yet implemented. Notes highli
 | `влево(угол)` / `вправо(угол)` | ✔ | ✔ | |
 | Pen up/down | ✔ | ✔ | Functions: `поднять хвост`, `опустить хвост` (tail up/down) |
 | Save/restore state | ✖ | ✔ | State stack (pos, angle, pen). Functions: `сохранить состояние`, `восстановить состояние` |
-| Other classic executors (Robot, Drawing, etc.) | ✔ | ✖ | Not implemented |
+| Other classic executors (Robot, Painter, Drawer, ...) | ✔ | ~ | Робот, Рисователь, Чертежник implemented; Водолей, Вертун, and a few minor executors not yet |
 
 ### String Algorithms / Functions
 
