@@ -719,7 +719,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         // Emit destructors for objects declared in this block (LIFO)
         if (!block->SkipDestructors && PendingDestructors.size() > initialPendingDestructorsSize) {
-            emitBlockDestructors();
+            if (Builder.IsCurrentBlockTerminated()) {
+                // jmp already emitted (break/continue/return); skip emitting
+                // here to avoid "instruction after terminator", just drop
+                // the bookkeeping.
+                PendingDestructors.resize(initialPendingDestructorsSize);
+            } else {
+                emitBlockDestructors();
+            }
         }
 
         // TODO: return only if function block and last is 'return'
