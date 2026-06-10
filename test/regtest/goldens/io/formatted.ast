@@ -5,7 +5,7 @@
       (var j i64)
       (= i 1)
       (= j 2)
-      (seq
+      (block
         (call output_int64 i 0)
         (call output_symbol (cast 32 char))
         (call output_int64 j 0)

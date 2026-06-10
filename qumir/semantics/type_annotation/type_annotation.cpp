@@ -551,17 +551,6 @@ TTask AnnotateBlock(std::shared_ptr<TBlockExpr> block, NSemantics::TNameResolver
     co_return block;
 }
 
-TTask AnnotateSeq(std::shared_ptr<TSeqExpr> seq, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
-    for (auto& s : seq->Stmts) {
-        s = co_await DoAnnotate(s, context, scopeId);
-        if (!s->Type) {
-            co_return TError(s->Location, "Не удалось определить тип выражения внутри последовательности");
-        }
-    }
-    seq->Type = std::make_shared<TVoidType>();
-    co_return seq;
-}
-
 TTask AnnotateAssign(std::shared_ptr<TAssignExpr> assign, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     assign->Value = co_await DoAnnotate(assign->Value, context, scopeId);
     if (!assign->Value->Type) {
@@ -1118,9 +1107,6 @@ TExprPtr ShallowCloneNode(const TExprPtr& node) {
     }
     if (auto n = TMaybeNode<TBlockExpr>(node)) {
         return std::make_shared<TBlockExpr>(*n.Cast());
-    }
-    if (auto n = TMaybeNode<TSeqExpr>(node)) {
-        return std::make_shared<TSeqExpr>(*n.Cast());
     }
     if (auto n = TMaybeNode<TIfExpr>(node)) {
         return std::make_shared<TIfExpr>(*n.Cast());
@@ -1825,8 +1811,6 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         co_return co_await AnnotateUnary(maybeUnary.Cast(), context, scopeId);
     } else if (auto maybeBlock = TMaybeNode<TBlockExpr>(expr)) {
         co_return co_await AnnotateBlock(maybeBlock.Cast(), context, scopeId);
-    } else if (auto maybeSeq = TMaybeNode<TSeqExpr>(expr)) {
-        co_return co_await AnnotateSeq(maybeSeq.Cast(), context, scopeId);
     } else if (auto maybeIdent = TMaybeNode<TIdentExpr>(expr)) {
         co_return co_await AnnotateIdent(maybeIdent.Cast(), context, scopeId);
     } else if (auto maybeAssign = TMaybeNode<TAssignExpr>(expr)) {

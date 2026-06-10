@@ -33,4 +33,4 @@
                   (= s1 (index S j))
                   (= S [j] (index S (+ j 1)))
                   (= S [(+ j 1)] s1)))))))
-      (for i 1 N 1 (block (seq (call output_string (index S i)) (call output_string "\n")))))))
+      (for i 1 N 1 (block (block (call output_string (index S i)) (call output_string "\n")))))))

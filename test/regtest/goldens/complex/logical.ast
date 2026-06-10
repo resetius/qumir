@@ -64,11 +64,11 @@
       (= different
         (|| (!= (field (: a <named компл>) re) (field (: b <named компл>) re))
           (!= (field (: a <named компл>) im) (field (: b <named компл>) im))))
-      (seq
+      (block
         (call output_string "and=")
         (call output_bool (&& same different))
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "or=")
         (call
           output_bool
@@ -76,7 +76,7 @@
             (&& (== (field (: a <named компл>) re) (field (: b <named компл>) re))
               (== (field (: a <named компл>) im) (field (: b <named компл>) im)))))
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "not=")
         (call
           output_bool

@@ -6,7 +6,7 @@
       (var y i64)
       (= y 3)
       (call Swap x y)
-      (seq
+      (block
         (call output_int64 x 0)
         (call output_symbol (cast 32 char))
         (call output_int64 y 0))))

@@ -25,7 +25,7 @@
         (= r (& (>> $$color_decompose_rgb_0 16) 255))
         (= g (& (>> $$color_decompose_rgb_0 8) 255))
         (= b (& $$color_decompose_rgb_0 255)))
-      (seq
+      (block
         (call output_string "rgb: r=")
         (call output_int64 r 0)
         (call output_string " g=")
@@ -109,7 +109,7 @@
                   0.5)
                 i64))
             (= k (cast (+ (* $$color_decompose_cmyk_0$kf 100) 0.5) i64)))))
-      (seq
+      (block
         (call output_string "red cmyk: c=")
         (call output_int64 cc 0)
         (call output_string " m=")
@@ -189,7 +189,7 @@
         (= h (cast (+ (* $$color_decompose_hsl_1$hf 360) 0.5) i64))
         (= s (cast (+ (* $$color_decompose_hsl_1$sf 100) 0.5) i64))
         (= l (cast (+ (* $$color_decompose_hsl_1$lf 100) 0.5) i64)))
-      (seq
+      (block
         (call output_string "red hsl: h=")
         (call output_int64 h 0)
         (call output_string " s=")
@@ -262,7 +262,7 @@
         (= hv (cast (+ (* $$color_decompose_hsv_2$hf 360) 0.5) i64))
         (= sv (cast (+ (* $$color_decompose_hsv_2$sf 100) 0.5) i64))
         (= v (cast (+ (* $$color_decompose_hsv_2$mx 100) 0.5) i64)))
-      (seq
+      (block
         (call output_string "red hsv: h=")
         (call output_int64 hv 0)
         (call output_string " s=")
@@ -341,7 +341,7 @@
         (= h (cast (+ (* $$color_decompose_hsl_3$hf 360) 0.5) i64))
         (= s (cast (+ (* $$color_decompose_hsl_3$sf 100) 0.5) i64))
         (= l (cast (+ (* $$color_decompose_hsl_3$lf 100) 0.5) i64)))
-      (seq
+      (block
         (call output_string "gray hsl: h=")
         (call output_int64 h 0)
         (call output_string " s=")

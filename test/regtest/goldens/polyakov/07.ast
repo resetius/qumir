@@ -8,14 +8,14 @@
       (if
         (> a b)
         (block
-          (seq
+          (block
             (call output_string "Андрей старше")))
         (block
           (if
             (== a b)
             (block
-              (seq
+              (block
                 (call output_string "Одного возраста")))
             (block
-              (seq
+              (block
                 (call output_string "Борис старше")))))))))

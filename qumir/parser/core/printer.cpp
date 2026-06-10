@@ -39,7 +39,6 @@ bool TPrinter::FitsOneLine(TExprPtr expr, bool allowTypeWrap, int level) {
 
 bool TPrinter::ForceMultiline(const TExprPtr& expr) const {
     return expr->NodeName() == TBlockExpr::NodeId
-        || expr->NodeName() == TSeqExpr::NodeId
         || expr->NodeName() == TVarsBlockExpr::NodeId
         || expr->NodeName() == TFunDecl::NodeId;
 }
@@ -596,10 +595,6 @@ struct TPrintExpr : public IVisitor {
         Printer.Space();
         Printer.PrintType(named.Cast()->UnderlyingType, Frame.Level + 1);
         *Out << ')';
-    }
-
-    void Visit(TSeqExpr& node) override {
-        Printer.PrintExprList("seq", node.Stmts, Frame.Level);
     }
 
     void Visit(TIfExpr& node) override {

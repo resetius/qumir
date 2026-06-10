@@ -1,10 +1,10 @@
 (block
   (fun qq ()
     (block
-      (seq
+      (block
         (call output_string "2+"))
-      (seq
+      (block
         (call output_string "2=?")
         (call output_string "\n"))
-      (seq
+      (block
         (call output_string "Ответ: 4")))))

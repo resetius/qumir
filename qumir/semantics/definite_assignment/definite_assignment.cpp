@@ -98,23 +98,6 @@ TDefiniteAssignmentChecker::CheckExpr(
                           inAssigned);
     }
 
-    if (auto maybeSeq = TMaybeNode<TSeqExpr>(expr)) {
-        TAssignedSet state = inAssigned;
-        std::list<TError> errors;
-        for (auto& stmt : maybeSeq.Cast()->Stmts) {
-            auto res = CheckExpr(stmt, scopeId, state);
-            if (!res) {
-                errors.push_back(res.error());
-            } else {
-                state = Union(state, *res);
-            }
-        }
-        if (!errors.empty()) {
-            return std::unexpected(TError(expr->Location, errors));
-        }
-        return state;
-    }
-
     if (auto maybeIf = TMaybeNode<TIfExpr>(expr)) {
         return CheckIfExpr(maybeIf.Cast(), scopeId, inAssigned);
     }

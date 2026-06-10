@@ -117,7 +117,7 @@
                   (= uex (* (* (* decay (call sin (* pi x))) (call sin (* pi y))) (call sin (* pi z))))
                   (= diff (block (var $$value = (- (index u [i j k]) uex)) (if (< $$value 0) (- $$value) $$value)))
                   (= err (block (var $$left = err) (var $$right = diff) (if (> $$left $$right) $$left $$right)))))))))
-      (seq
+      (block
         (call output_string "Heat3D (explicit): N=")
         (call output_int64 Nx 0)
         (call output_string ", T=")
@@ -127,4 +127,4 @@
         (call output_string ", max|u-uex|=")
         (call output_double err 8 8)
         (call output_symbol (cast 10 char)))
-      (if (< err 0.01) (block (seq (call output_string "OK\n"))) (block (seq (call output_string "FAIL\n")))))))
+      (if (< err 0.01) (block (block (call output_string "OK\n"))) (block (block (call output_string "FAIL\n")))))))

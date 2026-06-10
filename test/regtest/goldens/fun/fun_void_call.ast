@@ -6,5 +6,5 @@
       (= знач 1)))
   (fun ф ((var i i64))
     (block
-      (seq
+      (block
         (call output_int64 i 0)))))

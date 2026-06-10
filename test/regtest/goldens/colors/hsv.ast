@@ -77,7 +77,7 @@
         (= r (& (>> $$color_decompose_rgb_0 16) 255))
         (= g (& (>> $$color_decompose_rgb_0 8) 255))
         (= b (& $$color_decompose_rgb_0 255)))
-      (seq
+      (block
         (call output_string "hsv red: r=")
         (call output_int64 r 0)
         (call output_string " g=")
@@ -156,7 +156,7 @@
         (= r (& (>> $$color_decompose_rgb_1 16) 255))
         (= g (& (>> $$color_decompose_rgb_1 8) 255))
         (= b (& $$color_decompose_rgb_1 255)))
-      (seq
+      (block
         (call output_string "hsv green: r=")
         (call output_int64 r 0)
         (call output_string " g=")
@@ -235,7 +235,7 @@
         (= r (& (>> $$color_decompose_rgb_2 16) 255))
         (= g (& (>> $$color_decompose_rgb_2 8) 255))
         (= b (& $$color_decompose_rgb_2 255)))
-      (seq
+      (block
         (call output_string "hsv blue: r=")
         (call output_int64 r 0)
         (call output_string " g=")
@@ -314,7 +314,7 @@
         (= r (& (>> $$color_decompose_rgb_3 16) 255))
         (= g (& (>> $$color_decompose_rgb_3 8) 255))
         (= b (& $$color_decompose_rgb_3 255)))
-      (seq
+      (block
         (call output_string "hsv black: r=")
         (call output_int64 r 0)
         (call output_string " g=")

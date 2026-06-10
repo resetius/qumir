@@ -4,7 +4,7 @@
       (var s string)
       (= s "12.12.12")
       (= s (call replaceBad s "12" "A12B"))
-      (seq
+      (block
         (call output_string s))))
   (fun replaceBad ((var s0 string)
       (var sOld string)

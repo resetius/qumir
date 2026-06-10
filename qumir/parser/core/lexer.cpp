@@ -41,10 +41,6 @@ AST node forms:
           (block (pragma language overloads) stmt1 stmt2 ...)
       A pragma after a real statement, or in a nested block, is an error.
 
-  (seq stmt1 stmt2 ... stmtN)
-      TSeqExpr, NodeId = "Seq", evaluates statements in order without
-      introducing a nested lexical scope.
-
   (cond cond then else)
       TIfExpr, NodeId = "IfExpr".
 

@@ -13,7 +13,7 @@
         (= r (& (>> $$color_decompose_rgb_0 16) 255))
         (= g (& (>> $$color_decompose_rgb_0 8) 255))
         (= b (& $$color_decompose_rgb_0 255)))
-      (seq
+      (block
         (call output_string "black: r=")
         (call output_int64 r 0)
         (call output_string " g=")
@@ -28,7 +28,7 @@
         (= r (& (>> $$color_decompose_rgb_1 16) 255))
         (= g (& (>> $$color_decompose_rgb_1 8) 255))
         (= b (& $$color_decompose_rgb_1 255)))
-      (seq
+      (block
         (call output_string "white: r=")
         (call output_int64 r 0)
         (call output_string " g=")
@@ -43,7 +43,7 @@
         (= r (& (>> $$color_decompose_rgb_2 16) 255))
         (= g (& (>> $$color_decompose_rgb_2 8) 255))
         (= b (& $$color_decompose_rgb_2 255)))
-      (seq
+      (block
         (call output_string "red: r=")
         (call output_int64 r 0)
         (call output_string " g=")
@@ -58,7 +58,7 @@
         (= r (& (>> $$color_decompose_rgb_3 16) 255))
         (= g (& (>> $$color_decompose_rgb_3 8) 255))
         (= b (& $$color_decompose_rgb_3 255)))
-      (seq
+      (block
         (call output_string "green: r=")
         (call output_int64 r 0)
         (call output_string " g=")
@@ -73,7 +73,7 @@
         (= r (& (>> $$color_decompose_rgb_4 16) 255))
         (= g (& (>> $$color_decompose_rgb_4 8) 255))
         (= b (& $$color_decompose_rgb_4 255)))
-      (seq
+      (block
         (call output_string "blue: r=")
         (call output_int64 r 0)
         (call output_string " g=")
@@ -88,7 +88,7 @@
         (= r (& (>> $$color_decompose_rgb_5 16) 255))
         (= g (& (>> $$color_decompose_rgb_5 8) 255))
         (= b (& $$color_decompose_rgb_5 255)))
-      (seq
+      (block
         (call output_string "gray: r=")
         (call output_int64 r 0)
         (call output_string " g=")
@@ -103,7 +103,7 @@
         (= r (& (>> $$color_decompose_rgb_6 16) 255))
         (= g (& (>> $$color_decompose_rgb_6 8) 255))
         (= b (& $$color_decompose_rgb_6 255)))
-      (seq
+      (block
         (call output_string "transparent: r=")
         (call output_int64 r 0)
         (call output_string " g=")

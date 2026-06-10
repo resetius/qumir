@@ -3,7 +3,7 @@
     (block
       (var a char)
       (= a (call f))
-      (seq
+      (block
         (call output_symbol a)
         (call output_string "\n"))))
   (fun f () -> char

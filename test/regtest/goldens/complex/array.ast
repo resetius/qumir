@@ -21,7 +21,7 @@
         2
         1
         (block
-          (seq
+          (block
             (call output_string "arr[")
             (call output_int64 j 0)
             (call output_string "] Re=")

@@ -21,11 +21,11 @@
       (if
         (== (index A L) X)
         (block
-          (seq
+          (block
             (call output_string "A[")
             (call output_int64 L 0)
             (call output_string "]=")
             (call output_int64 X 0)))
         (block
-          (seq
+          (block
             (call output_string "Не нашли!")))))))

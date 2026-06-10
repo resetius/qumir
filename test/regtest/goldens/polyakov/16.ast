@@ -10,5 +10,5 @@
         1
         (block
           (if (== (call str_symbol_at s i) (cast 1072 char)) (block (= s (call str_replace_sym s (cast 1073 char) i))))))
-      (seq
+      (block
         (call output_string s)))))

@@ -602,26 +602,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto id = Builder.StringLiteral(str->Value);
         // TODO: type is 'pointer to char'
         co_return TValueWithBlock{ TImm{.Value = id, .TypeId = Module.Types.Ptr(Module.Types.I(EKind::I8))}, Builder.CurrentBlockLabel() };
-    } else if (auto maybeSeq = NAst::TMaybeNode<NAst::TSeqExpr>(expr)) {
-        std::optional<TOperand> last;
-        auto seq = maybeSeq.Cast();
-        for (auto& s : seq->Stmts) {
-            auto r = co_await Lower(s, scope);
-            last = r.Value;
-
-            if (r.Ownership == EOwnership::Owned) {
-                last = std::nullopt;
-                auto dtorId = co_await GlobalSymbolId("str_release");
-                Builder.Emit0("arg"_op, {*r.Value});
-                Builder.Emit0("call"_op, { TImm{ dtorId } });
-                last = r.Value;
-            }
-
-            if (Builder.IsCurrentBlockTerminated()) {
-                break;
-            }
-        }
-        co_return TValueWithBlock{ last, Builder.CurrentBlockLabel() };
     } else if (auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
         // Evaluate a block: value is the value of the last statement (or void if none)
         std::optional<TOperand> last;
@@ -1637,15 +1617,6 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
                 auto res = lowerTopBlock(maybeBlock.Cast(), scope);
                 if (!res) {
                     return std::unexpected(res.error());
-                }
-            } else if (auto maybeSeq = NAst::TMaybeNode<NAst::TSeqExpr>(s)) {
-                for (auto& stmt : maybeSeq.Cast()->Stmts) {
-                    auto res = lowerTopBlock(std::make_shared<NAst::TBlockExpr>(
-                        maybeSeq.Cast()->Location,
-                        std::vector<NAst::TExprPtr>{stmt}), scope);
-                    if (!res) {
-                        return std::unexpected(res.error());
-                    }
                 }
             } else if (auto maybeVar = NAst::TMaybeNode<NAst::TVarStmt>(s)) {
                 if (functionSeen) {

@@ -3,5 +3,5 @@
     (block
       (var a f64)
       (= a 123.123456)
-      (seq
+      (block
         (call output_double a 10 2)))))
