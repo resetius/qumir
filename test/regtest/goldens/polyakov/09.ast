@@ -83,4 +83,5 @@
                                   (block
                                     (block
                                       (call output_string "ошибка")
-                                      (call output_string "\n"))))))))))))))))))))
+                                      (call output_string "\n")))))))))))))))))
+      (return))))

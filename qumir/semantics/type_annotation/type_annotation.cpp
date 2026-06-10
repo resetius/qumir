@@ -334,6 +334,16 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
 
     funDecl->Type = std::make_shared<TFunctionType>(std::move(params), funDecl->RetType);
 
+    // RetType as seen by `(return ...)` inside this function: for coroutines
+    // this is the unwrapped Future<T> result type, otherwise funDecl->RetType
+    // itself. Stored on the function-level scope so AnnotateReturn can find
+    // it from any nested scope via TScope::FuncScope.
+    auto funcScope = context.GetScope(NSemantics::TScopeId{funDecl->Scope});
+    funcScope->RetType = FutureResultType(funDecl->RetType);
+    if (!funcScope->RetType) {
+        funcScope->RetType = funDecl->RetType;
+    }
+
     if (HasTemplateParams(*funDecl)) {
         // Generic (template-parameterized) function: its body refers to
         // placeholder types and cannot be type-checked on its own — only
@@ -347,7 +357,62 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
         co_return TError(funDecl->Location, "Не удалось определить тип тела функции");
     }
 
+    // Body must either yield the function's return value directly (no
+    // trailing `return` — hand-written core lang) or be void-typed (every
+    // path ends in an explicit `return`, individually checked by
+    // AnnotateReturn — always the case for Kumir-generated bodies).
+    if (!TMaybeType<TVoidType>(funcScope->RetType)) {
+        auto bodyType = UnwrapReferenceType(funDecl->Body->Type);
+        if (!TMaybeType<TVoidType>(bodyType)) {
+            if (!EqualTypes(bodyType, funcScope->RetType)) {
+                if (!CanImplicit(bodyType, funcScope->RetType, &context)) {
+                    co_return TError(funDecl->Location,
+                        "Тело функции должно возвращать значение типа '" + std::string(funcScope->RetType->TypeName()) +
+                        "', но имеет тип '" + std::string(bodyType->TypeName()) + "'.");
+                }
+                funDecl->Body->Stmts.back() = InsertImplicitCastIfNeeded(funDecl->Body->Stmts.back(), funcScope->RetType, &context);
+                funDecl->Body->Type = funcScope->RetType;
+            }
+        }
+    }
+
     co_return funDecl;
+}
+
+TTask AnnotateReturn(std::shared_ptr<TReturnExpr> ret, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    auto scope = context.GetScope(scopeId);
+    auto funcScope = scope->FuncScope;
+    if (!funcScope || !funcScope->RetType) {
+        co_return TError(ret->Location, "`return` вне функции.");
+    }
+    auto retType = funcScope->RetType;
+
+    if (ret->Value) {
+        ret->Value = co_await DoAnnotate(ret->Value, context, scopeId);
+        if (!ret->Value->Type) {
+            co_return TError(ret->Value->Location, "Не удалось определить тип возвращаемого значения.");
+        }
+        if (TMaybeType<TVoidType>(retType)) {
+            co_return TError(ret->Location, "Нельзя вернуть значение из функции, возвращающей void.");
+        }
+        auto valueType = UnwrapReferenceType(ret->Value->Type);
+        if (!EqualTypes(valueType, retType)) {
+            if (!CanImplicit(valueType, retType, &context)) {
+                co_return TError(ret->Location,
+                    "Нельзя неявно преобразовать тип '" + std::string(valueType->TypeName()) +
+                    "' к возвращаемому типу функции '" + std::string(retType->TypeName()) + "'.");
+            }
+            ret->Value = InsertImplicitCastIfNeeded(ret->Value, retType, &context);
+        }
+    } else {
+        if (!TMaybeType<TVoidType>(retType)) {
+            co_return TError(ret->Location,
+                "Функция должна возвращать значение типа '" + std::string(retType->TypeName()) + "', но `return` указан без значения.");
+        }
+    }
+
+    ret->Type = std::make_shared<TVoidType>();
+    co_return ret;
 }
 
 // Tries exact match, then cast-left, then cast-right. Returns TCallExpr or nullptr.
@@ -1129,6 +1194,9 @@ TExprPtr ShallowCloneNode(const TExprPtr& node) {
     if (auto n = TMaybeNode<TContinueStmt>(node)) {
         return std::make_shared<TContinueStmt>(*n.Cast());
     }
+    if (auto n = TMaybeNode<TReturnExpr>(node)) {
+        return std::make_shared<TReturnExpr>(*n.Cast());
+    }
     if (auto n = TMaybeNode<TVarStmt>(node)) {
         return std::make_shared<TVarStmt>(*n.Cast());
     }
@@ -1312,9 +1380,37 @@ TFunDeclTask InstantiateGenericFunction(
         co_return declRes.error();
     }
 
+    // RetType as seen by `(return ...)` inside this function: stored on the
+    // function-level scope so AnnotateReturn can find it from any nested
+    // scope via TScope::FuncScope. Mirrors AnnotateFunDecl, which is not
+    // called for instantiated clones (their body is annotated directly here).
+    auto funcScope = context.GetScope(NSemantics::TScopeId{cloned->Scope});
+    funcScope->RetType = FutureResultType(cloned->RetType);
+    if (!funcScope->RetType) {
+        funcScope->RetType = cloned->RetType;
+    }
+
     co_await DoAnnotate(cloned->Body, context, NSemantics::TScopeId{cloned->Scope});
     if (!cloned->Body->Type) {
         co_return TError(callLoc, "Не удалось определить тип тела инстанциированной функции '" + templateDecl->Name + "'");
+    }
+
+    // Body must either yield the function's return value directly (no
+    // trailing `return` — hand-written core lang) or be void-typed (every
+    // path ends in an explicit `return`). Mirrors AnnotateFunDecl.
+    if (!TMaybeType<TVoidType>(funcScope->RetType)) {
+        auto bodyType = UnwrapReferenceType(cloned->Body->Type);
+        if (!TMaybeType<TVoidType>(bodyType)) {
+            if (!EqualTypes(bodyType, funcScope->RetType)) {
+                if (!CanImplicit(bodyType, funcScope->RetType, &context)) {
+                    co_return TError(cloned->Location,
+                        "Тело функции должно возвращать значение типа '" + std::string(funcScope->RetType->TypeName()) +
+                        "', но имеет тип '" + std::string(bodyType->TypeName()) + "'.");
+                }
+                cloned->Body->Stmts.back() = InsertImplicitCastIfNeeded(cloned->Body->Stmts.back(), funcScope->RetType, &context);
+                cloned->Body->Type = funcScope->RetType;
+            }
+        }
     }
 
     co_return cloned;
@@ -1846,6 +1942,8 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
     } else if (TMaybeNode<TContinueStmt>(expr)) {
         expr->Type = std::make_shared<TVoidType>();
         co_return expr;
+    } else if (auto maybeReturn = TMaybeNode<TReturnExpr>(expr)) {
+        co_return co_await AnnotateReturn(maybeReturn.Cast(), context, scopeId);
     } else if (auto maybeLoop = TMaybeNode<TWhileStmtExpr>(expr)) {
         co_return co_await AnnotateWhile(maybeLoop.Cast(), context, scopeId);
     } else if (auto maybeLoop = TMaybeNode<TRepeatStmtExpr>(expr)) {

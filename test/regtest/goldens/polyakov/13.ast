@@ -20,4 +20,5 @@
         (call output_int64 count 0)
         (call output_symbol (cast 32 char))
         (call output_int64 sum 0)
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))

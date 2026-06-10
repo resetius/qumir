@@ -309,17 +309,19 @@ function тест_логика_строки_символы () { ; i64
     label: label(43)
     load tmp(84,i64) = local(5,i64) 
     stre local(0,i64) tmp(84,i64) 
-    load tmp(85,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(85,ptr to i8) 
-    call str_release 
-    load tmp(86,ptr to i8) = local(1,ptr to i8) 
+    load tmp(85,i64) = local(0,i64) 
+    load tmp(86,ptr to i8) = local(2,ptr to i8) 
     arg tmp(86,ptr to i8) 
     call str_release 
+    load tmp(87,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(87,ptr to i8) 
+    call str_release 
+    stre local(6,i64) tmp(85,i64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(87,i64) = local(0,i64) 
-    ret tmp(87,i64) 
+    load tmp(88,i64) = local(6,i64) 
+    ret tmp(88,i64) 
   }
 }

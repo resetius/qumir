@@ -6,4 +6,5 @@
       (var с string)
       (= с "строка")
       (= i 1)
-      (= знач (call str_slice с i (* i 2))))))
+      (= знач (call str_slice с i (* i 2)))
+      (return знач))))

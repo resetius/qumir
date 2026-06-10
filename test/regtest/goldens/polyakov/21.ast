@@ -5,7 +5,8 @@
       (= s "12.12.12")
       (= s (call replaceBad s "12" "A12B"))
       (block
-        (call output_string s))))
+        (call output_string s))
+      (return)))
   (fun replaceBad ((var s0 string)
       (var sOld string)
       (var sNew string)) -> string
@@ -23,4 +24,5 @@
           (call удалить s p len)
           (call вставить sNew s p)
           (= p (call |позиция после| (+ p (call длин sNew)) sOld s))))
-      (= знач s))))
+      (= знач s)
+      (return знач))))

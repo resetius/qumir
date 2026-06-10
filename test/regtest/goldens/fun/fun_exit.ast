@@ -8,24 +8,28 @@
       (= a (call g))
       (= b (call h))
       (= c (call i))
-      (= знач (+ (+ a b) c))))
+      (= знач (+ (+ a b) c))
+      (return знач)))
   (fun g () -> i64
     (block
       (var знач i64)
       (= знач 1)
-      break
-      (= знач 2)))
+      (return знач)
+      (= знач 2)
+      (return знач)))
   (fun h () -> i64
     (block
       (var знач i64)
       (= знач 0)
-      (if (== 1 1) (block (= знач 5) break))
-      (= знач 99)))
+      (if (== 1 1) (block (= знач 5) (return знач)))
+      (= знач 99)
+      (return знач)))
   (fun i () -> i64
     (block
       (var знач i64)
       (= знач 1)
-      (if (== 2 3) (block break))
+      (if (== 2 3) (block (return знач)))
       (= знач 7)
-      break
-      (= знач 100))))
+      (return знач)
+      (= знач 100)
+      (return знач))))

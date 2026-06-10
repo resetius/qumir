@@ -9,4 +9,5 @@
       (= s2 "b ")
       (= s1 "ыыы")
       (= s1 (call str_concat (call str_concat s1 s2) s3))
-      (= знач s1))))
+      (= знач s1)
+      (return знач))))

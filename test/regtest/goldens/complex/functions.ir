@@ -71,12 +71,14 @@ function real_part (local(0)) { ; f64
     + tmp(1,ptr to i8) = tmp(0,struct { f64; f64}) imm(0,i64) 
     lde tmp(2,f64) = tmp(1,ptr to i8) 
     stre local(1,f64) tmp(2,f64) 
+    load tmp(3,f64) = local(1,f64) 
+    stre local(2,f64) tmp(3,f64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(3,f64) = local(1,f64) 
-    ret tmp(3,f64) 
+    load tmp(4,f64) = local(2,f64) 
+    ret tmp(4,f64) 
   }
 }
 function imag_part (local(0)) { ; f64
@@ -86,12 +88,14 @@ function imag_part (local(0)) { ; f64
     + tmp(1,ptr to i8) = tmp(0,struct { f64; f64}) imm(8,i64) 
     lde tmp(2,f64) = tmp(1,ptr to i8) 
     stre local(1,f64) tmp(2,f64) 
+    load tmp(3,f64) = local(1,f64) 
+    stre local(2,f64) tmp(3,f64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(3,f64) = local(1,f64) 
-    ret tmp(3,f64) 
+    load tmp(4,f64) = local(2,f64) 
+    ret tmp(4,f64) 
   }
 }
 function make_complex (local(0), local(1)) { ; struct { f64; f64}
@@ -267,12 +271,14 @@ function make_complex (local(0), local(1)) { ; struct { f64; f64}
     + tmp(126,ptr to i64) = tmp(0,ptr to i64) imm(8,i64) 
     ste tmp(126,ptr to i64) tmp(125,f64) 
     stre local(2,struct { f64; f64}) tmp(0,ptr to i64) 
+    load tmp(127,struct { f64; f64}) = local(2,struct { f64; f64}) 
+    stre local(3,struct { f64; f64}) tmp(127,struct { f64; f64}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(127,struct { f64; f64}) = local(2,struct { f64; f64}) 
-    ret tmp(127,struct { f64; f64}) 
+    load tmp(128,struct { f64; f64}) = local(3,struct { f64; f64}) 
+    ret tmp(128,struct { f64; f64}) 
   }
 }
 function add_twice (local(0), local(1)) { ; struct { f64; f64}
@@ -334,11 +340,13 @@ function add_twice (local(0), local(1)) { ; struct { f64; f64}
     + tmp(48,ptr to i64) = tmp(0,ptr to i64) imm(8,i64) 
     ste tmp(48,ptr to i64) tmp(47,f64) 
     stre local(2,struct { f64; f64}) tmp(0,ptr to i64) 
+    load tmp(49,struct { f64; f64}) = local(2,struct { f64; f64}) 
+    stre local(3,struct { f64; f64}) tmp(49,struct { f64; f64}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(49,struct { f64; f64}) = local(2,struct { f64; f64}) 
-    ret tmp(49,struct { f64; f64}) 
+    load tmp(50,struct { f64; f64}) = local(3,struct { f64; f64}) 
+    ret tmp(50,struct { f64; f64}) 
   }
 }

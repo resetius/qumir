@@ -1,9 +1,11 @@
 (block
   (fun <main> ()
     (block
-      (call ф 10)))
+      (call ф 10)
+      (return)))
   (fun ф ((var й i64))
     (block
       (call __ensure (< й 10) "(< й 10) @ Line: 7, Byte: 4, Column: 4")
       (block
-        (call output_string "ok")))))
+        (call output_string "ok"))
+      (return))))

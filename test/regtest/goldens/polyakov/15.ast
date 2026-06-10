@@ -28,4 +28,5 @@
             (call output_int64 X 0)))
         (block
           (block
-            (call output_string "Не нашли!")))))))
+            (call output_string "Не нашли!"))))
+      (return))))

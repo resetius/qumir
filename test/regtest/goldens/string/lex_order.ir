@@ -150,20 +150,22 @@ function тест_лексикографический_порядок () { ; i64
     label: label(19)
     load tmp(44,i64) = local(4,i64) 
     stre local(0,i64) tmp(44,i64) 
-    load tmp(45,ptr to i8) = local(3,ptr to i8) 
-    arg tmp(45,ptr to i8) 
-    call str_release 
-    load tmp(46,ptr to i8) = local(2,ptr to i8) 
+    load tmp(45,i64) = local(0,i64) 
+    load tmp(46,ptr to i8) = local(3,ptr to i8) 
     arg tmp(46,ptr to i8) 
     call str_release 
-    load tmp(47,ptr to i8) = local(1,ptr to i8) 
+    load tmp(47,ptr to i8) = local(2,ptr to i8) 
     arg tmp(47,ptr to i8) 
     call str_release 
+    load tmp(48,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(48,ptr to i8) 
+    call str_release 
+    stre local(5,i64) tmp(45,i64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(48,i64) = local(0,i64) 
-    ret tmp(48,i64) 
+    load tmp(49,i64) = local(5,i64) 
+    ret tmp(49,i64) 
   }
 }

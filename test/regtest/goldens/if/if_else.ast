@@ -4,4 +4,5 @@
       (var знач i64)
       (var i i64)
       (if (cast #t bool) (block (= i 1)) (block (= i 2)))
-      (= знач i))))
+      (= знач i)
+      (return знач))))

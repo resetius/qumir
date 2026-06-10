@@ -36,6 +36,7 @@ enum class EErrorId {
     IF_CONDITION_NOT_NUMBER,
     BREAK_NOT_IN_LOOP,
     CONTINUE_NOT_IN_LOOP,
+    RETURN_OUTSIDE_FUNCTION,
 
     RIGHT_HAND_SIDE_NOT_NUMBER,
     UNDEFINED_VARIABLE,
@@ -98,6 +99,7 @@ private:
         case EErrorId::IF_CONDITION_NOT_NUMBER: return "условие if должно быть числом";
         case EErrorId::BREAK_NOT_IN_LOOP: return "break вне цикла";
         case EErrorId::CONTINUE_NOT_IN_LOOP: return "continue вне цикла";
+        case EErrorId::RETURN_OUTSIDE_FUNCTION: return "return вне функции";
 
         case EErrorId::RIGHT_HAND_SIDE_NOT_NUMBER: return "правый операнд присваивания должен быть числом";
         case EErrorId::UNDEFINED_VARIABLE: return "неопределённая переменная `{}`";

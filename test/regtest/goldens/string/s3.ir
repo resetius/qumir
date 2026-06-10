@@ -13,12 +13,19 @@ function ф () { ; ptr to i8
     arg tmp(2,ptr to i8) 
     call str_release 
     stre local(0,ptr to i8) tmp(1,ptr to i8) 
+    load tmp(3,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(3,ptr to i8) 
+    call str_retain 
+    load tmp(4,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(4,ptr to i8) 
+    call str_release 
+    stre local(1,ptr to i8) tmp(3,ptr to i8) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(3,ptr to i8) = local(0,ptr to i8) 
-    ret tmp(3,ptr to i8) 
+    load tmp(5,ptr to i8) = local(1,ptr to i8) 
+    ret tmp(5,ptr to i8) 
   }
 }
 function g (local(0)) { ; void

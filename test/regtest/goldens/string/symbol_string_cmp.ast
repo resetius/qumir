@@ -14,4 +14,5 @@
       (if (>= (call str_compare (call str_from_unicode c) s) 0) (block (= r (+ r 1))))
       (if (< c (cast 98 char)) (block (= r (+ r 1))))
       (if (> c (cast 96 char)) (block (= r (+ r 1))))
-      (= знач r))))
+      (= знач r)
+      (return знач))))

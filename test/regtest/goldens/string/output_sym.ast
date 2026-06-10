@@ -2,4 +2,5 @@
   (fun <main> ()
     (block
       (block
-        (call output_symbol (cast 97 char))))))
+        (call output_symbol (cast 97 char)))
+      (return))))

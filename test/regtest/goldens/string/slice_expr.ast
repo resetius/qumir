@@ -4,4 +4,5 @@
       (var знач string)
       (var с string)
       (= с "строка")
-      (= знач (call str_slice (call str_concat с " еще одна") 1 10)))))
+      (= знач (call str_slice (call str_concat с " еще одна") 1 10))
+      (return знач))))

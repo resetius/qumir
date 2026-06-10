@@ -3,8 +3,10 @@
     (block
       (var знач string)
       (call g "строка")
-      (= знач "ok")))
+      (= знач "ok")
+      (return знач)))
   (fun g ((var й string))
     (block
       (var к string)
-      (= к й))))
+      (= к й)
+      (return))))

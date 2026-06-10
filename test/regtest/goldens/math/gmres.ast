@@ -154,7 +154,8 @@
       (block
         (call output_string "||r||_inf= ")
         (call output_double res_inf 8 8)
-        (call output_string "\n"))))
+        (call output_string "\n"))
+      (return)))
   (fun matvec ((var n i64)
       (var v <array f64 1> [0 (- n 1)])
       (var w <array <f64 (mutable)> 1> [0 (- n 1)]))
@@ -169,7 +170,8 @@
         (block
           (= sum 0)
           (for j 0 (- n 1) 1 (block (= sum (+ sum (* (/ 1 (+ (cast (+ i j) f64) 1)) (index v j))))))
-          (= w [i] sum)))))
+          (= w [i] sum)))
+      (return)))
   (fun norm2 ((var n i64)
       (var v <array f64 1> [0 (- n 1)])) -> f64
     (block
@@ -178,7 +180,8 @@
       (var sum f64)
       (= sum 0)
       (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index v i) (index v i))))))
-      (= знач (call sqrt sum))))
+      (= знач (call sqrt sum))
+      (return знач)))
   (fun dot ((var n i64)
       (var a <array f64 1> [0 (- n 1)])
       (var b <array f64 1> [0 (- n 1)])) -> f64
@@ -188,7 +191,8 @@
       (var sum f64)
       (= sum 0)
       (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index a i) (index b i))))))
-      (= знач sum)))
+      (= знач sum)
+      (return знач)))
   (fun compute_residual ((var n i64)
       (var x <array f64 1> [0 (- n 1)])
       (var b <array f64 1> [0 (- n 1)])
@@ -197,4 +201,5 @@
     (block
       (var i i64)
       (call matvec n x w)
-      (for i 0 (- n 1) 1 (block (= r [i] (- (index b i) (index w i))))))))
+      (for i 0 (- n 1) 1 (block (= r [i] (- (index b i) (index w i)))))
+      (return))))

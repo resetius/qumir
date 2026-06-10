@@ -6,4 +6,5 @@
       (var b i64)
       (= a 7)
       (= b 2)
-      (= знач (/ (cast a f64) (cast b f64))))))
+      (= знач (/ (cast a f64) (cast b f64)))
+      (return знач))))

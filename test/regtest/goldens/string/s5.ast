@@ -67,4 +67,5 @@
       (block
         (call output_string "symbol + empty: ")
         (call output_string result6)
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))

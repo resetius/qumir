@@ -110,4 +110,5 @@
         (call output_int64 g 0)
         (call output_string " b=")
         (call output_int64 b 0)
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))

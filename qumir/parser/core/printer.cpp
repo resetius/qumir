@@ -626,6 +626,17 @@ struct TPrintExpr : public IVisitor {
         *Out << "continue";
     }
 
+    void Visit(TReturnExpr& node) override {
+        if (!node.Value) {
+            *Out << "(return)";
+            return;
+        }
+        *Out << "(return";
+        Printer.Separator(Frame.Level + 1);
+        Printer.PrintExpr(node.Value, true, Frame.Level + 1);
+        *Out << ')';
+    }
+
     void Visit(TVarStmt& node) override {
         Printer.PrintVar(node, Frame.Level);
     }

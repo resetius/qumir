@@ -18,15 +18,18 @@
         (call output_double (field (: b <named компл>) re) 0 -1)
         (call output_string " Im=")
         (call output_double (field (: b <named компл>) im) 0 -1)
-        (call output_string "\n"))))
+        (call output_string "\n"))
+      (return)))
   (fun real_part ((var z <named компл>)) -> f64
     (block
       (var знач f64)
-      (= знач (field (: z <named компл>) re))))
+      (= знач (field (: z <named компл>) re))
+      (return знач)))
   (fun imag_part ((var z <named компл>)) -> f64
     (block
       (var знач f64)
-      (= знач (field (: z <named компл>) im))))
+      (= знач (field (: z <named компл>) im))
+      (return знач)))
   (fun make_complex ((var re f64)
       (var im f64)) -> <named компл>
     (block
@@ -56,7 +59,8 @@
                             (field (: (struct ((re 0) (im 1))) <named компл>) re))))))
                     <named компл>)
                   im)))))
-          <named компл>))))
+          <named компл>))
+      (return (: знач <named компл>))))
   (fun add_twice ((var a <named компл>)
       (var b <named компл>)) -> <named компл>
     (block
@@ -74,4 +78,5 @@
                     <named компл>)
                   im)
                 (field (: b <named компл>) im)))))
-          <named компл>)))))
+          <named компл>))
+      (return (: знач <named компл>)))))

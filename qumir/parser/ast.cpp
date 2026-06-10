@@ -18,6 +18,7 @@ void TForStmtExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TTimesStmtExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TBreakStmt::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TContinueStmt::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TReturnExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TVarStmt::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TVarsBlockExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TFunDecl::Accept(IVisitor& visitor) { visitor.Visit(*this); }

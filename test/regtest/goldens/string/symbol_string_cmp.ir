@@ -149,14 +149,16 @@ function тест_сравнение_символ_строка () { ; i64
     label: label(19)
     load tmp(42,i64) = local(3,i64) 
     stre local(0,i64) tmp(42,i64) 
-    load tmp(43,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(43,ptr to i8) 
+    load tmp(43,i64) = local(0,i64) 
+    load tmp(44,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(44,ptr to i8) 
     call str_release 
+    stre local(4,i64) tmp(43,i64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(44,i64) = local(0,i64) 
-    ret tmp(44,i64) 
+    load tmp(45,i64) = local(4,i64) 
+    ret tmp(45,i64) 
   }
 }

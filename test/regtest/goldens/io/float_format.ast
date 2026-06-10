@@ -4,4 +4,5 @@
       (var a f64)
       (= a 123.123456)
       (block
-        (call output_double a 10 2)))))
+        (call output_double a 10 2))
+      (return))))

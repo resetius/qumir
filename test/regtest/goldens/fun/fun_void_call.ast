@@ -3,8 +3,10 @@
     (block
       (var знач i64)
       (call ф 10)
-      (= знач 1)))
+      (= знач 1)
+      (return знач)))
   (fun ф ((var i i64))
     (block
       (block
-        (call output_int64 i 0)))))
+        (call output_int64 i 0))
+      (return))))

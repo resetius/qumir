@@ -5,7 +5,9 @@
       (var x f64)
       (= x 1.5)
       (call g x)
-      (= знач x)))
+      (= знач x)
+      (return знач)))
   (fun g ((var x <ref f64>))
     (block
-      (= x (* x 2)))))
+      (= x (* x 2))
+      (return))))

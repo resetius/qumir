@@ -263,11 +263,13 @@ function ф () { ; i64
     label: label(51)
     load tmp(51,i64) = local(1,i64) 
     stre local(0,i64) tmp(51,i64) 
+    load tmp(52,i64) = local(0,i64) 
+    stre local(2,i64) tmp(52,i64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(52,i64) = local(0,i64) 
-    ret tmp(52,i64) 
+    load tmp(53,i64) = local(2,i64) 
+    ret tmp(53,i64) 
   }
 }

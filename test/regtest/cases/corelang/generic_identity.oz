@@ -10,5 +10,4 @@
 
   (fun identity ((var x <named K (template readable mutable)>)) -> <named K (template readable mutable)>
     (block
-      (var знач <named K (template readable mutable)>)
-      (= знач x))))
+      (return x))))

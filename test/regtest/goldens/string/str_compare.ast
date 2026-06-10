@@ -12,4 +12,5 @@
       (if (<= (call str_compare s1 s2) 0) (block (= знач (+ знач 1))))
       (if (>= (call str_compare s1 s2) 0) (block (= знач (+ знач 1))))
       (if (< (call str_compare s1 s2) 0) (block (= знач (+ знач 1))))
-      (if (> (call str_compare s1 s2) 0) (block (= знач (+ знач 1)))))))
+      (if (> (call str_compare s1 s2) 0) (block (= знач (+ знач 1))))
+      (return знач))))

@@ -2,9 +2,11 @@
   (fun <main> ()
     (block
       (var i i64)
-      (= i (call ф 8))))
+      (= i (call ф 8))
+      (return)))
   (fun ф ((var й i64)) -> i64 (attrs
       (expect_after (call __ensure (> знач 10) "(> знач 10) @ Line: 8, Byte: 4, Column: 4")))
     (block
       (var знач i64)
-      (= знач (+ й 1)))))
+      (= знач (+ й 1))
+      (return знач))))

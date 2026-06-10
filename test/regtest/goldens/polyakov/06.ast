@@ -10,4 +10,5 @@
       (if (> a b) (block (= M a)) (block (= M b)))
       (= M a)
       (if (>= b a) (block (= M b)))
-      (= знач M))))
+      (= знач M)
+      (return знач))))

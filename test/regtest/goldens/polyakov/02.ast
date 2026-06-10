@@ -7,4 +7,5 @@
         (call output_string "2=?")
         (call output_string "\n"))
       (block
-        (call output_string "Ответ: 4")))))
+        (call output_string "Ответ: 4"))
+      (return))))

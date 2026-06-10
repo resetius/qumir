@@ -5,7 +5,9 @@
       (var s string)
       (= s "s12345")
       (call g s)
-      (= знач s)))
+      (= знач s)
+      (return знач)))
   (fun g ((var s <ref string>))
     (block
-      (= s (call str_slice s 1 2)))))
+      (= s (call str_slice s 1 2))
+      (return))))

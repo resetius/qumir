@@ -6,13 +6,16 @@
       (call f i)
       (block
         (call output_int64 i 0)
-        (call output_string "\n"))))
+        (call output_string "\n"))
+      (return)))
   (fun f ((var i <ref i64>))
     (block
       (var k i64)
       (= k (+ 1 (call g i)))
-      (= i 10)))
+      (= i 10)
+      (return)))
   (fun g ((var i i64)) -> i64
     (block
       (var знач i64)
-      (= знач i))))
+      (= знач i)
+      (return знач))))

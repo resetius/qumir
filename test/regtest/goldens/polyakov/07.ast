@@ -18,4 +18,5 @@
                 (call output_string "Одного возраста")))
             (block
               (block
-                (call output_string "Борис старше")))))))))
+                (call output_string "Борис старше"))))))
+      (return))))

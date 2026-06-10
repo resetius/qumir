@@ -14,4 +14,5 @@
       (if (>= (call str_compare непустая пустая) 0) (block (= r (+ r 1))))
       (if (== (call str_compare пустая "") 0) (block (= r (+ r 1))))
       (if (!= (call str_compare пустая непустая) 0) (block (= r (+ r 1))))
-      (= знач r))))
+      (= знач r)
+      (return знач))))
