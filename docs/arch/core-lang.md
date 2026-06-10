@@ -368,14 +368,15 @@ Casts, indexing, and slicing:
 
 ```core
 (cast operand type)
-(index index collection)
-(index [index1 ... indexN] collection)
-(slice [start] collection)
-(slice [start end] collection)
+(index collection index)
+(index collection [index1 ... indexN])
+(slice collection [start])
+(slice collection [start end])
 ```
 
 Single-index access creates `TIndexExpr`; vector index access creates
-`TMultiIndexExpr`.
+`TMultiIndexExpr`. `(slice collection [start])` with a single bound is a
+single-element slice, equivalent to `(slice collection [start start])`.
 
 When a function parameter has type `<ref T>`, the argument must be an lvalue.
 Identifiers, field accesses, and array element accesses can be passed by
@@ -386,7 +387,7 @@ reference. Indexed array arguments use the same syntax as normal reads:
   (block (= x (+ x (: 1 i64)))))
 
 (var a <array i64 1> [0 2])
-(call bump (index 1 a))
+(call bump (index a 1))
 ```
 
 During IR lowering the indexed expression is converted to the element address,
@@ -523,6 +524,6 @@ The core printer is the canonical form used by tests and AST goldens.
     (= s 0)
     (for i 0 (- n 1) 1
       (block
-        (= s (+ s (index i a)))))
+        (= s (+ s (index a i)))))
     s))
 ```

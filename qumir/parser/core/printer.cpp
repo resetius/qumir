@@ -389,16 +389,16 @@ void TPrinter::PrintMultiIndex(TMultiIndexExpr& node, int level) {
 }
 
 void TPrinter::PrintSlice(TSliceExpr& node, int level) {
-    *Out << "(slice [";
+    *Out << "(slice ";
+    PrintExpr(node.Collection, true, level + 1);
+    Separator(level + 1);
+    *Out << '[';
     PrintExpr(node.Start, true, level + 1);
     if (node.End) {
         Space();
         PrintExpr(node.End, true, level + 1);
     }
-    *Out << ']';
-    Separator(level + 1);
-    PrintExpr(node.Collection, true, level + 1);
-    *Out << ')';
+    *Out << "])";
 }
 
 void TPrinter::PrintStructConstruct(TStructConstructExpr& node, int level) {

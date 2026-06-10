@@ -90,13 +90,13 @@ AST node forms:
   (cast operand type)
       TCastExpr, NodeId = "Cast".
 
-  (index index collection)
+  (index collection index)
       TIndexExpr, NodeId = "Index".
 
-  (index [index1 index2 ... indexN] collection)
+  (index collection [index1 index2 ... indexN])
       TMultiIndexExpr, NodeId = "MultiIndex".
 
-  (slice [start end] collection)
+  (slice collection [start end])
       TSliceExpr, NodeId = "Slice".
 
   (use module_name)

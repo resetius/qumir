@@ -1787,10 +1787,6 @@ TTask AnnotateSlice(std::shared_ptr<TSliceExpr> sliceExpr, NSemantics::TNameReso
     if (!sliceExpr->Start->Type) {
         co_return TError(sliceExpr->Location, "Начальный индекс в срезе не имеет типа. Убедитесь, что выражение индекса корректно и его тип определён.");
     }
-    sliceExpr->End = co_await DoAnnotate(sliceExpr->End, context, scopeId);
-    if (!sliceExpr->End->Type) {
-        co_return TError(sliceExpr->Location, "Конечный индекс в срезе не имеет типа. Убедитесь, что выражение индекса корректно и его тип определён.");
-    }
     auto intType = std::make_shared<TIntegerType>();
     if (!EqualTypes(sliceExpr->Start->Type, intType)) {
         if (!CanImplicit(sliceExpr->Start->Type, intType, &context)) {
@@ -1798,11 +1794,20 @@ TTask AnnotateSlice(std::shared_ptr<TSliceExpr> sliceExpr, NSemantics::TNameReso
         }
         sliceExpr->Start = InsertImplicitCastIfNeeded(sliceExpr->Start, intType, &context);
     }
-    if (!EqualTypes(sliceExpr->End->Type, intType)) {
-        if (!CanImplicit(sliceExpr->End->Type, intType, &context)) {
-            co_return TError(sliceExpr->Location, "Конечный индекс в срезе должен быть целым числом. Пример: s[1:3].");
+    if (!sliceExpr->End) {
+        // (slice collection [start]) without an end bound is a single-element slice.
+        sliceExpr->End = ShallowCloneNode(sliceExpr->Start);
+    } else {
+        sliceExpr->End = co_await DoAnnotate(sliceExpr->End, context, scopeId);
+        if (!sliceExpr->End->Type) {
+            co_return TError(sliceExpr->Location, "Конечный индекс в срезе не имеет типа. Убедитесь, что выражение индекса корректно и его тип определён.");
         }
-        sliceExpr->End = InsertImplicitCastIfNeeded(sliceExpr->End, intType, &context);
+        if (!EqualTypes(sliceExpr->End->Type, intType)) {
+            if (!CanImplicit(sliceExpr->End->Type, intType, &context)) {
+                co_return TError(sliceExpr->Location, "Конечный индекс в срезе должен быть целым числом. Пример: s[1:3].");
+            }
+            sliceExpr->End = InsertImplicitCastIfNeeded(sliceExpr->End, intType, &context);
+        }
     }
     // Срез строки возвращает строку
     sliceExpr->Type = collectionType;

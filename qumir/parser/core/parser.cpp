@@ -720,11 +720,11 @@ TListHandlerMap MakeDefaultHandlers() {
             co_return std::make_shared<TIndexExpr>(loc, std::move(collection), std::move(index));
         }},
         {"slice", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto collection = co_await ParseExpr(ctx);
             auto bounds = co_await ParseIndexVector(ctx);
             if (bounds.empty() || bounds.size() > 2) {
                 co_return TError(loc, "slice expects one or two bounds");
             }
-            auto collection = co_await ParseExpr(ctx);
             co_await Expect(ctx, ')');
             co_return std::make_shared<TSliceExpr>(loc, std::move(collection), std::move(bounds[0]), bounds.size() == 2 ? std::move(bounds[1]) : nullptr);
         }},
