@@ -9,11 +9,13 @@ function ф () { ; f64
     i2f tmp(3,f64) = tmp(2,i64) 
     / tmp(4,f64) = tmp(1,f64) tmp(3,f64) 
     stre local(0,f64) tmp(4,f64) 
+    load tmp(5,f64) = local(0,f64) 
+    stre local(3,f64) tmp(5,f64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(5,f64) = local(0,f64) 
-    ret tmp(5,f64) 
+    load tmp(6,f64) = local(3,f64) 
+    ret tmp(6,f64) 
   }
 }

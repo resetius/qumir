@@ -138,4 +138,5 @@
         (call output_string " max|u-uex|=")
         (call output_double err 8 8)
         (call output_symbol (cast 10 char)))
-      (if (< err tol) (block (block (call output_string "OK\n"))) (block (block (call output_string "FAIL\n")))))))
+      (if (< err tol) (block (block (call output_string "OK\n"))) (block (block (call output_string "FAIL\n"))))
+      (return))))

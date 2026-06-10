@@ -597,6 +597,16 @@ TListHandlerMap MakeDefaultHandlers() {
             co_await Expect(ctx, ')');
             co_return std::make_shared<TTimesStmtExpr>(loc, std::move(count), std::move(body));
         }},
+        {"return", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto token = ctx.Stream.Next();
+            if (IsOp(token, ')')) {
+                co_return std::make_shared<TReturnExpr>(loc, nullptr);
+            }
+            ctx.Stream.Unget(token);
+            auto value = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TReturnExpr>(loc, std::move(value));
+        }},
         {"var", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto name = co_await ParseName(ctx);
             auto peek = ctx.Stream.Next();

@@ -4,4 +4,5 @@
       (var знач bool)
       (var i bool)
       (= i (cast #t bool))
-      (= знач i))))
+      (= знач i)
+      (return знач))))

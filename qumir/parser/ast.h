@@ -501,6 +501,33 @@ struct TContinueStmt : TExpr {
     void Accept(IVisitor& visitor) override;
 };
 
+struct TReturnExpr : TExpr {
+    static constexpr const char* NodeId = "Return";
+
+    TExprPtr Value; // optional; null for `(return)`
+
+    TReturnExpr(TLocation loc, TExprPtr value)
+        : TExpr(std::move(loc))
+        , Value(std::move(value))
+    { }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+
+    std::vector<TExprPtr> Children() const override {
+        if (Value) { return { Value }; }
+        return {};
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        if (Value) { return { &Value }; }
+        return {};
+    }
+
+    void Accept(IVisitor& visitor) override;
+};
+
 struct TVarStmt : TExpr {
     static constexpr const char* NodeId = "Var";
 
@@ -1089,6 +1116,7 @@ struct IVisitor {
     virtual void Visit(TTimesStmtExpr& node) = 0;
     virtual void Visit(TBreakStmt& node) = 0;
     virtual void Visit(TContinueStmt& node) = 0;
+    virtual void Visit(TReturnExpr& node) = 0;
     virtual void Visit(TVarStmt& node) = 0;
     virtual void Visit(TVarsBlockExpr& node) = 0;
     virtual void Visit(TFunDecl& node) = 0;

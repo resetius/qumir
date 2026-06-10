@@ -5,4 +5,5 @@
       (var s string)
       (= s "ABCЙЦУКcbv")
       (call удалить s 5 4)
-      (= знач s))))
+      (= знач s)
+      (return знач))))

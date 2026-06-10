@@ -17,14 +17,21 @@ function ф () { ; ptr to i8
     arg tmp(5,ptr to i8) 
     call str_release 
     stre local(0,ptr to i8) tmp(4,ptr to i8) 
-    load tmp(6,ptr to i8) = local(1,ptr to i8) 
+    load tmp(6,ptr to i8) = local(0,ptr to i8) 
     arg tmp(6,ptr to i8) 
+    call str_retain 
+    load tmp(7,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(7,ptr to i8) 
     call str_release 
+    load tmp(8,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(8,ptr to i8) 
+    call str_release 
+    stre local(2,ptr to i8) tmp(6,ptr to i8) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(7,ptr to i8) = local(0,ptr to i8) 
-    ret tmp(7,ptr to i8) 
+    load tmp(9,ptr to i8) = local(2,ptr to i8) 
+    ret tmp(9,ptr to i8) 
   }
 }

@@ -4,10 +4,13 @@
       (var знач string)
       (var s string)
       (call инит s)
-      (= знач s)))
+      (= знач s)
+      (return знач)))
   (fun инит ((var s <ref <string (mutable)>>))
     (block
-      (call deep s)))
+      (call deep s)
+      (return)))
   (fun deep ((var s <ref <string (mutable)>>))
     (block
-      (= s "abc"))))
+      (= s "abc")
+      (return))))

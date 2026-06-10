@@ -28,4 +28,5 @@
             (call output_double (field (: (index arr j) <named компл>) re) 0 -1)
             (call output_string " Im=")
             (call output_double (field (: (index arr j) <named компл>) im) 0 -1)
-            (call output_string "\n")))))))
+            (call output_string "\n"))))
+      (return))))

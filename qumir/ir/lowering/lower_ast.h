@@ -28,6 +28,8 @@ private:
         NSemantics::TScopeId Id;
         std::optional<TLabel> BreakLabel;
         std::optional<TLabel> ContinueLabel;
+        std::optional<TLabel> ReturnLabel; // function's exit block, set for every scope inside a function body
+        std::optional<TLocal> RetLocal; // holds the return value; unset for void-returning functions
     };
 
     struct TDestructor {
@@ -58,6 +60,11 @@ private:
     };
 
     TExpectedTask<TValueWithBlock, TError, TLocation> Lower(const NAst::TExprPtr& expr, TBlockScope scope);
+
+    // Lowers `ret->Value` (if any) to an operand suitable for storing into
+    // `scope.RetLocal`, retaining it if it's a borrowed string. Caller is
+    // responsible for emitting the `stre`/`jmp` and any destructor calls.
+    TExpectedTask<std::optional<TOperand>, TError, TLocation> LowerReturnValue(std::shared_ptr<NAst::TReturnExpr> ret, TBlockScope scope);
 
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerWhile(std::shared_ptr<NAst::TWhileStmtExpr> loop, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerFor(std::shared_ptr<NAst::TForStmtExpr> loop, TBlockScope scope);

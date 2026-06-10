@@ -108,4 +108,5 @@
       (block
         (call output_string "||r||_inf  = ")
         (call output_double res_inf 8 8)
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))

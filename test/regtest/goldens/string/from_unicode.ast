@@ -2,4 +2,5 @@
   (fun ф () -> string
     (block
       (var знач string)
-      (= знач (call str_from_unicode (cast 1090 char))))))
+      (= знач (call str_from_unicode (cast 1090 char)))
+      (return знач))))

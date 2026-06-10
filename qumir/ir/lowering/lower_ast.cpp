@@ -129,7 +129,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .FuncIdx = scope.FuncIdx,
         .Id = scope.Id,
         .BreakLabel = endLabel,
-        .ContinueLabel = condLabel
+        .ContinueLabel = condLabel,
+        .ReturnLabel = scope.ReturnLabel,
+        .RetLocal = scope.RetLocal
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {condLabel});
@@ -154,7 +156,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .FuncIdx = scope.FuncIdx,
         .Id = scope.Id,
         .BreakLabel = endLabel,
-        .ContinueLabel = condLabel
+        .ContinueLabel = condLabel,
+        .ReturnLabel = scope.ReturnLabel,
+        .RetLocal = scope.RetLocal
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {condLabel});
@@ -245,7 +249,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .FuncIdx = scope.FuncIdx,
         .Id = scope.Id,
         .BreakLabel = endLabel,
-        .ContinueLabel = postLabel
+        .ContinueLabel = postLabel,
+        .ReturnLabel = scope.ReturnLabel,
+        .RetLocal = scope.RetLocal
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {postLabel});
@@ -306,7 +312,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .FuncIdx = scope.FuncIdx,
         .Id = scope.Id,
         .BreakLabel = endLabel,
-        .ContinueLabel = postLabel
+        .ContinueLabel = postLabel,
+        .ReturnLabel = scope.ReturnLabel,
+        .RetLocal = scope.RetLocal
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {postLabel});
@@ -537,6 +545,32 @@ static bool IsAddressableFieldBase(const NAst::TExprPtr& expr) {
     return false;
 }
 
+TExpectedTask<std::optional<TOperand>, TError, TLocation> TAstLowerer::LowerReturnValue(std::shared_ptr<NAst::TReturnExpr> ret, TBlockScope scope) {
+    int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
+    if (!ret->Value) {
+        co_return std::optional<TOperand>{};
+    }
+    auto value = co_await Lower(ret->Value, scope);
+    auto returnValue = *value.Value;
+    // TODO: copy-paste (mirrors TAssignExpr's literal materialization)
+    if (returnValue.Type == TOperand::EType::Imm && returnValue.Imm.TypeId == lowStringTypeId) {
+        auto constructorId = co_await GlobalSymbolId("str_from_lit");
+        Builder.Emit0("arg"_op, {returnValue});
+        auto materialized = Builder.Emit1("call"_op, {TImm{constructorId}});
+        Builder.SetType(materialized, lowStringTypeId);
+        returnValue = materialized;
+        value.Ownership = EOwnership::Owned;
+    }
+    // TODO: copy-paste (mirrors TAssignExpr's retain-on-borrowed-rhs)
+    auto valueType = NAst::UnwrapNamedType(NAst::UnwrapReferenceType(ret->Value->Type));
+    if (NAst::TMaybeType<NAst::TStringType>(valueType) && value.Ownership == EOwnership::Borrowed) {
+        auto retainId = co_await GlobalSymbolId("str_retain");
+        Builder.Emit0("arg"_op, {returnValue});
+        Builder.Emit0("call"_op, {TImm{retainId}});
+    }
+    co_return returnValue;
+}
+
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& inputExpr, TBlockScope scope) {
     int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
     NAst::TExprPtr expr = inputExpr;
@@ -611,7 +645,62 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         // Track scope for destructors
         size_t initialPendingDestructorsSize = PendingDestructors.size();
-        for (auto& s : block->Stmts) {
+
+        // Emit destructors for objects declared in this block (LIFO).
+        auto emitBlockDestructors = [&]() {
+            // Release in reverse order of declaration
+            for (size_t i = PendingDestructors.size(); i-- > initialPendingDestructorsSize; ) {
+                auto& dtor = PendingDestructors[i];
+                // Load current value of the local (or slot) and call str_release(val)
+                for (size_t j = 0; j < dtor.Args.size(); ++j) {
+                    auto& operand = dtor.Args[j];
+                    if (operand.Type == TOperand::EType::Local || operand.Type == TOperand::EType::Slot) {
+                        TTmp val = Builder.Emit1("load"_op, { operand });
+                        auto typeId = dtor.TypeIds[j];
+                        if (typeId >= 0) {
+                            Builder.SetType(val, typeId);
+                        }
+                        operand = val;
+                    }
+                }
+                for (auto& operand : dtor.Args) {
+                    Builder.Emit0("arg"_op, { operand });
+                }
+                Builder.Emit0("call"_op, { TImm{ dtor.FunctionId } });
+            }
+            // Remove destructors belonging to this block
+            PendingDestructors.resize(initialPendingDestructorsSize);
+        };
+
+        for (size_t stmtIdx = 0; stmtIdx < block->Stmts.size(); ++stmtIdx) {
+            auto& s = block->Stmts[stmtIdx];
+
+            // A trailing `(return ...)` jumps straight to the function's exit
+            // block, so this block's own destructors must run before it
+            // rather than after the loop (which would be unreachable code).
+            // The return value is computed (and retained, if it's a borrowed
+            // string) BEFORE those destructors run, so returning one of this
+            // block's own locals (e.g. `(return знач)`) transfers ownership
+            // instead of retaining/releasing an already-freed buffer.
+            if (stmtIdx + 1 == block->Stmts.size()
+                && NAst::TMaybeNode<NAst::TReturnExpr>(s)
+                && !block->SkipDestructors
+                && PendingDestructors.size() > initialPendingDestructorsSize)
+            {
+                auto ret = NAst::TMaybeNode<NAst::TReturnExpr>(s).Cast();
+                if (!newScope.ReturnLabel) {
+                    co_return TError(s->Location, TErrorString::Get<EErrorId::RETURN_OUTSIDE_FUNCTION>());
+                }
+                auto returnValue = co_await LowerReturnValue(ret, newScope);
+                emitBlockDestructors();
+                if (returnValue) {
+                    Builder.Emit0("stre"_op, {TOperand{*newScope.RetLocal}, *returnValue});
+                }
+                Builder.Emit0("jmp"_op, {*newScope.ReturnLabel});
+                last = std::nullopt;
+                break;
+            }
+
             auto r = co_await Lower(s, newScope);
             last = r.Value;
 
@@ -628,30 +717,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 break;
             }
         }
-        // Emit destructors for strings declared in this block (LIFO)
+        // Emit destructors for objects declared in this block (LIFO)
         if (!block->SkipDestructors && PendingDestructors.size() > initialPendingDestructorsSize) {
-            // Release in reverse order of declaration
-            for (size_t i = PendingDestructors.size(); i-- > initialPendingDestructorsSize; ) {
-                auto& dtor = PendingDestructors[i];
-                // Load current value of the local (or slot) and call str_release(val)
-                for (size_t i = 0; i < dtor.Args.size(); ++i) {
-                    auto& operand = dtor.Args[i];
-                    if (operand.Type == TOperand::EType::Local || operand.Type == TOperand::EType::Slot) {
-                        TTmp val = Builder.Emit1("load"_op, { operand });
-                        auto typeId = dtor.TypeIds[i];
-                        if (typeId >= 0) {
-                            Builder.SetType(val, typeId);
-                        }
-                        operand = val;
-                    }
-                }
-                for (auto& operand : dtor.Args) {
-                    Builder.Emit0("arg"_op, { operand });
-                }
-                Builder.Emit0("call"_op, { TImm{ dtor.FunctionId } });
-            }
-            // Remove destructors belonging to this block
-            PendingDestructors.resize(initialPendingDestructorsSize);
+            emitBlockDestructors();
         }
 
         // TODO: return only if function block and last is 'return'
@@ -836,6 +904,19 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         // terminate current block by jumping to the continue target
         Builder.Emit0("jmp"_op, {*scope.ContinueLabel});
+        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+    } else if (auto maybeReturn = NAst::TMaybeNode<NAst::TReturnExpr>(expr)) {
+        auto ret = maybeReturn.Cast();
+        if (!scope.ReturnLabel) {
+            co_return TError(expr->Location, TErrorString::Get<EErrorId::RETURN_OUTSIDE_FUNCTION>());
+        }
+        auto returnValue = co_await LowerReturnValue(ret, scope);
+        if (returnValue) {
+            // retLocal takes ownership of returnValue (retained above if it was borrowed).
+            Builder.Emit0("stre"_op, {TOperand{*scope.RetLocal}, *returnValue});
+        }
+        // terminate current block by jumping to the function's exit block
+        Builder.Emit0("jmp"_op, {*scope.ReturnLabel});
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TArrayAssignExpr>(expr)) {
         auto asg = maybeAsg.Cast();
@@ -1217,7 +1298,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     } else if (auto maybeVar = NAst::TMaybeNode<NAst::TVarStmt>(expr)) {
         // TODO: zero memory for strings?
         auto var = maybeVar.Cast();
-        auto name = var->Name;
         auto sidOpt = Context.Lookup(var->Name, scope.Id);
         if (!sidOpt) {
             co_return TError(var->Location, TErrorString::Get<EErrorId::VAR_HAS_NO_BINDING>());
@@ -1226,7 +1306,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.SetType(TLocal{sidOpt->FunctionLevelIdx}, FromAstType(var->Type, Module.Types));
         }
         if (NAst::TMaybeType<NAst::TStringType>(var->Type)
-            && sidOpt->FunctionLevelIdx >= 0 && name != "знач" /*owned by caller*/)
+            && sidOpt->FunctionLevelIdx >= 0)
         {
             auto dtorId = co_await GlobalSymbolId("str_release");
             TOperand arg = (sidOpt->FunctionLevelIdx >= 0)
@@ -1352,11 +1432,25 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Module.Functions[Builder.CurrentFunctionIdx()].ReturnTypeIsString = true;
         }
 
+        // retLocal holds the function's return value, populated by every
+        // `(return ...)` and (for hand-written core lang bodies without a
+        // trailing return) by the body's fall-through value.
+        auto retAstType = isCoroutine ? coroutineResultType : fun->RetType;
+        std::optional<TLocal> retLocal;
+        if (!NAst::TMaybeType<NAst::TVoidType>(retAstType)) {
+            retLocal = Builder.AllocLocal(FromAstType(retAstType, Module.Types));
+        }
+
+        // Create a dedicated final return block label beforehand and pass it as ReturnLabel for `return` and early exits.
+        auto endLabel = Builder.NewLabel();
+
         TBlockScope functionBodyScope {
             .FuncIdx = funcIdx,
             .Id = NSemantics::TScopeId{funScope},
             .BreakLabel = std::nullopt,
-            .ContinueLabel = std::nullopt
+            .ContinueLabel = std::nullopt,
+            .ReturnLabel = endLabel,
+            .RetLocal = retLocal
         };
         for (auto& param : fun->Params) {
             if (param->Bounds.empty() || !NAst::TMaybeType<NAst::TArrayType>(param->Type)) {
@@ -1369,16 +1463,35 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_await LowerArrayLayout(*psid, param->Bounds, functionBodyScope, param->Location);
         }
 
-        // Create a dedicated final return block label beforehand and pass it as BreakLabel for early exits.
-        auto endLabel = Builder.NewLabel();
         auto loweredBody = co_await Lower(body, TBlockScope {
             .FuncIdx = funcIdx,
             .Id = NSemantics::TScopeId{funScope},
-            .BreakLabel = endLabel,
-            .ContinueLabel = std::nullopt
+            .BreakLabel = std::nullopt,
+            .ContinueLabel = std::nullopt,
+            .ReturnLabel = endLabel,
+            .RetLocal = retLocal
         });
-        // Jump to final return block unless already terminated by earlier logic.
+        // Jump to final return block unless already terminated by earlier logic (e.g. explicit `return`).
         if (!Builder.IsCurrentBlockTerminated()) {
+            if (retLocal) {
+                if (!loweredBody.Value) {
+                    // Body fell off the end without an explicit `return` and its
+                    // last statement does not produce a value (hand-written core
+                    // lang body without a trailing `return` must end in a
+                    // value-producing expression).
+                    co_return TError(fun->Location, "Тело функции должно заканчиваться оператором `return` или выражением, возвращающим значение.");
+                }
+                TOperand returnValue = *loweredBody.Value;
+                // TODO: copy-paste (mirrors TAssignExpr's literal materialization)
+                if (returnValue.Type == TOperand::EType::Imm && returnValue.Imm.TypeId == lowStringTypeId) {
+                    auto constructorId = co_await GlobalSymbolId("str_from_lit");
+                    Builder.Emit0("arg"_op, {returnValue});
+                    auto materialized = Builder.Emit1("call"_op, {TImm{constructorId}});
+                    Builder.SetType(materialized, lowStringTypeId);
+                    returnValue = materialized;
+                }
+                Builder.Emit0("stre"_op, {TOperand{*retLocal}, returnValue});
+            }
             Builder.Emit0("jmp"_op, { endLabel });
         }
         // Materialize final return block and emit single ret there.
@@ -1388,20 +1501,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 .FuncIdx = funcIdx,
                 .Id = NSemantics::TScopeId{funScope},
                 .BreakLabel = std::nullopt,
-                .ContinueLabel = std::nullopt
+                .ContinueLabel = std::nullopt,
+                .ReturnLabel = endLabel,
+                .RetLocal = retLocal
             });
         }
-        if (isCoroutine && NAst::TMaybeType<NAst::TVoidType>(coroutineResultType)) {
-            Builder.Emit0("ret"_op, {});
-        } else if (!NAst::TMaybeType<NAst::TVoidType>(isCoroutine ? coroutineResultType : fun->RetType)) {
-            // return value = lowered IdentExpr named 'знач' in function scope
-            auto returnVar = co_await LoadVar("знач", TBlockScope {
-                .FuncIdx = funcIdx,
-                .Id = NSemantics::TScopeId{funScope},
-                .BreakLabel = std::nullopt,
-                .ContinueLabel = std::nullopt
-            }, fun->Location);
-            Builder.Emit0("ret"_op, {returnVar});
+        if (retLocal) {
+            auto loaded = Builder.Emit1("load"_op, {TOperand{*retLocal}});
+            Builder.SetType(loaded, FromAstType(retAstType, Module.Types));
+            Builder.Emit0("ret"_op, {loaded});
         } else {
             Builder.Emit0("ret"_op, {});
         }

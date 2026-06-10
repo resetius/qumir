@@ -20,4 +20,5 @@
         (call output_int64 i 0)
         (call output_string " after=")
         (call output_int64 after 0)
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))

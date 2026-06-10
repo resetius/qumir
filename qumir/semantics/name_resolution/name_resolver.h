@@ -88,6 +88,11 @@ struct TScope {
     std::unordered_map<std::string, std::vector<TSymbolId>> OverloadSets;
     bool AllowsRedeclare{false};
     bool RootLevel{false};
+    // Set on the function-level scope (the one created for the function's
+    // params, see TFunDecl::Scope) by AnnotateFunDecl. For coroutines this is
+    // the unwrapped Future<T> result type. Looked up via FuncScope by
+    // AnnotateReturn for any (return ...) inside the function body.
+    NAst::TTypePtr RetType;
 };
 
 class TEditDistance {
@@ -132,6 +137,9 @@ public:
     std::optional<TError> Resolve(NAst::TExprPtr root);
     void ApplyPragmas(const std::vector<NAst::TPragma>& pragmas) override;
     TScopePtr GetOrCreateRootScope();
+
+    // Used by the type annotator to read/write per-scope state (e.g. TScope::RetType).
+    TScopePtr GetScope(TScopeId id) const { return Scopes.at(id.Id); }
 
     std::optional<TSymbolInfo> Lookup(const std::string& name, TScopeId scope) const;
     // Returns all overloads for name. If non-overloaded single function, returns {id}. Empty if not found.

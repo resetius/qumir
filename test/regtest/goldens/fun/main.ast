@@ -1,3 +1,4 @@
 (block
   (fun <main> ()
-    (block)))
+    (block
+      (return))))

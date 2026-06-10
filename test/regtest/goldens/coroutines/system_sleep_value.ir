@@ -4,12 +4,14 @@ function entry () { ; ptr to void coroutine result i64
     call tmp(0,ptr to void) = delayed 
     await tmp(1,i64) = tmp(0,ptr to void) 
     stre local(0,i64) tmp(1,i64) 
+    load tmp(2,i64) = local(0,i64) 
+    stre local(1,i64) tmp(2,i64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(2,i64) = local(0,i64) 
-    ret tmp(2,i64) 
+    load tmp(3,i64) = local(1,i64) 
+    ret tmp(3,i64) 
   }
 }
 function delayed () { ; ptr to void coroutine result i64
@@ -19,11 +21,13 @@ function delayed () { ; ptr to void coroutine result i64
     call tmp(0,ptr to void) = ждать 
     await tmp(0,ptr to void) 
     stre local(0,i64) imm(7,i64) 
+    load tmp(1,i64) = local(0,i64) 
+    stre local(1,i64) tmp(1,i64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(1,i64) = local(0,i64) 
-    ret tmp(1,i64) 
+    load tmp(2,i64) = local(1,i64) 
+    ret tmp(2,i64) 
   }
 }

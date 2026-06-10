@@ -3,9 +3,11 @@
   (fun caller () -> <future i64>
     (block
       (var знач i64)
-      (= знач (+ (await (call value)) 1))))
+      (= знач (+ (await (call value)) 1))
+      (return знач)))
   (fun value () -> <future i64>
     (block
       (var знач i64)
       (await (call вверх))
-      (= знач 12))))
+      (= знач 12)
+      (return знач))))

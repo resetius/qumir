@@ -10,4 +10,5 @@
             (call output_string "подходит")))
         (block
           (block
-            (call output_string "не подходит")))))))
+            (call output_string "не подходит"))))
+      (return))))

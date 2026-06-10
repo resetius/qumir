@@ -20,6 +20,11 @@ struct TParserContext {
     TWrappedTokenStream& Stream;
     IModuleManager* ModuleManager;
     ILexerContext* LexerContext;
+    int LoopDepth = 0;
+    // Whether the enclosing `алг` returns void; used by `выход` outside a
+    // loop to decide between `(return)` and `(return знач)`. Defaults to
+    // true (void) for `выход` encountered outside any function.
+    bool CurrentFunctionReturnsVoid = true;
 
     TParserContext(TWrappedTokenStream& stream, IModuleManager* mm, ILexerContext* lc)
         : Stream(stream)
@@ -570,7 +575,15 @@ TAstTask fun_decl(TParserContext& context) {
         bodyStmts.push_back(std::make_shared<TVarStmt>(next.Location, "знач", returnType));
     }
 
+    auto savedLoopDepth = context.LoopDepth;
+    auto savedReturnsVoid = context.CurrentFunctionReturnsVoid;
+    context.LoopDepth = 0;
+    context.CurrentFunctionReturnsVoid = TMaybeType<TVoidType>(returnType);
+
     auto body = co_await stmt_list(context, { EKeyword::End }, std::move(bodyStmts));
+
+    context.LoopDepth = savedLoopDepth;
+    context.CurrentFunctionReturnsVoid = savedReturnsVoid;
 
     next = stream.Next();
     if (!isKeyword(next, EKeyword::End)) {
@@ -579,6 +592,16 @@ TAstTask fun_decl(TParserContext& context) {
 
     if (auto maybeBlock = TMaybeNode<TBlockExpr>(body)) {
         auto block = maybeBlock.Cast();
+
+        // Append a trailing `(return знач)` / `(return)` so every function
+        // body has an explicit return, populating retLocal even when control
+        // falls off the end of the body.
+        if (TMaybeType<TVoidType>(returnType)) {
+            block->Stmts.push_back(std::make_shared<TReturnExpr>(next.Location, nullptr));
+        } else {
+            block->Stmts.push_back(std::make_shared<TReturnExpr>(next.Location, ident(next.Location, "знач")));
+        }
+
         auto funDecl = std::make_shared<TFunDecl>(next.Location,
             name, std::move(args),
             std::move(maybeBlock.Cast()),
@@ -635,7 +658,9 @@ TAstTask for_loop(TParserContext& context) {
         stream.Unget(stepTok);
     }
 
+    context.LoopDepth++;
     auto body = co_await stmt_list(context, { EKeyword::LoopEnd } );
+    context.LoopDepth--;
 
     auto endTok = stream.Next();
     if (!isKeyword(endTok, EKeyword::LoopEnd)) {
@@ -663,7 +688,9 @@ TAstTask for_times(TParserContext& context, TExprPtr countExpr, TLocation loopLo
     auto* mm = context.ModuleManager;
     auto location = loopLoc;
 
+    context.LoopDepth++;
     auto body = co_await stmt_list(context, { EKeyword::LoopEnd } );
+    context.LoopDepth--;
 
     auto endTok = stream.Next();
     if (!isKeyword(endTok, EKeyword::LoopEnd)) {
@@ -685,7 +712,9 @@ TAstTask while_loop(TParserContext& context) {
 
     auto cond = co_await expr(context);
 
+    context.LoopDepth++;
     auto body = co_await stmt_list(context, { EKeyword::LoopEnd } );
+    context.LoopDepth--;
 
     auto endTok = stream.Next();
     if (!isKeyword(endTok, EKeyword::LoopEnd)) {
@@ -709,7 +738,9 @@ TAstTask repeat_until_loop( TParserContext& context) {
     auto* mm = context.ModuleManager;
     auto location = stream.GetLocation();
 
+    context.LoopDepth++;
     auto body = co_await stmt_list(context, { EKeyword::LoopEndWhen, EKeyword::LoopEnd } );
+    context.LoopDepth--;
 
     auto untilTok = stream.Next();
     // кц при or кц_при
@@ -1603,7 +1634,14 @@ TAstTask stmt(TParserContext& context) {
         auto args = co_await parse_io_arg_list_opt<TOutputArg>(context);
         co_return std::make_shared<TOutputExpr>(first.Location, std::move(args));
     } else if (isKeyword(first, EKeyword::Break)) {
-        co_return std::make_shared<TBreakStmt>(first.Location);
+        if (context.LoopDepth > 0) {
+            co_return std::make_shared<TBreakStmt>(first.Location);
+        } else if (context.CurrentFunctionReturnsVoid) {
+            // 'выход' outside any loop: early return from the enclosing алг.
+            co_return std::make_shared<TReturnExpr>(first.Location, nullptr);
+        } else {
+            co_return std::make_shared<TReturnExpr>(first.Location, ident(first.Location, "знач"));
+        }
     } else if (isKeyword(first, EKeyword::Continue)) {
         co_return std::make_shared<TContinueStmt>(first.Location);
     } else if (isKeyword(first, EKeyword::Assert)) {

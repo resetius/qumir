@@ -5,4 +5,5 @@
       (var i i64)
       (block
         (= i (call input_int64)))
-      (= знач i))))
+      (= знач i)
+      (return знач))))

@@ -215,4 +215,5 @@
         (call output_string "\n"))
       (block
         (call output_string "=== Все примеры выполнены ===")
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))

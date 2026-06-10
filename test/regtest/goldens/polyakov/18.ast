@@ -5,7 +5,8 @@
       (= s "12.12.12")
       (call replaceAll s "12" "A12B")
       (block
-        (call output_string s))))
+        (call output_string s))
+      (return)))
   (fun replaceAll ((var s <ref string>)
       (var wOld string)
       (var wNew string))
@@ -28,4 +29,5 @@
               (= s ""))
             (block
               (= s (call str_slice s (+ p len) (call длин s)))))))
-      (= s res))))
+      (= s res)
+      (return))))

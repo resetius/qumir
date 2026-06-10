@@ -2,9 +2,11 @@
   (fun entry () -> <future i64>
     (block
       (var знач i64)
-      (= знач (await (call delayed)))))
+      (= знач (await (call delayed)))
+      (return знач)))
   (fun delayed () -> <future i64>
     (block
       (var знач i64)
       (await (call ждать 0))
-      (= знач 7))))
+      (= знач 7)
+      (return знач))))

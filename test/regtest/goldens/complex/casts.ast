@@ -32,4 +32,5 @@
       (block
         (call output_string "complex_to_int=")
         (call output_int64 n 0)
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))

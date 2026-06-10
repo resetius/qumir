@@ -16,4 +16,5 @@
       (if (> (call str_compare a3 a1) 0) (block (= r (+ r 1))))
       (if (>= (call str_compare a2 a2) 0) (block (= r (+ r 1))))
       (if (<= (call str_compare a2 a2) 0) (block (= r (+ r 1))))
-      (= знач r))))
+      (= знач r)
+      (return знач))))

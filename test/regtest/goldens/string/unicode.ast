@@ -4,4 +4,5 @@
       (var знач i64)
       (var c string)
       (= c "строка")
-      (= знач (cast (call str_symbol_at c 2) i64)))))
+      (= знач (cast (call str_symbol_at c 2) i64))
+      (return знач))))

@@ -6,4 +6,5 @@
       (= k (call лит_в_цел "123" успех))
       (block
         (call output_bool успех)
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))

@@ -8,10 +8,8 @@
 
   (fun f ((var x i64)) -> i64
     (block
-      (var знач i64)
-      (= знач 100)))
+      (return 100)))
 
   (fun f ((var x <named K (template)>)) -> i64
     (block
-      (var знач i64)
-      (= знач 200))))
+      (return 200))))

@@ -5,8 +5,10 @@
       (= a (call f))
       (block
         (call output_symbol a)
-        (call output_string "\n"))))
+        (call output_string "\n"))
+      (return)))
   (fun f () -> char
     (block
       (var знач char)
-      (= знач (cast 1103 char)))))
+      (= знач (cast 1103 char))
+      (return знач))))

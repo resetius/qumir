@@ -3,17 +3,17 @@ function цикл () { ; i64
     label: label(0)
     stre local(1,i64) imm(0,i64) 
     stre local(2,i64) imm(1,i64) 
-    stre local(4,i64) imm(1,i64) 
+    stre local(5,i64) imm(1,i64) 
     load tmp(0,i64) = local(2,i64) 
-    stre local(5,i64) tmp(0,i64) 
-    stre local(3,i64) imm(1000,i64) 
+    stre local(6,i64) tmp(0,i64) 
+    stre local(4,i64) imm(1000,i64) 
     jmp label(2) 
   }
   block {
     label: label(2)
-    load tmp(1,i64) = local(3,i64) 
-    load tmp(2,i64) = local(5,i64) 
-    load tmp(3,i64) = local(4,i64) 
+    load tmp(1,i64) = local(4,i64) 
+    load tmp(2,i64) = local(6,i64) 
+    load tmp(3,i64) = local(5,i64) 
     - tmp(4,i64) = tmp(1,i64) tmp(2,i64) 
     * tmp(5,i64) = tmp(4,i64) tmp(3,i64) 
     >= tmp(6,i1) = tmp(5,i64) imm(0,i64) 
@@ -21,7 +21,7 @@ function цикл () { ; i64
   }
   block {
     label: label(3)
-    load tmp(7,i64) = local(5,i64) 
+    load tmp(7,i64) = local(6,i64) 
     stre local(2,i64) tmp(7,i64) 
     arg imm(13,i64) 
     call tmp(8,i64) = факториал 
@@ -30,22 +30,24 @@ function цикл () { ; i64
   }
   block {
     label: label(4)
-    load tmp(9,i64) = local(5,i64) 
-    load tmp(10,i64) = local(4,i64) 
+    load tmp(9,i64) = local(6,i64) 
+    load tmp(10,i64) = local(5,i64) 
     + tmp(11,i64) = tmp(9,i64) tmp(10,i64) 
-    stre local(5,i64) tmp(11,i64) 
+    stre local(6,i64) tmp(11,i64) 
     jmp label(2) 
   }
   block {
     label: label(5)
     load tmp(12,i64) = local(1,i64) 
     stre local(0,i64) tmp(12,i64) 
+    load tmp(13,i64) = local(0,i64) 
+    stre local(3,i64) tmp(13,i64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(13,i64) = local(0,i64) 
-    ret tmp(13,i64) 
+    load tmp(14,i64) = local(3,i64) 
+    ret tmp(14,i64) 
   }
 }
 function факториал (local(0)) { ; i64
@@ -53,18 +55,18 @@ function факториал (local(0)) { ; i64
     label: label(0)
     stre local(1,i64) imm(1,i64) 
     stre local(2,i64) imm(1,i64) 
-    stre local(4,i64) imm(1,i64) 
+    stre local(5,i64) imm(1,i64) 
     load tmp(0,i64) = local(2,i64) 
-    stre local(5,i64) tmp(0,i64) 
+    stre local(6,i64) tmp(0,i64) 
     load tmp(1,i64) = local(0,i64) 
-    stre local(3,i64) tmp(1,i64) 
+    stre local(4,i64) tmp(1,i64) 
     jmp label(2) 
   }
   block {
     label: label(2)
-    load tmp(2,i64) = local(3,i64) 
-    load tmp(3,i64) = local(5,i64) 
-    load tmp(4,i64) = local(4,i64) 
+    load tmp(2,i64) = local(4,i64) 
+    load tmp(3,i64) = local(6,i64) 
+    load tmp(4,i64) = local(5,i64) 
     - tmp(5,i64) = tmp(2,i64) tmp(3,i64) 
     * tmp(6,i64) = tmp(5,i64) tmp(4,i64) 
     >= tmp(7,i1) = tmp(6,i64) imm(0,i64) 
@@ -72,7 +74,7 @@ function факториал (local(0)) { ; i64
   }
   block {
     label: label(3)
-    load tmp(8,i64) = local(5,i64) 
+    load tmp(8,i64) = local(6,i64) 
     stre local(2,i64) tmp(8,i64) 
     load tmp(9,i64) = local(1,i64) 
     load tmp(10,i64) = local(2,i64) 
@@ -82,19 +84,21 @@ function факториал (local(0)) { ; i64
   }
   block {
     label: label(4)
-    load tmp(12,i64) = local(5,i64) 
-    load tmp(13,i64) = local(4,i64) 
+    load tmp(12,i64) = local(6,i64) 
+    load tmp(13,i64) = local(5,i64) 
     + tmp(14,i64) = tmp(12,i64) tmp(13,i64) 
-    stre local(5,i64) tmp(14,i64) 
+    stre local(6,i64) tmp(14,i64) 
     jmp label(2) 
   }
   block {
     label: label(5)
+    load tmp(15,i64) = local(1,i64) 
+    stre local(3,i64) tmp(15,i64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(15,i64) = local(1,i64) 
-    ret tmp(15,i64) 
+    load tmp(16,i64) = local(3,i64) 
+    ret tmp(16,i64) 
   }
 }

@@ -4,4 +4,5 @@
       (var знач f64)
       (var A <array f64 1> [0 10])
       (= A [0] 1)
-      (= знач (index A 0)))))
+      (= знач (index A 0))
+      (return знач))))

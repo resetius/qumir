@@ -82,4 +82,5 @@
           output_bool
           (! (&& (== (field (: a <named компл>) re) (field (: b <named компл>) re))
               (== (field (: a <named компл>) im) (field (: b <named компл>) im)))))
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))

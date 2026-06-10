@@ -2,13 +2,11 @@
   (pragma language overloads)
   (fun square ((var x i64)) -> i64
     (block
-      (var знач i64)
-      (= знач (* x x))))
+      (return (* x x))))
 
   (fun square ((var x f64)) -> f64
     (block
-      (var знач f64)
-      (= знач (* x x))))
+      (return (* x x))))
 
   (fun <main> ()
     (block

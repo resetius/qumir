@@ -4,4 +4,5 @@
       (var знач i64)
       (var i i64)
       (= i (call mod (* (+ 2 3) 7) (cast (call fpow 4 4) i64)))
-      (= знач i))))
+      (= знач i)
+      (return знач))))

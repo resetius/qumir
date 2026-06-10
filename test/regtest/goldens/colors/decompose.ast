@@ -346,4 +346,5 @@
         (call output_int64 h 0)
         (call output_string " s=")
         (call output_int64 s 0)
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))

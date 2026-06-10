@@ -4,4 +4,5 @@
       (var знач string)
       (var с string)
       (= с "строка")
-      (= знач (call str_from_unicode (call str_symbol_at с 3))))))
+      (= знач (call str_from_unicode (call str_symbol_at с 3)))
+      (return знач))))

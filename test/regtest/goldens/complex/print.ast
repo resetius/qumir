@@ -24,4 +24,5 @@
       (= z (: (struct ((re 0) (im 2))) <named компл>))
       (block
         (call __unop_вывод_Named::компл (: z <named компл>))
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))

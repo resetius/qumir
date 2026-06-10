@@ -5,9 +5,11 @@
       (var s string)
       (= s "s12345")
       (call g s)
-      (= знач s)))
+      (= знач s)
+      (return знач)))
   (fun g ((var s <ref string>))
     (block
       (var a char)
       (= a (call str_symbol_at s 1))
-      (= s (call str_concat s (call str_from_unicode a))))))
+      (= s (call str_concat s (call str_from_unicode a)))
+      (return))))

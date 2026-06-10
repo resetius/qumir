@@ -53,4 +53,5 @@
       (block
         (call output_string "matvec: ||e||_inf  = ")
         (call output_double res_inf 0 -1)
-        (call output_string "\n")))))
+        (call output_string "\n"))
+      (return))))
