@@ -535,7 +535,9 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
         case TOperator("<<"):
         case TOperator(">>"):
             if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
-                type = std::make_shared<TIntegerType>();
+                // Preserve width and signedness. Lowering/codegen select
+                // arithmetic vs logical right shift from the result type.
+                type = left;
             } else {
                 co_return TError(binary->Location, "Битовые операции применимы только к целым числам");
             }
