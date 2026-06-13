@@ -212,7 +212,9 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
     }
 }
 
-void* TLLVMRunner::CompileKernelAst(NAst::TExprPtr ast, std::string* error) {
+void* TLLVMRunner::CompileKernelAst(
+    NAst::TExprPtr ast, const std::string& entryName, std::string* error)
+{
     auto scope = Resolver.GetOrCreateRootScope();
     // scope->AllowsRedeclare = true;
     scope->RootLevel = false;
@@ -250,7 +252,14 @@ void* TLLVMRunner::CompileKernelAst(NAst::TExprPtr ast, std::string* error) {
         if (error) *error = "no functions after lowering";
         return nullptr;
     }
-    const std::string funcName = Module.Functions.back().Name;
+    auto entry = std::find_if(
+        Module.Functions.begin(), Module.Functions.end(),
+        [&](const auto& function) { return function.Name == entryName; });
+    if (entry == Module.Functions.end()) {
+        if (error) *error = "entry function not found: " + entryName;
+        return nullptr;
+    }
+    const std::string& funcName = entry->Name;
 
     NCodeGen::TLLVMCodeGen cg({ .NativeCode = Options.NativeCode });
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> artifacts;
