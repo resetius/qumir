@@ -769,8 +769,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.NewBlock(endLabel);
                 auto res = Builder.Emit1("phi"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
                 Builder.SetType(res, FromAstType(expr->Type, Module.Types));
-                Builder.UnifyTypes(res, leftNum->Tmp);
-                Builder.UnifyTypes(res, r.Value->Tmp);
                 co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
             }
             case "||"_op: {
@@ -791,11 +789,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 auto rightEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was false
 
                 Builder.NewBlock(endLabel);
-                Builder.UnifyTypes(leftNum->Tmp, r.Value->Tmp);
                 auto res = Builder.Emit1("phi"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
                 Builder.SetType(res, FromAstType(expr->Type, Module.Types));
-                Builder.UnifyTypes(res, leftNum->Tmp);
-                Builder.UnifyTypes(res, r.Value->Tmp);
                 co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
             }
             default:
