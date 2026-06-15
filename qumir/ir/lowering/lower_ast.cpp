@@ -655,7 +655,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
     } else if (auto maybeNum = NAst::TMaybeNode<NAst::TNumberExpr>(expr)) {
         auto num = maybeNum.Cast();
-        if (num->IsFloat) {
+        if (num->IsFloat()) {
             co_return TValueWithBlock{ TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .TypeId = Module.Types.I(EKind::F64)}, Builder.CurrentBlockLabel() };
         } else {
             int typeId = num->Type && NAst::TMaybeType<NAst::TIntegerType>(num->Type)
@@ -1770,7 +1770,7 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
                 }
                 if (maybeNumber) {
                     auto num = maybeNumber.Cast();
-                    if (num->IsFloat) {
+                    if (num->IsFloat()) {
                         Module.GlobalValues[sid->Id] = TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .TypeId = Module.Types.I(EKind::F64)};
                     } else {
                         Module.GlobalValues[sid->Id] = TImm{.Value = num->IntValue, .TypeId = Module.Types.I(EKind::I64)};

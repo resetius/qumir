@@ -164,7 +164,7 @@ TExprPtr InsertImplicitCastIfNeeded(TExprPtr expr, TTypePtr toType, NSemantics::
     if (auto maybeNumber = TMaybeNode<TNumberExpr>(expr)) {
         auto num = maybeNumber.Cast();
         if (TMaybeType<TIntegerType>(toType)) {
-            if (num->IsFloat) {
+            if (num->IsFloat()) {
                 // float to int
                 int64_t intVal = static_cast<int64_t>(num->FloatValue);
                 auto newNum = std::make_shared<TNumberExpr>(num->Location, intVal);
@@ -177,7 +177,7 @@ TExprPtr InsertImplicitCastIfNeeded(TExprPtr expr, TTypePtr toType, NSemantics::
             }
         }
         if (TMaybeType<TFloatType>(toType)) {
-            if (num->IsFloat) {
+            if (num->IsFloat()) {
                 // float to float (widening)
                 num->Type = toType;
                 return num;
@@ -262,7 +262,7 @@ TExprPtr AnnotateNumber(std::shared_ptr<TNumberExpr> num) {
     if (num->Type) {
         return num;
     }
-    if (num->IsFloat) {
+    if (num->IsFloat()) {
         num->Type = std::make_shared<TFloatType>();
     } else {
         num->Type = std::make_shared<TIntegerType>();

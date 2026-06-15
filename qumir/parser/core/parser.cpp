@@ -114,15 +114,16 @@ TAstTask ParseExpr(TParserContext& context);
 TTypeTask ParseType(TParserContext& context);
 
 TExprPtr ApplyTypeAnnotation(TExprPtr expr, TTypePtr type) {
-    if (auto num = TMaybeNode<TNumberExpr>(expr)) {
-        if (TMaybeType<TFloatType>(type) && !num.Cast()->IsFloat) {
-            expr = std::make_shared<TNumberExpr>(expr->Location, static_cast<double>(num.Cast()->IntValue));
-        } else if (TMaybeType<TIntegerType>(type) && num.Cast()->IsFloat) {
-            expr = std::make_shared<TNumberExpr>(expr->Location, static_cast<int64_t>(num.Cast()->FloatValue));
+    if (auto maybeNum = TMaybeNode<TNumberExpr>(expr)) {
+        auto num = maybeNum.Cast();
+        if (TMaybeType<TFloatType>(type) && !num->IsFloat()) {
+            expr = std::make_shared<TNumberExpr>(expr->Location, static_cast<double>(num->IntValue));
+        } else if (TMaybeType<TIntegerType>(type) && num->IsFloat()) {
+            expr = std::make_shared<TNumberExpr>(expr->Location, static_cast<int64_t>(num->FloatValue));
         } else if (TMaybeType<TBoolType>(type)) {
-            expr = std::make_shared<TNumberExpr>(expr->Location, num.Cast()->IsFloat ? num.Cast()->FloatValue != 0.0 : num.Cast()->IntValue != 0);
+            expr = std::make_shared<TNumberExpr>(expr->Location, num->IsFloat() ? num->FloatValue != 0.0 : num->IntValue != 0);
         } else if (TMaybeType<TSymbolType>(type)) {
-            expr = std::make_shared<TNumberExpr>(expr->Location, num.Cast()->IntValue);
+            expr = std::make_shared<TNumberExpr>(expr->Location, num->IntValue);
         }
     }
     expr->Type = std::move(type);
@@ -504,6 +505,14 @@ TListHandlerMap MakeDefaultHandlers() {
             auto expr = co_await ParseExpr(ctx);
             auto type = co_await ParseType(ctx);
             expr = ApplyTypeAnnotation(std::move(expr), std::move(type));
+            co_await Expect(ctx, ')');
+            co_return expr;
+        }},
+        {"bitcast", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto expr = co_await ParseExpr(ctx);
+            auto type = co_await ParseType(ctx);
+            // expr = std::make_shared<TBitcastExpr>(loc, std::move(expr), std::move(type));
+            expr->Type = std::move(type); // TODO: implement TBitcastExpr
             co_await Expect(ctx, ')');
             co_return expr;
         }},

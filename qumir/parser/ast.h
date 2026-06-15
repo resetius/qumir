@@ -164,7 +164,6 @@ struct TNumberExpr : TExpr {
         double FloatValue;
     };
 
-    bool IsFloat = false;
     explicit TNumberExpr(TLocation loc, bool v)
         : TExpr(std::move(loc)), IntValue(v)
     {
@@ -176,7 +175,7 @@ struct TNumberExpr : TExpr {
         Type = std::make_shared<TIntegerType>();
     }
     explicit TNumberExpr(TLocation loc, double v)
-        : TExpr(std::move(loc)), FloatValue(v), IsFloat(true)
+        : TExpr(std::move(loc)), FloatValue(v)
     {
         Type = std::make_shared<TFloatType>();
     }
@@ -185,8 +184,12 @@ struct TNumberExpr : TExpr {
         return NodeId;
     }
 
+    const bool IsFloat() const {
+        return TMaybeType<TFloatType>(Type);
+    }
+
     const std::string ToString() const override {
-        return IsFloat ? std::to_string(FloatValue) : std::to_string(IntValue);
+        return IsFloat() ? std::to_string(FloatValue) : std::to_string(IntValue);
     }
 
     void Accept(IVisitor& visitor) override;

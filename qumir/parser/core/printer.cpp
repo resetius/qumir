@@ -85,7 +85,7 @@ bool TPrinter::ShouldWrapType(const TExprPtr& expr) const {
 
 bool TPrinter::IsNonDefaultIntegerLiteral(const TExprPtr& expr) const {
     auto number = TMaybeNode<TNumberExpr>(expr);
-    if (!number || number.Cast()->IsFloat) {
+    if (!number || number.Cast()->IsFloat()) {
         return false;
     }
     auto integerType = TMaybeType<TIntegerType>(expr->Type);
@@ -201,7 +201,7 @@ void TPrinter::PrintNumber(TNumberExpr& node) {
         *Out << (node.IntValue ? "#t" : "#f");
     } else if (TMaybeType<TSymbolType>(node.Type)) {
         PrintString(std::string(1, static_cast<char>(node.IntValue)), '\'');
-    } else if (node.IsFloat) {
+    } else if (node.IsFloat()) {
         const auto oldPrecision = Out->precision();
         *Out << std::setprecision(std::numeric_limits<double>::max_digits10);
         *Out << node.FloatValue;

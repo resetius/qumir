@@ -903,7 +903,7 @@ function <main> () { ; void
     - tmp(557,f64) = tmp(555,f64) tmp(556,f64) 
     stre local(24,f64) tmp(557,f64) 
     load tmp(558,f64) = local(24,f64) 
-    < tmp(559,i1) = tmp(558,f64) imm(0,i64) 
+    < tmp(559,i1) = tmp(558,f64) imm(0,f64) 
     cmp tmp(559,i1) label(57) label(58) 
   }
   block {

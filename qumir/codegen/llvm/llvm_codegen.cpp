@@ -192,11 +192,11 @@ std::unordered_map<uint64_t, llvm::CmpInst::Predicate> icmpMap = {
 };
 
 std::unordered_map<uint64_t, llvm::CmpInst::Predicate> fcmpMap = {
-    { "<"_op,  llvm::CmpInst::FCMP_ULT },
-    { "<="_op, llvm::CmpInst::FCMP_ULE },
-    { ">"_op,  llvm::CmpInst::FCMP_UGT },
-    { ">="_op, llvm::CmpInst::FCMP_UGE },
-    { "=="_op, llvm::CmpInst::FCMP_UEQ },
+    { "<"_op,  llvm::CmpInst::FCMP_OLT },
+    { "<="_op, llvm::CmpInst::FCMP_OLE },
+    { ">"_op,  llvm::CmpInst::FCMP_OGT },
+    { ">="_op, llvm::CmpInst::FCMP_OGE },
+    { "=="_op, llvm::CmpInst::FCMP_OEQ },
     { "!="_op, llvm::CmpInst::FCMP_UNE },
 };
 

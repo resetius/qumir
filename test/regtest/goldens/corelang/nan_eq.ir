@@ -1,0 +1,68 @@
+function <main> () { ; void
+  block {
+    label: label(0)
+    stre local(0,f64) imm(-1,f64) 
+    stre local(1,f64) imm(4607182418800017408,f64) 
+    load tmp(0,f64) = local(0,f64) 
+    load tmp(1,f64) = local(1,f64) 
+    < tmp(2,i1) = tmp(0,f64) tmp(1,f64) 
+    arg tmp(2,i1) 
+    call output_bool 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    load tmp(3,f64) = local(0,f64) 
+    load tmp(4,f64) = local(1,f64) 
+    <= tmp(5,i1) = tmp(3,f64) tmp(4,f64) 
+    arg tmp(5,i1) 
+    call output_bool 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    load tmp(6,f64) = local(0,f64) 
+    load tmp(7,f64) = local(1,f64) 
+    > tmp(8,i1) = tmp(6,f64) tmp(7,f64) 
+    arg tmp(8,i1) 
+    call output_bool 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    load tmp(9,f64) = local(0,f64) 
+    load tmp(10,f64) = local(1,f64) 
+    >= tmp(11,i1) = tmp(9,f64) tmp(10,f64) 
+    arg tmp(11,i1) 
+    call output_bool 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    load tmp(12,f64) = local(0,f64) 
+    load tmp(13,f64) = local(1,f64) 
+    == tmp(14,i1) = tmp(12,f64) tmp(13,f64) 
+    arg tmp(14,i1) 
+    call output_bool 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    load tmp(15,f64) = local(0,f64) 
+    load tmp(16,f64) = local(1,f64) 
+    != tmp(17,i1) = tmp(15,f64) tmp(16,f64) 
+    arg tmp(17,i1) 
+    call output_bool 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    load tmp(18,f64) = local(0,f64) 
+    load tmp(19,f64) = local(0,f64) 
+    == tmp(20,i1) = tmp(18,f64) tmp(19,f64) 
+    arg tmp(20,i1) 
+    call output_bool 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    load tmp(21,f64) = local(0,f64) 
+    load tmp(22,f64) = local(0,f64) 
+    != tmp(23,i1) = tmp(21,f64) tmp(22,f64) 
+    arg tmp(23,i1) 
+    call output_bool 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}
