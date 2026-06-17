@@ -220,19 +220,25 @@ void* TLLVMRunner::CompileKernelAst(
     scope->RootLevel = false;
 
     if (auto err = Resolver.Resolve(ast)) {
-        if (error) *error = err->ToString();
+        if (error) {
+            *error = err->ToString();
+        }
         return nullptr;
     }
 
     auto transformResult = NTransform::Pipeline(ast, Resolver, {});
     if (!transformResult) {
-        if (error) *error = transformResult.error().ToString();
+        if (error) {
+            *error = transformResult.error().ToString();
+        }
         return nullptr;
     }
 
     auto lowerRes = Lowerer.LowerTop(ast);
     if (!lowerRes) {
-        if (error) *error = lowerRes.error().ToString();
+        if (error) {
+            *error = lowerRes.error().ToString();
+        }
         return nullptr;
     }
 
@@ -249,14 +255,18 @@ void* TLLVMRunner::CompileKernelAst(
     }
 
     if (Module.Functions.empty()) {
-        if (error) *error = "no functions after lowering";
+        if (error) {
+            *error = "no functions after lowering";
+        }
         return nullptr;
     }
     auto entry = std::find_if(
         Module.Functions.begin(), Module.Functions.end(),
         [&](const auto& function) { return function.Name == entryName; });
     if (entry == Module.Functions.end()) {
-        if (error) *error = "entry function not found: " + entryName;
+        if (error) {
+            *error = "entry function not found: " + entryName;
+        }
         return nullptr;
     }
     const std::string& funcName = entry->Name;
@@ -266,11 +276,15 @@ void* TLLVMRunner::CompileKernelAst(
     try {
         artifacts = cg.Emit(Module, Options.OptLevel);
     } catch (const std::exception& e) {
-        if (error) *error = std::string("llvm codegen error: ") + e.what();
+        if (error) {
+            *error = std::string("llvm codegen error: ") + e.what();
+        }
         return nullptr;
     }
 
-    artifacts->PrintModule(std::cerr);
+    if (Options.PrintLlvm) {
+        artifacts->PrintModule(std::cerr);
+    }
     if (Options.PrintAsm) {
         std::cerr << "=========== ASM: ===========\n";
         artifacts->Generate(std::cerr, /*generateAsm=*/true, /*generateObj=*/false);
@@ -280,7 +294,9 @@ void* TLLVMRunner::CompileKernelAst(
     std::string runErr;
     void* fnPtr = LlvmRunner_.Lookup(std::move(artifacts), funcName, &runErr);
     if (!fnPtr) {
-        if (error) *error = runErr.empty() ? "function not found: " + funcName : runErr;
+        if (error) {
+            *error = runErr.empty() ? "function not found: " + funcName : runErr;
+        }
         return nullptr;
     }
     return fnPtr;
@@ -293,7 +309,9 @@ void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) 
     NAst::NCore::TParser p;
     auto parsed = p.Parse(ts);
     if (!parsed) {
-        if (error) *error = parsed.error().ToString();
+        if (error) {
+            *error = parsed.error().ToString();
+        }
         return nullptr;
     }
 
@@ -302,24 +320,32 @@ void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) 
     scope->RootLevel = false;
 
     if (auto err = Resolver.Resolve(*parsed)) {
-        if (error) *error = err->ToString();
+        if (error) {
+            *error = err->ToString();
+        }
         return nullptr;
     }
 
     auto transformResult = NTransform::Pipeline(*parsed, Resolver, {});
     if (!transformResult) {
-        if (error) *error = transformResult.error().ToString();
+        if (error) {
+            *error = transformResult.error().ToString();
+        }
         return nullptr;
     }
 
     auto lowerRes = Lowerer.LowerTop(*parsed);
     if (!lowerRes) {
-        if (error) *error = lowerRes.error().ToString();
+        if (error) {
+            *error = lowerRes.error().ToString();
+        }
         return nullptr;
     }
 
     if (Module.Functions.empty()) {
-        if (error) *error = "no functions after lowering";
+        if (error) {
+            *error = "no functions after lowering";
+        }
         return nullptr;
     }
     const std::string funcName = Module.Functions.back().Name;
@@ -329,14 +355,18 @@ void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) 
     try {
         artifacts = cg.Emit(Module, 0);
     } catch (const std::exception& e) {
-        if (error) *error = std::string("llvm codegen error: ") + e.what();
+        if (error) {
+            *error = std::string("llvm codegen error: ") + e.what();
+        }
         return nullptr;
     }
 
     std::string runErr;
     void* fnPtr = LlvmRunner_.Lookup(std::move(artifacts), funcName, &runErr);
     if (!fnPtr) {
-        if (error) *error = runErr.empty() ? "function not found: " + funcName : runErr;
+        if (error) {
+            *error = runErr.empty() ? "function not found: " + funcName : runErr;
+        }
         return nullptr;
     }
     return fnPtr;

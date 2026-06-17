@@ -174,7 +174,9 @@ void TPrinter::PrintType(TTypePtr type, int level) {
 }
 
 void TPrinter::PrintIdentifier(const std::string& value) {
-    if (value.find(' ') != std::string::npos) {
+    const bool needsQuoting = value.find(' ') != std::string::npos
+                           || value.find('.') != std::string::npos;
+    if (needsQuoting) {
         *Out << '|' << value << '|';
     } else {
         *Out << value;
