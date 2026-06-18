@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace NQumir {
@@ -300,7 +301,15 @@ TAstTask ParseList(TParserContext& context, TLocation location) {
         co_return co_await it->second(context, location);
     }
 
+    static const std::unordered_set<std::string> KnownOps = {
+        "+", "-", "*", "/", "%", "^", "&", "|", "~", "!",
+        "==", "!=", "<", "<=", ">", ">=", "&&", "||", "<<", ">>",
+        "xor",
+    };
     auto args = co_await ParseExprsUntil(context, ')');
+    if (!KnownOps.count(head)) {
+        co_return TError(location, "unknown core form: " + head);
+    }
     if (args.size() == 1) {
         co_return std::make_shared<TUnaryExpr>(location, TOperator(head), std::move(args[0]));
     }
