@@ -854,6 +854,33 @@ struct TCastExpr : public TExpr {
     void Accept(IVisitor& visitor) override;
 };
 
+struct TBitcastExpr : public TExpr {
+    static constexpr const char* NodeId = "Bitcast";
+
+    TExprPtr Operand;
+
+    TBitcastExpr(TLocation loc, TExprPtr operand, TTypePtr target)
+        : TExpr(std::move(loc))
+        , Operand(std::move(operand))
+    {
+        Type = std::move(target);
+    }
+
+    std::vector<TExprPtr> Children() const override {
+        return { Operand };
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        return { &Operand };
+    }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+
+    void Accept(IVisitor& visitor) override;
+};
+
 inline TExprPtr MakeCast(TExprPtr e, TTypePtr to) {
     return std::make_shared<TCastExpr>(e->Location, std::move(e), std::move(to));
 }
@@ -1128,6 +1155,7 @@ struct IVisitor {
     virtual void Visit(TInputExpr& node) = 0;
     virtual void Visit(TOutputExpr& node) = 0;
     virtual void Visit(TCastExpr& node) = 0;
+    virtual void Visit(TBitcastExpr& node) = 0;
     virtual void Visit(TIndexExpr& node) = 0;
     virtual void Visit(TMultiIndexExpr& node) = 0;
     virtual void Visit(TSliceExpr& node) = 0;

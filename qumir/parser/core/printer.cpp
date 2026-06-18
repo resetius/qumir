@@ -70,7 +70,11 @@ bool TPrinter::ShouldWrapType(const TExprPtr& expr) const {
         return false;
     }
     if (Options.TypeMode == ETypePrintMode::All) {
-        if (TMaybeNode<TFunDecl>(expr) || TMaybeNode<TCastExpr>(expr)) {
+        if (
+            TMaybeNode<TFunDecl>(expr) ||
+            TMaybeNode<TCastExpr>(expr) ||
+            TMaybeNode<TBitcastExpr>(expr))
+        {
             return false;
         }
         if (TMaybeNode<TBlockExpr>(expr) && TMaybeType<TVoidType>(expr->Type)) {
@@ -672,6 +676,15 @@ struct TPrintExpr : public IVisitor {
 
     void Visit(TCastExpr& node) override {
         *Out << "(cast";
+        Printer.Separator(Frame.Level + 1);
+        Printer.PrintExpr(node.Operand, true, Frame.Level + 1);
+        Printer.Separator(Frame.Level + 1);
+        Printer.PrintType(node.Type, Frame.Level + 1);
+        *Out << ')';
+    }
+
+    void Visit(TBitcastExpr& node) override {
+        *Out << "(bitcast";
         Printer.Separator(Frame.Level + 1);
         Printer.PrintExpr(node.Operand, true, Frame.Level + 1);
         Printer.Separator(Frame.Level + 1);

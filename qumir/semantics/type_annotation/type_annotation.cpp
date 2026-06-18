@@ -1223,6 +1223,9 @@ TExprPtr ShallowCloneNode(const TExprPtr& node) {
     if (auto n = TMaybeNode<TCastExpr>(node)) {
         return std::make_shared<TCastExpr>(*n.Cast());
     }
+    if (auto n = TMaybeNode<TBitcastExpr>(node)) {
+        return std::make_shared<TBitcastExpr>(*n.Cast());
+    }
     if (auto n = TMaybeNode<TIndexExpr>(node)) {
         return std::make_shared<TIndexExpr>(*n.Cast());
     }
@@ -1254,8 +1257,8 @@ TExprPtr ShallowCloneNode(const TExprPtr& node) {
 }
 
 // Deep-clones an AST subtree, substituting `template` placeholders in every
-// declared/annotated type along the way (TVarStmt::Type, TCastExpr's target
-// type, ...) and resetting scope bookkeeping (TBlockExpr/TFunDecl/TLetExpr
+// declared/annotated type along the way (TVarStmt::Type, cast target types,
+// ...) and resetting scope bookkeeping (TBlockExpr/TFunDecl/TLetExpr
 // ::Scope, TLetExpr::TBinding::Symbol) so the clone gets fresh symbol-table
 // entries on the next name-resolution pass: a cloned body cannot share scopes
 // with its template — Symbols bind scope entries to specific AST node

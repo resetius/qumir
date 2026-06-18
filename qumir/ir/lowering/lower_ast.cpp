@@ -607,7 +607,23 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
     NAst::TExprPtr expr = inputExpr;
 
-    if (auto maybeCast = NAst::TMaybeNode<NAst::TCastExpr>(expr)) {
+    if (auto maybeBitcast = NAst::TMaybeNode<NAst::TBitcastExpr>(expr)) {
+        auto bitcast = maybeBitcast.Cast();
+        auto operand = co_await Lower(bitcast->Operand, scope);
+        if (!operand.Value) {
+            co_return TError(bitcast->Operand->Location, "bitcast operand must be a value");
+        }
+        int sourceTypeId = FromAstType(
+            NAst::UnwrapNamedType(bitcast->Operand->Type),
+            Module.Types);
+        int targetTypeId = FromAstType(NAst::UnwrapNamedType(bitcast->Type), Module.Types);
+        if (Module.Types.SizeInBytes(sourceTypeId) != Module.Types.SizeInBytes(targetTypeId)) {
+            co_return TError(bitcast->Location, "bitcast types must have the same size");
+        }
+        auto tmp = Builder.Emit1("bitcast"_op, {*operand.Value});
+        Builder.SetType(tmp, targetTypeId);
+        co_return TValueWithBlock{tmp, Builder.CurrentBlockLabel()};
+    } else if (auto maybeCast = NAst::TMaybeNode<NAst::TCastExpr>(expr)) {
         auto cast = maybeCast.Cast();
         auto operand = co_await Lower(cast->Operand, scope);
         if (!operand.Value) co_return TError(cast->Operand->Location, TErrorString::Get<EErrorId::OPERAND_OF_CAST_NOT_VALUE>());

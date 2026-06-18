@@ -433,6 +433,11 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 out.Op = EVMOp::F2I;
                 break;
             }
+            case "bitcast"_op: {
+                require(ins, 1, 1);
+                out.Op = EVMOp::Bitcast;
+                break;
+            }
             case "arg"_op: {
                 require(ins, -1, 1);
                 if (ins.Operands[0].Type == TOperand::EType::Tmp) {

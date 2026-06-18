@@ -54,6 +54,7 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::Cmov: return os << "Cmov";
     case EVMOp::I2F: return os << "I2F";
     case EVMOp::F2I: return os << "F2I";
+    case EVMOp::Bitcast: return os << "Bitcast";
     case EVMOp::Jmp: return os << "Jmp";
     case EVMOp::Cmp: return os << "Cmp";
     case EVMOp::ArgTmp: return os << "ArgTmp";
