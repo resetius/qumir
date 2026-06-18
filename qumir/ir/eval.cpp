@@ -477,6 +477,13 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
             Runtime.Regs[instr.Operands[0].Tmp.Idx] = val;
             break;
         }
+        case EVMOp::Bitcast: {
+            assert(instr.Operands[0].Tmp.Idx >= 0);
+            Runtime.Regs[instr.Operands[0].Tmp.Idx] = ReadOperand(
+                Runtime.Regs,
+                instr.Operands[1]);
+            break;
+        }
         case EVMOp::I2F: {
             assert(instr.Operands[0].Tmp.Idx >= 0);
             int64_t ival = ReadOperand<int64_t>(Runtime.Regs, instr.Operands[1]);

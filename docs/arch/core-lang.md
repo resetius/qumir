@@ -368,11 +368,16 @@ Casts, indexing, and slicing:
 
 ```core
 (cast operand type)
+(bitcast operand type)
 (index collection index)
 (index collection [index1 ... indexN])
 (slice collection [start])
 (slice collection [start end])
 ```
+
+`bitcast` preserves the operand's representation and requires integer, float,
+symbol, or pointer source and target types with the same byte size. Numeric
+literal bitcasts are folded during the transformation pipeline.
 
 Single-index access creates `TIndexExpr`; vector index access creates
 `TMultiIndexExpr`. `(slice collection [start])` with a single bound is a

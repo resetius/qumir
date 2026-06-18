@@ -90,6 +90,9 @@ AST node forms:
   (cast operand type)
       TCastExpr, NodeId = "Cast".
 
+  (bitcast operand type)
+      TBitcastExpr, NodeId = "Bitcast".
+
   (index collection index)
       TIndexExpr, NodeId = "Index".
 

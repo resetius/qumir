@@ -27,6 +27,7 @@ void TAwaitExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TInputExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TOutputExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TCastExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TBitcastExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TIndexExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TMultiIndexExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TSliceExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }

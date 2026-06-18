@@ -1402,6 +1402,19 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                 ? irb->CreateFPToSI(v, outputType, "f2i")
                 : irb->CreateFPToUI(v, outputType, "f2u"));
         }
+        case "bitcast"_op: {
+            auto v = GetOp(instr.Operands[0], module);
+            if (!outputType) {
+                throw std::runtime_error("bitcast needs typed dest");
+            }
+            if (v->getType()->isPointerTy() && outputType->isIntegerTy()) {
+                return storeTmp(irb->CreatePtrToInt(v, outputType, "bitcast"));
+            }
+            if (v->getType()->isIntegerTy() && outputType->isPointerTy()) {
+                return storeTmp(irb->CreateIntToPtr(v, outputType, "bitcast"));
+            }
+            return storeTmp(irb->CreateBitCast(v, outputType, "bitcast"));
+        }
         case "mov"_op: {
             auto v = GetOp(instr.Operands[0], module);
             if (!outputType) throw std::runtime_error("cast/mov needs typed dest");

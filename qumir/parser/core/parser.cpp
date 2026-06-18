@@ -520,10 +520,8 @@ TListHandlerMap MakeDefaultHandlers() {
         {"bitcast", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto expr = co_await ParseExpr(ctx);
             auto type = co_await ParseType(ctx);
-            // expr = std::make_shared<TBitcastExpr>(loc, std::move(expr), std::move(type));
-            expr->Type = std::move(type); // TODO: implement TBitcastExpr
             co_await Expect(ctx, ')');
-            co_return expr;
+            co_return std::make_shared<TBitcastExpr>(loc, std::move(expr), std::move(type));
         }},
         {"=", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto name = co_await ParseName(ctx);
