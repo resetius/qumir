@@ -67,6 +67,8 @@ add_library(qumir
     semantics/definite_assignment/definite_assignment.cpp
     semantics/name_resolution/name_resolver.h
     semantics/name_resolution/name_resolver.cpp
+    semantics/return_analysis.h
+    semantics/return_analysis.cpp
     semantics/transform/transform.h
     semantics/transform/transform.cpp
     semantics/type_annotation/coercions.h

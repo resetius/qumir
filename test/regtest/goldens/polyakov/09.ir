@@ -41,216 +41,216 @@ function <main> () { ; void
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(8) 
+    jmp label(41) 
   }
   block {
     label: label(7)
     load tmp(10,i64) = local(0,i64) 
     == tmp(11,i1) = tmp(10,i64) imm(2,i64) 
-    cmp tmp(11,i1) label(9) label(10) 
+    cmp tmp(11,i1) label(8) label(9) 
   }
   block {
-    label: label(9)
+    label: label(8)
     arg imm(3,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(11) 
+    jmp label(40) 
+  }
+  block {
+    label: label(9)
+    load tmp(12,i64) = local(0,i64) 
+    == tmp(13,i1) = tmp(12,i64) imm(3,i64) 
+    cmp tmp(13,i1) label(10) label(11) 
   }
   block {
     label: label(10)
-    load tmp(12,i64) = local(0,i64) 
-    == tmp(13,i1) = tmp(12,i64) imm(3,i64) 
-    cmp tmp(13,i1) label(12) label(13) 
-  }
-  block {
-    label: label(12)
     arg imm(4,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(14) 
+    jmp label(39) 
   }
   block {
-    label: label(13)
+    label: label(11)
     load tmp(14,i64) = local(0,i64) 
     == tmp(15,i1) = tmp(14,i64) imm(4,i64) 
-    cmp tmp(15,i1) label(15) label(16) 
+    cmp tmp(15,i1) label(12) label(13) 
   }
   block {
-    label: label(15)
+    label: label(12)
     arg imm(5,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(17) 
+    jmp label(38) 
   }
   block {
-    label: label(16)
+    label: label(13)
     load tmp(16,i64) = local(0,i64) 
     == tmp(17,i1) = tmp(16,i64) imm(5,i64) 
-    cmp tmp(17,i1) label(18) label(19) 
+    cmp tmp(17,i1) label(14) label(15) 
   }
   block {
-    label: label(18)
+    label: label(14)
     arg imm(6,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(20) 
+    jmp label(37) 
   }
   block {
-    label: label(19)
+    label: label(15)
     load tmp(18,i64) = local(0,i64) 
     == tmp(19,i1) = tmp(18,i64) imm(6,i64) 
-    cmp tmp(19,i1) label(21) label(22) 
+    cmp tmp(19,i1) label(16) label(17) 
   }
   block {
-    label: label(21)
+    label: label(16)
     arg imm(7,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(23) 
+    jmp label(36) 
   }
   block {
-    label: label(22)
+    label: label(17)
     load tmp(20,i64) = local(0,i64) 
     == tmp(21,i1) = tmp(20,i64) imm(7,i64) 
-    cmp tmp(21,i1) label(24) label(25) 
+    cmp tmp(21,i1) label(18) label(19) 
   }
   block {
-    label: label(24)
+    label: label(18)
     arg imm(8,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(26) 
+    jmp label(35) 
   }
   block {
-    label: label(25)
+    label: label(19)
     load tmp(22,i64) = local(0,i64) 
     == tmp(23,i1) = tmp(22,i64) imm(8,i64) 
-    cmp tmp(23,i1) label(27) label(28) 
+    cmp tmp(23,i1) label(20) label(21) 
   }
   block {
-    label: label(27)
+    label: label(20)
     arg imm(9,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(29) 
+    jmp label(34) 
   }
   block {
-    label: label(28)
+    label: label(21)
     load tmp(24,i64) = local(0,i64) 
     == tmp(25,i1) = tmp(24,i64) imm(9,i64) 
-    cmp tmp(25,i1) label(30) label(31) 
+    cmp tmp(25,i1) label(22) label(23) 
   }
   block {
-    label: label(30)
+    label: label(22)
     arg imm(10,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(32) 
+    jmp label(33) 
   }
   block {
-    label: label(31)
+    label: label(23)
     load tmp(26,i64) = local(0,i64) 
     == tmp(27,i1) = tmp(26,i64) imm(10,i64) 
-    cmp tmp(27,i1) label(33) label(34) 
+    cmp tmp(27,i1) label(24) label(25) 
   }
   block {
-    label: label(33)
+    label: label(24)
     arg imm(11,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(35) 
+    jmp label(32) 
   }
   block {
-    label: label(34)
+    label: label(25)
     load tmp(28,i64) = local(0,i64) 
     == tmp(29,i1) = tmp(28,i64) imm(11,i64) 
-    cmp tmp(29,i1) label(36) label(37) 
+    cmp tmp(29,i1) label(26) label(27) 
   }
   block {
-    label: label(36)
+    label: label(26)
     arg imm(12,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(38) 
+    jmp label(31) 
   }
   block {
-    label: label(37)
+    label: label(27)
     load tmp(30,i64) = local(0,i64) 
     == tmp(31,i1) = tmp(30,i64) imm(12,i64) 
-    cmp tmp(31,i1) label(39) label(40) 
+    cmp tmp(31,i1) label(28) label(29) 
   }
   block {
-    label: label(39)
+    label: label(28)
     arg imm(13,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(41) 
+    jmp label(30) 
   }
   block {
-    label: label(40)
+    label: label(29)
     arg imm(14,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    jmp label(41) 
+    jmp label(30) 
   }
   block {
-    label: label(41)
-    jmp label(38) 
+    label: label(30)
+    jmp label(31) 
   }
   block {
-    label: label(38)
-    jmp label(35) 
-  }
-  block {
-    label: label(35)
+    label: label(31)
     jmp label(32) 
   }
   block {
     label: label(32)
-    jmp label(29) 
+    jmp label(33) 
   }
   block {
-    label: label(29)
-    jmp label(26) 
+    label: label(33)
+    jmp label(34) 
   }
   block {
-    label: label(26)
-    jmp label(23) 
+    label: label(34)
+    jmp label(35) 
   }
   block {
-    label: label(23)
-    jmp label(20) 
+    label: label(35)
+    jmp label(36) 
   }
   block {
-    label: label(20)
-    jmp label(17) 
+    label: label(36)
+    jmp label(37) 
   }
   block {
-    label: label(17)
-    jmp label(14) 
+    label: label(37)
+    jmp label(38) 
   }
   block {
-    label: label(14)
-    jmp label(11) 
+    label: label(38)
+    jmp label(39) 
   }
   block {
-    label: label(11)
-    jmp label(8) 
+    label: label(39)
+    jmp label(40) 
   }
   block {
-    label: label(8)
+    label: label(40)
+    jmp label(41) 
+  }
+  block {
+    label: label(41)
     jmp label(4) 
   }
   block {

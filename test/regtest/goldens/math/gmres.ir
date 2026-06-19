@@ -710,7 +710,7 @@ function main () { ; void
     load tmp(382,i64) = local(0,i64) 
     - tmp(383,i64) = tmp(382,i64) imm(1,i64) 
     stre local(99,i64) tmp(383,i64) 
-    jmp label(47) 
+    jmp label(46) 
   }
   block {
     label: label(45)
@@ -721,20 +721,20 @@ function main () { ; void
     load tmp(417,i64) = local(0,i64) 
     - tmp(418,i64) = tmp(417,i64) imm(1,i64) 
     stre local(102,i64) tmp(418,i64) 
-    jmp label(51) 
+    jmp label(50) 
   }
   block {
-    label: label(47)
+    label: label(46)
     load tmp(384,i64) = local(99,i64) 
     load tmp(385,i64) = local(101,i64) 
     load tmp(386,i64) = local(100,i64) 
     - tmp(387,i64) = tmp(384,i64) tmp(385,i64) 
     * tmp(388,i64) = tmp(387,i64) tmp(386,i64) 
     >= tmp(389,i1) = tmp(388,i64) imm(0,i64) 
-    cmp tmp(389,i1) label(48) label(50) 
+    cmp tmp(389,i1) label(47) label(49) 
   }
   block {
-    label: label(48)
+    label: label(47)
     load tmp(390,i64) = local(101,i64) 
     stre local(17,i64) tmp(390,i64) 
     load tmp(391,ptr to f64) = local(8,ptr to f64) 
@@ -760,32 +760,32 @@ function main () { ; void
     load tmp(411,f64) = local(27,f64) 
     / tmp(412,f64) = tmp(410,f64) tmp(411,f64) 
     ste tmp(403,ptr to f64) tmp(412,f64) 
-    jmp label(49) 
+    jmp label(48) 
   }
   block {
-    label: label(49)
+    label: label(48)
     load tmp(413,i64) = local(101,i64) 
     load tmp(414,i64) = local(100,i64) 
     + tmp(415,i64) = tmp(413,i64) tmp(414,i64) 
     stre local(101,i64) tmp(415,i64) 
-    jmp label(47) 
-  }
-  block {
-    label: label(50)
     jmp label(46) 
   }
   block {
-    label: label(51)
+    label: label(49)
+    jmp label(54) 
+  }
+  block {
+    label: label(50)
     load tmp(419,i64) = local(102,i64) 
     load tmp(420,i64) = local(104,i64) 
     load tmp(421,i64) = local(103,i64) 
     - tmp(422,i64) = tmp(419,i64) tmp(420,i64) 
     * tmp(423,i64) = tmp(422,i64) tmp(421,i64) 
     >= tmp(424,i1) = tmp(423,i64) imm(0,i64) 
-    cmp tmp(424,i1) label(52) label(54) 
+    cmp tmp(424,i1) label(51) label(53) 
   }
   block {
-    label: label(52)
+    label: label(51)
     load tmp(425,i64) = local(104,i64) 
     stre local(17,i64) tmp(425,i64) 
     load tmp(426,ptr to f64) = local(8,ptr to f64) 
@@ -802,22 +802,22 @@ function main () { ; void
     * tmp(437,i64) = tmp(436,i64) imm(8,i64) 
     + tmp(438,ptr to f64) = tmp(426,ptr to f64) tmp(437,i64) 
     ste tmp(438,ptr to f64) imm(0,f64) 
-    jmp label(53) 
+    jmp label(52) 
   }
   block {
-    label: label(53)
+    label: label(52)
     load tmp(439,i64) = local(104,i64) 
     load tmp(440,i64) = local(103,i64) 
     + tmp(441,i64) = tmp(439,i64) tmp(440,i64) 
     stre local(104,i64) tmp(441,i64) 
-    jmp label(51) 
+    jmp label(50) 
+  }
+  block {
+    label: label(53)
+    jmp label(54) 
   }
   block {
     label: label(54)
-    jmp label(46) 
-  }
-  block {
-    label: label(46)
     stre local(15,i64) imm(0,i64) 
     stre local(106,i64) imm(1,i64) 
     load tmp(442,i64) = local(15,i64) 

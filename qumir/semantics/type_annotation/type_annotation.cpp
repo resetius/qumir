@@ -7,6 +7,7 @@
 #include <qumir/parser/lexer.h>
 #include <qumir/parser/type.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
+#include <qumir/semantics/return_analysis.h>
 
 #include <iostream>
 #include <sstream>
@@ -357,13 +358,16 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
         co_return TError(funDecl->Location, "Не удалось определить тип тела функции");
     }
 
-    // Body must either yield the function's return value directly (no
-    // trailing `return` — hand-written core lang) or be void-typed (every
-    // path ends in an explicit `return`, individually checked by
-    // AnnotateReturn — always the case for Kumir-generated bodies).
+    // A non-void body either yields an implicit return value or explicitly
+    // returns on every path. Return expressions remain void-typed.
     if (!TMaybeType<TVoidType>(funcScope->RetType)) {
         auto bodyType = UnwrapReferenceType(funDecl->Body->Type);
-        if (!TMaybeType<TVoidType>(bodyType)) {
+        if (TMaybeType<TVoidType>(bodyType)) {
+            if (!NSemantics::AlwaysReturns(funDecl->Body)) {
+                co_return TError(funDecl->Location,
+                    "Тело функции должно возвращать значение на каждом пути выполнения.");
+            }
+        } else {
             if (!EqualTypes(bodyType, funcScope->RetType)) {
                 if (!CanImplicit(bodyType, funcScope->RetType, &context)) {
                     co_return TError(funDecl->Location,

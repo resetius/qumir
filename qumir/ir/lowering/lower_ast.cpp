@@ -826,7 +826,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto entryId = Builder.CurrentBlockIdx();
         auto [thenLabel, thenId] = Builder.NewBlock();
         auto [elseLabel, elseId] = Builder.NewBlock();
-        auto endLabel = Builder.NewLabel();
 
         Builder.SetCurrentBlock(entryId);
         Builder.Emit0("cmp"_op, {*cond.Value, thenLabel, elseLabel});
@@ -834,15 +833,24 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         Builder.SetCurrentBlock(thenId);
         auto thenRes = co_await Lower(ife->Then, scope);
         Builder.SetCurrentBlock(thenRes.ProducingLabel);
-        if (!Builder.IsCurrentBlockTerminated()) {
-            Builder.Emit0("jmp"_op, {endLabel});
-        }
-        auto thenEdgeLabel = Builder.CurrentBlockLabel();
+        bool thenTerminated = Builder.IsCurrentBlockTerminated();
+        auto thenEdgeLabel = thenRes.ProducingLabel;
 
         Builder.SetCurrentBlock(elseId);
         if (ife->Else) {
             auto elseRes = co_await Lower(ife->Else, scope);
             Builder.SetCurrentBlock(elseRes.ProducingLabel);
+            bool elseTerminated = Builder.IsCurrentBlockTerminated();
+
+            if (thenTerminated && elseTerminated) {
+                co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
+            }
+
+            auto endLabel = Builder.NewLabel();
+            if (!thenTerminated) {
+                Builder.SetCurrentBlock(thenEdgeLabel);
+                Builder.Emit0("jmp"_op, {endLabel});
+            }
 
             if (!isVoid) {
                 // Expression if: emit phi to merge values
@@ -852,10 +860,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 if (!elseRes.Value) {
                     co_return TError(ife->Else->Location, "Ветвь `иначе' в `если'-выражении не возвращает значение");
                 }
-                if (!Builder.IsCurrentBlockTerminated()) {
-                    Builder.Emit0("jmp"_op, {endLabel});
-                }
-                auto elseEdgeLabel = Builder.CurrentBlockLabel();
+                auto elseEdgeLabel = elseRes.ProducingLabel;
+                Builder.SetCurrentBlock(elseEdgeLabel);
+                Builder.Emit0("jmp"_op, {endLabel});
                 Builder.NewBlock(endLabel);
                 auto res = Builder.Emit1("phi"_op, {*thenRes.Value, thenEdgeLabel, *elseRes.Value, elseEdgeLabel});
                 Builder.SetType(res, FromAstType(expr->Type, Module.Types));
@@ -868,16 +875,23 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
             }
 
-            if (!Builder.IsCurrentBlockTerminated()) {
+            if (!elseTerminated) {
+                Builder.SetCurrentBlock(elseRes.ProducingLabel);
                 Builder.Emit0("jmp"_op, {endLabel});
             }
+            Builder.NewBlock(endLabel);
+            co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
         } else {
-            // No else branch: just jump to end
+            auto endLabel = Builder.NewLabel();
+            if (!thenTerminated) {
+                Builder.SetCurrentBlock(thenEdgeLabel);
+                Builder.Emit0("jmp"_op, {endLabel});
+            }
+            Builder.SetCurrentBlock(elseId);
             Builder.Emit0("jmp"_op, {endLabel});
+            Builder.NewBlock(endLabel);
+            co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
         }
-
-        Builder.NewBlock(endLabel);
-        co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
 
     } else if (auto maybeLoop = NAst::TMaybeNode<NAst::TWhileStmtExpr>(expr)) {
         co_return co_await LowerWhile(maybeLoop.Cast(), scope);
