@@ -21,6 +21,7 @@ ut(test_if_expr test_if_expr.cpp)
 ut(test_future test_future.cpp)
 ut(test_lifetime_traits test_lifetime_traits.cpp)
 ut(test_lifetime_validator test_lifetime_validator.cpp)
+ut(test_lifetime_lowering test_lifetime_lowering.cpp)
 ut(test_printer test_printer.cpp)
 ut(test_semantic_pipeline test_semantic_pipeline.cpp)
 

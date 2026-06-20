@@ -603,11 +603,132 @@ void TAstLowerer::EmitDestructors(size_t from, size_t to) {
     }
 }
 
+TExpectedTask<std::monostate, TError, TLocation> TAstLowerer::EmitLifetimeDestroy(
+    TOperand value,
+    const NAst::TTypePtr& inputType,
+    std::optional<TOperand> aux,
+    const TLocation& loc)
+{
+    auto type = NAst::UnwrapReferenceType(NAst::UnwrapNamedType(inputType));
+    std::string destructorName;
+    bool usesAux = false;
+    if (NAst::TMaybeType<NAst::TStringType>(type)) {
+        destructorName = "str_release";
+    } else if (auto array = NAst::TMaybeType<NAst::TArrayType>(type)) {
+        auto elementType = NAst::UnwrapNamedType(array.Cast()->ElementType);
+        if (NAst::TMaybeType<NAst::TStringType>(elementType)) {
+            if (!aux) {
+                co_return TError(loc, "array<string> destroy requires an allocation-size operand");
+            }
+            destructorName = "array_str_destroy";
+            usesAux = true;
+        } else {
+            destructorName = "array_destroy";
+        }
+    } else {
+        co_return TError(loc, "lifetime destroy does not support type '"
+            + std::string(type->TypeName()) + "'");
+    }
+
+    auto destructorId = co_await GlobalSymbolId(destructorName);
+    Builder.Emit0("arg"_op, {value});
+    if (usesAux) {
+        Builder.Emit0("arg"_op, {*aux});
+    }
+    Builder.Emit0("call"_op, {TImm{destructorId}});
+    co_return std::monostate{};
+}
+
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& inputExpr, TBlockScope scope) {
     int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
     NAst::TExprPtr expr = inputExpr;
 
-    if (auto maybeBitcast = NAst::TMaybeNode<NAst::TBitcastExpr>(expr)) {
+    if (auto maybeRetain = NAst::TMaybeNode<NAst::TRetainExpr>(expr)) {
+        auto retain = maybeRetain.Cast();
+        auto value = co_await Lower(retain->Value, scope);
+        if (!value.Value) {
+            co_return TError(retain->Location, "retain operand must produce a value");
+        }
+        auto retainId = co_await GlobalSymbolId("str_retain");
+        Builder.Emit0("arg"_op, {*value.Value});
+        Builder.Emit0("call"_op, {TImm{retainId}});
+        value.Ownership = EOwnership::Owned;
+        co_return value;
+    } else if (auto maybeLiteral = NAst::TMaybeNode<NAst::TOwnLiteralExpr>(expr)) {
+        auto literal = maybeLiteral.Cast();
+        auto value = co_await Lower(literal->Value, scope);
+        if (!value.Value) {
+            co_return TError(literal->Location, "own-literal operand must produce a value");
+        }
+        auto constructorId = co_await GlobalSymbolId("str_from_lit");
+        Builder.Emit0("arg"_op, {*value.Value});
+        auto owned = Builder.Emit1("call"_op, {TImm{constructorId}});
+        Builder.SetType(owned, FromAstType(literal->Type, Module.Types));
+        co_return TValueWithBlock{
+            owned,
+            Builder.CurrentBlockLabel(),
+            EOwnership::Owned,
+        };
+    } else if (auto maybeMove = NAst::TMaybeNode<NAst::TMoveExpr>(expr)) {
+        auto value = co_await Lower(maybeMove.Cast()->Value, scope);
+        value.Ownership = EOwnership::Owned;
+        co_return value;
+    } else if (auto maybeBorrow = NAst::TMaybeNode<NAst::TBorrowExpr>(expr)) {
+        auto value = co_await Lower(maybeBorrow.Cast()->Value, scope);
+        value.Ownership = EOwnership::Borrowed;
+        co_return value;
+    } else if (auto maybeDestroy = NAst::TMaybeNode<NAst::TDestroyExpr>(expr)) {
+        auto destroy = maybeDestroy.Cast();
+        auto value = co_await Lower(destroy->Value, scope);
+        if (!value.Value) {
+            co_return TError(destroy->Location, "destroy operand must produce a value");
+        }
+        std::optional<TOperand> aux;
+        if (destroy->Aux) {
+            auto loweredAux = co_await Lower(destroy->Aux, scope);
+            if (!loweredAux.Value) {
+                co_return TError(destroy->Aux->Location,
+                    "destroy auxiliary operand must produce a value");
+            }
+            aux = *loweredAux.Value;
+        }
+        co_await EmitLifetimeDestroy(
+            *value.Value,
+            destroy->Value->Type,
+            aux,
+            destroy->Location);
+        co_return TValueWithBlock{std::nullopt, Builder.CurrentBlockLabel()};
+    } else if (auto maybeReplace = NAst::TMaybeNode<NAst::TReplaceExpr>(expr)) {
+        auto replace = maybeReplace.Cast();
+        auto value = co_await Lower(replace->Value, scope);
+        if (!value.Value) {
+            co_return TError(replace->Value->Location,
+                "replace value must produce a value");
+        }
+        auto address = co_await LowerLValueAddress(replace->Target, scope);
+        if (!address.Value) {
+            co_return TError(replace->Target->Location,
+                "replace target must be addressable");
+        }
+        auto targetType = NAst::UnwrapReferenceType(
+            NAst::UnwrapNamedType(replace->Target->Type));
+        auto targetTypeId = FromAstType(targetType, Module.Types);
+        auto oldValue = Builder.Emit1("lde"_op, {*address.Value});
+        Builder.SetType(oldValue, targetTypeId);
+        co_await EmitLifetimeDestroy(
+            oldValue,
+            targetType,
+            std::nullopt,
+            replace->Location);
+        Builder.Emit0("ste"_op, {*address.Value, *value.Value});
+        co_return TValueWithBlock{std::nullopt, Builder.CurrentBlockLabel()};
+    } else if (NAst::TMaybeNode<NAst::TCleanupExitExpr>(expr)) {
+        co_return TError(expr->Location,
+            "cleanup-exit lowering is not implemented");
+    } else if (NAst::TMaybeNode<NAst::TGlobalCleanupExpr>(expr)) {
+        co_return TError(expr->Location,
+            "cleanup-global lowering is not implemented");
+    } else if (auto maybeBitcast = NAst::TMaybeNode<NAst::TBitcastExpr>(expr)) {
         auto bitcast = maybeBitcast.Cast();
         auto operand = co_await Lower(bitcast->Operand, scope);
         if (!operand.Value) {
