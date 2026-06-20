@@ -2001,9 +2001,9 @@ std::expected<TExprPtr, TError> TTypeAnnotator::Annotate(TExprPtr expr)
     // Append monomorphized generic-function clones to the top-level block so
     // lowering compiles them exactly like ordinary top-level functions — see
     // GetGenericInstantiations' comment for why. Drained (not just read):
-    // Annotate runs once per fixed-point iteration of the same top-level
-    // block (NTransform::Pipeline's do/while loop), so a non-draining read
-    // would re-splice already-spliced clones every time.
+    // Annotate runs repeatedly during the source fixpoint and once after final
+    // AST rewrites, so a non-draining read would re-splice already-spliced
+    // clones every time.
     if (auto block = TMaybeNode<TBlockExpr>(*result)) {
         for (auto& fdecl : Context.TakeGenericInstantiations()) {
             block.Cast()->Stmts.push_back(fdecl);

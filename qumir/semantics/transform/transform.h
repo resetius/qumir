@@ -19,6 +19,23 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
 std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NSemantics::TNameResolver& r);
 std::expected<bool, TError> CoroutineAnnotationTransform(NAst::TExprPtr& expr, NSemantics::TNameResolver& r);
 
+std::expected<std::monostate, TError> RunSourceTransformFixpoint(
+    NAst::TExprPtr& expr,
+    NSemantics::TNameResolver& context,
+    TPipelineOptions options = {});
+
+std::expected<std::monostate, TError> FinalNameResolution(
+    NAst::TExprPtr& expr,
+    NSemantics::TNameResolver& context);
+
+std::expected<std::monostate, TError> FinalTypeAnnotation(
+    NAst::TExprPtr& expr,
+    NSemantics::TNameResolver& context);
+
+std::expected<std::monostate, TError> RunFinalSemanticPipeline(
+    NAst::TExprPtr& expr,
+    NSemantics::TNameResolver& context);
+
 std::expected<std::monostate, TError> Pipeline(
     NAst::TExprPtr& expr,
     NSemantics::TNameResolver& context,

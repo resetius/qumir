@@ -69,6 +69,12 @@ add_library(qumir
     semantics/name_resolution/name_resolver.cpp
     semantics/return_analysis.h
     semantics/return_analysis.cpp
+    semantics/return_normalization/pass.h
+    semantics/return_normalization/pass.cpp
+    semantics/lifetime/pass.h
+    semantics/lifetime/pass.cpp
+    semantics/lifetime/synthetic_name_generator.h
+    semantics/lifetime/synthetic_name_generator.cpp
     semantics/lifetime/type_traits.h
     semantics/lifetime/type_traits.cpp
     semantics/transform/transform.h
