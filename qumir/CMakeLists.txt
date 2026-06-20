@@ -77,6 +77,8 @@ add_library(qumir
     semantics/lifetime/synthetic_name_generator.cpp
     semantics/lifetime/type_traits.h
     semantics/lifetime/type_traits.cpp
+    semantics/lifetime/validator.h
+    semantics/lifetime/validator.cpp
     semantics/transform/transform.h
     semantics/transform/transform.cpp
     semantics/type_annotation/coercions.h

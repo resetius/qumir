@@ -419,6 +419,111 @@ TTask AnnotateReturn(std::shared_ptr<TReturnExpr> ret, NSemantics::TNameResolver
     co_return ret;
 }
 
+template<typename T>
+TTask AnnotateLifetimeValue(
+    std::shared_ptr<T> expr,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId)
+{
+    expr->Value = co_await DoAnnotate(expr->Value, context, scopeId);
+    if (!expr->Value->Type) {
+        co_return TError(expr->Location, "Lifetime-выражение имеет значение без типа.");
+    }
+    expr->Type = expr->Value->Type;
+    co_return expr;
+}
+
+TTask AnnotateDestroy(
+    std::shared_ptr<TDestroyExpr> destroy,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId)
+{
+    destroy->Value = co_await DoAnnotate(destroy->Value, context, scopeId);
+    if (destroy->Aux) {
+        destroy->Aux = co_await DoAnnotate(destroy->Aux, context, scopeId);
+    }
+    destroy->Type = std::make_shared<TVoidType>();
+    co_return destroy;
+}
+
+TTask AnnotateReplace(
+    std::shared_ptr<TReplaceExpr> replace,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId)
+{
+    replace->Target = co_await DoAnnotate(replace->Target, context, scopeId);
+    replace->Value = co_await DoAnnotate(replace->Value, context, scopeId);
+    auto targetType = UnwrapReferenceType(replace->Target->Type);
+    auto valueType = UnwrapReferenceType(replace->Value->Type);
+    if (!EqualTypes(valueType, targetType)) {
+        if (!CanImplicit(valueType, targetType, &context)) {
+            co_return TError(replace->Location,
+                "Нельзя заменить значение типа '" + std::string(targetType->TypeName())
+                + "' значением типа '" + std::string(valueType->TypeName()) + "'.");
+        }
+        replace->Value = InsertImplicitCastIfNeeded(replace->Value, targetType, &context);
+    }
+    replace->Type = std::make_shared<TVoidType>();
+    co_return replace;
+}
+
+TTask AnnotateCleanupExit(
+    std::shared_ptr<TCleanupExitExpr> exit,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId)
+{
+    if (exit->Kind == ECleanupExitKind::Return) {
+        auto scope = context.GetScope(scopeId);
+        auto funcScope = scope->FuncScope;
+        if (!funcScope || !funcScope->RetType) {
+            co_return TError(exit->Location, "`return` вне функции.");
+        }
+        const auto& returnType = funcScope->RetType;
+        if (exit->Value) {
+            exit->Value = co_await DoAnnotate(exit->Value, context, scopeId);
+            if (TMaybeType<TVoidType>(returnType)) {
+                co_return TError(exit->Location,
+                    "Нельзя вернуть значение из функции, возвращающей void.");
+            }
+            auto valueType = UnwrapReferenceType(exit->Value->Type);
+            if (!EqualTypes(valueType, returnType)) {
+                if (!CanImplicit(valueType, returnType, &context)) {
+                    co_return TError(exit->Location,
+                        "Нельзя неявно преобразовать тип '" + std::string(valueType->TypeName())
+                        + "' к возвращаемому типу функции '"
+                        + std::string(returnType->TypeName()) + "'.");
+                }
+                exit->Value = InsertImplicitCastIfNeeded(exit->Value, returnType, &context);
+            }
+        } else if (!TMaybeType<TVoidType>(returnType)) {
+            co_return TError(exit->Location,
+                "Функция должна возвращать значение типа '"
+                + std::string(returnType->TypeName())
+                + "', но `return` указан без значения.");
+        }
+    } else if (exit->Value) {
+        co_return TError(exit->Location, "`break` и `continue` не могут иметь значение.");
+    }
+
+    for (auto& cleanup : exit->Cleanups) {
+        cleanup = co_await DoAnnotate(cleanup, context, scopeId);
+    }
+    exit->Type = std::make_shared<TVoidType>();
+    co_return exit;
+}
+
+TTask AnnotateGlobalCleanup(
+    std::shared_ptr<TGlobalCleanupExpr> cleanup,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId)
+{
+    for (auto& expr : cleanup->Cleanups) {
+        expr = co_await DoAnnotate(expr, context, scopeId);
+    }
+    cleanup->Type = std::make_shared<TVoidType>();
+    co_return cleanup;
+}
+
 // Tries exact match, then cast-left, then cast-right. Returns TCallExpr or nullptr.
 TExprPtr TryModuleBinaryOp(TExprPtr left, TExprPtr right,
     const TOperator& op, NSemantics::TNameResolver& ctx)
@@ -1958,6 +2063,22 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         co_return expr;
     } else if (auto maybeReturn = TMaybeNode<TReturnExpr>(expr)) {
         co_return co_await AnnotateReturn(maybeReturn.Cast(), context, scopeId);
+    } else if (auto retain = TMaybeNode<TRetainExpr>(expr)) {
+        co_return co_await AnnotateLifetimeValue(retain.Cast(), context, scopeId);
+    } else if (auto ownLiteral = TMaybeNode<TOwnLiteralExpr>(expr)) {
+        co_return co_await AnnotateLifetimeValue(ownLiteral.Cast(), context, scopeId);
+    } else if (auto move = TMaybeNode<TMoveExpr>(expr)) {
+        co_return co_await AnnotateLifetimeValue(move.Cast(), context, scopeId);
+    } else if (auto borrow = TMaybeNode<TBorrowExpr>(expr)) {
+        co_return co_await AnnotateLifetimeValue(borrow.Cast(), context, scopeId);
+    } else if (auto destroy = TMaybeNode<TDestroyExpr>(expr)) {
+        co_return co_await AnnotateDestroy(destroy.Cast(), context, scopeId);
+    } else if (auto replace = TMaybeNode<TReplaceExpr>(expr)) {
+        co_return co_await AnnotateReplace(replace.Cast(), context, scopeId);
+    } else if (auto exit = TMaybeNode<TCleanupExitExpr>(expr)) {
+        co_return co_await AnnotateCleanupExit(exit.Cast(), context, scopeId);
+    } else if (auto cleanup = TMaybeNode<TGlobalCleanupExpr>(expr)) {
+        co_return co_await AnnotateGlobalCleanup(cleanup.Cast(), context, scopeId);
     } else if (auto maybeLoop = TMaybeNode<TWhileStmtExpr>(expr)) {
         co_return co_await AnnotateWhile(maybeLoop.Cast(), context, scopeId);
     } else if (auto maybeLoop = TMaybeNode<TRepeatStmtExpr>(expr)) {
