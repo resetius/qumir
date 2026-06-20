@@ -4,5 +4,5 @@
       (var знач = (bitcast 0 string))
       (var с = (bitcast 0 string))
       (replace с (own-literal "строка"))
-      (replace знач (move (call str_from_unicode (call str_symbol_at с 3))))
+      (replace знач (move (call str_from_unicode (call str_symbol_at (borrow с) 3))))
       (return знач))))

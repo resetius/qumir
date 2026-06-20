@@ -4,5 +4,12 @@
       (var знач = (bitcast 0 string))
       (var с = (bitcast 0 string))
       (replace с (own-literal "строка"))
-      (replace знач (move (call str_slice (call str_concat с " еще одна") 1 10)))
+      (replace
+        знач
+        (move
+          (block
+            (var __lifetime_0 = (move (call str_concat (borrow с) " еще одна")))
+            (var __lifetime_1 = (call str_slice (borrow __lifetime_0) 1 10))
+            (destroy __lifetime_0)
+            (move __lifetime_1))))
       (return знач))))

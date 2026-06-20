@@ -29,6 +29,16 @@ std::shared_ptr<TStringLiteralExpr> Literal(std::string value) {
     return std::make_shared<TStringLiteralExpr>(TLocation{}, std::move(value));
 }
 
+std::shared_ptr<TCallExpr> Call(
+    std::string name,
+    std::vector<TExprPtr> arguments = {})
+{
+    return std::make_shared<TCallExpr>(
+        TLocation{},
+        Ident(std::move(name)),
+        std::move(arguments));
+}
+
 std::shared_ptr<TFunDecl> Function(
     std::string name,
     std::vector<TParam> parameters,
@@ -145,6 +155,134 @@ TEST(LifetimePass, SplitsStringDeclarationInitializerAfterNullInitialization) {
     EXPECT_EQ(
         Print(body->Stmts[1]),
         "(replace value (own-literal \"initial\"))");
+}
+
+TEST(LifetimePass, DestroysTwoOwnedCallArgumentsInReverseOrder) {
+    auto stringType = std::make_shared<TStringType>();
+    auto makeFirst = Function(
+        "make_first",
+        {},
+        Block({std::make_shared<TReturnExpr>(TLocation{}, Literal("first"))}),
+        stringType);
+    auto makeSecond = Function(
+        "make_second",
+        {},
+        Block({std::make_shared<TReturnExpr>(TLocation{}, Literal("second"))}),
+        stringType);
+    auto consume = Function(
+        "consume",
+        {Variable("first", stringType), Variable("second", stringType)},
+        Block({std::make_shared<TReturnExpr>(TLocation{}, nullptr)}));
+    auto body = Block({Call("consume", {
+        Call("make_first"),
+        Call("make_second"),
+    })});
+    TExprPtr root = Block({
+        makeFirst,
+        makeSecond,
+        consume,
+        Function("main", {}, body),
+    });
+    NSemantics::TNameResolver resolver;
+
+    auto source = NTransform::RunSourceTransformFixpoint(root, resolver);
+    ASSERT_TRUE(source.has_value()) << source.error().ToString();
+    auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
+    ASSERT_TRUE(final.has_value()) << final.error().ToString();
+
+    ASSERT_EQ(body->Stmts.size(), 1u);
+    EXPECT_EQ(
+        Print(body->Stmts[0]),
+        "(block (var __lifetime_0 = (move (call make_first))) "
+        "(var __lifetime_1 = (move (call make_second))) "
+        "(call consume (borrow __lifetime_0) (borrow __lifetime_1)) "
+        "(destroy __lifetime_1) (destroy __lifetime_0))");
+}
+
+TEST(LifetimePass, PreservesNestedCallResultPastArgumentCleanup) {
+    auto stringType = std::make_shared<TStringType>();
+    auto make = Function(
+        "make",
+        {},
+        Block({std::make_shared<TReturnExpr>(TLocation{}, Literal("value"))}),
+        stringType);
+    auto wrap = Function(
+        "wrap",
+        {Variable("value", stringType)},
+        Block({std::make_shared<TReturnExpr>(TLocation{}, Ident("value"))}),
+        stringType);
+    auto result = Variable("result", stringType);
+    auto body = Block({
+        result,
+        std::make_shared<TAssignExpr>(
+            TLocation{},
+            "result",
+            Call("wrap", {Call("make")})),
+    });
+    TExprPtr root = Block({make, wrap, Function("main", {}, body)});
+    NSemantics::TNameResolver resolver;
+
+    auto source = NTransform::RunSourceTransformFixpoint(root, resolver);
+    ASSERT_TRUE(source.has_value()) << source.error().ToString();
+    auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
+    ASSERT_TRUE(final.has_value()) << final.error().ToString();
+
+    ASSERT_EQ(body->Stmts.size(), 2u);
+    EXPECT_EQ(
+        Print(body->Stmts[1]),
+        "(replace result (move (block "
+        "(var __lifetime_0 = (move (call make))) "
+        "(var __lifetime_1 = (call wrap (borrow __lifetime_0))) "
+        "(destroy __lifetime_0) (move __lifetime_1))))");
+}
+
+TEST(LifetimePass, MaterializesLiteralOnlyWhenCallAbiRequiresIt) {
+    auto stringType = std::make_shared<TStringType>();
+    auto raw = Function(
+        "raw",
+        {Variable("value", stringType)},
+        Block({}),
+        std::make_shared<TVoidType>());
+    raw->MangledName = "raw";
+    auto managed = Function(
+        "managed",
+        {Variable("value", stringType)},
+        Block({}),
+        std::make_shared<TVoidType>());
+    managed->MangledName = "managed";
+    managed->RequireArgsMaterialization = true;
+    auto body = Block({
+        Call("raw", {Literal("raw")}),
+        Call("managed", {Literal("managed")}),
+        Call("make_unused"),
+    });
+    auto makeUnused = Function(
+        "make_unused",
+        {},
+        Block({std::make_shared<TReturnExpr>(TLocation{}, Literal("unused"))}),
+        stringType);
+    TExprPtr root = Block({
+        raw,
+        managed,
+        makeUnused,
+        Function("main", {}, body),
+    });
+    NSemantics::TNameResolver resolver;
+
+    auto source = NTransform::RunSourceTransformFixpoint(root, resolver);
+    ASSERT_TRUE(source.has_value()) << source.error().ToString();
+    auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
+    ASSERT_TRUE(final.has_value()) << final.error().ToString();
+
+    ASSERT_EQ(body->Stmts.size(), 3u);
+    EXPECT_EQ(Print(body->Stmts[0]), "(call raw \"raw\")");
+    EXPECT_EQ(
+        Print(body->Stmts[1]),
+        "(block (var __lifetime_0 = (own-literal \"managed\")) "
+        "(call managed (borrow __lifetime_0)) (destroy __lifetime_0))");
+    EXPECT_EQ(
+        Print(body->Stmts[2]),
+        "(destroy (move (call make_unused)))");
 }
 
 int main(int argc, char** argv) {

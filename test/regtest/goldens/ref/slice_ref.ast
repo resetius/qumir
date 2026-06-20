@@ -9,5 +9,5 @@
       (return знач)))
   (fun g ((var s <ref string>))
     (block
-      (replace s (move (call str_slice s 1 2)))
+      (replace s (move (call str_slice (borrow s) 1 2)))
       (return))))

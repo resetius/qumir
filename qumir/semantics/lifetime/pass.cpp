@@ -1,5 +1,7 @@
 #include "pass.h"
 
+#include <string_view>
+
 namespace NQumir {
 namespace NSemantics {
 namespace {
@@ -29,6 +31,10 @@ bool IsString(const TTypePtr& type) {
     return static_cast<bool>(TMaybeType<TStringType>(ValueType(type)));
 }
 
+bool IsSynthetic(std::string_view name) {
+    return name.starts_with("__lifetime_");
+}
+
 std::expected<EValueOwnership, TError> ClassifyOwnership(const TExprPtr& expr) {
     if (!expr || !IsString(expr->Type)) {
         return EValueOwnership::NotApplicable;
@@ -51,6 +57,12 @@ std::expected<EValueOwnership, TError> ClassifyOwnership(const TExprPtr& expr) {
         || TMaybeNode<TMoveExpr>(expr))
     {
         return EValueOwnership::Owned;
+    }
+    if (auto block = TMaybeNode<TBlockExpr>(expr)) {
+        if (block.Cast()->Stmts.empty()) {
+            return EValueOwnership::NotApplicable;
+        }
+        return ClassifyOwnership(block.Cast()->Stmts.back());
     }
     return std::unexpected(TError(
         expr->Location,
@@ -102,18 +114,22 @@ bool IsNullString(const TExprPtr& expr) {
 
 class TStringAssignmentRewriter {
 public:
-    explicit TStringAssignmentRewriter(TNameResolver& context)
+    TStringAssignmentRewriter(
+        TNameResolver& context,
+        TSyntheticNameGenerator& syntheticNames)
         : Context_(context)
+        , SyntheticNames_(syntheticNames)
     {}
 
     std::expected<bool, TError> Rewrite(TExprPtr& root) {
-        return RewriteExpr(root, TScopeId{0});
+        return RewriteExpr(root, TScopeId{0}, false);
     }
 
 private:
     std::expected<bool, TError> RewriteBlock(
         const std::shared_ptr<TBlockExpr>& block,
-        TScopeId parentScope)
+        TScopeId parentScope,
+        bool resultUsed)
     {
         auto scopeId = block->Scope >= 0
             ? TScopeId{block->Scope}
@@ -121,9 +137,33 @@ private:
         bool changed = false;
         std::vector<TExprPtr> statements;
         statements.reserve(block->Stmts.size());
-        for (auto& statement : block->Stmts) {
+        for (size_t statementIndex = 0;
+             statementIndex < block->Stmts.size();
+             ++statementIndex)
+        {
+            auto& statement = block->Stmts[statementIndex];
+            const bool statementResultUsed = resultUsed
+                && statementIndex + 1 == block->Stmts.size();
             if (auto variable = TMaybeNode<TVarStmt>(statement);
-                variable && IsString(variable.Cast()->Type))
+                variable && IsSynthetic(variable.Cast()->Name))
+            {
+                block->SkipDestructors = true;
+                if (variable.Cast()->Init) {
+                    auto result = RewriteExpr(
+                        variable.Cast()->Init,
+                        scopeId,
+                        true);
+                    if (!result) {
+                        return std::unexpected(result.error());
+                    }
+                    changed = result.value() || changed;
+                }
+                statements.push_back(statement);
+                continue;
+            }
+            if (auto variable = TMaybeNode<TVarStmt>(statement);
+                variable
+                && IsString(variable.Cast()->Type))
             {
                 if (IsNullString(variable.Cast()->Init)) {
                     statements.push_back(statement);
@@ -136,7 +176,7 @@ private:
                 statements.push_back(statement);
                 changed = true;
                 if (init) {
-                    if (auto result = RewriteExpr(init, scopeId); !result) {
+                    if (auto result = RewriteExpr(init, scopeId, true); !result) {
                         return std::unexpected(result.error());
                     } else {
                         changed = result.value() || changed;
@@ -157,10 +197,28 @@ private:
                 continue;
             }
 
-            if (auto result = RewriteExpr(statement, scopeId); !result) {
+            if (auto result = RewriteExpr(
+                statement,
+                scopeId,
+                statementResultUsed); !result)
+            {
                 return std::unexpected(result.error());
             } else {
                 changed = result.value() || changed;
+            }
+            if (!statementResultUsed) {
+                auto ownership = ClassifyOwnership(statement);
+                if (!ownership) {
+                    return std::unexpected(ownership.error());
+                }
+                if (*ownership == EValueOwnership::Owned) {
+                    statement = std::make_shared<TDestroyExpr>(
+                        statement->Location,
+                        std::make_shared<TMoveExpr>(
+                            statement->Location,
+                            std::move(statement)));
+                    changed = true;
+                }
             }
             statements.push_back(statement);
         }
@@ -174,7 +232,7 @@ private:
         TScopeId scopeId)
     {
         bool changed = false;
-        if (auto result = RewriteExpr(assign->Value, scopeId); !result) {
+        if (auto result = RewriteExpr(assign->Value, scopeId, true); !result) {
             return std::unexpected(result.error());
         } else {
             changed = result.value();
@@ -209,13 +267,13 @@ private:
     {
         bool changed = false;
         for (auto& index : assign->Indices) {
-            auto result = RewriteExpr(index, scopeId);
+            auto result = RewriteExpr(index, scopeId, true);
             if (!result) {
                 return std::unexpected(result.error());
             }
             changed = result.value() || changed;
         }
-        if (auto result = RewriteExpr(assign->Value, scopeId); !result) {
+        if (auto result = RewriteExpr(assign->Value, scopeId, true); !result) {
             return std::unexpected(result.error());
         } else {
             changed = result.value() || changed;
@@ -273,12 +331,12 @@ private:
         TScopeId scopeId)
     {
         bool changed = false;
-        if (auto result = RewriteExpr(assign->Object, scopeId); !result) {
+        if (auto result = RewriteExpr(assign->Object, scopeId, true); !result) {
             return std::unexpected(result.error());
         } else {
             changed = result.value() || changed;
         }
-        if (auto result = RewriteExpr(assign->Value, scopeId); !result) {
+        if (auto result = RewriteExpr(assign->Value, scopeId, true); !result) {
             return std::unexpected(result.error());
         } else {
             changed = result.value() || changed;
@@ -313,18 +371,185 @@ private:
         return true;
     }
 
-    std::expected<bool, TError> RewriteExpr(TExprPtr& expr, TScopeId scopeId) {
+    std::expected<bool, TError> RewriteCall(
+        TExprPtr& expr,
+        const std::shared_ptr<TCallExpr>& call,
+        TScopeId scopeId)
+    {
+        bool changed = false;
+        for (auto& argument : call->Args) {
+            auto result = RewriteExpr(argument, scopeId, true);
+            if (!result) {
+                return std::unexpected(result.error());
+            }
+            changed = result.value() || changed;
+        }
+
+        auto callee = TMaybeNode<TIdentExpr>(call->Callee);
+        if (!callee) {
+            return std::unexpected(TError(
+                call->Location,
+                "Lifetime call rewrite requires an identifier callee."));
+        }
+        auto symbol = Context_.Lookup(callee.Cast()->Name, scopeId);
+        auto declaration = symbol
+            ? Context_.GetSymbolNode(TSymbolId{symbol->Id})
+            : nullptr;
+        auto function = TMaybeNode<TFunDecl>(declaration);
+        if (!function) {
+            return std::unexpected(TError(
+                call->Location,
+                "Cannot resolve call target '" + callee.Cast()->Name + "'."));
+        }
+        if (call->Args.size() != function.Cast()->Params.size()) {
+            return std::unexpected(TError(
+                call->Location,
+                "Call argument count changed before lifetime rewrite."));
+        }
+
+        std::vector<TExprPtr> prefix;
+        std::vector<TExprPtr> cleanups;
+        for (size_t i = 0; i < call->Args.size(); ++i) {
+            auto& argument = call->Args[i];
+            const auto& parameterType = function.Cast()->Params[i]->Type;
+            if (TMaybeType<TReferenceType>(parameterType)
+                || !IsString(parameterType))
+            {
+                continue;
+            }
+
+            auto ownership = ClassifyOwnership(argument);
+            if (!ownership) {
+                return std::unexpected(ownership.error());
+            }
+            if (*ownership == EValueOwnership::Borrowed) {
+                if (!TMaybeNode<TBorrowExpr>(argument)) {
+                    argument = std::make_shared<TBorrowExpr>(
+                        argument->Location,
+                        std::move(argument));
+                    changed = true;
+                }
+                continue;
+            }
+            if (*ownership == EValueOwnership::Literal
+                && function.Cast()->IsExternal()
+                && !function.Cast()->RequireArgsMaterialization)
+            {
+                continue;
+            }
+            if (*ownership != EValueOwnership::Owned
+                && *ownership != EValueOwnership::Literal)
+            {
+                continue;
+            }
+
+            auto owned = RequireOwned(std::move(argument));
+            if (!owned) {
+                return std::unexpected(owned.error());
+            }
+            const auto name = SyntheticNames_.Next();
+            auto temporary = std::make_shared<TVarStmt>(
+                call->Location,
+                name,
+                std::make_shared<TStringType>());
+            temporary->Init = std::move(owned.value());
+            prefix.push_back(temporary);
+
+            auto borrowedStorage = std::make_shared<TIdentExpr>(
+                call->Location,
+                name);
+            borrowedStorage->Type = parameterType;
+            argument = std::make_shared<TBorrowExpr>(
+                call->Location,
+                std::move(borrowedStorage));
+
+            auto ownedStorage = std::make_shared<TIdentExpr>(
+                call->Location,
+                name);
+            ownedStorage->Type = parameterType;
+            cleanups.push_back(std::make_shared<TDestroyExpr>(
+                call->Location,
+                std::move(ownedStorage)));
+            changed = true;
+        }
+
+        if (cleanups.empty()) {
+            return changed;
+        }
+
+        std::vector<TExprPtr> statements = std::move(prefix);
+        const bool returnsValue = !TMaybeType<TVoidType>(call->Type);
+        if (returnsValue) {
+            const auto resultName = SyntheticNames_.Next();
+            auto result = std::make_shared<TVarStmt>(
+                call->Location,
+                resultName,
+                call->Type);
+            result->Init = call;
+            statements.push_back(std::move(result));
+            for (auto it = cleanups.rbegin(); it != cleanups.rend(); ++it) {
+                statements.push_back(*it);
+            }
+            auto resultStorage = std::make_shared<TIdentExpr>(
+                call->Location,
+                resultName);
+            resultStorage->Type = call->Type;
+            if (IsString(call->Type)) {
+                statements.push_back(std::make_shared<TMoveExpr>(
+                    call->Location,
+                    std::move(resultStorage)));
+            } else {
+                statements.push_back(std::move(resultStorage));
+            }
+        } else {
+            statements.push_back(call);
+            for (auto it = cleanups.rbegin(); it != cleanups.rend(); ++it) {
+                statements.push_back(*it);
+            }
+        }
+
+        auto wrapper = std::make_shared<TBlockExpr>(
+            call->Location,
+            std::move(statements));
+        wrapper->SkipDestructors = true;
+        wrapper->Type = call->Type;
+        expr = std::move(wrapper);
+        return true;
+    }
+
+    std::expected<bool, TError> RewriteExpr(
+        TExprPtr& expr,
+        TScopeId scopeId,
+        bool resultUsed)
+    {
         if (!expr) {
             return false;
         }
         if (auto block = TMaybeNode<TBlockExpr>(expr)) {
-            return RewriteBlock(block.Cast(), scopeId);
+            return RewriteBlock(block.Cast(), scopeId, resultUsed);
         }
         if (auto function = TMaybeNode<TFunDecl>(expr)) {
             TExprPtr body = function.Cast()->Body;
-            auto result = RewriteExpr(body, TScopeId{function.Cast()->Scope});
+            auto result = RewriteExpr(
+                body,
+                TScopeId{function.Cast()->Scope},
+                !TMaybeType<TVoidType>(function.Cast()->RetType));
+            if (!result) {
+                return result;
+            }
             function.Cast()->Body = std::static_pointer_cast<TBlockExpr>(body);
-            return result;
+            bool changed = result.value();
+            if (function.Cast()->LastAssert) {
+                auto assertResult = RewriteExpr(
+                    function.Cast()->LastAssert,
+                    TScopeId{function.Cast()->Scope},
+                    false);
+                if (!assertResult) {
+                    return assertResult;
+                }
+                changed = assertResult.value() || changed;
+            }
+            return changed;
         }
         if (auto assign = TMaybeNode<TAssignExpr>(expr)) {
             return RewriteAssign(expr, assign.Cast(), scopeId);
@@ -335,13 +560,16 @@ private:
         if (auto assign = TMaybeNode<TFieldAssignExpr>(expr)) {
             return RewriteFieldAssign(expr, assign.Cast(), scopeId);
         }
+        if (auto call = TMaybeNode<TCallExpr>(expr)) {
+            return RewriteCall(expr, call.Cast(), scopeId);
+        }
 
         bool changed = false;
         for (auto* child : expr->MutableChildren()) {
             if (!*child) {
                 continue;
             }
-            auto result = RewriteExpr(*child, scopeId);
+            auto result = RewriteExpr(*child, scopeId, true);
             if (!result) {
                 return std::unexpected(result.error());
             }
@@ -351,6 +579,7 @@ private:
     }
 
     TNameResolver& Context_;
+    TSyntheticNameGenerator& SyntheticNames_;
 };
 
 } // namespace
@@ -360,8 +589,7 @@ std::expected<bool, TError> LifetimePass(
     TNameResolver& context,
     TSyntheticNameGenerator& syntheticNames)
 {
-    (void)syntheticNames;
-    return TStringAssignmentRewriter(context).Rewrite(expr);
+    return TStringAssignmentRewriter(context, syntheticNames).Rewrite(expr);
 }
 
 } // namespace NSemantics

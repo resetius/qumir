@@ -8,9 +8,41 @@
       (replace t (move (call str_from_unicode (cast 99 char))))
       (var r i64)
       (= r 0)
-      (if (!= (call str_compare (call str_from_unicode x) t) 0) (block (= r (+ r 1))))
-      (if (== (call str_compare (call str_from_unicode x) t) 0) (block (= r (+ r 1000))))
-      (if (< (call str_compare (call str_from_unicode x) t) 0) (block (= r (+ r 1))))
-      (if (> (call str_compare t (call str_from_unicode x)) 0) (block (= r (+ r 1))))
+      (if
+        (!= (block
+            (var __lifetime_0 = (move (call str_from_unicode x)))
+            (var __lifetime_1 = (call str_compare (borrow __lifetime_0) (borrow t)))
+            (destroy __lifetime_0)
+            __lifetime_1)
+          0)
+        (block
+          (= r (+ r 1))))
+      (if
+        (== (block
+            (var __lifetime_2 = (move (call str_from_unicode x)))
+            (var __lifetime_3 = (call str_compare (borrow __lifetime_2) (borrow t)))
+            (destroy __lifetime_2)
+            __lifetime_3)
+          0)
+        (block
+          (= r (+ r 1000))))
+      (if
+        (< (block
+            (var __lifetime_4 = (move (call str_from_unicode x)))
+            (var __lifetime_5 = (call str_compare (borrow __lifetime_4) (borrow t)))
+            (destroy __lifetime_4)
+            __lifetime_5)
+          0)
+        (block
+          (= r (+ r 1))))
+      (if
+        (> (block
+            (var __lifetime_6 = (move (call str_from_unicode x)))
+            (var __lifetime_7 = (call str_compare (borrow t) (borrow __lifetime_6)))
+            (destroy __lifetime_6)
+            __lifetime_7)
+          0)
+        (block
+          (= r (+ r 1))))
       (= знач r)
       (return знач))))

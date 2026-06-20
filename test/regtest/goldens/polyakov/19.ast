@@ -3,21 +3,30 @@
     (block
       (var word = (bitcast 0 string))
       (replace word (own-literal "..."))
-      (call TumbaWords "ЫШЧО" word 0)
+      (block
+        (var __lifetime_0 = (own-literal "ЫШЧО"))
+        (call TumbaWords (borrow __lifetime_0) (borrow word) 0)
+        (destroy __lifetime_0))
       (return)))
   (fun TumbaWords ((var A string)
       (var w0 string)
       (var N i64))
     (block
-      (if (== N (call длин w0)) (block (block (call output_string w0) (call output_string "\n")) (return)))
+      (if
+        (== N (call длин (borrow w0)))
+        (block
+          (block
+            (call output_string (borrow w0))
+            (call output_string "\n"))
+          (return)))
       (var i i64)
       (var w = (bitcast 0 string))
-      (replace w (move (call str_slice w0 1 (call длин w0))))
+      (replace w (move (call str_slice (borrow w0) 1 (call длин (borrow w0)))))
       (for i
         1
-        (call длин A)
+        (call длин (borrow A))
         1
         (block
-          (replace w (move (call str_replace_sym w (call str_symbol_at A i) (+ N 1))))
-          (call TumbaWords A w (+ N 1))))
+          (replace w (move (call str_replace_sym (borrow w) (call str_symbol_at (borrow A) i) (+ N 1))))
+          (call TumbaWords (borrow A) (borrow w) (+ N 1))))
       (return))))

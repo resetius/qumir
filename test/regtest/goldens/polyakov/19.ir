@@ -12,15 +12,18 @@ function ЫШЧО () { ; void
     ste tmp(2,ptr to i8) tmp(1,ptr to i8) 
     arg imm(2,ptr to i8) 
     call tmp(4,ptr to i8) = str_from_lit 
-    load tmp(5,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(4,ptr to i8) 
+    stre local(1,ptr to i8) tmp(4,ptr to i8) 
+    load tmp(5,ptr to i8) = local(1,ptr to i8) 
+    load tmp(6,ptr to i8) = local(0,ptr to i8) 
     arg tmp(5,ptr to i8) 
+    arg tmp(6,ptr to i8) 
     arg imm(0,i64) 
     call TumbaWords 
-    arg tmp(4,ptr to i8) 
+    load tmp(7,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(7,ptr to i8) 
     call str_release 
-    load tmp(6,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(6,ptr to i8) 
+    load tmp(8,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(8,ptr to i8) 
     call str_release 
     jmp label(1) 
   }

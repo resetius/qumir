@@ -10,13 +10,21 @@ function <main> () { ; void
     call output_string 
     arg imm(2,ptr to i8) 
     call tmp(1,ptr to i8) = str_from_lit 
-    arg tmp(1,ptr to i8) 
-    call tmp(2,ptr to i8) = __generic_wrap$String 
-    arg tmp(1,ptr to i8) 
+    stre local(1,ptr to i8) tmp(1,ptr to i8) 
+    load tmp(2,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(2,ptr to i8) 
+    call tmp(3,ptr to i8) = __generic_wrap$String 
+    stre local(2,ptr to i8) tmp(3,ptr to i8) 
+    load tmp(4,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(4,ptr to i8) 
     call str_release 
-    arg tmp(2,ptr to i8) 
+    load tmp(5,ptr to i8) = local(2,ptr to i8) 
+    stre local(0,ptr to i8) tmp(5,ptr to i8) 
+    load tmp(6,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(6,ptr to i8) 
     call output_string 
-    arg tmp(2,ptr to i8) 
+    load tmp(7,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(7,ptr to i8) 
     call str_release 
     arg imm(1,ptr to i8) 
     call output_string 

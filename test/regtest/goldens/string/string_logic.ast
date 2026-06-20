@@ -12,16 +12,56 @@
       (= ch2 (cast 122 char))
       (var счет i64)
       (= счет 0)
-      (if (== (call str_compare s1 s2) 0) (block (= счет (+ счет 1))))
-      (if (== (call str_compare s1 (call str_from_unicode ch1)) 0) (block (= счет (+ счет 1000))))
+      (if (== (call str_compare (borrow s1) (borrow s2)) 0) (block (= счет (+ счет 1))))
+      (if
+        (== (block
+            (var __lifetime_0 = (move (call str_from_unicode ch1)))
+            (var __lifetime_1 = (call str_compare (borrow s1) (borrow __lifetime_0)))
+            (destroy __lifetime_0)
+            __lifetime_1)
+          0)
+        (block
+          (= счет (+ счет 1000))))
       (if (== ch1 (cast 97 char)) (block (= счет (+ счет 1))))
-      (if (!= (call str_compare s1 s2) 0) (block (= счет (+ счет 1000))))
+      (if (!= (call str_compare (borrow s1) (borrow s2)) 0) (block (= счет (+ счет 1000))))
       (if (!= ch1 ch2) (block (= счет (+ счет 1))))
       (if (!= ch2 (cast 122 char)) (block (= счет (+ счет 1000))))
-      (if (< (call str_compare s1 "beta") 0) (block (= счет (+ счет 1))))
-      (if (<= (call str_compare s2 "alpha") 0) (block (= счет (+ счет 1))))
-      (if (> (call str_compare "beta" s1) 0) (block (= счет (+ счет 1))))
-      (if (>= (call str_compare "alpha" s2) 0) (block (= счет (+ счет 1))))
+      (if
+        (< (block
+            (var __lifetime_2 = (own-literal "beta"))
+            (var __lifetime_3 = (call str_compare (borrow s1) (borrow __lifetime_2)))
+            (destroy __lifetime_2)
+            __lifetime_3)
+          0)
+        (block
+          (= счет (+ счет 1))))
+      (if
+        (<= (block
+            (var __lifetime_4 = (own-literal "alpha"))
+            (var __lifetime_5 = (call str_compare (borrow s2) (borrow __lifetime_4)))
+            (destroy __lifetime_4)
+            __lifetime_5)
+          0)
+        (block
+          (= счет (+ счет 1))))
+      (if
+        (> (block
+            (var __lifetime_6 = (own-literal "beta"))
+            (var __lifetime_7 = (call str_compare (borrow __lifetime_6) (borrow s1)))
+            (destroy __lifetime_6)
+            __lifetime_7)
+          0)
+        (block
+          (= счет (+ счет 1))))
+      (if
+        (>= (block
+            (var __lifetime_8 = (own-literal "alpha"))
+            (var __lifetime_9 = (call str_compare (borrow __lifetime_8) (borrow s2)))
+            (destroy __lifetime_8)
+            __lifetime_9)
+          0)
+        (block
+          (= счет (+ счет 1))))
       (if (< ch1 ch2) (block (= счет (+ счет 1))))
       (if (> ch2 ch1) (block (= счет (+ счет 1))))
       (if (<= ch1 (cast 97 char)) (block (= счет (+ счет 1))))

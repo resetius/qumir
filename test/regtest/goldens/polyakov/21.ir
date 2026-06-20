@@ -10,29 +10,37 @@ function Замена всех () { ; void
     arg tmp(3,ptr to i8) 
     call str_release 
     ste tmp(2,ptr to i8) tmp(1,ptr to i8) 
-    load tmp(4,ptr to i8) = local(0,ptr to i8) 
     arg imm(2,ptr to i8) 
-    call tmp(5,ptr to i8) = str_from_lit 
+    call tmp(4,ptr to i8) = str_from_lit 
+    stre local(1,ptr to i8) tmp(4,ptr to i8) 
     arg imm(3,ptr to i8) 
-    call tmp(6,ptr to i8) = str_from_lit 
-    arg tmp(4,ptr to i8) 
-    arg tmp(5,ptr to i8) 
+    call tmp(5,ptr to i8) = str_from_lit 
+    stre local(2,ptr to i8) tmp(5,ptr to i8) 
+    load tmp(6,ptr to i8) = local(0,ptr to i8) 
+    load tmp(7,ptr to i8) = local(1,ptr to i8) 
+    load tmp(8,ptr to i8) = local(2,ptr to i8) 
     arg tmp(6,ptr to i8) 
-    call tmp(7,ptr to i8) = replaceBad 
-    arg tmp(5,ptr to i8) 
-    call str_release 
-    arg tmp(6,ptr to i8) 
-    call str_release 
-    lea tmp(8,ptr to i8) = local(0,ptr to i8) 
-    lde tmp(9,ptr to i8) = tmp(8,ptr to i8) 
-    arg tmp(9,ptr to i8) 
-    call str_release 
-    ste tmp(8,ptr to i8) tmp(7,ptr to i8) 
-    load tmp(10,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(7,ptr to i8) 
+    arg tmp(8,ptr to i8) 
+    call tmp(9,ptr to i8) = replaceBad 
+    stre local(3,ptr to i8) tmp(9,ptr to i8) 
+    load tmp(10,ptr to i8) = local(2,ptr to i8) 
     arg tmp(10,ptr to i8) 
-    call output_string 
-    load tmp(11,ptr to i8) = local(0,ptr to i8) 
+    call str_release 
+    load tmp(11,ptr to i8) = local(1,ptr to i8) 
     arg tmp(11,ptr to i8) 
+    call str_release 
+    load tmp(12,ptr to i8) = local(3,ptr to i8) 
+    lea tmp(13,ptr to i8) = local(0,ptr to i8) 
+    lde tmp(14,ptr to i8) = tmp(13,ptr to i8) 
+    arg tmp(14,ptr to i8) 
+    call str_release 
+    ste tmp(13,ptr to i8) tmp(12,ptr to i8) 
+    load tmp(15,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(15,ptr to i8) 
+    call output_string 
+    load tmp(16,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(16,ptr to i8) 
     call str_release 
     jmp label(1) 
   }

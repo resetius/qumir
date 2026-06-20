@@ -362,6 +362,12 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
     if (!funDecl->Body->Type) {
         co_return TError(funDecl->Location, "Не удалось определить тип тела функции");
     }
+    if (funDecl->LastAssert) {
+        funDecl->LastAssert = co_await DoAnnotate(
+            funDecl->LastAssert,
+            context,
+            NSemantics::TScopeId{funDecl->Body->Scope});
+    }
 
     // A non-void body either yields an implicit return value or explicitly
     // returns on every path. Return expressions remain void-typed.

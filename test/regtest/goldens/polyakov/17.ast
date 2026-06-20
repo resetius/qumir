@@ -6,28 +6,56 @@
       (var name2 = (bitcast 0 string))
       (var n i64)
       (replace s (own-literal "Иван Иванович Иванов"))
-      (= n (call позиция (call str_from_unicode (cast 32 char)) s))
-      (replace name (move (call str_slice s 1 (- n 1))))
+      (= n
+        (block
+          (var __lifetime_0 = (move (call str_from_unicode (cast 32 char))))
+          (var __lifetime_1 = (call позиция (borrow __lifetime_0) (borrow s)))
+          (destroy __lifetime_0)
+          __lifetime_1))
+      (replace name (move (call str_slice (borrow s) 1 (- n 1))))
       (call удалить s 1 n)
-      (= n (call позиция (call str_from_unicode (cast 32 char)) s))
-      (replace name2 (move (call str_slice s 1 (- n 1))))
+      (= n
+        (block
+          (var __lifetime_2 = (move (call str_from_unicode (cast 32 char))))
+          (var __lifetime_3 = (call позиция (borrow __lifetime_2) (borrow s)))
+          (destroy __lifetime_2)
+          __lifetime_3))
+      (replace name2 (move (call str_slice (borrow s) 1 (- n 1))))
       (call удалить s 1 n)
       (replace
         s
         (move
-          (call
-            str_concat
-            (call
-              str_concat
-              (call
-                str_concat
-                (call
-                  str_concat
-                  (call str_concat s (call str_from_unicode (cast 32 char)))
-                  (call str_from_unicode (call str_symbol_at name 1)))
-                ". ")
-              (call str_from_unicode (call str_symbol_at name2 1)))
-            (call str_from_unicode (cast 46 char)))))
+          (block
+            (var __lifetime_14 = (move
+                (block
+                  (var __lifetime_11 = (move
+                      (block
+                        (var __lifetime_9 = (move
+                            (block
+                              (var __lifetime_6 = (move
+                                  (block
+                                    (var __lifetime_4 = (move (call str_from_unicode (cast 32 char))))
+                                    (var __lifetime_5 = (call str_concat (borrow s) (borrow __lifetime_4)))
+                                    (destroy __lifetime_4)
+                                    (move __lifetime_5))))
+                              (var __lifetime_7 = (move (call str_from_unicode (call str_symbol_at (borrow name) 1))))
+                              (var __lifetime_8 = (call str_concat (borrow __lifetime_6) (borrow __lifetime_7)))
+                              (destroy __lifetime_7)
+                              (destroy __lifetime_6)
+                              (move __lifetime_8))))
+                        (var __lifetime_10 = (call str_concat (borrow __lifetime_9) ". "))
+                        (destroy __lifetime_9)
+                        (move __lifetime_10))))
+                  (var __lifetime_12 = (move (call str_from_unicode (call str_symbol_at (borrow name2) 1))))
+                  (var __lifetime_13 = (call str_concat (borrow __lifetime_11) (borrow __lifetime_12)))
+                  (destroy __lifetime_12)
+                  (destroy __lifetime_11)
+                  (move __lifetime_13))))
+            (var __lifetime_15 = (move (call str_from_unicode (cast 46 char))))
+            (var __lifetime_16 = (call str_concat (borrow __lifetime_14) (borrow __lifetime_15)))
+            (destroy __lifetime_15)
+            (destroy __lifetime_14)
+            (move __lifetime_16))))
       (block
-        (call output_string s))
+        (call output_string (borrow s)))
       (return))))
