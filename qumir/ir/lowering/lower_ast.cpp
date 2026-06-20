@@ -795,7 +795,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (num->IsFloat()) {
             co_return TValueWithBlock{ TImm{.Value = std::bit_cast<int64_t>(num->FloatValue), .TypeId = Module.Types.I(EKind::F64)}, Builder.CurrentBlockLabel() };
         } else {
-            int typeId = num->Type && NAst::TMaybeType<NAst::TIntegerType>(num->Type)
+            int typeId = num->Type && (
+                NAst::TMaybeType<NAst::TIntegerType>(num->Type)
+                || NAst::TMaybeType<NAst::TStringType>(num->Type))
                 ? FromAstType(num->Type, Module.Types)
                 : Module.Types.I(EKind::I64);
             co_return TValueWithBlock{ TImm{.Value = num->IntValue, .TypeId = typeId}, Builder.CurrentBlockLabel() };
@@ -1072,13 +1074,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         TOperand totalIndex;
         auto symbolNode = Context.GetSymbolNode(NSemantics::TSymbolId{arraySymbol->Id});
         auto symbolType = symbolNode ? NAst::UnwrapReferenceType(NAst::UnwrapNamedType(symbolNode->Type)) : nullptr;
-        NAst::TTypePtr elementAstType;
-        if (auto arrayAstType = NAst::TMaybeType<NAst::TArrayType>(symbolType)) {
-            elementAstType = NAst::UnwrapNamedType(arrayAstType.Cast()->ElementType);
-        } else if (auto pointerAstType = NAst::TMaybeType<NAst::TPointerType>(symbolType)) {
-            elementAstType = NAst::UnwrapNamedType(pointerAstType.Cast()->PointeeType);
-        }
-        const bool isStringElement = NAst::TMaybeType<NAst::TStringType>(elementAstType).Cast() != nullptr;
         if (NAst::TMaybeType<NAst::TPointerType>(symbolType)) {
             if (asg->Indices.size() != 1) {
                 co_return TError(asg->Location, TErrorString::Get<EErrorId::FAILED_LOWER_ARRAY_INDICES>());
@@ -1103,36 +1098,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         auto rhs = co_await Lower(asg->Value, scope);
         if (!rhs.Value) co_return TError(asg->Value->Location, TErrorString::Get<EErrorId::RIGHT_HAND_SIDE_NOT_NUMBER>());
-
-        // copy-paste
-        if (isStringElement && rhs.Value->Type == TOperand::EType::Imm) {
-            // Materialize immediate string literals into a tmp
-            if (rhs.Value->Imm.TypeId == lowStringTypeId) {
-                // TODO: create proper kind for string literal
-                auto constructorId = co_await GlobalSymbolId("str_from_lit");
-                Builder.Emit0("arg"_op, {*rhs.Value});
-                auto materializedString = Builder.Emit1("call"_op, {TImm{constructorId}});
-                Builder.SetType(materializedString, arrayElemTypeId);
-                *rhs.Value = materializedString;
-                rhs.Ownership = EOwnership::Owned;
-            }
-        }
-
-        // copy-paste
-        if (isStringElement && rhs.Ownership == EOwnership::Borrowed) {
-            auto retainId = co_await GlobalSymbolId("str_retain");
-            Builder.Emit0("arg"_op, {*rhs.Value});
-            Builder.Emit0("call"_op, { TImm{ retainId } });
-        }
-
-        // copy-paste
-        if (isStringElement) {
-            auto dtorId = co_await GlobalSymbolId("str_release");
-            auto existingVal = Builder.Emit1("lde"_op, { destPtr });
-            Builder.SetType(existingVal, arrayElemTypeId);
-            Builder.Emit0("arg"_op, { existingVal });
-            Builder.Emit0("call"_op, { TImm{ dtorId } });
-        }
 
         Module.Types.GetKind(arrayElemTypeId);
         if (Module.Types.GetKind(arrayElemTypeId) == EKind::Struct) {
@@ -1353,40 +1318,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         TOperand storeOperand = (localSlot.Idx >= 0) ? TOperand{localSlot} : TOperand{storeSlot};
         // slot type was set on variable declaration
 
-        // copy-paste
-        // TODO: copy-paste
-        if (rhs.Value->Type == TOperand::EType::Imm) {
-            // Materialize immediate string literals into a tmp
-            if (rhs.Value->Imm.TypeId == lowStringTypeId) {
-                // TODO: create proper kind for string literal
-                auto constructorId = co_await GlobalSymbolId("str_from_lit");
-                Builder.Emit0("arg"_op, {*rhs.Value});
-                auto materializedString = Builder.Emit1("call"_op, {TImm{constructorId}});
-                Builder.SetType(materializedString, slotType);
-                *rhs.Value = materializedString;
-                rhs.Ownership = EOwnership::Owned;
-            }
-        }
-
         auto nodeType = NAst::UnwrapNamedType(node->Type);
-
-        // TODO: copy-paste
-        if (NAst::TMaybeType<NAst::TStringType>(nodeType)) {
-            if (rhs.Ownership == EOwnership::Borrowed) {
-                auto retainId = co_await GlobalSymbolId("str_retain");
-                Builder.Emit0("arg"_op, {*rhs.Value});
-                Builder.Emit0("call"_op, { TImm{retainId} });
-            }
-        }
-        {
-            if (NAst::TMaybeType<NAst::TStringType>(nodeType) && !NAst::TMaybeType<NAst::TReferenceType>(nodeType)) {
-                auto dtorId = co_await GlobalSymbolId("str_release");
-                TTmp currentVal = Builder.Emit1("load"_op, {storeOperand});
-                Builder.SetType(currentVal, slotType);
-                Builder.Emit0("arg"_op, { currentVal });
-                Builder.Emit0("call"_op, { TImm{dtorId} });
-            }
-        }
 
         if (auto maybeRef = NAst::TMaybeType<NAst::TReferenceType>(nodeType)) {
             auto ref = maybeRef.Cast();
@@ -1400,17 +1332,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.Emit0("copy"_op, {addrTmp, *rhs.Value, TImm{(int64_t)sizeBytes}});
             } else {
                 // see cases/ref/index_ref
-                if (NAst::TMaybeType<NAst::TStringType>(refType)) {
-                    auto retainId = co_await GlobalSymbolId("str_retain");
-                    Builder.Emit0("arg"_op, {*rhs.Value});
-                    Builder.Emit0("call"_op, { TImm{retainId} });
-
-                    auto prevVal = Builder.Emit1("lde"_op, { addrTmp });
-                    Builder.SetType(prevVal, FromAstType(ref->ReferencedType, Module.Types));
-                    auto dtorId = co_await GlobalSymbolId("str_release");
-                    Builder.Emit0("arg"_op, { prevVal });
-                    Builder.Emit0("call"_op, { TImm{ dtorId } });
-                }
                 Builder.Emit0("ste"_op, {addrTmp, *rhs.Value});
             }
         } else {
@@ -1936,6 +1857,17 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
                     Module.GlobalTypes[sid->Id] = Module.Types.Ptr(Module.Types.I(EKind::I8));
                 }
 
+                switchToConstructorFunction();
+                auto lowered = Lower(s, scope).result();
+                if (!lowered) {
+                    return std::unexpected(lowered.error());
+                }
+            } else if (NAst::TMaybeNode<NAst::TReplaceExpr>(s)) {
+                if (functionSeen) {
+                    return std::unexpected(TError(
+                        s->Location,
+                        TErrorString::Get<EErrorId::VARIABLE_DECLS_BEFORE_FUNS>()));
+                }
                 switchToConstructorFunction();
                 auto lowered = Lower(s, scope).result();
                 if (!lowered) {

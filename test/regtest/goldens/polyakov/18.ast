@@ -1,8 +1,8 @@
 (block
   (fun |Замена всех| ()
     (block
-      (var s string)
-      (= s "12.12.12")
+      (var s = (bitcast 0 string))
+      (replace s (own-literal "12.12.12"))
       (call replaceAll s "12" "A12B")
       (block
         (call output_string s))
@@ -11,23 +11,23 @@
       (var wOld string)
       (var wNew string))
     (block
-      (var res string)
+      (var res = (bitcast 0 string))
       (var p i64)
       (var len i64)
       (= len (call длин wOld))
-      (= res "")
+      (replace res (own-literal ""))
       (while
         (> (call длин s) 0)
         (block
           (= p (call позиция wOld s))
-          (if (< p 0) (block (= res (call str_concat res s)) break))
-          (if (> p 1) (block (= res (call str_concat res (call str_slice s 1 (- p 1))))))
-          (= res (call str_concat res wNew))
+          (if (< p 0) (block (replace res (move (call str_concat res s))) break))
+          (if (> p 1) (block (replace res (move (call str_concat res (call str_slice s 1 (- p 1)))))))
+          (replace res (move (call str_concat res wNew)))
           (if
             (> (+ p len) (call длин s))
             (block
-              (= s ""))
+              (replace s (own-literal "")))
             (block
-              (= s (call str_slice s (+ p len) (call длин s)))))))
-      (= s res)
+              (replace s (move (call str_slice s (+ p len) (call длин s))))))))
+      (replace s (retain (borrow res)))
       (return))))

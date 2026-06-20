@@ -4,12 +4,12 @@
       (block
         (call output_string "=== Конкатенация строк ===")
         (call output_string "\n"))
-      (var а string)
-      (var б string)
-      (var результат string)
-      (= а "Привет, ")
-      (= б "мир!")
-      (= результат (call str_concat а б))
+      (var а = (bitcast 0 string))
+      (var б = (bitcast 0 string))
+      (var результат = (bitcast 0 string))
+      (replace а (own-literal "Привет, "))
+      (replace б (own-literal "мир!"))
+      (replace результат (move (call str_concat а б)))
       (block
         (call output_string результат)
         (call output_string "\n"))
@@ -18,12 +18,12 @@
       (block
         (call output_string "=== Сравнение строк ===")
         (call output_string "\n"))
-      (var строка1 string)
-      (var строка2 string)
-      (var строка3 string)
-      (= строка1 "яблоко")
-      (= строка2 "яблоко")
-      (= строка3 "груша")
+      (var строка1 = (bitcast 0 string))
+      (var строка2 = (bitcast 0 string))
+      (var строка3 = (bitcast 0 string))
+      (replace строка1 (own-literal "яблоко"))
+      (replace строка2 (own-literal "яблоко"))
+      (replace строка3 (own-literal "груша"))
       (if
         (== (call str_compare строка1 строка2) 0)
         (block
@@ -51,11 +51,11 @@
       (block
         (call output_string "=== Юникод (получить код символа) ===")
         (call output_string "\n"))
-      (var текст string)
+      (var текст = (bitcast 0 string))
       (var символ_а char)
       (var код i64)
       (var код_а i64)
-      (= текст "Привет")
+      (replace текст (own-literal "Привет"))
       (= код (cast (call str_symbol_at текст 1) i64))
       (block
         (call output_string "Первый символ строки 'Привет': ")
@@ -78,16 +78,16 @@
       (var код4 i64)
       (var код5 i64)
       (var код6 i64)
-      (var слово string)
+      (var слово = (bitcast 0 string))
       (= код1 1055)
       (= код2 1088)
       (= код3 1080)
       (= код4 1074)
       (= код5 1077)
       (= код6 1090)
-      (= слово
-        (call
-          str_concat
+      (replace
+        слово
+        (move
           (call
             str_concat
             (call
@@ -96,12 +96,14 @@
                 str_concat
                 (call
                   str_concat
-                  (call str_from_unicode (cast код1 char))
-                  (call str_from_unicode (cast код2 char)))
-                (call str_from_unicode (cast код3 char)))
-              (call str_from_unicode (cast код4 char)))
-            (call str_from_unicode (cast код5 char)))
-          (call str_from_unicode (cast код6 char))))
+                  (call
+                    str_concat
+                    (call str_from_unicode (cast код1 char))
+                    (call str_from_unicode (cast код2 char)))
+                  (call str_from_unicode (cast код3 char)))
+                (call str_from_unicode (cast код4 char)))
+              (call str_from_unicode (cast код5 char)))
+            (call str_from_unicode (cast код6 char)))))
       (block
         (call output_string "Слово из кодов: ")
         (call output_string слово)
@@ -111,13 +113,13 @@
       (block
         (call output_string "=== Индексация строк ===")
         (call output_string "\n"))
-      (var фраза string)
-      (var первый string)
-      (var третий string)
-      (var подстрока string)
-      (var окончание string)
+      (var фраза = (bitcast 0 string))
+      (var первый = (bitcast 0 string))
+      (var третий = (bitcast 0 string))
+      (var подстрока = (bitcast 0 string))
+      (var окончание = (bitcast 0 string))
       (var длина i64)
-      (= фраза "Программирование")
+      (replace фраза (own-literal "Программирование"))
       (= длина (call длин фраза))
       (block
         (call output_string "Строка: ")
@@ -127,22 +129,22 @@
         (call output_string "Длина строки: ")
         (call output_int64 длина 0)
         (call output_string "\n"))
-      (= первый (call str_from_unicode (call str_symbol_at фраза 1)))
+      (replace первый (move (call str_from_unicode (call str_symbol_at фраза 1))))
       (block
         (call output_string "Первый символ (индекс 1): ")
         (call output_string первый)
         (call output_string "\n"))
-      (= третий (call str_from_unicode (call str_symbol_at фраза 3)))
+      (replace третий (move (call str_from_unicode (call str_symbol_at фраза 3))))
       (block
         (call output_string "Третий символ (индекс 3): ")
         (call output_string третий)
         (call output_string "\n"))
-      (= подстрока (call str_slice фраза 1 7))
+      (replace подстрока (move (call str_slice фраза 1 7)))
       (block
         (call output_string "Подстрока [1:7]: ")
         (call output_string подстрока)
         (call output_string "\n"))
-      (= окончание (call str_slice фраза 8 16))
+      (replace окончание (move (call str_slice фраза 8 16)))
       (block
         (call output_string "Подстрока [8:16]: ")
         (call output_string окончание)
@@ -152,13 +154,13 @@
       (block
         (call output_string "=== Поиск подстроки (поз) ===")
         (call output_string "\n"))
-      (var предложение string)
-      (var образец string)
-      (var не_найдено string)
+      (var предложение = (bitcast 0 string))
+      (var образец = (bitcast 0 string))
+      (var не_найдено = (bitcast 0 string))
       (var позиция i64)
       (var поз_не_найден i64)
-      (= предложение "Это тестовое предложение для теста")
-      (= образец "тест")
+      (replace предложение (own-literal "Это тестовое предложение для теста"))
+      (replace образец (own-literal "тест"))
       (= позиция (call поз предложение образец))
       (block
         (call output_string "Строка: ")
@@ -172,7 +174,7 @@
         (call output_string "Первое вхождение на позиции: ")
         (call output_int64 позиция 0)
         (call output_string "\n"))
-      (= не_найдено "xyz")
+      (replace не_найдено (own-literal "xyz"))
       (= поз_не_найден (call поз предложение не_найдено))
       (block
         (call output_string "Ищем: ")
@@ -187,13 +189,13 @@
       (block
         (call output_string "=== Поиск следующего вхождения (поз после) ===")
         (call output_string "\n"))
-      (var текст2 string)
-      (var образец2 string)
+      (var текст2 = (bitcast 0 string))
+      (var образец2 = (bitcast 0 string))
       (var первая_поз i64)
       (var вторая_поз i64)
       (var третья_поз i64)
-      (= текст2 "Это тестовое предложение для теста")
-      (= образец2 "тест")
+      (replace текст2 (own-literal "Это тестовое предложение для теста"))
+      (replace образец2 (own-literal "тест"))
       (= первая_поз (call поз текст2 образец2))
       (block
         (call output_string "Первое вхождение 'тест': ")

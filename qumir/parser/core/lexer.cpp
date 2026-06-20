@@ -93,6 +93,19 @@ AST node forms:
   (bitcast operand type)
       TBitcastExpr, NodeId = "Bitcast".
 
+  (retain value)
+  (borrow value)
+  (move value)
+  (own-literal value)
+  (destroy value [aux])
+  (replace target value)
+  (cleanup-exit (return [value]) cleanup1 ... cleanupN)
+  (cleanup-exit (break) cleanup1 ... cleanupN)
+  (cleanup-exit (continue) cleanup1 ... cleanupN)
+  (cleanup-global cleanup1 ... cleanupN)
+      Internal lifetime forms emitted after semantic analysis. They are parsed
+      so the printed final AST can pass through the CoreExec round trip.
+
   (index collection index)
       TIndexExpr, NodeId = "Index".
 

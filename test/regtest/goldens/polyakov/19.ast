@@ -1,8 +1,8 @@
 (block
   (fun ЫШЧО ()
     (block
-      (var word string)
-      (= word "...")
+      (var word = (bitcast 0 string))
+      (replace word (own-literal "..."))
       (call TumbaWords "ЫШЧО" word 0)
       (return)))
   (fun TumbaWords ((var A string)
@@ -11,13 +11,13 @@
     (block
       (if (== N (call длин w0)) (block (block (call output_string w0) (call output_string "\n")) (return)))
       (var i i64)
-      (var w string)
-      (= w (call str_slice w0 1 (call длин w0)))
+      (var w = (bitcast 0 string))
+      (replace w (move (call str_slice w0 1 (call длин w0))))
       (for i
         1
         (call длин A)
         1
         (block
-          (= w (call str_replace_sym w (call str_symbol_at A i) (+ N 1)))
+          (replace w (move (call str_replace_sym w (call str_symbol_at A i) (+ N 1))))
           (call TumbaWords A w (+ N 1))))
       (return))))

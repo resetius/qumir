@@ -1,69 +1,71 @@
 (block
   (fun <main> ()
     (block
-      (var s1 string)
-      (var s2 string)
-      (var result1 string)
-      (= s1 "Hello")
-      (= s2 " World")
-      (= result1 (call str_concat s1 s2))
+      (var s1 = (bitcast 0 string))
+      (var s2 = (bitcast 0 string))
+      (var result1 = (bitcast 0 string))
+      (replace s1 (own-literal "Hello"))
+      (replace s2 (own-literal " World"))
+      (replace result1 (move (call str_concat s1 s2)))
       (block
         (call output_string "string + string: ")
         (call output_string result1)
         (call output_string "\n"))
-      (var s3 string)
+      (var s3 = (bitcast 0 string))
       (var sym1 char)
-      (var result2 string)
-      (= s3 "Test")
+      (var result2 = (bitcast 0 string))
+      (replace s3 (own-literal "Test"))
       (= sym1 (cast 33 char))
-      (= result2 (call str_concat s3 (call str_from_unicode sym1)))
+      (replace result2 (move (call str_concat s3 (call str_from_unicode sym1))))
       (block
         (call output_string "string + symbol: ")
         (call output_string result2)
         (call output_string "\n"))
       (var sym2 char)
-      (var s4 string)
-      (var result3 string)
+      (var s4 = (bitcast 0 string))
+      (var result3 = (bitcast 0 string))
       (= sym2 (cast 65 char))
-      (= s4 "BC")
-      (= result3 (call str_concat (call str_from_unicode sym2) s4))
+      (replace s4 (own-literal "BC"))
+      (replace result3 (move (call str_concat (call str_from_unicode sym2) s4)))
       (block
         (call output_string "symbol + string: ")
         (call output_string result3)
         (call output_string "\n"))
       (var sym3 char)
       (var sym4 char)
-      (var result4 string)
+      (var result4 = (bitcast 0 string))
       (= sym3 (cast 88 char))
       (= sym4 (cast 89 char))
-      (= result4 (call str_concat (call str_from_unicode sym3) (call str_from_unicode sym4)))
+      (replace result4 (move (call str_concat (call str_from_unicode sym3) (call str_from_unicode sym4))))
       (block
         (call output_string "symbol + symbol: ")
         (call output_string result4)
         (call output_string "\n"))
-      (var chain string)
-      (= chain
-        (call
-          str_concat
+      (var chain = (bitcast 0 string))
+      (replace
+        chain
+        (move
           (call
             str_concat
-            (call str_concat (call str_concat "Start" (call str_from_unicode (cast 45 char))) "Middle")
-            (call str_from_unicode (cast 45 char)))
-          "End"))
+            (call
+              str_concat
+              (call str_concat (call str_concat "Start" (call str_from_unicode (cast 45 char))) "Middle")
+              (call str_from_unicode (cast 45 char)))
+            "End")))
       (block
         (call output_string "chain: ")
         (call output_string chain)
         (call output_string "\n"))
-      (var empty string)
-      (var result5 string)
-      (= empty "")
-      (= result5 (call str_concat empty (call str_from_unicode (cast 90 char))))
+      (var empty = (bitcast 0 string))
+      (var result5 = (bitcast 0 string))
+      (replace empty (own-literal ""))
+      (replace result5 (move (call str_concat empty (call str_from_unicode (cast 90 char)))))
       (block
         (call output_string "empty + symbol: ")
         (call output_string result5)
         (call output_string "\n"))
-      (var result6 string)
-      (= result6 (call str_concat (call str_from_unicode (cast 64 char)) ""))
+      (var result6 = (bitcast 0 string))
+      (replace result6 (move (call str_concat (call str_from_unicode (cast 64 char)) "")))
       (block
         (call output_string "symbol + empty: ")
         (call output_string result6)

@@ -23,6 +23,11 @@ namespace {
 using TTask = TExpectedTask<TExprPtr, TError, TLocation>;
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId);
+TTask AnnotateIdent(
+    std::shared_ptr<TIdentExpr> ident,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId,
+    bool pathThrough);
 
 // Defined further below, needed already in AnnotateFunDecl to skip
 // body-annotation for template-parameterized declarations.
@@ -451,7 +456,15 @@ TTask AnnotateReplace(
     NSemantics::TNameResolver& context,
     NSemantics::TScopeId scopeId)
 {
-    replace->Target = co_await DoAnnotate(replace->Target, context, scopeId);
+    if (auto ident = TMaybeNode<TIdentExpr>(replace->Target)) {
+        replace->Target = co_await AnnotateIdent(
+            ident.Cast(),
+            context,
+            scopeId,
+            true);
+    } else {
+        replace->Target = co_await DoAnnotate(replace->Target, context, scopeId);
+    }
     replace->Value = co_await DoAnnotate(replace->Value, context, scopeId);
     auto targetType = UnwrapReferenceType(replace->Target->Type);
     auto valueType = UnwrapReferenceType(replace->Value->Type);
@@ -881,6 +894,20 @@ TTask AnnotateVar(std::shared_ptr<TVarStmt> var, NSemantics::TNameResolver& cont
         }
         if (to) {
             to = co_await DoAnnotate(to, context, scopeId);
+        }
+    }
+    if (var->Init) {
+        var->Init = co_await DoAnnotate(var->Init, context, scopeId);
+        auto initType = UnwrapReferenceType(var->Init->Type);
+        auto variableType = UnwrapReferenceType(var->Type);
+        if (!EqualTypes(initType, variableType)) {
+            if (!CanImplicit(initType, variableType, &context)) {
+                co_return TError(var->Location,
+                    "Нельзя инициализировать переменную '" + var->Name
+                    + "' типа '" + std::string(variableType->TypeName())
+                    + "' значением типа '" + std::string(initType->TypeName()) + "'.");
+            }
+            var->Init = InsertImplicitCastIfNeeded(var->Init, variableType, &context);
         }
     }
     co_return var;

@@ -1,10 +1,10 @@
 (block
   (fun ф () -> string
     (block
-      (var знач string)
+      (var знач = (bitcast 0 string))
       (var i i64)
-      (var с string)
-      (= с "строка")
+      (var с = (bitcast 0 string))
+      (replace с (own-literal "строка"))
       (= i 1)
-      (= знач (call str_from_unicode (call str_symbol_at с (* i 2))))
+      (replace знач (move (call str_from_unicode (call str_symbol_at с (* i 2)))))
       (return знач))))

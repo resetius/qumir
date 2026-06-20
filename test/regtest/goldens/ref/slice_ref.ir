@@ -1,38 +1,44 @@
 function f () { ; ptr to i8
   block {
     label: label(0)
+    bitcast tmp(0,ptr to i8) = imm(0,i64) 
+    stre local(0,ptr to i8) tmp(0,ptr to i8) 
+    bitcast tmp(1,ptr to i8) = imm(0,i64) 
+    stre local(1,ptr to i8) tmp(1,ptr to i8) 
     arg imm(1,ptr to i8) 
-    call tmp(0,ptr to i8) = str_from_lit 
-    load tmp(1,ptr to i8) = local(1,ptr to i8) 
-    arg tmp(1,ptr to i8) 
-    call str_release 
-    stre local(1,ptr to i8) tmp(0,ptr to i8) 
-    lea tmp(2,ptr to ptr to i8) = local(1,ptr to i8) 
-    arg tmp(2,ptr to ptr to i8) 
-    call g 
-    load tmp(3,ptr to i8) = local(1,ptr to i8) 
-    arg tmp(3,ptr to i8) 
-    call str_retain 
-    load tmp(4,ptr to i8) = local(0,ptr to i8) 
+    call tmp(2,ptr to i8) = str_from_lit 
+    lea tmp(3,ptr to i8) = local(1,ptr to i8) 
+    lde tmp(4,ptr to i8) = tmp(3,ptr to i8) 
     arg tmp(4,ptr to i8) 
     call str_release 
-    stre local(0,ptr to i8) tmp(3,ptr to i8) 
-    load tmp(5,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(5,ptr to i8) 
-    call str_retain 
+    ste tmp(3,ptr to i8) tmp(2,ptr to i8) 
+    lea tmp(5,ptr to ptr to i8) = local(1,ptr to i8) 
+    arg tmp(5,ptr to ptr to i8) 
+    call g 
     load tmp(6,ptr to i8) = local(1,ptr to i8) 
     arg tmp(6,ptr to i8) 
+    call str_retain 
+    lea tmp(7,ptr to i8) = local(0,ptr to i8) 
+    lde tmp(8,ptr to i8) = tmp(7,ptr to i8) 
+    arg tmp(8,ptr to i8) 
     call str_release 
-    load tmp(7,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(7,ptr to i8) 
+    ste tmp(7,ptr to i8) tmp(6,ptr to i8) 
+    load tmp(9,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(9,ptr to i8) 
+    call str_retain 
+    load tmp(10,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(10,ptr to i8) 
     call str_release 
-    stre local(2,ptr to i8) tmp(5,ptr to i8) 
+    load tmp(11,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(11,ptr to i8) 
+    call str_release 
+    stre local(2,ptr to i8) tmp(9,ptr to i8) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(8,ptr to i8) = local(2,ptr to i8) 
-    ret tmp(8,ptr to i8) 
+    load tmp(12,ptr to i8) = local(2,ptr to i8) 
+    ret tmp(12,ptr to i8) 
   }
 }
 function g (local(0)) { ; void
@@ -45,8 +51,6 @@ function g (local(0)) { ; void
     arg imm(2,i64) 
     call tmp(2,ptr to i8) = str_slice 
     load tmp(3,ptr to ptr to i8) = local(0,ptr to ptr to i8) 
-    arg tmp(2,ptr to i8) 
-    call str_retain 
     lde tmp(4,ptr to i8) = tmp(3,ptr to ptr to i8) 
     arg tmp(4,ptr to i8) 
     call str_release 

@@ -3,6 +3,8 @@
 #include <qumir/ir/builder.h>
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/modules/system/system.h>
+#include <qumir/semantics/lifetime/pass.h>
+#include <qumir/semantics/lifetime/synthetic_name_generator.h>
 #include <qumir/semantics/transform/transform.h>
 
 #include <memory>
@@ -91,6 +93,19 @@ std::expected<TLowered, TError> Lower(
     }
     if (auto annotation = NTransform::FinalTypeAnnotation(root, resolver); !annotation) {
         return std::unexpected(annotation.error());
+    }
+    NSemantics::TSyntheticNameGenerator syntheticNames(resolver, root);
+    auto lifetime = NSemantics::LifetimePass(root, resolver, syntheticNames);
+    if (!lifetime) {
+        return std::unexpected(lifetime.error());
+    }
+    if (lifetime.value()) {
+        if (auto resolution = NTransform::FinalNameResolution(root, resolver); !resolution) {
+            return std::unexpected(resolution.error());
+        }
+        if (auto annotation = NTransform::FinalTypeAnnotation(root, resolver); !annotation) {
+            return std::unexpected(annotation.error());
+        }
     }
 
     TModule module;
@@ -238,6 +253,24 @@ TEST(LifetimeLowering, ReplaceEvaluatesRhsBeforeTargetAndDestroysOldValue) {
         {parameter},
         {replace},
         "arg call:str_from_lit load lde arg call:str_release ste jmp ret");
+}
+
+TEST(LifetimeLowering, RewrittenSideEffectingIndexIsEvaluatedOnce) {
+    auto pointerType = std::make_shared<TPointerType>(std::make_shared<TStringType>());
+    auto parameter = Parameter("items", pointerType);
+    auto nextIndex = std::make_shared<TCallExpr>(
+        TLocation{},
+        Ident("input_int64"),
+        std::vector<TExprPtr>{});
+    auto assignment = std::make_shared<TArrayAssignExpr>(
+        TLocation{},
+        "items",
+        std::vector<TExprPtr>{nextIndex},
+        std::make_shared<TStringLiteralExpr>(TLocation{}, "new value"));
+    ExpectTrace(
+        {parameter},
+        {assignment},
+        "arg call:str_from_lit call:input_int64 load * + lde arg call:str_release ste jmp ret");
 }
 
 TEST(LifetimeLowering, StructuredCleanupNodesHaveDedicatedErrors) {

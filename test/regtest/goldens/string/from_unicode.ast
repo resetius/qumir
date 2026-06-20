@@ -1,6 +1,6 @@
 (block
   (fun ф () -> string
     (block
-      (var знач string)
-      (= знач (call str_from_unicode (cast 1090 char)))
+      (var знач = (bitcast 0 string))
+      (replace знач (move (call str_from_unicode (cast 1090 char))))
       (return знач))))

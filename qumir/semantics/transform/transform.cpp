@@ -36,6 +36,9 @@ std::optional<int> ScalarSizeInBytes(const NAst::TTypePtr& inputType) {
     if (NAst::TMaybeType<NAst::TPointerType>(type)) {
         return 8;
     }
+    if (NAst::TMaybeType<NAst::TStringType>(type)) {
+        return 8;
+    }
     return std::nullopt;
 }
 
@@ -108,7 +111,7 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
                 if (!sourceSize || !targetSize) {
                     errors.push_back(TError(
                         bitcast->Location,
-                        "bitcast supports integer, float, symbol, and pointer types only"));
+                        "bitcast supports integer, float, symbol, pointer, and string types only"));
                     return node;
                 }
                 if (*sourceSize != *targetSize) {

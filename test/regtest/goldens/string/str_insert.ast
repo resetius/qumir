@@ -1,11 +1,11 @@
 (block
   (fun ф () -> string
     (block
-      (var знач string)
-      (var s string)
-      (= s "ABCЙЦУКcbv")
-      (var s1 string)
-      (= s1 "QWЩЩЯ")
+      (var знач = (bitcast 0 string))
+      (var s = (bitcast 0 string))
+      (replace s (own-literal "ABCЙЦУКcbv"))
+      (var s1 = (bitcast 0 string))
+      (replace s1 (own-literal "QWЩЩЯ"))
       (call вставить s1 s 5)
-      (= знач s)
+      (replace знач (retain (borrow s)))
       (return знач))))

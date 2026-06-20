@@ -1,12 +1,12 @@
 (block
   (fun f () -> string
     (block
-      (var знач string)
-      (var s string)
+      (var знач = (bitcast 0 string))
+      (var s = (bitcast 0 string))
       (call инит s)
-      (= знач s)
+      (replace знач (retain (borrow s)))
       (return знач)))
   (fun инит ((var s <ref <string (mutable)>>))
     (block
-      (= s "abc")
+      (replace s (own-literal "abc"))
       (return))))

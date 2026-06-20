@@ -523,6 +523,99 @@ TListHandlerMap MakeDefaultHandlers() {
             co_await Expect(ctx, ')');
             co_return std::make_shared<TBitcastExpr>(loc, std::move(expr), std::move(type));
         }},
+        {"retain", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto value = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TRetainExpr>(loc, std::move(value));
+        }},
+        {"borrow", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto value = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TBorrowExpr>(loc, std::move(value));
+        }},
+        {"move", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto value = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TMoveExpr>(loc, std::move(value));
+        }},
+        {"own", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto dash = co_await ParseName(ctx);
+            if (dash != "-") {
+                co_return TError(loc, "expected '-' in own-literal");
+            }
+            auto suffix = co_await ParseName(ctx);
+            if (suffix != "literal") {
+                co_return TError(loc, "unknown core form: own-" + suffix);
+            }
+            auto value = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TOwnLiteralExpr>(loc, std::move(value));
+        }},
+        {"destroy", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto value = co_await ParseExpr(ctx);
+            TExprPtr aux;
+            auto token = ctx.Stream.Next();
+            if (!IsOp(token, ')')) {
+                ctx.Stream.Unget(token);
+                aux = co_await ParseExpr(ctx);
+                co_await Expect(ctx, ')');
+            }
+            co_return std::make_shared<TDestroyExpr>(
+                loc,
+                std::move(value),
+                std::move(aux));
+        }},
+        {"replace", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto target = co_await ParseExpr(ctx);
+            auto value = co_await ParseExpr(ctx);
+            co_await Expect(ctx, ')');
+            co_return std::make_shared<TReplaceExpr>(
+                loc,
+                std::move(target),
+                std::move(value));
+        }},
+        {"cleanup", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto dash = co_await ParseName(ctx);
+            if (dash != "-") {
+                co_return TError(loc, "expected '-' in cleanup form");
+            }
+            auto suffix = co_await ParseName(ctx);
+            if (suffix == "global") {
+                co_return std::make_shared<TGlobalCleanupExpr>(
+                    loc,
+                    co_await ParseExprsUntil(ctx, ')'));
+            }
+            if (suffix != "exit") {
+                co_return TError(loc, "unknown core form: cleanup-" + suffix);
+            }
+
+            co_await Expect(ctx, '(');
+            auto kindName = co_await ParseName(ctx);
+            ECleanupExitKind kind;
+            TExprPtr value;
+            if (kindName == "return") {
+                kind = ECleanupExitKind::Return;
+                auto token = ctx.Stream.Next();
+                if (!IsOp(token, ')')) {
+                    ctx.Stream.Unget(token);
+                    value = co_await ParseExpr(ctx);
+                    co_await Expect(ctx, ')');
+                }
+            } else if (kindName == "break") {
+                kind = ECleanupExitKind::Break;
+                co_await Expect(ctx, ')');
+            } else if (kindName == "continue") {
+                kind = ECleanupExitKind::Continue;
+                co_await Expect(ctx, ')');
+            } else {
+                co_return TError(loc, "unknown cleanup exit kind: " + kindName);
+            }
+            co_return std::make_shared<TCleanupExitExpr>(
+                loc,
+                kind,
+                std::move(value),
+                co_await ParseExprsUntil(ctx, ')'));
+        }},
         {"=", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto name = co_await ParseName(ctx);
             auto token = ctx.Stream.Next();

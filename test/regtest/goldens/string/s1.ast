@@ -1,8 +1,8 @@
 (block
   (fun ф () -> string
     (block
-      (var знач string)
-      (var стр string)
-      (= стр "ыыы")
-      (= знач стр)
+      (var знач = (bitcast 0 string))
+      (var стр = (bitcast 0 string))
+      (replace стр (own-literal "ыыы"))
+      (replace знач (retain (borrow стр)))
       (return знач))))

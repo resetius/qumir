@@ -2,10 +2,10 @@
   (fun тест_граничные_пустая_строка () -> i64
     (block
       (var знач i64)
-      (var пустая string)
-      (var непустая string)
-      (= пустая "")
-      (= непустая (call str_from_unicode (cast 97 char)))
+      (var пустая = (bitcast 0 string))
+      (var непустая = (bitcast 0 string))
+      (replace пустая (own-literal ""))
+      (replace непустая (move (call str_from_unicode (cast 97 char))))
       (var r i64)
       (= r 0)
       (if (< (call str_compare пустая непустая) 0) (block (= r (+ r 1))))

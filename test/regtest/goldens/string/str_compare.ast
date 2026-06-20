@@ -2,10 +2,10 @@
   (fun ф () -> i64
     (block
       (var знач i64)
-      (var s1 string)
-      (var s2 string)
-      (= s1 "строка1")
-      (= s2 "строка2")
+      (var s1 = (bitcast 0 string))
+      (var s2 = (bitcast 0 string))
+      (replace s1 (own-literal "строка1"))
+      (replace s2 (own-literal "строка2"))
       (= знач 0)
       (if (== (call str_compare s1 s2) 0) (block (= знач (+ знач 1))))
       (if (!= (call str_compare s1 s2) 0) (block (= знач (+ знач 1))))

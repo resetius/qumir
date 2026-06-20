@@ -1,8 +1,8 @@
 (block
   (fun ф () -> string
     (block
-      (var знач string)
-      (var с string)
-      (= с "строка")
-      (= знач (call str_slice с 1 3))
+      (var знач = (bitcast 0 string))
+      (var с = (bitcast 0 string))
+      (replace с (own-literal "строка"))
+      (replace знач (move (call str_slice с 1 3)))
       (return знач))))

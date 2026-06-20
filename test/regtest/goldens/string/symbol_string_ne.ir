@@ -1,33 +1,36 @@
 function тест_неравенство_символ_строка () { ; i64
   block {
     label: label(0)
-    mov tmp(0,i32) = imm(98,i64) 
-    stre local(1,i32) tmp(0,i32) 
-    mov tmp(1,i32) = imm(99,i64) 
-    arg tmp(1,i32) 
-    call tmp(2,ptr to i8) = str_from_unicode 
-    load tmp(3,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(3,ptr to i8) 
+    bitcast tmp(0,ptr to i8) = imm(0,i64) 
+    stre local(2,ptr to i8) tmp(0,ptr to i8) 
+    mov tmp(1,i32) = imm(98,i64) 
+    stre local(1,i32) tmp(1,i32) 
+    mov tmp(2,i32) = imm(99,i64) 
+    arg tmp(2,i32) 
+    call tmp(3,ptr to i8) = str_from_unicode 
+    lea tmp(4,ptr to i8) = local(2,ptr to i8) 
+    lde tmp(5,ptr to i8) = tmp(4,ptr to i8) 
+    arg tmp(5,ptr to i8) 
     call str_release 
-    stre local(2,ptr to i8) tmp(2,ptr to i8) 
+    ste tmp(4,ptr to i8) tmp(3,ptr to i8) 
     stre local(3,i64) imm(0,i64) 
-    load tmp(4,i32) = local(1,i32) 
-    arg tmp(4,i32) 
-    call tmp(5,ptr to i8) = str_from_unicode 
-    load tmp(6,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(5,ptr to i8) 
-    arg tmp(6,ptr to i8) 
-    call tmp(7,i64) = str_compare 
-    arg tmp(5,ptr to i8) 
+    load tmp(6,i32) = local(1,i32) 
+    arg tmp(6,i32) 
+    call tmp(7,ptr to i8) = str_from_unicode 
+    load tmp(8,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(7,ptr to i8) 
+    arg tmp(8,ptr to i8) 
+    call tmp(9,i64) = str_compare 
+    arg tmp(7,ptr to i8) 
     call str_release 
-    != tmp(8,i1) = tmp(7,i64) imm(0,i64) 
-    cmp tmp(8,i1) label(2) label(3) 
+    != tmp(10,i1) = tmp(9,i64) imm(0,i64) 
+    cmp tmp(10,i1) label(2) label(3) 
   }
   block {
     label: label(2)
-    load tmp(9,i64) = local(3,i64) 
-    + tmp(10,i64) = tmp(9,i64) imm(1,i64) 
-    stre local(3,i64) tmp(10,i64) 
+    load tmp(11,i64) = local(3,i64) 
+    + tmp(12,i64) = tmp(11,i64) imm(1,i64) 
+    stre local(3,i64) tmp(12,i64) 
     jmp label(4) 
   }
   block {
@@ -36,23 +39,23 @@ function тест_неравенство_символ_строка () { ; i64
   }
   block {
     label: label(4)
-    load tmp(11,i32) = local(1,i32) 
-    arg tmp(11,i32) 
-    call tmp(12,ptr to i8) = str_from_unicode 
-    load tmp(13,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(12,ptr to i8) 
-    arg tmp(13,ptr to i8) 
-    call tmp(14,i64) = str_compare 
-    arg tmp(12,ptr to i8) 
+    load tmp(13,i32) = local(1,i32) 
+    arg tmp(13,i32) 
+    call tmp(14,ptr to i8) = str_from_unicode 
+    load tmp(15,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(14,ptr to i8) 
+    arg tmp(15,ptr to i8) 
+    call tmp(16,i64) = str_compare 
+    arg tmp(14,ptr to i8) 
     call str_release 
-    == tmp(15,i1) = tmp(14,i64) imm(0,i64) 
-    cmp tmp(15,i1) label(5) label(6) 
+    == tmp(17,i1) = tmp(16,i64) imm(0,i64) 
+    cmp tmp(17,i1) label(5) label(6) 
   }
   block {
     label: label(5)
-    load tmp(16,i64) = local(3,i64) 
-    + tmp(17,i64) = tmp(16,i64) imm(1000,i64) 
-    stre local(3,i64) tmp(17,i64) 
+    load tmp(18,i64) = local(3,i64) 
+    + tmp(19,i64) = tmp(18,i64) imm(1000,i64) 
+    stre local(3,i64) tmp(19,i64) 
     jmp label(7) 
   }
   block {
@@ -61,23 +64,23 @@ function тест_неравенство_символ_строка () { ; i64
   }
   block {
     label: label(7)
-    load tmp(18,i32) = local(1,i32) 
-    arg tmp(18,i32) 
-    call tmp(19,ptr to i8) = str_from_unicode 
-    load tmp(20,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(19,ptr to i8) 
-    arg tmp(20,ptr to i8) 
-    call tmp(21,i64) = str_compare 
-    arg tmp(19,ptr to i8) 
+    load tmp(20,i32) = local(1,i32) 
+    arg tmp(20,i32) 
+    call tmp(21,ptr to i8) = str_from_unicode 
+    load tmp(22,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(21,ptr to i8) 
+    arg tmp(22,ptr to i8) 
+    call tmp(23,i64) = str_compare 
+    arg tmp(21,ptr to i8) 
     call str_release 
-    < tmp(22,i1) = tmp(21,i64) imm(0,i64) 
-    cmp tmp(22,i1) label(8) label(9) 
+    < tmp(24,i1) = tmp(23,i64) imm(0,i64) 
+    cmp tmp(24,i1) label(8) label(9) 
   }
   block {
     label: label(8)
-    load tmp(23,i64) = local(3,i64) 
-    + tmp(24,i64) = tmp(23,i64) imm(1,i64) 
-    stre local(3,i64) tmp(24,i64) 
+    load tmp(25,i64) = local(3,i64) 
+    + tmp(26,i64) = tmp(25,i64) imm(1,i64) 
+    stre local(3,i64) tmp(26,i64) 
     jmp label(10) 
   }
   block {
@@ -86,23 +89,23 @@ function тест_неравенство_символ_строка () { ; i64
   }
   block {
     label: label(10)
-    load tmp(25,ptr to i8) = local(2,ptr to i8) 
-    load tmp(26,i32) = local(1,i32) 
-    arg tmp(26,i32) 
-    call tmp(27,ptr to i8) = str_from_unicode 
-    arg tmp(25,ptr to i8) 
+    load tmp(27,ptr to i8) = local(2,ptr to i8) 
+    load tmp(28,i32) = local(1,i32) 
+    arg tmp(28,i32) 
+    call tmp(29,ptr to i8) = str_from_unicode 
     arg tmp(27,ptr to i8) 
-    call tmp(28,i64) = str_compare 
-    arg tmp(27,ptr to i8) 
+    arg tmp(29,ptr to i8) 
+    call tmp(30,i64) = str_compare 
+    arg tmp(29,ptr to i8) 
     call str_release 
-    > tmp(29,i1) = tmp(28,i64) imm(0,i64) 
-    cmp tmp(29,i1) label(11) label(12) 
+    > tmp(31,i1) = tmp(30,i64) imm(0,i64) 
+    cmp tmp(31,i1) label(11) label(12) 
   }
   block {
     label: label(11)
-    load tmp(30,i64) = local(3,i64) 
-    + tmp(31,i64) = tmp(30,i64) imm(1,i64) 
-    stre local(3,i64) tmp(31,i64) 
+    load tmp(32,i64) = local(3,i64) 
+    + tmp(33,i64) = tmp(32,i64) imm(1,i64) 
+    stre local(3,i64) tmp(33,i64) 
     jmp label(13) 
   }
   block {
@@ -111,18 +114,18 @@ function тест_неравенство_символ_строка () { ; i64
   }
   block {
     label: label(13)
-    load tmp(32,i64) = local(3,i64) 
-    stre local(0,i64) tmp(32,i64) 
-    load tmp(33,i64) = local(0,i64) 
-    load tmp(34,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(34,ptr to i8) 
+    load tmp(34,i64) = local(3,i64) 
+    stre local(0,i64) tmp(34,i64) 
+    load tmp(35,i64) = local(0,i64) 
+    load tmp(36,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(36,ptr to i8) 
     call str_release 
-    stre local(4,i64) tmp(33,i64) 
+    stre local(4,i64) tmp(35,i64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(35,i64) = local(4,i64) 
-    ret tmp(35,i64) 
+    load tmp(37,i64) = local(4,i64) 
+    ret tmp(37,i64) 
   }
 }

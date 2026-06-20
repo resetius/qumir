@@ -1,15 +1,15 @@
 (block
   (fun f () -> string
     (block
-      (var знач string)
-      (var s string)
-      (= s "s12345")
+      (var знач = (bitcast 0 string))
+      (var s = (bitcast 0 string))
+      (replace s (own-literal "s12345"))
       (call g s)
-      (= знач s)
+      (replace знач (retain (borrow s)))
       (return знач)))
   (fun g ((var s <ref string>))
     (block
       (var a char)
       (= a (call str_symbol_at s 1))
-      (= s (call str_concat s (call str_from_unicode a)))
+      (replace s (move (call str_concat s (call str_from_unicode a))))
       (return))))

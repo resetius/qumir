@@ -1,13 +1,13 @@
 (block
   (fun ф () -> string
     (block
-      (var знач string)
-      (var s1 string)
-      (var s2 string)
-      (var s3 string)
-      (= s3 "a ")
-      (= s2 "b ")
-      (= s1 "ыыы")
-      (= s1 (call str_concat (call str_concat s1 s2) s3))
-      (= знач s1)
+      (var знач = (bitcast 0 string))
+      (var s1 = (bitcast 0 string))
+      (var s2 = (bitcast 0 string))
+      (var s3 = (bitcast 0 string))
+      (replace s3 (own-literal "a "))
+      (replace s2 (own-literal "b "))
+      (replace s1 (own-literal "ыыы"))
+      (replace s1 (move (call str_concat (call str_concat s1 s2) s3)))
+      (replace знач (retain (borrow s1)))
       (return знач))))

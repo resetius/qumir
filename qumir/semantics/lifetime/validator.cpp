@@ -255,7 +255,14 @@ private:
             return {};
         }
 
-        if (LifetimeMode_ && Ownership(expr) == EOwnership::Owned && !consumesOwned) {
+        const bool explicitOwnedValue = TMaybeNode<TRetainExpr>(expr)
+            || TMaybeNode<TOwnLiteralExpr>(expr)
+            || TMaybeNode<TMoveExpr>(expr);
+        if (LifetimeMode_
+            && explicitOwnedValue
+            && Ownership(expr) == EOwnership::Owned
+            && !consumesOwned)
+        {
             return Fail(expr, "Owned result has no move/destroy consumer.");
         }
         if (auto retain = TMaybeNode<TRetainExpr>(expr)) {

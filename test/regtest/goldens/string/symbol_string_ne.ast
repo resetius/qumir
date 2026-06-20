@@ -3,9 +3,9 @@
     (block
       (var знач i64)
       (var x char)
-      (var t string)
+      (var t = (bitcast 0 string))
       (= x (cast 98 char))
-      (= t (call str_from_unicode (cast 99 char)))
+      (replace t (move (call str_from_unicode (cast 99 char))))
       (var r i64)
       (= r 0)
       (if (!= (call str_compare (call str_from_unicode x) t) 0) (block (= r (+ r 1))))

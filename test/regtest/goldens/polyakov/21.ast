@@ -1,9 +1,9 @@
 (block
   (fun |Замена всех| ()
     (block
-      (var s string)
-      (= s "12.12.12")
-      (= s (call replaceBad s "12" "A12B"))
+      (var s = (bitcast 0 string))
+      (replace s (own-literal "12.12.12"))
+      (replace s (move (call replaceBad s "12" "A12B")))
       (block
         (call output_string s))
       (return)))
@@ -11,9 +11,9 @@
       (var sOld string)
       (var sNew string)) -> string
     (block
-      (var знач string)
-      (var s string)
-      (= s s0)
+      (var знач = (bitcast 0 string))
+      (var s = (bitcast 0 string))
+      (replace s (retain (borrow s0)))
       (var p i64)
       (var len i64)
       (= len (call длин sOld))
@@ -24,5 +24,5 @@
           (call удалить s p len)
           (call вставить sNew s p)
           (= p (call |позиция после| (+ p (call длин sNew)) sOld s))))
-      (= знач s)
+      (replace знач (retain (borrow s)))
       (return знач))))

@@ -1,25 +1,28 @@
 function ф () { ; ptr to i8
   block {
     label: label(0)
-    mov tmp(0,i32) = imm(1090,i64) 
-    arg tmp(0,i32) 
-    call tmp(1,ptr to i8) = str_from_unicode 
-    load tmp(2,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(2,ptr to i8) 
-    call str_release 
-    stre local(0,ptr to i8) tmp(1,ptr to i8) 
-    load tmp(3,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(3,ptr to i8) 
-    call str_retain 
-    load tmp(4,ptr to i8) = local(0,ptr to i8) 
+    bitcast tmp(0,ptr to i8) = imm(0,i64) 
+    stre local(0,ptr to i8) tmp(0,ptr to i8) 
+    mov tmp(1,i32) = imm(1090,i64) 
+    arg tmp(1,i32) 
+    call tmp(2,ptr to i8) = str_from_unicode 
+    lea tmp(3,ptr to i8) = local(0,ptr to i8) 
+    lde tmp(4,ptr to i8) = tmp(3,ptr to i8) 
     arg tmp(4,ptr to i8) 
     call str_release 
-    stre local(1,ptr to i8) tmp(3,ptr to i8) 
+    ste tmp(3,ptr to i8) tmp(2,ptr to i8) 
+    load tmp(5,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(5,ptr to i8) 
+    call str_retain 
+    load tmp(6,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(6,ptr to i8) 
+    call str_release 
+    stre local(1,ptr to i8) tmp(5,ptr to i8) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(5,ptr to i8) = local(1,ptr to i8) 
-    ret tmp(5,ptr to i8) 
+    load tmp(7,ptr to i8) = local(1,ptr to i8) 
+    ret tmp(7,ptr to i8) 
   }
 }

@@ -1,31 +1,33 @@
 (block
   (fun ФИО ()
     (block
-      (var s string)
-      (var name string)
-      (var name2 string)
+      (var s = (bitcast 0 string))
+      (var name = (bitcast 0 string))
+      (var name2 = (bitcast 0 string))
       (var n i64)
-      (= s "Иван Иванович Иванов")
+      (replace s (own-literal "Иван Иванович Иванов"))
       (= n (call позиция (call str_from_unicode (cast 32 char)) s))
-      (= name (call str_slice s 1 (- n 1)))
+      (replace name (move (call str_slice s 1 (- n 1))))
       (call удалить s 1 n)
       (= n (call позиция (call str_from_unicode (cast 32 char)) s))
-      (= name2 (call str_slice s 1 (- n 1)))
+      (replace name2 (move (call str_slice s 1 (- n 1))))
       (call удалить s 1 n)
-      (= s
-        (call
-          str_concat
+      (replace
+        s
+        (move
           (call
             str_concat
             (call
               str_concat
               (call
                 str_concat
-                (call str_concat s (call str_from_unicode (cast 32 char)))
-                (call str_from_unicode (call str_symbol_at name 1)))
-              ". ")
-            (call str_from_unicode (call str_symbol_at name2 1)))
-          (call str_from_unicode (cast 46 char))))
+                (call
+                  str_concat
+                  (call str_concat s (call str_from_unicode (cast 32 char)))
+                  (call str_from_unicode (call str_symbol_at name 1)))
+                ". ")
+              (call str_from_unicode (call str_symbol_at name2 1)))
+            (call str_from_unicode (cast 46 char)))))
       (block
         (call output_string s))
       (return))))

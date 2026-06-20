@@ -1,9 +1,9 @@
 (block
   (fun ф () -> string
     (block
-      (var знач string)
-      (var s string)
-      (= s "ABCЙЦУКcbv")
+      (var знач = (bitcast 0 string))
+      (var s = (bitcast 0 string))
+      (replace s (own-literal "ABCЙЦУКcbv"))
       (call удалить s 5 4)
-      (= знач s)
+      (replace знач (retain (borrow s)))
       (return знач))))

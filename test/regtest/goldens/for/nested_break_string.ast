@@ -11,9 +11,17 @@
         3
         1
         (block
-          (var a string)
-          (= a "outer")
-          (for j 0 3 1 (block (var b string) (= b "inner") (if (> j 1) (block break)) (= k (+ k 1))))
+          (var a = (bitcast 0 string))
+          (replace a (own-literal "outer"))
+          (for j
+            0
+            3
+            1
+            (block
+              (var b = (bitcast 0 string))
+              (replace b (own-literal "inner"))
+              (if (> j 1) (block break))
+              (= k (+ k 1))))
           (= k (+ k 10))))
       (= знач k)
       (return знач))))

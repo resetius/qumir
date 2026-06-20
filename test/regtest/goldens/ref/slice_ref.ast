@@ -1,13 +1,13 @@
 (block
   (fun f () -> string
     (block
-      (var знач string)
-      (var s string)
-      (= s "s12345")
+      (var знач = (bitcast 0 string))
+      (var s = (bitcast 0 string))
+      (replace s (own-literal "s12345"))
       (call g s)
-      (= знач s)
+      (replace знач (retain (borrow s)))
       (return знач)))
   (fun g ((var s <ref string>))
     (block
-      (= s (call str_slice s 1 2))
+      (replace s (move (call str_slice s 1 2)))
       (return))))

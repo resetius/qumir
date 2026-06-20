@@ -2,12 +2,12 @@
   (fun тест_логика_строки_символы () -> i64
     (block
       (var знач i64)
-      (var s1 string)
-      (var s2 string)
+      (var s1 = (bitcast 0 string))
+      (var s2 = (bitcast 0 string))
       (var ch1 char)
       (var ch2 char)
-      (= s1 "alpha")
-      (= s2 "alpha")
+      (replace s1 (own-literal "alpha"))
+      (replace s2 (own-literal "alpha"))
       (= ch1 (cast 97 char))
       (= ch2 (cast 122 char))
       (var счет i64)

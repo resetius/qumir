@@ -1,12 +1,12 @@
 (block
   (fun ф () -> string
     (block
-      (var знач string)
+      (var знач = (bitcast 0 string))
       (call g "строка")
-      (= знач "ok")
+      (replace знач (own-literal "ok"))
       (return знач)))
   (fun g ((var й string))
     (block
-      (var к string)
-      (= к й)
+      (var к = (bitcast 0 string))
+      (replace к (retain (borrow й)))
       (return))))

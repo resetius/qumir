@@ -2,12 +2,12 @@
   (fun тест_лексикографический_порядок () -> i64
     (block
       (var знач i64)
-      (var a1 string)
-      (var a2 string)
-      (var a3 string)
-      (= a1 (call str_from_unicode (cast 97 char)))
-      (= a2 "aa")
-      (= a3 (call str_from_unicode (cast 98 char)))
+      (var a1 = (bitcast 0 string))
+      (var a2 = (bitcast 0 string))
+      (var a3 = (bitcast 0 string))
+      (replace a1 (move (call str_from_unicode (cast 97 char))))
+      (replace a2 (own-literal "aa"))
+      (replace a3 (move (call str_from_unicode (cast 98 char))))
       (var r i64)
       (= r 0)
       (if (< (call str_compare a1 a2) 0) (block (= r (+ r 1))))

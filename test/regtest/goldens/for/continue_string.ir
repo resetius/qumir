@@ -23,28 +23,31 @@ function функция () { ; f64
     label: label(3)
     load tmp(7,i64) = local(7,i64) 
     stre local(1,i64) tmp(7,i64) 
-    arg imm(1,ptr to i8) 
-    call tmp(8,ptr to i8) = str_from_lit 
-    load tmp(9,ptr to i8) = local(3,ptr to i8) 
-    arg tmp(9,ptr to i8) 
-    call str_release 
+    bitcast tmp(8,ptr to i8) = imm(0,i64) 
     stre local(3,ptr to i8) tmp(8,ptr to i8) 
-    load tmp(10,i64) = local(1,i64) 
-    > tmp(11,i1) = tmp(10,i64) imm(7,i64) 
-    cmp tmp(11,i1) label(6) label(7) 
+    arg imm(1,ptr to i8) 
+    call tmp(9,ptr to i8) = str_from_lit 
+    lea tmp(10,ptr to i8) = local(3,ptr to i8) 
+    lde tmp(11,ptr to i8) = tmp(10,ptr to i8) 
+    arg tmp(11,ptr to i8) 
+    call str_release 
+    ste tmp(10,ptr to i8) tmp(9,ptr to i8) 
+    load tmp(12,i64) = local(1,i64) 
+    > tmp(13,i1) = tmp(12,i64) imm(7,i64) 
+    cmp tmp(13,i1) label(6) label(7) 
   }
   block {
     label: label(4)
-    load tmp(16,i64) = local(7,i64) 
-    load tmp(17,i64) = local(6,i64) 
-    + tmp(18,i64) = tmp(16,i64) tmp(17,i64) 
-    stre local(7,i64) tmp(18,i64) 
+    load tmp(18,i64) = local(7,i64) 
+    load tmp(19,i64) = local(6,i64) 
+    + tmp(20,i64) = tmp(18,i64) tmp(19,i64) 
+    stre local(7,i64) tmp(20,i64) 
     jmp label(2) 
   }
   block {
     label: label(6)
-    load tmp(12,ptr to i8) = local(3,ptr to i8) 
-    arg tmp(12,ptr to i8) 
+    load tmp(14,ptr to i8) = local(3,ptr to i8) 
+    arg tmp(14,ptr to i8) 
     call str_release 
     jmp label(4) 
   }
@@ -54,25 +57,25 @@ function функция () { ; f64
   }
   block {
     label: label(8)
-    load tmp(13,f64) = local(2,f64) 
-    + tmp(14,f64) = tmp(13,f64) imm(4607182418800017408,f64) 
-    stre local(2,f64) tmp(14,f64) 
-    load tmp(15,ptr to i8) = local(3,ptr to i8) 
-    arg tmp(15,ptr to i8) 
+    load tmp(15,f64) = local(2,f64) 
+    + tmp(16,f64) = tmp(15,f64) imm(4607182418800017408,f64) 
+    stre local(2,f64) tmp(16,f64) 
+    load tmp(17,ptr to i8) = local(3,ptr to i8) 
+    arg tmp(17,ptr to i8) 
     call str_release 
     jmp label(4) 
   }
   block {
     label: label(5)
-    load tmp(19,f64) = local(2,f64) 
-    stre local(0,f64) tmp(19,f64) 
-    load tmp(20,f64) = local(0,f64) 
-    stre local(4,f64) tmp(20,f64) 
+    load tmp(21,f64) = local(2,f64) 
+    stre local(0,f64) tmp(21,f64) 
+    load tmp(22,f64) = local(0,f64) 
+    stre local(4,f64) tmp(22,f64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(21,f64) = local(4,f64) 
-    ret tmp(21,f64) 
+    load tmp(23,f64) = local(4,f64) 
+    ret tmp(23,f64) 
   }
 }

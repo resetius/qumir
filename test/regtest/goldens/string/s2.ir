@@ -1,67 +1,80 @@
 function ф () { ; ptr to i8
   block {
     label: label(0)
-    arg imm(1,ptr to i8) 
-    call tmp(0,ptr to i8) = str_from_lit 
-    load tmp(1,ptr to i8) = local(3,ptr to i8) 
-    arg tmp(1,ptr to i8) 
-    call str_release 
-    stre local(3,ptr to i8) tmp(0,ptr to i8) 
-    arg imm(2,ptr to i8) 
-    call tmp(2,ptr to i8) = str_from_lit 
-    load tmp(3,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(3,ptr to i8) 
-    call str_release 
+    bitcast tmp(0,ptr to i8) = imm(0,i64) 
+    stre local(0,ptr to i8) tmp(0,ptr to i8) 
+    bitcast tmp(1,ptr to i8) = imm(0,i64) 
+    stre local(1,ptr to i8) tmp(1,ptr to i8) 
+    bitcast tmp(2,ptr to i8) = imm(0,i64) 
     stre local(2,ptr to i8) tmp(2,ptr to i8) 
-    arg imm(3,ptr to i8) 
+    bitcast tmp(3,ptr to i8) = imm(0,i64) 
+    stre local(3,ptr to i8) tmp(3,ptr to i8) 
+    arg imm(1,ptr to i8) 
     call tmp(4,ptr to i8) = str_from_lit 
-    load tmp(5,ptr to i8) = local(1,ptr to i8) 
-    arg tmp(5,ptr to i8) 
-    call str_release 
-    stre local(1,ptr to i8) tmp(4,ptr to i8) 
-    load tmp(6,ptr to i8) = local(1,ptr to i8) 
-    load tmp(7,ptr to i8) = local(2,ptr to i8) 
+    lea tmp(5,ptr to i8) = local(3,ptr to i8) 
+    lde tmp(6,ptr to i8) = tmp(5,ptr to i8) 
     arg tmp(6,ptr to i8) 
-    arg tmp(7,ptr to i8) 
-    call tmp(8,ptr to i8) = str_concat 
-    load tmp(9,ptr to i8) = local(3,ptr to i8) 
-    arg tmp(8,ptr to i8) 
+    call str_release 
+    ste tmp(5,ptr to i8) tmp(4,ptr to i8) 
+    arg imm(2,ptr to i8) 
+    call tmp(7,ptr to i8) = str_from_lit 
+    lea tmp(8,ptr to i8) = local(2,ptr to i8) 
+    lde tmp(9,ptr to i8) = tmp(8,ptr to i8) 
     arg tmp(9,ptr to i8) 
-    call tmp(10,ptr to i8) = str_concat 
-    arg tmp(8,ptr to i8) 
     call str_release 
-    load tmp(11,ptr to i8) = local(1,ptr to i8) 
-    arg tmp(11,ptr to i8) 
-    call str_release 
-    stre local(1,ptr to i8) tmp(10,ptr to i8) 
-    load tmp(12,ptr to i8) = local(1,ptr to i8) 
+    ste tmp(8,ptr to i8) tmp(7,ptr to i8) 
+    arg imm(3,ptr to i8) 
+    call tmp(10,ptr to i8) = str_from_lit 
+    lea tmp(11,ptr to i8) = local(1,ptr to i8) 
+    lde tmp(12,ptr to i8) = tmp(11,ptr to i8) 
     arg tmp(12,ptr to i8) 
-    call str_retain 
-    load tmp(13,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(13,ptr to i8) 
     call str_release 
-    stre local(0,ptr to i8) tmp(12,ptr to i8) 
-    load tmp(14,ptr to i8) = local(0,ptr to i8) 
+    ste tmp(11,ptr to i8) tmp(10,ptr to i8) 
+    load tmp(13,ptr to i8) = local(1,ptr to i8) 
+    load tmp(14,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(13,ptr to i8) 
     arg tmp(14,ptr to i8) 
-    call str_retain 
-    load tmp(15,ptr to i8) = local(3,ptr to i8) 
+    call tmp(15,ptr to i8) = str_concat 
+    load tmp(16,ptr to i8) = local(3,ptr to i8) 
+    arg tmp(15,ptr to i8) 
+    arg tmp(16,ptr to i8) 
+    call tmp(17,ptr to i8) = str_concat 
     arg tmp(15,ptr to i8) 
     call str_release 
-    load tmp(16,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(16,ptr to i8) 
+    lea tmp(18,ptr to i8) = local(1,ptr to i8) 
+    lde tmp(19,ptr to i8) = tmp(18,ptr to i8) 
+    arg tmp(19,ptr to i8) 
     call str_release 
-    load tmp(17,ptr to i8) = local(1,ptr to i8) 
-    arg tmp(17,ptr to i8) 
+    ste tmp(18,ptr to i8) tmp(17,ptr to i8) 
+    load tmp(20,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(20,ptr to i8) 
+    call str_retain 
+    lea tmp(21,ptr to i8) = local(0,ptr to i8) 
+    lde tmp(22,ptr to i8) = tmp(21,ptr to i8) 
+    arg tmp(22,ptr to i8) 
     call str_release 
-    load tmp(18,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(18,ptr to i8) 
+    ste tmp(21,ptr to i8) tmp(20,ptr to i8) 
+    load tmp(23,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(23,ptr to i8) 
+    call str_retain 
+    load tmp(24,ptr to i8) = local(3,ptr to i8) 
+    arg tmp(24,ptr to i8) 
     call str_release 
-    stre local(4,ptr to i8) tmp(14,ptr to i8) 
+    load tmp(25,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(25,ptr to i8) 
+    call str_release 
+    load tmp(26,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(26,ptr to i8) 
+    call str_release 
+    load tmp(27,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(27,ptr to i8) 
+    call str_release 
+    stre local(4,ptr to i8) tmp(23,ptr to i8) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(19,ptr to i8) = local(4,ptr to i8) 
-    ret tmp(19,ptr to i8) 
+    load tmp(28,ptr to i8) = local(4,ptr to i8) 
+    ret tmp(28,ptr to i8) 
   }
 }

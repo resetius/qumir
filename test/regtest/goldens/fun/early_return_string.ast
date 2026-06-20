@@ -1,8 +1,8 @@
 (block
   (fun функция () -> string
     (block
-      (var знач string)
-      (= знач "hello")
+      (var знач = (bitcast 0 string))
+      (replace знач (own-literal "hello"))
       (if (cast #t bool) (block (return знач)))
-      (= знач "unreached")
+      (replace знач (own-literal "unreached"))
       (return знач))))

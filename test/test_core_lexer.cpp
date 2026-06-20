@@ -193,6 +193,32 @@ TEST(CoreParserTest, AwaitPrintAndParse) {
     EXPECT_EQ(PrintAst(*parsed, TPrintOptions{.Pretty = false}), "(await (call f))");
 }
 
+TEST(CoreParserTest, LifetimeFormsPrintAndParse) {
+    const std::vector<std::string> forms{
+        "(retain (borrow source))",
+        "(own-literal \"literal\")",
+        "(move owned)",
+        "(destroy value)",
+        "(destroy array size)",
+        "(replace target (retain (borrow source)))",
+        "(cleanup-exit (return (move result)) (destroy local))",
+        "(cleanup-exit (break) (destroy local))",
+        "(cleanup-exit (continue))",
+        "(cleanup-global (destroy second) (destroy first))",
+    };
+
+    for (const auto& form : forms) {
+        SCOPED_TRACE(form);
+        std::istringstream input(form);
+        TTokenStream tokens(input);
+        TParser parser;
+
+        auto parsed = parser.Parse(tokens);
+        ASSERT_TRUE(parsed.has_value()) << parsed.error().ToString();
+        EXPECT_EQ(PrintAst(*parsed, TPrintOptions{.Pretty = false}), form);
+    }
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

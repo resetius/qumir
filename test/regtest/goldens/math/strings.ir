@@ -5,29 +5,38 @@ function строки () { ; void
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    arg imm(3,ptr to i8) 
-    call tmp(0,ptr to i8) = str_from_lit 
-    load tmp(1,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(1,ptr to i8) 
-    call str_release 
+    bitcast tmp(0,ptr to i8) = imm(0,i64) 
     stre local(0,ptr to i8) tmp(0,ptr to i8) 
-    arg imm(4,ptr to i8) 
-    call tmp(2,ptr to i8) = str_from_lit 
-    load tmp(3,ptr to i8) = local(1,ptr to i8) 
-    arg tmp(3,ptr to i8) 
-    call str_release 
-    stre local(1,ptr to i8) tmp(2,ptr to i8) 
-    load tmp(4,ptr to i8) = local(0,ptr to i8) 
-    load tmp(5,ptr to i8) = local(1,ptr to i8) 
-    arg tmp(4,ptr to i8) 
+    bitcast tmp(1,ptr to i8) = imm(0,i64) 
+    stre local(1,ptr to i8) tmp(1,ptr to i8) 
+    bitcast tmp(2,ptr to i8) = imm(0,i64) 
+    stre local(2,ptr to i8) tmp(2,ptr to i8) 
+    arg imm(3,ptr to i8) 
+    call tmp(3,ptr to i8) = str_from_lit 
+    lea tmp(4,ptr to i8) = local(0,ptr to i8) 
+    lde tmp(5,ptr to i8) = tmp(4,ptr to i8) 
     arg tmp(5,ptr to i8) 
-    call tmp(6,ptr to i8) = str_concat 
-    load tmp(7,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(7,ptr to i8) 
     call str_release 
-    stre local(2,ptr to i8) tmp(6,ptr to i8) 
-    load tmp(8,ptr to i8) = local(2,ptr to i8) 
+    ste tmp(4,ptr to i8) tmp(3,ptr to i8) 
+    arg imm(4,ptr to i8) 
+    call tmp(6,ptr to i8) = str_from_lit 
+    lea tmp(7,ptr to i8) = local(1,ptr to i8) 
+    lde tmp(8,ptr to i8) = tmp(7,ptr to i8) 
     arg tmp(8,ptr to i8) 
+    call str_release 
+    ste tmp(7,ptr to i8) tmp(6,ptr to i8) 
+    load tmp(9,ptr to i8) = local(0,ptr to i8) 
+    load tmp(10,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(9,ptr to i8) 
+    arg tmp(10,ptr to i8) 
+    call tmp(11,ptr to i8) = str_concat 
+    lea tmp(12,ptr to i8) = local(2,ptr to i8) 
+    lde tmp(13,ptr to i8) = tmp(12,ptr to i8) 
+    arg tmp(13,ptr to i8) 
+    call str_release 
+    ste tmp(12,ptr to i8) tmp(11,ptr to i8) 
+    load tmp(14,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(14,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
@@ -37,31 +46,40 @@ function строки () { ; void
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
+    bitcast tmp(15,ptr to i8) = imm(0,i64) 
+    stre local(3,ptr to i8) tmp(15,ptr to i8) 
+    bitcast tmp(16,ptr to i8) = imm(0,i64) 
+    stre local(4,ptr to i8) tmp(16,ptr to i8) 
+    bitcast tmp(17,ptr to i8) = imm(0,i64) 
+    stre local(5,ptr to i8) tmp(17,ptr to i8) 
     arg imm(6,ptr to i8) 
-    call tmp(9,ptr to i8) = str_from_lit 
-    load tmp(10,ptr to i8) = local(3,ptr to i8) 
-    arg tmp(10,ptr to i8) 
+    call tmp(18,ptr to i8) = str_from_lit 
+    lea tmp(19,ptr to i8) = local(3,ptr to i8) 
+    lde tmp(20,ptr to i8) = tmp(19,ptr to i8) 
+    arg tmp(20,ptr to i8) 
     call str_release 
-    stre local(3,ptr to i8) tmp(9,ptr to i8) 
+    ste tmp(19,ptr to i8) tmp(18,ptr to i8) 
     arg imm(6,ptr to i8) 
-    call tmp(11,ptr to i8) = str_from_lit 
-    load tmp(12,ptr to i8) = local(4,ptr to i8) 
-    arg tmp(12,ptr to i8) 
+    call tmp(21,ptr to i8) = str_from_lit 
+    lea tmp(22,ptr to i8) = local(4,ptr to i8) 
+    lde tmp(23,ptr to i8) = tmp(22,ptr to i8) 
+    arg tmp(23,ptr to i8) 
     call str_release 
-    stre local(4,ptr to i8) tmp(11,ptr to i8) 
+    ste tmp(22,ptr to i8) tmp(21,ptr to i8) 
     arg imm(7,ptr to i8) 
-    call tmp(13,ptr to i8) = str_from_lit 
-    load tmp(14,ptr to i8) = local(5,ptr to i8) 
-    arg tmp(14,ptr to i8) 
+    call tmp(24,ptr to i8) = str_from_lit 
+    lea tmp(25,ptr to i8) = local(5,ptr to i8) 
+    lde tmp(26,ptr to i8) = tmp(25,ptr to i8) 
+    arg tmp(26,ptr to i8) 
     call str_release 
-    stre local(5,ptr to i8) tmp(13,ptr to i8) 
-    load tmp(15,ptr to i8) = local(3,ptr to i8) 
-    load tmp(16,ptr to i8) = local(4,ptr to i8) 
-    arg tmp(15,ptr to i8) 
-    arg tmp(16,ptr to i8) 
-    call tmp(17,i64) = str_compare 
-    == tmp(18,i1) = tmp(17,i64) imm(0,i64) 
-    cmp tmp(18,i1) label(2) label(3) 
+    ste tmp(25,ptr to i8) tmp(24,ptr to i8) 
+    load tmp(27,ptr to i8) = local(3,ptr to i8) 
+    load tmp(28,ptr to i8) = local(4,ptr to i8) 
+    arg tmp(27,ptr to i8) 
+    arg tmp(28,ptr to i8) 
+    call tmp(29,i64) = str_compare 
+    == tmp(30,i1) = tmp(29,i64) imm(0,i64) 
+    cmp tmp(30,i1) label(2) label(3) 
   }
   block {
     label: label(2)
@@ -77,13 +95,13 @@ function строки () { ; void
   }
   block {
     label: label(4)
-    load tmp(19,ptr to i8) = local(3,ptr to i8) 
-    load tmp(20,ptr to i8) = local(5,ptr to i8) 
-    arg tmp(19,ptr to i8) 
-    arg tmp(20,ptr to i8) 
-    call tmp(21,i64) = str_compare 
-    == tmp(22,i1) = tmp(21,i64) imm(0,i64) 
-    cmp tmp(22,i1) label(5) label(6) 
+    load tmp(31,ptr to i8) = local(3,ptr to i8) 
+    load tmp(32,ptr to i8) = local(5,ptr to i8) 
+    arg tmp(31,ptr to i8) 
+    arg tmp(32,ptr to i8) 
+    call tmp(33,i64) = str_compare 
+    == tmp(34,i1) = tmp(33,i64) imm(0,i64) 
+    cmp tmp(34,i1) label(5) label(6) 
   }
   block {
     label: label(5)
@@ -103,13 +121,13 @@ function строки () { ; void
   }
   block {
     label: label(7)
-    load tmp(23,ptr to i8) = local(5,ptr to i8) 
-    load tmp(24,ptr to i8) = local(4,ptr to i8) 
-    arg tmp(23,ptr to i8) 
-    arg tmp(24,ptr to i8) 
-    call tmp(25,i64) = str_compare 
-    < tmp(26,i1) = tmp(25,i64) imm(0,i64) 
-    cmp tmp(26,i1) label(8) label(9) 
+    load tmp(35,ptr to i8) = local(5,ptr to i8) 
+    load tmp(36,ptr to i8) = local(4,ptr to i8) 
+    arg tmp(35,ptr to i8) 
+    arg tmp(36,ptr to i8) 
+    call tmp(37,i64) = str_compare 
+    < tmp(38,i1) = tmp(37,i64) imm(0,i64) 
+    cmp tmp(38,i1) label(8) label(9) 
   }
   block {
     label: label(8)
@@ -131,35 +149,38 @@ function строки () { ; void
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
+    bitcast tmp(39,ptr to i8) = imm(0,i64) 
+    stre local(6,ptr to i8) tmp(39,ptr to i8) 
     arg imm(13,ptr to i8) 
-    call tmp(27,ptr to i8) = str_from_lit 
-    load tmp(28,ptr to i8) = local(6,ptr to i8) 
-    arg tmp(28,ptr to i8) 
+    call tmp(40,ptr to i8) = str_from_lit 
+    lea tmp(41,ptr to i8) = local(6,ptr to i8) 
+    lde tmp(42,ptr to i8) = tmp(41,ptr to i8) 
+    arg tmp(42,ptr to i8) 
     call str_release 
-    stre local(6,ptr to i8) tmp(27,ptr to i8) 
-    load tmp(29,ptr to i8) = local(6,ptr to i8) 
-    arg tmp(29,ptr to i8) 
+    ste tmp(41,ptr to i8) tmp(40,ptr to i8) 
+    load tmp(43,ptr to i8) = local(6,ptr to i8) 
+    arg tmp(43,ptr to i8) 
     arg imm(1,i64) 
-    call tmp(30,i32) = str_symbol_at 
-    mov tmp(31,i64) = tmp(30,i32) 
-    stre local(8,i64) tmp(31,i64) 
+    call tmp(44,i32) = str_symbol_at 
+    mov tmp(45,i64) = tmp(44,i32) 
+    stre local(8,i64) tmp(45,i64) 
     arg imm(14,ptr to i8) 
     call output_string 
-    load tmp(32,i64) = local(8,i64) 
-    arg tmp(32,i64) 
+    load tmp(46,i64) = local(8,i64) 
+    arg tmp(46,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
-    mov tmp(33,i32) = imm(1040,i64) 
-    stre local(7,i32) tmp(33,i32) 
-    load tmp(34,i32) = local(7,i32) 
-    mov tmp(35,i64) = tmp(34,i32) 
-    stre local(9,i64) tmp(35,i64) 
+    mov tmp(47,i32) = imm(1040,i64) 
+    stre local(7,i32) tmp(47,i32) 
+    load tmp(48,i32) = local(7,i32) 
+    mov tmp(49,i64) = tmp(48,i32) 
+    stre local(9,i64) tmp(49,i64) 
     arg imm(15,ptr to i8) 
     call output_string 
-    load tmp(36,i64) = local(9,i64) 
-    arg tmp(36,i64) 
+    load tmp(50,i64) = local(9,i64) 
+    arg tmp(50,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
@@ -170,79 +191,82 @@ function строки () { ; void
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
+    bitcast tmp(51,ptr to i8) = imm(0,i64) 
+    stre local(16,ptr to i8) tmp(51,ptr to i8) 
     stre local(10,i64) imm(1055,i64) 
     stre local(11,i64) imm(1088,i64) 
     stre local(12,i64) imm(1080,i64) 
     stre local(13,i64) imm(1074,i64) 
     stre local(14,i64) imm(1077,i64) 
     stre local(15,i64) imm(1090,i64) 
-    load tmp(37,i64) = local(10,i64) 
-    mov tmp(38,i32) = tmp(37,i64) 
-    arg tmp(38,i32) 
-    call tmp(39,ptr to i8) = str_from_unicode 
-    load tmp(40,i64) = local(11,i64) 
-    mov tmp(41,i32) = tmp(40,i64) 
-    arg tmp(41,i32) 
-    call tmp(42,ptr to i8) = str_from_unicode 
-    arg tmp(39,ptr to i8) 
-    arg tmp(42,ptr to i8) 
-    call tmp(43,ptr to i8) = str_concat 
-    arg tmp(39,ptr to i8) 
-    call str_release 
-    arg tmp(42,ptr to i8) 
-    call str_release 
-    load tmp(44,i64) = local(12,i64) 
-    mov tmp(45,i32) = tmp(44,i64) 
-    arg tmp(45,i32) 
-    call tmp(46,ptr to i8) = str_from_unicode 
-    arg tmp(43,ptr to i8) 
-    arg tmp(46,ptr to i8) 
-    call tmp(47,ptr to i8) = str_concat 
-    arg tmp(43,ptr to i8) 
-    call str_release 
-    arg tmp(46,ptr to i8) 
-    call str_release 
-    load tmp(48,i64) = local(13,i64) 
-    mov tmp(49,i32) = tmp(48,i64) 
-    arg tmp(49,i32) 
-    call tmp(50,ptr to i8) = str_from_unicode 
-    arg tmp(47,ptr to i8) 
-    arg tmp(50,ptr to i8) 
-    call tmp(51,ptr to i8) = str_concat 
-    arg tmp(47,ptr to i8) 
-    call str_release 
-    arg tmp(50,ptr to i8) 
-    call str_release 
-    load tmp(52,i64) = local(14,i64) 
+    load tmp(52,i64) = local(10,i64) 
     mov tmp(53,i32) = tmp(52,i64) 
     arg tmp(53,i32) 
     call tmp(54,ptr to i8) = str_from_unicode 
-    arg tmp(51,ptr to i8) 
+    load tmp(55,i64) = local(11,i64) 
+    mov tmp(56,i32) = tmp(55,i64) 
+    arg tmp(56,i32) 
+    call tmp(57,ptr to i8) = str_from_unicode 
     arg tmp(54,ptr to i8) 
-    call tmp(55,ptr to i8) = str_concat 
-    arg tmp(51,ptr to i8) 
-    call str_release 
+    arg tmp(57,ptr to i8) 
+    call tmp(58,ptr to i8) = str_concat 
     arg tmp(54,ptr to i8) 
     call str_release 
-    load tmp(56,i64) = local(15,i64) 
-    mov tmp(57,i32) = tmp(56,i64) 
-    arg tmp(57,i32) 
-    call tmp(58,ptr to i8) = str_from_unicode 
-    arg tmp(55,ptr to i8) 
+    arg tmp(57,ptr to i8) 
+    call str_release 
+    load tmp(59,i64) = local(12,i64) 
+    mov tmp(60,i32) = tmp(59,i64) 
+    arg tmp(60,i32) 
+    call tmp(61,ptr to i8) = str_from_unicode 
     arg tmp(58,ptr to i8) 
-    call tmp(59,ptr to i8) = str_concat 
-    arg tmp(55,ptr to i8) 
-    call str_release 
+    arg tmp(61,ptr to i8) 
+    call tmp(62,ptr to i8) = str_concat 
     arg tmp(58,ptr to i8) 
     call str_release 
-    load tmp(60,ptr to i8) = local(16,ptr to i8) 
-    arg tmp(60,ptr to i8) 
+    arg tmp(61,ptr to i8) 
     call str_release 
-    stre local(16,ptr to i8) tmp(59,ptr to i8) 
+    load tmp(63,i64) = local(13,i64) 
+    mov tmp(64,i32) = tmp(63,i64) 
+    arg tmp(64,i32) 
+    call tmp(65,ptr to i8) = str_from_unicode 
+    arg tmp(62,ptr to i8) 
+    arg tmp(65,ptr to i8) 
+    call tmp(66,ptr to i8) = str_concat 
+    arg tmp(62,ptr to i8) 
+    call str_release 
+    arg tmp(65,ptr to i8) 
+    call str_release 
+    load tmp(67,i64) = local(14,i64) 
+    mov tmp(68,i32) = tmp(67,i64) 
+    arg tmp(68,i32) 
+    call tmp(69,ptr to i8) = str_from_unicode 
+    arg tmp(66,ptr to i8) 
+    arg tmp(69,ptr to i8) 
+    call tmp(70,ptr to i8) = str_concat 
+    arg tmp(66,ptr to i8) 
+    call str_release 
+    arg tmp(69,ptr to i8) 
+    call str_release 
+    load tmp(71,i64) = local(15,i64) 
+    mov tmp(72,i32) = tmp(71,i64) 
+    arg tmp(72,i32) 
+    call tmp(73,ptr to i8) = str_from_unicode 
+    arg tmp(70,ptr to i8) 
+    arg tmp(73,ptr to i8) 
+    call tmp(74,ptr to i8) = str_concat 
+    arg tmp(70,ptr to i8) 
+    call str_release 
+    arg tmp(73,ptr to i8) 
+    call str_release 
+    lea tmp(75,ptr to i8) = local(16,ptr to i8) 
+    lde tmp(76,ptr to i8) = tmp(75,ptr to i8) 
+    arg tmp(76,ptr to i8) 
+    call str_release 
+    ste tmp(75,ptr to i8) tmp(74,ptr to i8) 
     arg imm(17,ptr to i8) 
     call output_string 
-    load tmp(61,ptr to i8) = local(16,ptr to i8) 
-    arg tmp(61,ptr to i8) 
+    load tmp(77,ptr to i8) = local(16,ptr to i8) 
+    arg tmp(77,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
@@ -252,94 +276,109 @@ function строки () { ; void
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
+    bitcast tmp(78,ptr to i8) = imm(0,i64) 
+    stre local(17,ptr to i8) tmp(78,ptr to i8) 
+    bitcast tmp(79,ptr to i8) = imm(0,i64) 
+    stre local(18,ptr to i8) tmp(79,ptr to i8) 
+    bitcast tmp(80,ptr to i8) = imm(0,i64) 
+    stre local(19,ptr to i8) tmp(80,ptr to i8) 
+    bitcast tmp(81,ptr to i8) = imm(0,i64) 
+    stre local(20,ptr to i8) tmp(81,ptr to i8) 
+    bitcast tmp(82,ptr to i8) = imm(0,i64) 
+    stre local(21,ptr to i8) tmp(82,ptr to i8) 
     arg imm(19,ptr to i8) 
-    call tmp(62,ptr to i8) = str_from_lit 
-    load tmp(63,ptr to i8) = local(17,ptr to i8) 
-    arg tmp(63,ptr to i8) 
+    call tmp(83,ptr to i8) = str_from_lit 
+    lea tmp(84,ptr to i8) = local(17,ptr to i8) 
+    lde tmp(85,ptr to i8) = tmp(84,ptr to i8) 
+    arg tmp(85,ptr to i8) 
     call str_release 
-    stre local(17,ptr to i8) tmp(62,ptr to i8) 
-    load tmp(64,ptr to i8) = local(17,ptr to i8) 
-    arg tmp(64,ptr to i8) 
-    call tmp(65,i64) = длин 
-    stre local(22,i64) tmp(65,i64) 
+    ste tmp(84,ptr to i8) tmp(83,ptr to i8) 
+    load tmp(86,ptr to i8) = local(17,ptr to i8) 
+    arg tmp(86,ptr to i8) 
+    call tmp(87,i64) = длин 
+    stre local(22,i64) tmp(87,i64) 
     arg imm(20,ptr to i8) 
     call output_string 
-    load tmp(66,ptr to i8) = local(17,ptr to i8) 
-    arg tmp(66,ptr to i8) 
+    load tmp(88,ptr to i8) = local(17,ptr to i8) 
+    arg tmp(88,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
     arg imm(21,ptr to i8) 
     call output_string 
-    load tmp(67,i64) = local(22,i64) 
-    arg tmp(67,i64) 
+    load tmp(89,i64) = local(22,i64) 
+    arg tmp(89,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(68,ptr to i8) = local(17,ptr to i8) 
-    arg tmp(68,ptr to i8) 
+    load tmp(90,ptr to i8) = local(17,ptr to i8) 
+    arg tmp(90,ptr to i8) 
     arg imm(1,i64) 
-    call tmp(69,i32) = str_symbol_at 
-    arg tmp(69,i32) 
-    call tmp(70,ptr to i8) = str_from_unicode 
-    load tmp(71,ptr to i8) = local(18,ptr to i8) 
-    arg tmp(71,ptr to i8) 
+    call tmp(91,i32) = str_symbol_at 
+    arg tmp(91,i32) 
+    call tmp(92,ptr to i8) = str_from_unicode 
+    lea tmp(93,ptr to i8) = local(18,ptr to i8) 
+    lde tmp(94,ptr to i8) = tmp(93,ptr to i8) 
+    arg tmp(94,ptr to i8) 
     call str_release 
-    stre local(18,ptr to i8) tmp(70,ptr to i8) 
+    ste tmp(93,ptr to i8) tmp(92,ptr to i8) 
     arg imm(22,ptr to i8) 
     call output_string 
-    load tmp(72,ptr to i8) = local(18,ptr to i8) 
-    arg tmp(72,ptr to i8) 
+    load tmp(95,ptr to i8) = local(18,ptr to i8) 
+    arg tmp(95,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(73,ptr to i8) = local(17,ptr to i8) 
-    arg tmp(73,ptr to i8) 
+    load tmp(96,ptr to i8) = local(17,ptr to i8) 
+    arg tmp(96,ptr to i8) 
     arg imm(3,i64) 
-    call tmp(74,i32) = str_symbol_at 
-    arg tmp(74,i32) 
-    call tmp(75,ptr to i8) = str_from_unicode 
-    load tmp(76,ptr to i8) = local(19,ptr to i8) 
-    arg tmp(76,ptr to i8) 
+    call tmp(97,i32) = str_symbol_at 
+    arg tmp(97,i32) 
+    call tmp(98,ptr to i8) = str_from_unicode 
+    lea tmp(99,ptr to i8) = local(19,ptr to i8) 
+    lde tmp(100,ptr to i8) = tmp(99,ptr to i8) 
+    arg tmp(100,ptr to i8) 
     call str_release 
-    stre local(19,ptr to i8) tmp(75,ptr to i8) 
+    ste tmp(99,ptr to i8) tmp(98,ptr to i8) 
     arg imm(23,ptr to i8) 
     call output_string 
-    load tmp(77,ptr to i8) = local(19,ptr to i8) 
-    arg tmp(77,ptr to i8) 
+    load tmp(101,ptr to i8) = local(19,ptr to i8) 
+    arg tmp(101,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(78,ptr to i8) = local(17,ptr to i8) 
-    arg tmp(78,ptr to i8) 
+    load tmp(102,ptr to i8) = local(17,ptr to i8) 
+    arg tmp(102,ptr to i8) 
     arg imm(1,i64) 
     arg imm(7,i64) 
-    call tmp(79,ptr to i8) = str_slice 
-    load tmp(80,ptr to i8) = local(20,ptr to i8) 
-    arg tmp(80,ptr to i8) 
+    call tmp(103,ptr to i8) = str_slice 
+    lea tmp(104,ptr to i8) = local(20,ptr to i8) 
+    lde tmp(105,ptr to i8) = tmp(104,ptr to i8) 
+    arg tmp(105,ptr to i8) 
     call str_release 
-    stre local(20,ptr to i8) tmp(79,ptr to i8) 
+    ste tmp(104,ptr to i8) tmp(103,ptr to i8) 
     arg imm(24,ptr to i8) 
     call output_string 
-    load tmp(81,ptr to i8) = local(20,ptr to i8) 
-    arg tmp(81,ptr to i8) 
+    load tmp(106,ptr to i8) = local(20,ptr to i8) 
+    arg tmp(106,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(82,ptr to i8) = local(17,ptr to i8) 
-    arg tmp(82,ptr to i8) 
+    load tmp(107,ptr to i8) = local(17,ptr to i8) 
+    arg tmp(107,ptr to i8) 
     arg imm(8,i64) 
     arg imm(16,i64) 
-    call tmp(83,ptr to i8) = str_slice 
-    load tmp(84,ptr to i8) = local(21,ptr to i8) 
-    arg tmp(84,ptr to i8) 
+    call tmp(108,ptr to i8) = str_slice 
+    lea tmp(109,ptr to i8) = local(21,ptr to i8) 
+    lde tmp(110,ptr to i8) = tmp(109,ptr to i8) 
+    arg tmp(110,ptr to i8) 
     call str_release 
-    stre local(21,ptr to i8) tmp(83,ptr to i8) 
+    ste tmp(109,ptr to i8) tmp(108,ptr to i8) 
     arg imm(25,ptr to i8) 
     call output_string 
-    load tmp(85,ptr to i8) = local(21,ptr to i8) 
-    arg tmp(85,ptr to i8) 
+    load tmp(111,ptr to i8) = local(21,ptr to i8) 
+    arg tmp(111,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
@@ -349,69 +388,78 @@ function строки () { ; void
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
+    bitcast tmp(112,ptr to i8) = imm(0,i64) 
+    stre local(23,ptr to i8) tmp(112,ptr to i8) 
+    bitcast tmp(113,ptr to i8) = imm(0,i64) 
+    stre local(24,ptr to i8) tmp(113,ptr to i8) 
+    bitcast tmp(114,ptr to i8) = imm(0,i64) 
+    stre local(25,ptr to i8) tmp(114,ptr to i8) 
     arg imm(27,ptr to i8) 
-    call tmp(86,ptr to i8) = str_from_lit 
-    load tmp(87,ptr to i8) = local(23,ptr to i8) 
-    arg tmp(87,ptr to i8) 
+    call tmp(115,ptr to i8) = str_from_lit 
+    lea tmp(116,ptr to i8) = local(23,ptr to i8) 
+    lde tmp(117,ptr to i8) = tmp(116,ptr to i8) 
+    arg tmp(117,ptr to i8) 
     call str_release 
-    stre local(23,ptr to i8) tmp(86,ptr to i8) 
+    ste tmp(116,ptr to i8) tmp(115,ptr to i8) 
     arg imm(28,ptr to i8) 
-    call tmp(88,ptr to i8) = str_from_lit 
-    load tmp(89,ptr to i8) = local(24,ptr to i8) 
-    arg tmp(89,ptr to i8) 
+    call tmp(118,ptr to i8) = str_from_lit 
+    lea tmp(119,ptr to i8) = local(24,ptr to i8) 
+    lde tmp(120,ptr to i8) = tmp(119,ptr to i8) 
+    arg tmp(120,ptr to i8) 
     call str_release 
-    stre local(24,ptr to i8) tmp(88,ptr to i8) 
-    load tmp(90,ptr to i8) = local(23,ptr to i8) 
-    load tmp(91,ptr to i8) = local(24,ptr to i8) 
-    arg tmp(90,ptr to i8) 
-    arg tmp(91,ptr to i8) 
-    call tmp(92,i64) = поз 
-    stre local(26,i64) tmp(92,i64) 
+    ste tmp(119,ptr to i8) tmp(118,ptr to i8) 
+    load tmp(121,ptr to i8) = local(23,ptr to i8) 
+    load tmp(122,ptr to i8) = local(24,ptr to i8) 
+    arg tmp(121,ptr to i8) 
+    arg tmp(122,ptr to i8) 
+    call tmp(123,i64) = поз 
+    stre local(26,i64) tmp(123,i64) 
     arg imm(20,ptr to i8) 
     call output_string 
-    load tmp(93,ptr to i8) = local(23,ptr to i8) 
-    arg tmp(93,ptr to i8) 
+    load tmp(124,ptr to i8) = local(23,ptr to i8) 
+    arg tmp(124,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
     arg imm(29,ptr to i8) 
     call output_string 
-    load tmp(94,ptr to i8) = local(24,ptr to i8) 
-    arg tmp(94,ptr to i8) 
+    load tmp(125,ptr to i8) = local(24,ptr to i8) 
+    arg tmp(125,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
     arg imm(30,ptr to i8) 
     call output_string 
-    load tmp(95,i64) = local(26,i64) 
-    arg tmp(95,i64) 
+    load tmp(126,i64) = local(26,i64) 
+    arg tmp(126,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
     arg imm(31,ptr to i8) 
-    call tmp(96,ptr to i8) = str_from_lit 
-    load tmp(97,ptr to i8) = local(25,ptr to i8) 
-    arg tmp(97,ptr to i8) 
+    call tmp(127,ptr to i8) = str_from_lit 
+    lea tmp(128,ptr to i8) = local(25,ptr to i8) 
+    lde tmp(129,ptr to i8) = tmp(128,ptr to i8) 
+    arg tmp(129,ptr to i8) 
     call str_release 
-    stre local(25,ptr to i8) tmp(96,ptr to i8) 
-    load tmp(98,ptr to i8) = local(23,ptr to i8) 
-    load tmp(99,ptr to i8) = local(25,ptr to i8) 
-    arg tmp(98,ptr to i8) 
-    arg tmp(99,ptr to i8) 
-    call tmp(100,i64) = поз 
-    stre local(27,i64) tmp(100,i64) 
+    ste tmp(128,ptr to i8) tmp(127,ptr to i8) 
+    load tmp(130,ptr to i8) = local(23,ptr to i8) 
+    load tmp(131,ptr to i8) = local(25,ptr to i8) 
+    arg tmp(130,ptr to i8) 
+    arg tmp(131,ptr to i8) 
+    call tmp(132,i64) = поз 
+    stre local(27,i64) tmp(132,i64) 
     arg imm(29,ptr to i8) 
     call output_string 
-    load tmp(101,ptr to i8) = local(25,ptr to i8) 
-    arg tmp(101,ptr to i8) 
+    load tmp(133,ptr to i8) = local(25,ptr to i8) 
+    arg tmp(133,ptr to i8) 
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
     arg imm(32,ptr to i8) 
     call output_string 
-    load tmp(102,i64) = local(27,i64) 
-    arg tmp(102,i64) 
+    load tmp(134,i64) = local(27,i64) 
+    arg tmp(134,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
@@ -422,69 +470,75 @@ function строки () { ; void
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
+    bitcast tmp(135,ptr to i8) = imm(0,i64) 
+    stre local(28,ptr to i8) tmp(135,ptr to i8) 
+    bitcast tmp(136,ptr to i8) = imm(0,i64) 
+    stre local(29,ptr to i8) tmp(136,ptr to i8) 
     arg imm(27,ptr to i8) 
-    call tmp(103,ptr to i8) = str_from_lit 
-    load tmp(104,ptr to i8) = local(28,ptr to i8) 
-    arg tmp(104,ptr to i8) 
+    call tmp(137,ptr to i8) = str_from_lit 
+    lea tmp(138,ptr to i8) = local(28,ptr to i8) 
+    lde tmp(139,ptr to i8) = tmp(138,ptr to i8) 
+    arg tmp(139,ptr to i8) 
     call str_release 
-    stre local(28,ptr to i8) tmp(103,ptr to i8) 
+    ste tmp(138,ptr to i8) tmp(137,ptr to i8) 
     arg imm(28,ptr to i8) 
-    call tmp(105,ptr to i8) = str_from_lit 
-    load tmp(106,ptr to i8) = local(29,ptr to i8) 
-    arg tmp(106,ptr to i8) 
+    call tmp(140,ptr to i8) = str_from_lit 
+    lea tmp(141,ptr to i8) = local(29,ptr to i8) 
+    lde tmp(142,ptr to i8) = tmp(141,ptr to i8) 
+    arg tmp(142,ptr to i8) 
     call str_release 
-    stre local(29,ptr to i8) tmp(105,ptr to i8) 
-    load tmp(107,ptr to i8) = local(28,ptr to i8) 
-    load tmp(108,ptr to i8) = local(29,ptr to i8) 
-    arg tmp(107,ptr to i8) 
-    arg tmp(108,ptr to i8) 
-    call tmp(109,i64) = поз 
-    stre local(30,i64) tmp(109,i64) 
+    ste tmp(141,ptr to i8) tmp(140,ptr to i8) 
+    load tmp(143,ptr to i8) = local(28,ptr to i8) 
+    load tmp(144,ptr to i8) = local(29,ptr to i8) 
+    arg tmp(143,ptr to i8) 
+    arg tmp(144,ptr to i8) 
+    call tmp(145,i64) = поз 
+    stre local(30,i64) tmp(145,i64) 
     arg imm(34,ptr to i8) 
     call output_string 
-    load tmp(110,i64) = local(30,i64) 
-    arg tmp(110,i64) 
+    load tmp(146,i64) = local(30,i64) 
+    arg tmp(146,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(111,i64) = local(30,i64) 
-    + tmp(112,i64) = tmp(111,i64) imm(1,i64) 
-    load tmp(113,ptr to i8) = local(28,ptr to i8) 
-    load tmp(114,ptr to i8) = local(29,ptr to i8) 
-    arg tmp(112,i64) 
-    arg tmp(113,ptr to i8) 
-    arg tmp(114,ptr to i8) 
-    call tmp(115,i64) = поз после 
-    stre local(31,i64) tmp(115,i64) 
+    load tmp(147,i64) = local(30,i64) 
+    + tmp(148,i64) = tmp(147,i64) imm(1,i64) 
+    load tmp(149,ptr to i8) = local(28,ptr to i8) 
+    load tmp(150,ptr to i8) = local(29,ptr to i8) 
+    arg tmp(148,i64) 
+    arg tmp(149,ptr to i8) 
+    arg tmp(150,ptr to i8) 
+    call tmp(151,i64) = поз после 
+    stre local(31,i64) tmp(151,i64) 
     arg imm(35,ptr to i8) 
     call output_string 
-    load tmp(116,i64) = local(30,i64) 
-    + tmp(117,i64) = tmp(116,i64) imm(1,i64) 
-    arg tmp(117,i64) 
+    load tmp(152,i64) = local(30,i64) 
+    + tmp(153,i64) = tmp(152,i64) imm(1,i64) 
+    arg tmp(153,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(36,ptr to i8) 
     call output_string 
-    load tmp(118,i64) = local(31,i64) 
-    arg tmp(118,i64) 
+    load tmp(154,i64) = local(31,i64) 
+    arg tmp(154,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(119,i64) = local(31,i64) 
-    + tmp(120,i64) = tmp(119,i64) imm(1,i64) 
-    load tmp(121,ptr to i8) = local(28,ptr to i8) 
-    load tmp(122,ptr to i8) = local(29,ptr to i8) 
-    arg tmp(120,i64) 
-    arg tmp(121,ptr to i8) 
-    arg tmp(122,ptr to i8) 
-    call tmp(123,i64) = поз после 
-    stre local(32,i64) tmp(123,i64) 
+    load tmp(155,i64) = local(31,i64) 
+    + tmp(156,i64) = tmp(155,i64) imm(1,i64) 
+    load tmp(157,ptr to i8) = local(28,ptr to i8) 
+    load tmp(158,ptr to i8) = local(29,ptr to i8) 
+    arg tmp(156,i64) 
+    arg tmp(157,ptr to i8) 
+    arg tmp(158,ptr to i8) 
+    call tmp(159,i64) = поз после 
+    stre local(32,i64) tmp(159,i64) 
     arg imm(37,ptr to i8) 
     call output_string 
-    load tmp(124,i64) = local(32,i64) 
-    arg tmp(124,i64) 
+    load tmp(160,i64) = local(32,i64) 
+    arg tmp(160,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
@@ -495,59 +549,59 @@ function строки () { ; void
     call output_string 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(125,ptr to i8) = local(29,ptr to i8) 
-    arg tmp(125,ptr to i8) 
+    load tmp(161,ptr to i8) = local(29,ptr to i8) 
+    arg tmp(161,ptr to i8) 
     call str_release 
-    load tmp(126,ptr to i8) = local(28,ptr to i8) 
-    arg tmp(126,ptr to i8) 
+    load tmp(162,ptr to i8) = local(28,ptr to i8) 
+    arg tmp(162,ptr to i8) 
     call str_release 
-    load tmp(127,ptr to i8) = local(25,ptr to i8) 
-    arg tmp(127,ptr to i8) 
+    load tmp(163,ptr to i8) = local(25,ptr to i8) 
+    arg tmp(163,ptr to i8) 
     call str_release 
-    load tmp(128,ptr to i8) = local(24,ptr to i8) 
-    arg tmp(128,ptr to i8) 
+    load tmp(164,ptr to i8) = local(24,ptr to i8) 
+    arg tmp(164,ptr to i8) 
     call str_release 
-    load tmp(129,ptr to i8) = local(23,ptr to i8) 
-    arg tmp(129,ptr to i8) 
+    load tmp(165,ptr to i8) = local(23,ptr to i8) 
+    arg tmp(165,ptr to i8) 
     call str_release 
-    load tmp(130,ptr to i8) = local(21,ptr to i8) 
-    arg tmp(130,ptr to i8) 
+    load tmp(166,ptr to i8) = local(21,ptr to i8) 
+    arg tmp(166,ptr to i8) 
     call str_release 
-    load tmp(131,ptr to i8) = local(20,ptr to i8) 
-    arg tmp(131,ptr to i8) 
+    load tmp(167,ptr to i8) = local(20,ptr to i8) 
+    arg tmp(167,ptr to i8) 
     call str_release 
-    load tmp(132,ptr to i8) = local(19,ptr to i8) 
-    arg tmp(132,ptr to i8) 
+    load tmp(168,ptr to i8) = local(19,ptr to i8) 
+    arg tmp(168,ptr to i8) 
     call str_release 
-    load tmp(133,ptr to i8) = local(18,ptr to i8) 
-    arg tmp(133,ptr to i8) 
+    load tmp(169,ptr to i8) = local(18,ptr to i8) 
+    arg tmp(169,ptr to i8) 
     call str_release 
-    load tmp(134,ptr to i8) = local(17,ptr to i8) 
-    arg tmp(134,ptr to i8) 
+    load tmp(170,ptr to i8) = local(17,ptr to i8) 
+    arg tmp(170,ptr to i8) 
     call str_release 
-    load tmp(135,ptr to i8) = local(16,ptr to i8) 
-    arg tmp(135,ptr to i8) 
+    load tmp(171,ptr to i8) = local(16,ptr to i8) 
+    arg tmp(171,ptr to i8) 
     call str_release 
-    load tmp(136,ptr to i8) = local(6,ptr to i8) 
-    arg tmp(136,ptr to i8) 
+    load tmp(172,ptr to i8) = local(6,ptr to i8) 
+    arg tmp(172,ptr to i8) 
     call str_release 
-    load tmp(137,ptr to i8) = local(5,ptr to i8) 
-    arg tmp(137,ptr to i8) 
+    load tmp(173,ptr to i8) = local(5,ptr to i8) 
+    arg tmp(173,ptr to i8) 
     call str_release 
-    load tmp(138,ptr to i8) = local(4,ptr to i8) 
-    arg tmp(138,ptr to i8) 
+    load tmp(174,ptr to i8) = local(4,ptr to i8) 
+    arg tmp(174,ptr to i8) 
     call str_release 
-    load tmp(139,ptr to i8) = local(3,ptr to i8) 
-    arg tmp(139,ptr to i8) 
+    load tmp(175,ptr to i8) = local(3,ptr to i8) 
+    arg tmp(175,ptr to i8) 
     call str_release 
-    load tmp(140,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(140,ptr to i8) 
+    load tmp(176,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(176,ptr to i8) 
     call str_release 
-    load tmp(141,ptr to i8) = local(1,ptr to i8) 
-    arg tmp(141,ptr to i8) 
+    load tmp(177,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(177,ptr to i8) 
     call str_release 
-    load tmp(142,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(142,ptr to i8) 
+    load tmp(178,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(178,ptr to i8) 
     call str_release 
     jmp label(1) 
   }
