@@ -6,4 +6,6 @@
       (replace s (own-literal "ABCЙЦУКcbv"))
       (call удалить s 5 4)
       (replace знач (retain (borrow s)))
-      (return знач))))
+      (block
+        (var __lifetime_0 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_0)) (destroy s) (destroy знач))))))

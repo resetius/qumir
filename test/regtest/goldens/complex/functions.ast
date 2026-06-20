@@ -19,17 +19,17 @@
         (call output_string " Im=")
         (call output_double (field (: b <named компл>) im) 0 -1)
         (call output_string "\n"))
-      (return)))
+      (cleanup-exit (return))))
   (fun real_part ((var z <named компл>)) -> f64
     (block
       (var знач f64)
       (= знач (field (: z <named компл>) re))
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun imag_part ((var z <named компл>)) -> f64
     (block
       (var знач f64)
       (= знач (field (: z <named компл>) im))
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun make_complex ((var re f64)
       (var im f64)) -> <named компл>
     (block
@@ -60,7 +60,7 @@
                     <named компл>)
                   im)))))
           <named компл>))
-      (return (: знач <named компл>))))
+      (cleanup-exit (return (: знач <named компл>)))))
   (fun add_twice ((var a <named компл>)
       (var b <named компл>)) -> <named компл>
     (block
@@ -79,4 +79,4 @@
                   im)
                 (field (: b <named компл>) im)))))
           <named компл>))
-      (return (: знач <named компл>)))))
+      (cleanup-exit (return (: знач <named компл>))))))

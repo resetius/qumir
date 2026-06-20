@@ -6,4 +6,4 @@
       (= ф 0)
       (repeat (block (= ф (+ ф 1))) (! (== ф 10)))
       (= знач ф)
-      (return знач))))
+      (cleanup-exit (return знач)))))

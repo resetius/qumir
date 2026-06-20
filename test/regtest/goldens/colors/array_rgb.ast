@@ -41,4 +41,4 @@
             (call output_symbol (cast 32 char))
             (call output_int64 b 0)
             (call output_string "\n"))))
-      (return))))
+      (cleanup-exit (return)))))

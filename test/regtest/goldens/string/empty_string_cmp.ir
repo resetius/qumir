@@ -158,13 +158,13 @@ function тест_граничные_пустая_строка () { ; i64
     load tmp(48,i64) = local(3,i64) 
     stre local(0,i64) tmp(48,i64) 
     load tmp(49,i64) = local(0,i64) 
+    stre local(6,i64) tmp(49,i64) 
     load tmp(50,ptr to i8) = local(2,ptr to i8) 
     arg tmp(50,ptr to i8) 
     call str_release 
     load tmp(51,ptr to i8) = local(1,ptr to i8) 
     arg tmp(51,ptr to i8) 
     call str_release 
-    stre local(6,i64) tmp(49,i64) 
     jmp label(1) 
   }
   block {

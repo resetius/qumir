@@ -11,4 +11,4 @@
       (= M a)
       (if (>= b a) (block (= M b)))
       (= знач M)
-      (return знач))))
+      (cleanup-exit (return знач)))))

@@ -6,4 +6,4 @@
       (= i 2)
       (if (! (== i 3)) (block (= i 1)))
       (= знач i)
-      (return знач))))
+      (cleanup-exit (return знач)))))

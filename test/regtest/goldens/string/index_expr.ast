@@ -14,4 +14,6 @@
               (var __lifetime_1 = (call str_symbol_at (borrow __lifetime_0) 10))
               (destroy __lifetime_0)
               __lifetime_1))))
-      (return знач))))
+      (block
+        (var __lifetime_2 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_2)) (destroy с) (destroy знач))))))

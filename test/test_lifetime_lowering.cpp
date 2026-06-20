@@ -273,19 +273,17 @@ TEST(LifetimeLowering, RewrittenSideEffectingIndexIsEvaluatedOnce) {
         "arg call:str_from_lit call:input_int64 load * + lde arg call:str_release ste jmp ret");
 }
 
-TEST(LifetimeLowering, StructuredCleanupNodesHaveDedicatedErrors) {
-    auto exitResult = Lower({}, {
+TEST(LifetimeLowering, StructuredCleanupExitLowersItsActionsBeforeExit) {
+    ExpectTrace({}, {
         std::make_shared<TCleanupExitExpr>(
             TLocation{},
             ECleanupExitKind::Return,
             nullptr,
-            std::vector<TExprPtr>{}),
-    });
-    ASSERT_FALSE(exitResult.has_value());
-    EXPECT_NE(
-        exitResult.error().ToString().find("cleanup-exit lowering is not implemented"),
-        std::string::npos);
+            std::vector<TExprPtr>{Destroy(OwnedLiteral())}),
+    }, "arg call:str_from_lit arg call:str_release jmp ret");
+}
 
+TEST(LifetimeLowering, GlobalCleanupHasDedicatedError) {
     auto globalResult = Lower({}, {
         std::make_shared<TGlobalCleanupExpr>(
             TLocation{},

@@ -8,4 +8,4 @@
           (var __lifetime_1 = (call длин (borrow __lifetime_0)))
           (destroy __lifetime_0)
           __lifetime_1))
-      (return знач))))
+      (cleanup-exit (return знач)))))

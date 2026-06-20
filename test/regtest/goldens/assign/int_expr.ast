@@ -5,4 +5,4 @@
       (var i i64)
       (= i (call div (* (+ 2 3) 7) 4))
       (= знач i)
-      (return знач))))
+      (cleanup-exit (return знач)))))

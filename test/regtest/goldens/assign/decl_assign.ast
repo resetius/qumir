@@ -5,4 +5,4 @@
       (var а i64)
       (= а (+ 10 2))
       (= знач а)
-      (return знач))))
+      (cleanup-exit (return знач)))))

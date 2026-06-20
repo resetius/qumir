@@ -7,4 +7,6 @@
       (replace с (own-literal "строка"))
       (= i 1)
       (replace знач (move (call str_from_unicode (call str_symbol_at (borrow с) (* i 2)))))
-      (return знач))))
+      (block
+        (var __lifetime_0 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_0)) (destroy с) (destroy знач))))))

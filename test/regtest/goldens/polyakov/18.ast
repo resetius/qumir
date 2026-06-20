@@ -11,7 +11,7 @@
         (destroy __lifetime_0))
       (block
         (call output_string (borrow s)))
-      (return)))
+      (cleanup-exit (return) (destroy s))))
   (fun replaceAll ((var s <ref string>)
       (var wOld string)
       (var wNew string))
@@ -25,7 +25,7 @@
         (> (call длин (borrow s)) 0)
         (block
           (= p (call позиция (borrow wOld) (borrow s)))
-          (if (< p 0) (block (replace res (move (call str_concat (borrow res) (borrow s)))) break))
+          (if (< p 0) (block (replace res (move (call str_concat (borrow res) (borrow s)))) (cleanup-exit (break))))
           (if
             (> p 1)
             (block
@@ -45,4 +45,4 @@
             (block
               (replace s (move (call str_slice (borrow s) (+ p len) (call длин (borrow s)))))))))
       (replace s (retain (borrow res)))
-      (return))))
+      (cleanup-exit (return) (destroy res)))))

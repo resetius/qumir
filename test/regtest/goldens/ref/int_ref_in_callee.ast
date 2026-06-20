@@ -6,8 +6,8 @@
       (= i 1)
       (call ф i)
       (= знач i)
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun ф ((var i <ref i64>))
     (block
       (= i (+ i 5))
-      (return))))
+      (cleanup-exit (return)))))

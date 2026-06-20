@@ -5,4 +5,4 @@
       (var c = (bitcast 0 string))
       (replace c (own-literal "строка"))
       (= знач (call длин (borrow c)))
-      (return знач))))
+      (cleanup-exit (return знач) (destroy c)))))

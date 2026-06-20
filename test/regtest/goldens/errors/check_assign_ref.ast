@@ -7,4 +7,4 @@
       (block
         (call output_bool успех)
         (call output_string "\n"))
-      (return))))
+      (cleanup-exit (return)))))

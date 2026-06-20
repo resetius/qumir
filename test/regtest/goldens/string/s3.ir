@@ -22,16 +22,18 @@ function ф () { ; ptr to i8
     load tmp(7,ptr to i8) = local(0,ptr to i8) 
     arg tmp(7,ptr to i8) 
     call str_retain 
-    load tmp(8,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(8,ptr to i8) 
-    call str_release 
     stre local(2,ptr to i8) tmp(7,ptr to i8) 
+    load tmp(8,ptr to i8) = local(2,ptr to i8) 
+    stre local(3,ptr to i8) tmp(8,ptr to i8) 
+    load tmp(9,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(9,ptr to i8) 
+    call str_release 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(9,ptr to i8) = local(2,ptr to i8) 
-    ret tmp(9,ptr to i8) 
+    load tmp(10,ptr to i8) = local(3,ptr to i8) 
+    ret tmp(10,ptr to i8) 
   }
 }
 function g (local(0)) { ; void

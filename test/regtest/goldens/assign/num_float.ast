@@ -5,4 +5,4 @@
       (var i f64)
       (= i (- 2))
       (= знач i)
-      (return знач))))
+      (cleanup-exit (return знач)))))

@@ -6,4 +6,4 @@
       (block
         (= i (call input_int64)))
       (= знач i)
-      (return знач))))
+      (cleanup-exit (return знач)))))

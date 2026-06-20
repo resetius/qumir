@@ -13,4 +13,4 @@
           (= k 2)
           (while (<= (* k k) n) (block (if (== (call mod n k) 0) (block (= count (+ count 1)))) (= k (+ k 1))))
           (if (== count 0) (block (block (call output_int64 n 0) (call output_string "\n"))))))
-      (return))))
+      (cleanup-exit (return)))))

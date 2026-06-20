@@ -8,4 +8,4 @@
       (= j 2)
       (if (!= i j) (block (= i 1)) (block (= i 2)))
       (= знач i)
-      (return знач))))
+      (cleanup-exit (return знач)))))

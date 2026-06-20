@@ -9,4 +9,4 @@
       (var b f64)
       (var c f64)
       (= знач (- 1.1000000000000001))
-      (return знач))))
+      (cleanup-exit (return знач)))))

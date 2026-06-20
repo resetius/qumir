@@ -45,4 +45,4 @@
         (block
           (= r (+ r 1))))
       (= знач r)
-      (return знач))))
+      (cleanup-exit (return знач) (destroy t)))))

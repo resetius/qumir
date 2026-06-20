@@ -15,4 +15,4 @@
         (call output_symbol (cast 32 char))
         (call output_bool b)
         (call output_string "\n"))
-      (return))))
+      (cleanup-exit (return)))))

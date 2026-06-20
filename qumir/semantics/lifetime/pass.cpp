@@ -112,9 +112,9 @@ bool IsNullString(const TExprPtr& expr) {
     return number && !number.Cast()->IsFloat() && number.Cast()->IntValue == 0;
 }
 
-class TStringAssignmentRewriter {
+class TLifetimeRewriter {
 public:
-    TStringAssignmentRewriter(
+    TLifetimeRewriter(
         TNameResolver& context,
         TSyntheticNameGenerator& syntheticNames)
         : Context_(context)
@@ -126,6 +126,149 @@ public:
     }
 
 private:
+    struct TLocal {
+        TLocation Location;
+        std::string Name;
+        TTypePtr Type;
+    };
+
+    struct TLifetimeScope {
+        std::vector<TLocal> Locals;
+    };
+
+    // Builds cleanup actions for active scopes in lexical LIFO order.
+    std::vector<TExprPtr> MakeCleanups(size_t firstScope) const {
+        std::vector<TExprPtr> cleanups;
+        for (size_t scopeIndex = Scopes_.size(); scopeIndex-- > firstScope; ) {
+            const auto& locals = Scopes_[scopeIndex].Locals;
+            for (auto local = locals.rbegin(); local != locals.rend(); ++local) {
+                auto value = std::make_shared<TIdentExpr>(local->Location, local->Name);
+                value->Type = local->Type;
+                cleanups.push_back(std::make_shared<TDestroyExpr>(
+                    local->Location,
+                    std::move(value)));
+            }
+        }
+        return cleanups;
+    }
+
+    // Detects exits after which the current lexical block cannot fall through.
+    bool AlwaysExits(const TExprPtr& expr) const {
+        if (TMaybeNode<TCleanupExitExpr>(expr)) {
+            return true;
+        }
+        if (auto block = TMaybeNode<TBlockExpr>(expr)) {
+            for (const auto& statement : block.Cast()->Stmts) {
+                if (AlwaysExits(statement)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (auto branch = TMaybeNode<TIfExpr>(expr)) {
+            return branch.Cast()->Else
+                && AlwaysExits(branch.Cast()->Then)
+                && AlwaysExits(branch.Cast()->Else);
+        }
+        return false;
+    }
+
+    // Converts a source return into a value-preserving structured cleanup exit.
+    std::expected<bool, TError> RewriteReturn(
+        TExprPtr& expr,
+        const std::shared_ptr<TReturnExpr>& returnExpr,
+        TScopeId scopeId)
+    {
+        if (!FunctionBoundary_) {
+            return std::unexpected(TError(returnExpr->Location, "`return` outside function."));
+        }
+        if (returnExpr->Value) {
+            auto rewritten = RewriteExpr(returnExpr->Value, scopeId, true);
+            if (!rewritten) {
+                return std::unexpected(rewritten.error());
+            }
+        }
+
+        auto cleanups = MakeCleanups(*FunctionBoundary_);
+        TExprPtr value = std::move(returnExpr->Value);
+        if (value && IsString(value->Type)) {
+            auto owned = RequireOwned(std::move(value));
+            if (!owned) {
+                return std::unexpected(owned.error());
+            }
+            const auto resultName = SyntheticNames_.Next();
+            auto result = std::make_shared<TVarStmt>(
+                returnExpr->Location,
+                resultName,
+                std::make_shared<TStringType>());
+            result->Init = std::move(owned.value());
+            auto resultValue = std::make_shared<TIdentExpr>(
+                returnExpr->Location,
+                resultName);
+            resultValue->Type = result->Type;
+            auto exit = std::make_shared<TCleanupExitExpr>(
+                returnExpr->Location,
+                ECleanupExitKind::Return,
+                std::make_shared<TMoveExpr>(
+                    returnExpr->Location,
+                    std::move(resultValue)),
+                std::move(cleanups));
+            auto wrapper = std::make_shared<TBlockExpr>(
+                returnExpr->Location,
+                std::vector<TExprPtr>{std::move(result), std::move(exit)});
+            wrapper->SkipDestructors = true;
+            wrapper->Type = std::make_shared<TVoidType>();
+            expr = std::move(wrapper);
+            return true;
+        }
+
+        expr = std::make_shared<TCleanupExitExpr>(
+            returnExpr->Location,
+            ECleanupExitKind::Return,
+            std::move(value),
+            std::move(cleanups));
+        return true;
+    }
+
+    // Converts break/continue into an exit carrying only iteration-local cleanup.
+    std::expected<bool, TError> RewriteLoopExit(
+        TExprPtr& expr,
+        ECleanupExitKind kind)
+    {
+        if (LoopBoundaries_.empty()) {
+            return std::unexpected(TError(expr->Location, "Loop exit outside loop."));
+        }
+        expr = std::make_shared<TCleanupExitExpr>(
+            expr->Location,
+            kind,
+            nullptr,
+            MakeCleanups(LoopBoundaries_.back()));
+        return true;
+    }
+
+    // Rewrites loop operands normally and gives its body an iteration boundary.
+    std::expected<bool, TError> RewriteLoop(
+        std::vector<TExprPtr*> operands,
+        TExprPtr& body,
+        TScopeId scopeId)
+    {
+        bool changed = false;
+        for (auto* operand : operands) {
+            auto result = RewriteExpr(*operand, scopeId, true);
+            if (!result) {
+                return std::unexpected(result.error());
+            }
+            changed = result.value() || changed;
+        }
+        LoopBoundaries_.push_back(Scopes_.size());
+        auto result = RewriteExpr(body, scopeId, false);
+        LoopBoundaries_.pop_back();
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+        return result.value() || changed;
+    }
+
     std::expected<bool, TError> RewriteBlock(
         const std::shared_ptr<TBlockExpr>& block,
         TScopeId parentScope,
@@ -134,6 +277,7 @@ private:
         auto scopeId = block->Scope >= 0
             ? TScopeId{block->Scope}
             : parentScope;
+        Scopes_.push_back({});
         bool changed = false;
         std::vector<TExprPtr> statements;
         statements.reserve(block->Stmts.size());
@@ -167,6 +311,13 @@ private:
             {
                 if (IsNullString(variable.Cast()->Init)) {
                     statements.push_back(statement);
+                    if (FunctionBoundary_) {
+                        Scopes_.back().Locals.push_back({
+                            variable.Cast()->Location,
+                            variable.Cast()->Name,
+                            variable.Cast()->Type,
+                        });
+                    }
                     continue;
                 }
                 auto init = std::move(variable.Cast()->Init);
@@ -193,6 +344,13 @@ private:
                         variable.Cast()->Location,
                         std::move(target),
                         std::move(owned.value())));
+                }
+                if (FunctionBoundary_) {
+                    Scopes_.back().Locals.push_back({
+                        variable.Cast()->Location,
+                        variable.Cast()->Name,
+                        variable.Cast()->Type,
+                    });
                 }
                 continue;
             }
@@ -222,7 +380,20 @@ private:
             }
             statements.push_back(statement);
         }
+        const bool fallsThrough = !AlwaysExits(
+            std::make_shared<TBlockExpr>(block->Location, statements));
+        if (FunctionBoundary_ && !block->SkipDestructors && fallsThrough) {
+            auto cleanups = MakeCleanups(Scopes_.size() - 1);
+            if (!cleanups.empty()) {
+                statements.insert(
+                    statements.end(),
+                    std::make_move_iterator(cleanups.begin()),
+                    std::make_move_iterator(cleanups.end()));
+                changed = true;
+            }
+        }
         block->Stmts = std::move(statements);
+        Scopes_.pop_back();
         return changed;
     }
 
@@ -529,12 +700,15 @@ private:
             return RewriteBlock(block.Cast(), scopeId, resultUsed);
         }
         if (auto function = TMaybeNode<TFunDecl>(expr)) {
+            const auto previousFunctionBoundary = FunctionBoundary_;
+            FunctionBoundary_ = Scopes_.size();
             TExprPtr body = function.Cast()->Body;
             auto result = RewriteExpr(
                 body,
                 TScopeId{function.Cast()->Scope},
                 !TMaybeType<TVoidType>(function.Cast()->RetType));
             if (!result) {
+                FunctionBoundary_ = previousFunctionBoundary;
                 return result;
             }
             function.Cast()->Body = std::static_pointer_cast<TBlockExpr>(body);
@@ -545,11 +719,37 @@ private:
                     TScopeId{function.Cast()->Scope},
                     false);
                 if (!assertResult) {
+                    FunctionBoundary_ = previousFunctionBoundary;
                     return assertResult;
                 }
                 changed = assertResult.value() || changed;
             }
+            FunctionBoundary_ = previousFunctionBoundary;
             return changed;
+        }
+        if (auto returnExpr = TMaybeNode<TReturnExpr>(expr)) {
+            return RewriteReturn(expr, returnExpr.Cast(), scopeId);
+        }
+        if (TMaybeNode<TBreakStmt>(expr)) {
+            return RewriteLoopExit(expr, ECleanupExitKind::Break);
+        }
+        if (TMaybeNode<TContinueStmt>(expr)) {
+            return RewriteLoopExit(expr, ECleanupExitKind::Continue);
+        }
+        if (auto loop = TMaybeNode<TWhileStmtExpr>(expr)) {
+            return RewriteLoop({&loop.Cast()->Cond}, loop.Cast()->Body, scopeId);
+        }
+        if (auto loop = TMaybeNode<TRepeatStmtExpr>(expr)) {
+            return RewriteLoop({&loop.Cast()->Cond}, loop.Cast()->Body, scopeId);
+        }
+        if (auto loop = TMaybeNode<TForStmtExpr>(expr)) {
+            return RewriteLoop(
+                {&loop.Cast()->From, &loop.Cast()->To, &loop.Cast()->Step},
+                loop.Cast()->Body,
+                scopeId);
+        }
+        if (auto loop = TMaybeNode<TTimesStmtExpr>(expr)) {
+            return RewriteLoop({&loop.Cast()->Count}, loop.Cast()->Body, scopeId);
         }
         if (auto assign = TMaybeNode<TAssignExpr>(expr)) {
             return RewriteAssign(expr, assign.Cast(), scopeId);
@@ -580,6 +780,9 @@ private:
 
     TNameResolver& Context_;
     TSyntheticNameGenerator& SyntheticNames_;
+    std::vector<TLifetimeScope> Scopes_;
+    std::vector<size_t> LoopBoundaries_;
+    std::optional<size_t> FunctionBoundary_;
 };
 
 } // namespace
@@ -589,7 +792,7 @@ std::expected<bool, TError> LifetimePass(
     TNameResolver& context,
     TSyntheticNameGenerator& syntheticNames)
 {
-    return TStringAssignmentRewriter(context, syntheticNames).Rewrite(expr);
+    return TLifetimeRewriter(context, syntheticNames).Rewrite(expr);
 }
 
 } // namespace NSemantics

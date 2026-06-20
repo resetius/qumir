@@ -7,9 +7,11 @@
         (call g (borrow __lifetime_0))
         (destroy __lifetime_0))
       (replace знач (own-literal "ok"))
-      (return знач)))
+      (block
+        (var __lifetime_1 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_1)) (destroy знач)))))
   (fun g ((var й string))
     (block
       (var к = (bitcast 0 string))
       (replace к (retain (borrow й)))
-      (return))))
+      (cleanup-exit (return) (destroy к)))))

@@ -36,18 +36,20 @@ function ф () { ; ptr to i8
     load tmp(14,ptr to i8) = local(0,ptr to i8) 
     arg tmp(14,ptr to i8) 
     call str_retain 
-    load tmp(15,ptr to i8) = local(1,ptr to i8) 
-    arg tmp(15,ptr to i8) 
-    call str_release 
-    load tmp(16,ptr to i8) = local(0,ptr to i8) 
+    stre local(4,ptr to i8) tmp(14,ptr to i8) 
+    load tmp(15,ptr to i8) = local(4,ptr to i8) 
+    stre local(5,ptr to i8) tmp(15,ptr to i8) 
+    load tmp(16,ptr to i8) = local(1,ptr to i8) 
     arg tmp(16,ptr to i8) 
     call str_release 
-    stre local(4,ptr to i8) tmp(14,ptr to i8) 
+    load tmp(17,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(17,ptr to i8) 
+    call str_release 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(17,ptr to i8) = local(4,ptr to i8) 
-    ret tmp(17,ptr to i8) 
+    load tmp(18,ptr to i8) = local(5,ptr to i8) 
+    ret tmp(18,ptr to i8) 
   }
 }

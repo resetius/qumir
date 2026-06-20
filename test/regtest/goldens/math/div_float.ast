@@ -7,4 +7,4 @@
       (= a 7)
       (= b 2)
       (= знач (/ (cast a f64) (cast b f64)))
-      (return знач))))
+      (cleanup-exit (return знач)))))

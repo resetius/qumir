@@ -11,4 +11,4 @@
         (block
           (block
             (call output_string "не подходит"))))
-      (return))))
+      (cleanup-exit (return)))))

@@ -7,7 +7,7 @@
       (= ф 0)
       (for i 1 1000 1 (block (= ф (call факториал 13))))
       (= знач ф)
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun факториал ((var число i64)) -> i64
     (block
       (var знач i64)
@@ -18,4 +18,4 @@
           (= знач 1))
         (block
           (= знач (* число (call факториал (- число 1))))))
-      (return знач))))
+      (cleanup-exit (return знач)))))

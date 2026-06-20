@@ -17,4 +17,4 @@
       (if (>= (call str_compare (borrow a2) (borrow a2)) 0) (block (= r (+ r 1))))
       (if (<= (call str_compare (borrow a2) (borrow a2)) 0) (block (= r (+ r 1))))
       (= знач r)
-      (return знач))))
+      (cleanup-exit (return знач) (destroy a3) (destroy a2) (destroy a1)))))

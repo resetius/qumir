@@ -114,4 +114,4 @@
         (call output_string " Im=")
         (call output_double (field (: c <named компл>) im) 0 -1)
         (call output_string "\n"))
-      (return))))
+      (cleanup-exit (return)))))

@@ -125,18 +125,20 @@ function replaceBad (local(0), local(1), local(2)) { ; ptr to i8
     load tmp(28,ptr to i8) = local(3,ptr to i8) 
     arg tmp(28,ptr to i8) 
     call str_retain 
-    load tmp(29,ptr to i8) = local(4,ptr to i8) 
-    arg tmp(29,ptr to i8) 
-    call str_release 
-    load tmp(30,ptr to i8) = local(3,ptr to i8) 
+    stre local(7,ptr to i8) tmp(28,ptr to i8) 
+    load tmp(29,ptr to i8) = local(7,ptr to i8) 
+    stre local(8,ptr to i8) tmp(29,ptr to i8) 
+    load tmp(30,ptr to i8) = local(4,ptr to i8) 
     arg tmp(30,ptr to i8) 
     call str_release 
-    stre local(7,ptr to i8) tmp(28,ptr to i8) 
+    load tmp(31,ptr to i8) = local(3,ptr to i8) 
+    arg tmp(31,ptr to i8) 
+    call str_release 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(31,ptr to i8) = local(7,ptr to i8) 
-    ret tmp(31,ptr to i8) 
+    load tmp(32,ptr to i8) = local(8,ptr to i8) 
+    ret tmp(32,ptr to i8) 
   }
 }

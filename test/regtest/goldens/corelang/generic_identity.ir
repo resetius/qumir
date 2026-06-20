@@ -70,12 +70,14 @@ function __generic_identity$String (local(0)) { ; ptr to i8
     arg tmp(0,ptr to i8) 
     call str_retain 
     stre local(1,ptr to i8) tmp(0,ptr to i8) 
+    load tmp(1,ptr to i8) = local(1,ptr to i8) 
+    stre local(2,ptr to i8) tmp(1,ptr to i8) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(1,ptr to i8) = local(1,ptr to i8) 
-    ret tmp(1,ptr to i8) 
+    load tmp(2,ptr to i8) = local(2,ptr to i8) 
+    ret tmp(2,ptr to i8) 
   }
 }
 function __generic_identity$Float (local(0)) { ; f64

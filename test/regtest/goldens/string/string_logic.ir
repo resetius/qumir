@@ -341,13 +341,13 @@ function тест_логика_строки_символы () { ; i64
     load tmp(103,i64) = local(5,i64) 
     stre local(0,i64) tmp(103,i64) 
     load tmp(104,i64) = local(0,i64) 
+    stre local(16,i64) tmp(104,i64) 
     load tmp(105,ptr to i8) = local(2,ptr to i8) 
     arg tmp(105,ptr to i8) 
     call str_release 
     load tmp(106,ptr to i8) = local(1,ptr to i8) 
     arg tmp(106,ptr to i8) 
     call str_release 
-    stre local(16,i64) tmp(104,i64) 
     jmp label(1) 
   }
   block {

@@ -42,7 +42,7 @@
           (call compute_residual n x b r w)
           (= beta (call norm2 n r))
           (= rnorm beta)
-          (if (<= rnorm tol) (block break))
+          (if (<= rnorm tol) (block (cleanup-exit (break))))
           (for i 0 (- n 1) 1 (block (= V [0 i] (/ (index r i) beta))))
           (= g [0] beta)
           (for j 1 m 1 (block (= g [j] 0)))
@@ -98,7 +98,7 @@
               (= g [j] tmp)
               (= rnorm (index g (+ j 1)))
               (if (< rnorm 0) (block (= rnorm (- rnorm))))
-              (if (<= rnorm tol) (block (= jArn j) break))))
+              (if (<= rnorm tol) (block (= jArn j) (cleanup-exit (break))))))
           (for i 0 jArn 1 (block (= y [i] 0)))
           (for i
             jArn
@@ -118,7 +118,7 @@
               (= x [k] (+ (index x k) sum))))
           (call compute_residual n x b r w)
           (= rnorm (call norm2 n r))
-          (if (<= rnorm tol) (block break))
+          (if (<= rnorm tol) (block (cleanup-exit (break))))
           (= it (+ it 1))))
       (call compute_residual n x b r w)
       (var res_l2_sq f64)
@@ -155,7 +155,7 @@
         (call output_string "||r||_inf= ")
         (call output_double res_inf 8 8)
         (call output_string "\n"))
-      (return)))
+      (cleanup-exit (return))))
   (fun matvec ((var n i64)
       (var v <array f64 1> [0 (- n 1)])
       (var w <array <f64 (mutable)> 1> [0 (- n 1)]))
@@ -171,7 +171,7 @@
           (= sum 0)
           (for j 0 (- n 1) 1 (block (= sum (+ sum (* (/ 1 (+ (cast (+ i j) f64) 1)) (index v j))))))
           (= w [i] sum)))
-      (return)))
+      (cleanup-exit (return))))
   (fun norm2 ((var n i64)
       (var v <array f64 1> [0 (- n 1)])) -> f64
     (block
@@ -181,7 +181,7 @@
       (= sum 0)
       (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index v i) (index v i))))))
       (= знач (call sqrt sum))
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun dot ((var n i64)
       (var a <array f64 1> [0 (- n 1)])
       (var b <array f64 1> [0 (- n 1)])) -> f64
@@ -192,7 +192,7 @@
       (= sum 0)
       (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index a i) (index b i))))))
       (= знач sum)
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun compute_residual ((var n i64)
       (var x <array f64 1> [0 (- n 1)])
       (var b <array f64 1> [0 (- n 1)])
@@ -202,4 +202,4 @@
       (var i i64)
       (call matvec n x w)
       (for i 0 (- n 1) 1 (block (= r [i] (- (index b i) (index w i)))))
-      (return))))
+      (cleanup-exit (return)))))

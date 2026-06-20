@@ -6,8 +6,8 @@
       (= x 1.5)
       (call g x)
       (= знач (* x 2))
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun g ((var x <ref <f64 (mutable)>>))
     (block
       (= x 3.25)
-      (return))))
+      (cleanup-exit (return)))))

@@ -160,6 +160,7 @@ function тест_лексикографический_порядок () { ; i64
     load tmp(50,i64) = local(4,i64) 
     stre local(0,i64) tmp(50,i64) 
     load tmp(51,i64) = local(0,i64) 
+    stre local(5,i64) tmp(51,i64) 
     load tmp(52,ptr to i8) = local(3,ptr to i8) 
     arg tmp(52,ptr to i8) 
     call str_release 
@@ -169,7 +170,6 @@ function тест_лексикографический_порядок () { ; i64
     load tmp(54,ptr to i8) = local(1,ptr to i8) 
     arg tmp(54,ptr to i8) 
     call str_release 
-    stre local(5,i64) tmp(51,i64) 
     jmp label(1) 
   }
   block {

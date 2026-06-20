@@ -8,4 +8,4 @@
         (call output_string "\n"))
       (block
         (call output_string "Ответ: 4"))
-      (return))))
+      (cleanup-exit (return)))))

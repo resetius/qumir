@@ -5,12 +5,14 @@
       (var s = (bitcast 0 string))
       (call инит s)
       (replace знач (retain (borrow s)))
-      (return знач)))
+      (block
+        (var __lifetime_0 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_0)) (destroy s) (destroy знач)))))
   (fun инит ((var s <ref <string (mutable)>>))
     (block
       (call deep s)
-      (return)))
+      (cleanup-exit (return))))
   (fun deep ((var s <ref <string (mutable)>>))
     (block
       (replace s (own-literal "abc"))
-      (return))))
+      (cleanup-exit (return)))))

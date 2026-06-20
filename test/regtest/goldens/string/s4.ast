@@ -6,7 +6,9 @@
       (replace s (move (call str_concat "11 " "10")))
       (replace s (move (call ф 10)))
       (replace знач (retain (borrow s)))
-      (return знач)))
+      (block
+        (var __lifetime_0 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_0)) (destroy s) (destroy знач)))))
   (fun ф ((var k i64)) -> string
     (block
       (var знач = (bitcast 0 string))
@@ -17,4 +19,6 @@
       (replace знач (retain (borrow стр)))
       (= j 0)
       (for i 0 10 1 (block (= j (+ j 1))))
-      (return знач))))
+      (block
+        (var __lifetime_1 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_1)) (destroy стр) (destroy знач))))))

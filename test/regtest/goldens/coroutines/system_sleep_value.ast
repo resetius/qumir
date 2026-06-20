@@ -3,10 +3,10 @@
     (block
       (var знач i64)
       (= знач (await (call delayed)))
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun delayed () -> <future i64>
     (block
       (var знач i64)
       (await (call ждать 0))
       (= знач 7)
-      (return знач))))
+      (cleanup-exit (return знач)))))

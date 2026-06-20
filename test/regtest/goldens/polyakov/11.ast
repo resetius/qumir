@@ -10,7 +10,7 @@
         (call output_int64 x 0)
         (call output_symbol (cast 32 char))
         (call output_int64 y 0))
-      (return)))
+      (cleanup-exit (return))))
   (fun Swap ((var a <ref i64>)
       (var b <ref i64>))
     (block
@@ -18,4 +18,4 @@
       (= c a)
       (= a b)
       (= b c)
-      (return))))
+      (cleanup-exit (return)))))

@@ -347,4 +347,4 @@
         (call output_string " s=")
         (call output_int64 s 0)
         (call output_string "\n"))
-      (return))))
+      (cleanup-exit (return)))))
