@@ -303,6 +303,45 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
         SymIdToUniqueFunId[f.SymId] = f.UniqueId;
     }
 
+    // Build a global table of generic function pointers indexed directly by
+    // SymId: a "function value" travels through the program as its SymId
+    // (an i64 — see EKind::Func), and "calli" (indirect call) resolves the
+    // actual callee at runtime via table[SymId]. Must run before Pass 2 —
+    // function bodies may contain "calli" and need FuncTable while lowering.
+    // Covers both internal functions (declared above, in Pass 1) and
+    // external ones (declared here on demand, mirroring "call"_op).
+    {
+        auto& tctx = *Ctx;
+        auto* tblPtrTy = llvm::PointerType::get(tctx, 0);
+
+        int maxSymId = -1;
+        for (const auto& f : module.Functions) maxSymId = std::max(maxSymId, f.SymId);
+        for (const auto& f : module.ExternalFunctions) maxSymId = std::max(maxSymId, f.SymId);
+
+        if (maxSymId >= 0) {
+            std::vector<llvm::Constant*> entries(maxSymId + 1, llvm::ConstantPointerNull::get(tblPtrTy));
+            for (const auto& f : module.Functions) {
+                entries[f.SymId] = llvm::ConstantExpr::getBitCast(SymIdToLFun.at(f.SymId), tblPtrTy);
+            }
+            for (const auto& f : module.ExternalFunctions) {
+                auto* retType = GetTypeById(f.ReturnTypeId, module.Types, tctx);
+                std::vector<llvm::Type*> paramTys;
+                for (const auto& pid : f.ArgTypes) {
+                    paramTys.push_back(GetTypeById(pid, module.Types, tctx));
+                }
+                auto* fty = llvm::FunctionType::get(retType, paramTys, /*isVarArg=*/false);
+                auto callee = LModule->getOrInsertFunction(f.MangledName, fty);
+                entries[f.SymId] = llvm::ConstantExpr::getBitCast(
+                    llvm::cast<llvm::Constant>(callee.getCallee()), tblPtrTy);
+            }
+            auto* tableTy = llvm::ArrayType::get(tblPtrTy, entries.size());
+            FuncTable = new llvm::GlobalVariable(*LModule, tableTy, /*isConstant*/true,
+                llvm::GlobalValue::InternalLinkage,
+                llvm::ConstantArray::get(tableTy, entries),
+                "__qumir_func_table");
+        }
+    }
+
     // Pass 2: lower function bodies
     int funcIdx = 0;
     std::vector<llvm::Function*> ctorFunctions;
@@ -844,6 +883,11 @@ llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, NIR::TModule& module)
                 return StringLiterals[id] = str;
             } else if (op.Imm.TypeId == lowBoolTypeId) {
                 return llvm::ConstantInt::get(llvm::Type::getInt1Ty(ctx), op.Imm.Value != 0 ? 1 : 0, false);
+            } else if (module.Types.GetKind(op.Imm.TypeId) == EKind::Func) {
+                // Function value: represented at runtime by its SymId — an
+                // ordinary i64 constant resolved through the global function
+                // table built in Emit() (see "calli"_op).
+                return llvm::ConstantInt::get(i64, op.Imm.Value, true);
             } else {
                 assert(op.Imm.TypeId >= 0 && "immediate TypeId must be assigned before LLVM lowering");
                 throw std::runtime_error("unsupported immediate typeId: " + std::to_string(op.Imm.TypeId));
@@ -1514,6 +1558,45 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                 auto call = makeCallWithAttrs("calltmp");
                 return storeTmp(call);
             }
+        }
+        case "calli"_op: {
+            // IR: indirect call has optional Dest and one operand — the callee
+            // VALUE (its SymId as a runtime i64), not a static Imm(symId) like
+            // "call". The concrete function is only known at runtime, so:
+            //  1. resolve table[SymId] -> generic function pointer via the
+            //     global table built in Emit();
+            //  2. reconstruct the call's LLVM signature from the marshaled
+            //     argument values and the destination's type — exactly the
+            //     physical types the static TFunctionType produced at the
+            //     call site during lowering;
+            //  3. call through the pointer with that signature.
+            if (operandCount < 1) throw std::runtime_error("calli needs callee operand");
+            if (!FuncTable) {
+                throw std::runtime_error("indirect call but module has no functions to call");
+            }
+
+            auto* calleeId = cast(GetOp(instr.Operands[0], module), i64);
+            auto* slot = irb->CreateInBoundsGEP(FuncTable->getValueType(), FuncTable,
+                {llvm::ConstantInt::get(i64, 0), calleeId}, "calleeslot");
+            auto* funcPtr = irb->CreateLoad(llvm::PointerType::get(ctx, 0), slot, "calleeptr");
+
+            llvm::Type* retTy = outputType ? outputType : llvm::Type::getVoidTy(ctx);
+            std::vector<llvm::Type*> paramTys;
+            paramTys.reserve(CurFun->PendingArgs.size());
+            for (auto* arg : CurFun->PendingArgs) {
+                paramTys.push_back(arg->getType());
+            }
+            auto* fty = llvm::FunctionType::get(retTy, paramTys, /*isVarArg=*/false);
+
+            std::vector<llvm::Value*> args = std::move(CurFun->PendingArgs);
+            CurFun->PendingArgs.clear();
+            auto* call = irb->CreateCall(fty, funcPtr, args);
+
+            if (retTy->isVoidTy()) {
+                return nullptr;
+            }
+            if (instr.Dest.Idx < 0) throw std::runtime_error("calli needs a destination tmp");
+            return storeTmp(call);
         }
         case "jmp"_op: {
             if (operandCount != 1) throw std::runtime_error("jmp needs 1 operand");

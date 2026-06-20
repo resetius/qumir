@@ -1,0 +1,90 @@
+function <main> () { ; void
+  block {
+    label: label(0)
+    salloc tmp(0,ptr to i64) = imm(16,i64) 
+    + tmp(1,ptr to i64) = tmp(0,ptr to i64) imm(0,i64) 
+    ste tmp(1,ptr to i64) imm(76,func(i64, i64) -> i64) 
+    + tmp(2,ptr to i64) = tmp(0,ptr to i64) imm(8,i64) 
+    ste tmp(2,ptr to i64) imm(1,i64) 
+    stre local(0,struct { func(i64, i64) -> i64; i64}) tmp(0,ptr to i64) 
+    lea tmp(3,struct { func(i64, i64) -> i64; i64}) = local(0,struct { func(i64, i64) -> i64; i64}) 
+    + tmp(4,ptr to i8) = tmp(3,struct { func(i64, i64) -> i64; i64}) imm(8,i64) 
+    lde tmp(5,i64) = tmp(4,ptr to i8) 
+    arg tmp(5,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    lea tmp(6,struct { func(i64, i64) -> i64; i64}) = local(0,struct { func(i64, i64) -> i64; i64}) 
+    + tmp(7,ptr to i8) = tmp(6,struct { func(i64, i64) -> i64; i64}) imm(0,i64) 
+    lde tmp(8,func(i64, i64) -> i64) = tmp(7,ptr to i8) 
+    arg imm(7,i64) 
+    arg imm(8,i64) 
+    calli tmp(9,i64) = tmp(8,func(i64, i64) -> i64) 
+    arg tmp(9,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    salloc tmp(10,ptr to i64) = imm(16,i64) 
+    + tmp(11,ptr to i64) = tmp(10,ptr to i64) imm(0,i64) 
+    ste tmp(11,ptr to i64) imm(79,func(i64, i64) -> i64) 
+    + tmp(12,ptr to i64) = tmp(10,ptr to i64) imm(8,i64) 
+    ste tmp(12,ptr to i64) imm(2,i64) 
+    stre local(0,struct { func(i64, i64) -> i64; i64}) tmp(10,ptr to i64) 
+    lea tmp(13,struct { func(i64, i64) -> i64; i64}) = local(0,struct { func(i64, i64) -> i64; i64}) 
+    + tmp(14,ptr to i8) = tmp(13,struct { func(i64, i64) -> i64; i64}) imm(8,i64) 
+    lde tmp(15,i64) = tmp(14,ptr to i8) 
+    arg tmp(15,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    lea tmp(16,struct { func(i64, i64) -> i64; i64}) = local(0,struct { func(i64, i64) -> i64; i64}) 
+    + tmp(17,ptr to i8) = tmp(16,struct { func(i64, i64) -> i64; i64}) imm(0,i64) 
+    lde tmp(18,func(i64, i64) -> i64) = tmp(17,ptr to i8) 
+    arg imm(7,i64) 
+    arg imm(8,i64) 
+    calli tmp(19,i64) = tmp(18,func(i64, i64) -> i64) 
+    arg tmp(19,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}
+function add (local(0), local(1)) { ; i64
+  block {
+    label: label(0)
+    load tmp(0,i64) = local(0,i64) 
+    load tmp(1,i64) = local(1,i64) 
+    + tmp(2,i64) = tmp(0,i64) tmp(1,i64) 
+    stre local(2,i64) tmp(2,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(3,i64) = local(2,i64) 
+    ret tmp(3,i64) 
+  }
+}
+function mul (local(0), local(1)) { ; i64
+  block {
+    label: label(0)
+    load tmp(0,i64) = local(0,i64) 
+    load tmp(1,i64) = local(1,i64) 
+    * tmp(2,i64) = tmp(0,i64) tmp(1,i64) 
+    stre local(2,i64) tmp(2,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(3,i64) = local(2,i64) 
+    ret tmp(3,i64) 
+  }
+}

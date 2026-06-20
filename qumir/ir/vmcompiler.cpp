@@ -487,6 +487,21 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
 
                 break;
             }
+            case "calli"_op: {
+                require(ins, 0, 1);
+
+                if (ins.Dest.Idx < 0) {
+                    out.Operands[0] = TTmp{-1}; // no dest
+                }
+
+                // Unlike "call", the callee SymId is only known at runtime —
+                // generic operand translation already placed it (as Tmp or Imm)
+                // in out.Operands[1]; the interpreter resolves it (internal vs
+                // external, lazily compiled) at the call site.
+                out.Op = EVMOp::CallInd;
+
+                break;
+            }
             case "await"_op: {
                 if (ins.Dest.Idx < 0) {
                     out.Op = EVMOp::AwaitVoid;
