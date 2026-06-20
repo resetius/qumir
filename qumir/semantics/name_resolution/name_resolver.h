@@ -173,9 +173,9 @@ public:
     }
 
     // Returns the accumulated clones and clears the list. The annotation
-    // pipeline runs to a fixed point (Pipeline's do/while loop re-invokes
-    // TTypeAnnotator::Annotate on the very same top-level block on every
-    // iteration) — without draining the list here, every later iteration
+    // source pipeline runs to a fixed point and re-invokes
+    // TTypeAnnotator::Annotate on the same top-level block — without draining
+    // the list here, every later annotation
     // would re-append the same already-spliced-in clones, leaving duplicate
     // TFunDecl nodes in Stmts (harmless for lowering, which keys functions
     // by symbol id and simply overwrites — but wasted work and AST bloat).

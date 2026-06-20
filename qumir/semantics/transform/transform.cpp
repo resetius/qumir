@@ -5,6 +5,8 @@
 
 #include <qumir/semantics/type_annotation/type_annotation.h>
 #include <qumir/semantics/definite_assignment/definite_assignment.h>
+#include <qumir/semantics/lifetime/pass.h>
+#include <qumir/semantics/return_normalization/pass.h>
 
 #include <algorithm>
 #include <bit>
@@ -812,71 +814,144 @@ std::expected<bool, TError> CoroutineAnnotationTransform(NAst::TExprPtr& expr, N
     return analysis.Changed;
 }
 
-std::expected<std::monostate, TError> Pipeline(NAst::TExprPtr& expr, NSemantics::TNameResolver& r, TPipelineOptions options)
+namespace {
+
+std::expected<bool, TError> RunSourceNameResolution(
+    NAst::TExprPtr& expr,
+    NSemantics::TNameResolver& context)
+{
+    bool changed = false;
+    auto preResult = PreNameResolutionTransform(expr);
+    if (!preResult) {
+        return std::unexpected(preResult.error());
+    }
+    changed = preResult.value();
+
+    auto importResult = ImportPendingCoreUses(expr, context);
+    if (!importResult) {
+        return std::unexpected(importResult.error());
+    }
+    changed = importResult.value() || changed;
+
+    if (auto error = context.Resolve(expr)) {
+        return std::unexpected(*error);
+    }
+
+    auto postResult = PostNameResolutionTransform(expr, context);
+    if (!postResult) {
+        return std::unexpected(postResult.error());
+    }
+    return postResult.value() || changed;
+}
+
+} // namespace
+
+std::expected<std::monostate, TError> RunSourceTransformFixpoint(
+    NAst::TExprPtr& expr,
+    NSemantics::TNameResolver& context,
+    TPipelineOptions options)
 {
     static constexpr int MaxIterations = 10;
 
-    auto nameResolution = [&](NAst::TExprPtr& e) -> std::expected<std::monostate, TError>{
-        if (auto error = PreNameResolutionTransform(e); !error) {
-            return std::unexpected(error.error());
-        }
-
-        if (auto error = ImportPendingCoreUses(e, r); !error) {
-            return std::unexpected(error.error());
-        }
-
-        if (auto error = r.Resolve(e)) {
-            return std::unexpected(*error);
-        }
-
-        if (auto error = PostNameResolutionTransform(e, r); !error) {
-            return std::unexpected(error.error());
-        }
-        return std::monostate{};
-    };
-
-    if (auto error = nameResolution(expr); !error) {
-        return std::unexpected(error.error());
+    auto initialNameResolution = RunSourceNameResolution(expr, context);
+    if (!initialNameResolution) {
+        return std::unexpected(initialNameResolution.error());
     }
 
-    NSemantics::TDefiniteAssignmentChecker definiteAssignmentChecker(r);
-
-    NTypeAnnotation::TTypeAnnotator annotator(r);
-    int iterations = 0;
-    bool changed = false;
-
-    do {
+    NTypeAnnotation::TTypeAnnotator annotator(context);
+    for (int iteration = 0; iteration < MaxIterations; ++iteration) {
         auto annotationResult = annotator.Annotate(expr);
         if (!annotationResult) {
             return std::unexpected(annotationResult.error());
         }
-        auto postResult = PostTypeAnnotationTransform(expr, r);
+        expr = std::move(annotationResult.value());
+
+        auto postResult = PostTypeAnnotationTransform(expr, context);
         if (!postResult) {
             return std::unexpected(postResult.error());
         }
-        changed = postResult.value();
+        bool changed = postResult.value();
 
         if (options.EnableCoroutineAnalysis) {
-            auto coroutineResult = CoroutineAnnotationTransform(expr, r);
+            auto coroutineResult = CoroutineAnnotationTransform(expr, context);
             if (!coroutineResult) {
                 return std::unexpected(coroutineResult.error());
             }
             changed = coroutineResult.value() || changed;
         }
 
-        if (auto error = nameResolution(expr); !error) {
-            return std::unexpected(error.error());
+        auto nameResolution = RunSourceNameResolution(expr, context);
+        if (!nameResolution) {
+            return std::unexpected(nameResolution.error());
         }
-
-        if (auto res = definiteAssignmentChecker.Check(expr); !res) {
-            return std::unexpected(res.error());
+        changed = nameResolution.value() || changed;
+        if (!changed) {
+            return std::monostate{};
         }
-    } while (changed && ++iterations < MaxIterations);
-    if (iterations == MaxIterations) {
-        return std::unexpected(TError(expr->Location, "too many iterations in transform pipeline"));
     }
 
+    return std::unexpected(TError(expr->Location, "too many iterations in transform pipeline"));
+}
+
+std::expected<std::monostate, TError> FinalNameResolution(
+    NAst::TExprPtr& expr,
+    NSemantics::TNameResolver& context)
+{
+    if (auto error = context.Resolve(expr)) {
+        return std::unexpected(*error);
+    }
     return std::monostate{};
+}
+
+std::expected<std::monostate, TError> FinalTypeAnnotation(
+    NAst::TExprPtr& expr,
+    NSemantics::TNameResolver& context)
+{
+    NTypeAnnotation::TTypeAnnotator annotator(context);
+    auto result = annotator.Annotate(expr);
+    if (!result) {
+        return std::unexpected(result.error());
+    }
+    expr = std::move(result.value());
+    return std::monostate{};
+}
+
+std::expected<std::monostate, TError> RunFinalSemanticPipeline(
+    NAst::TExprPtr& expr,
+    NSemantics::TNameResolver& context)
+{
+    auto returnResult = NSemantics::ReturnNormalizationPass(expr, context);
+    if (!returnResult) {
+        return std::unexpected(returnResult.error());
+    }
+
+    NSemantics::TSyntheticNameGenerator syntheticNames(context, expr);
+    auto lifetimeResult = NSemantics::LifetimePass(expr, context, syntheticNames);
+    if (!lifetimeResult) {
+        return std::unexpected(lifetimeResult.error());
+    }
+
+    if (auto result = FinalNameResolution(expr, context); !result) {
+        return result;
+    }
+    return FinalTypeAnnotation(expr, context);
+}
+
+std::expected<std::monostate, TError> Pipeline(
+    NAst::TExprPtr& expr,
+    NSemantics::TNameResolver& context,
+    TPipelineOptions options)
+{
+    if (auto result = RunSourceTransformFixpoint(expr, context, options); !result) {
+        return result;
+    }
+
+    NSemantics::TDefiniteAssignmentChecker definiteAssignmentChecker(context);
+    if (auto result = definiteAssignmentChecker.Check(expr); !result) {
+        return std::unexpected(result.error());
+    }
+
+    return RunFinalSemanticPipeline(expr, context);
 }
 
 } // namespace NTransform

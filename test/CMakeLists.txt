@@ -21,6 +21,7 @@ ut(test_if_expr test_if_expr.cpp)
 ut(test_future test_future.cpp)
 ut(test_lifetime_traits test_lifetime_traits.cpp)
 ut(test_printer test_printer.cpp)
+ut(test_semantic_pipeline test_semantic_pipeline.cpp)
 
 # JavaScript execution tests (Node.js required)
 find_program(NODE_EXECUTABLE node)
