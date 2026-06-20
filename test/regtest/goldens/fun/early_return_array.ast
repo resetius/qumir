@@ -5,6 +5,6 @@
       (var A <array f64 1> [0 10])
       (= A [0] 5)
       (= знач (index A 0))
-      (if (cast #t bool) (block (return знач)))
+      (if (cast #t bool) (block (cleanup-exit (return знач))))
       (= знач 99)
-      (return знач))))
+      (cleanup-exit (return знач)))))

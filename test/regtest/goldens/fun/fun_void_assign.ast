@@ -5,9 +5,9 @@
       (var i i64)
       (= i (call ф))
       (= знач i)
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun ф () -> i64
     (block
       (var знач i64)
       (= знач 31337)
-      (return знач))))
+      (cleanup-exit (return знач)))))

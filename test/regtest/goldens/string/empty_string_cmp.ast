@@ -23,4 +23,4 @@
           (= r (+ r 1))))
       (if (!= (call str_compare (borrow пустая) (borrow непустая)) 0) (block (= r (+ r 1))))
       (= знач r)
-      (return знач))))
+      (cleanup-exit (return знач) (destroy непустая) (destroy пустая)))))

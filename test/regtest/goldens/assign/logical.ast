@@ -5,4 +5,4 @@
       (var i bool)
       (= i (cast #t bool))
       (= знач i)
-      (return знач))))
+      (cleanup-exit (return знач)))))

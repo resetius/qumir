@@ -67,4 +67,4 @@
       (if (<= ch1 (cast 97 char)) (block (= счет (+ счет 1))))
       (if (>= ch2 (cast 122 char)) (block (= счет (+ счет 1))))
       (= знач счет)
-      (return знач))))
+      (cleanup-exit (return знач) (destroy s2) (destroy s1)))))

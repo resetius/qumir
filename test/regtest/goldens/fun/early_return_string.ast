@@ -3,6 +3,13 @@
     (block
       (var знач = (bitcast 0 string))
       (replace знач (own-literal "hello"))
-      (if (cast #t bool) (block (return знач)))
+      (if
+        (cast #t bool)
+        (block
+          (block
+            (var __lifetime_0 = (retain (borrow знач)))
+            (cleanup-exit (return (move __lifetime_0)) (destroy знач)))))
       (replace знач (own-literal "unreached"))
-      (return знач))))
+      (block
+        (var __lifetime_1 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_1)) (destroy знач))))))

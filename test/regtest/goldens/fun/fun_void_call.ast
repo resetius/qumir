@@ -4,9 +4,9 @@
       (var знач i64)
       (call ф 10)
       (= знач 1)
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun ф ((var i i64))
     (block
       (block
         (call output_int64 i 0))
-      (return))))
+      (cleanup-exit (return)))))

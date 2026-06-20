@@ -3,11 +3,11 @@
   (fun caller () -> <future void>
     (block
       (await (call helper))
-      (return)))
+      (cleanup-exit (return))))
   (fun helper () -> <future void>
     (block
       (await (call вверх))
-      (return)))
+      (cleanup-exit (return))))
   (fun pure ()
     (block
-      (return))))
+      (cleanup-exit (return)))))

@@ -3,4 +3,6 @@
     (block
       (var знач = (bitcast 0 string))
       (replace знач (move (call str_from_unicode (cast 1090 char))))
-      (return знач))))
+      (block
+        (var __lifetime_0 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_0)) (destroy знач))))))

@@ -17,10 +17,10 @@ function ф () { ; i64
     mov tmp(6,i64) = tmp(5,i32) 
     stre local(0,i64) tmp(6,i64) 
     load tmp(7,i64) = local(0,i64) 
+    stre local(2,i64) tmp(7,i64) 
     load tmp(8,ptr to i8) = local(1,ptr to i8) 
     arg tmp(8,ptr to i8) 
     call str_release 
-    stre local(2,i64) tmp(7,i64) 
     jmp label(1) 
   }
   block {

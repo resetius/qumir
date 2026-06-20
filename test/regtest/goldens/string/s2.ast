@@ -17,4 +17,6 @@
             (destroy __lifetime_0)
             (move __lifetime_1))))
       (replace знач (retain (borrow s1)))
-      (return знач))))
+      (block
+        (var __lifetime_2 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_2)) (destroy s3) (destroy s2) (destroy s1) (destroy знач))))))

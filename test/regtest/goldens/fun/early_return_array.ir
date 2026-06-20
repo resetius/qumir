@@ -31,10 +31,10 @@ function функция () { ; f64
   block {
     label: label(2)
     load tmp(18,f64) = local(0,f64) 
+    stre local(2,f64) tmp(18,f64) 
     load tmp(19,ptr to f64) = local(1,ptr to f64) 
     arg tmp(19,ptr to f64) 
     call array_destroy 
-    stre local(2,f64) tmp(18,f64) 
     jmp label(1) 
   }
   block {
@@ -45,10 +45,10 @@ function функция () { ; f64
     label: label(4)
     stre local(0,f64) imm(4636666922610458624,f64) 
     load tmp(20,f64) = local(0,f64) 
+    stre local(2,f64) tmp(20,f64) 
     load tmp(21,ptr to f64) = local(1,ptr to f64) 
     arg tmp(21,ptr to f64) 
     call array_destroy 
-    stre local(2,f64) tmp(20,f64) 
     jmp label(1) 
   }
   block {

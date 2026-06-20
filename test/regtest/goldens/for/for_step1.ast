@@ -7,4 +7,4 @@
       (= j 0)
       (for i 0 10 1 (block (= j (+ j 1))))
       (= знач j)
-      (return знач))))
+      (cleanup-exit (return знач)))))

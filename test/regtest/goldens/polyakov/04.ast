@@ -12,4 +12,4 @@
         (call output_int64 b 0)
         (call output_symbol (cast 61 char))
         (call output_int64 (+ a b) 0))
-      (return))))
+      (cleanup-exit (return)))))

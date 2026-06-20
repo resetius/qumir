@@ -19,4 +19,4 @@
             (block
               (block
                 (call output_string "Борис старше"))))))
-      (return))))
+      (cleanup-exit (return)))))

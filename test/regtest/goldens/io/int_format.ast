@@ -5,4 +5,4 @@
       (= a 123)
       (block
         (call output_int64 a 5))
-      (return))))
+      (cleanup-exit (return)))))

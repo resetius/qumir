@@ -6,8 +6,10 @@
       (replace s (own-literal "s12345"))
       (call g s)
       (replace знач (retain (borrow s)))
-      (return знач)))
+      (block
+        (var __lifetime_0 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_0)) (destroy s) (destroy знач)))))
   (fun g ((var s <ref string>))
     (block
       (replace s (move (call str_slice (borrow s) 1 2)))
-      (return))))
+      (cleanup-exit (return)))))

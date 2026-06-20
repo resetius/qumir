@@ -9,27 +9,27 @@
       (= b (call h))
       (= c (call i))
       (= знач (+ (+ a b) c))
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun g () -> i64
     (block
       (var знач i64)
       (= знач 1)
-      (return знач)
+      (cleanup-exit (return знач))
       (= знач 2)
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun h () -> i64
     (block
       (var знач i64)
       (= знач 0)
-      (if (== 1 1) (block (= знач 5) (return знач)))
+      (if (== 1 1) (block (= знач 5) (cleanup-exit (return знач))))
       (= знач 99)
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun i () -> i64
     (block
       (var знач i64)
       (= знач 1)
-      (if (== 2 3) (block (return знач)))
+      (if (== 2 3) (block (cleanup-exit (return знач))))
       (= знач 7)
-      (return знач)
+      (cleanup-exit (return знач))
       (= знач 100)
-      (return знач))))
+      (cleanup-exit (return знач)))))

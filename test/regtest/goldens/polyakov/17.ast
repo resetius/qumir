@@ -58,4 +58,4 @@
             (move __lifetime_16))))
       (block
         (call output_string (borrow s)))
-      (return))))
+      (cleanup-exit (return) (destroy name2) (destroy name) (destroy s)))))

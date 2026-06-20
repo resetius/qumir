@@ -7,7 +7,7 @@
         (var __lifetime_0 = (own-literal "ЫШЧО"))
         (call TumbaWords (borrow __lifetime_0) (borrow word) 0)
         (destroy __lifetime_0))
-      (return)))
+      (cleanup-exit (return) (destroy word))))
   (fun TumbaWords ((var A string)
       (var w0 string)
       (var N i64))
@@ -18,7 +18,7 @@
           (block
             (call output_string (borrow w0))
             (call output_string "\n"))
-          (return)))
+          (cleanup-exit (return))))
       (var i i64)
       (var w = (bitcast 0 string))
       (replace w (move (call str_slice (borrow w0) 1 (call длин (borrow w0)))))
@@ -29,4 +29,4 @@
         (block
           (replace w (move (call str_replace_sym (borrow w) (call str_symbol_at (borrow A) i) (+ N 1))))
           (call TumbaWords (borrow A) (borrow w) (+ N 1))))
-      (return))))
+      (cleanup-exit (return) (destroy w)))))

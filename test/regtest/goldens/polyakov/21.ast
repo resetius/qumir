@@ -15,7 +15,7 @@
             (move __lifetime_2))))
       (block
         (call output_string (borrow s)))
-      (return)))
+      (cleanup-exit (return) (destroy s))))
   (fun replaceBad ((var s0 string)
       (var sOld string)
       (var sNew string)) -> string
@@ -34,4 +34,6 @@
           (call вставить (borrow sNew) s p)
           (= p (call |позиция после| (+ p (call длин (borrow sNew))) (borrow sOld) (borrow s)))))
       (replace знач (retain (borrow s)))
-      (return знач))))
+      (block
+        (var __lifetime_3 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_3)) (destroy s) (destroy знач))))))

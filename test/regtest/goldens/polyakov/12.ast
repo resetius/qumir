@@ -20,4 +20,4 @@
           (block
             (= A [i] (call input_int64)))))
       (for i 1 N 1 (block (block (call output_int64 (index A i) 0) (call output_symbol (cast 32 char)))))
-      (return))))
+      (cleanup-exit (return)))))

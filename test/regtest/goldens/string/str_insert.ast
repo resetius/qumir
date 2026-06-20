@@ -8,4 +8,6 @@
       (replace s1 (own-literal "QWЩЩЯ"))
       (call вставить (borrow s1) s 5)
       (replace знач (retain (borrow s)))
-      (return знач))))
+      (block
+        (var __lifetime_0 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_0)) (destroy s1) (destroy s) (destroy знач))))))

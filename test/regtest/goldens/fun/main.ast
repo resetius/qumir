@@ -1,4 +1,4 @@
 (block
   (fun <main> ()
     (block
-      (return))))
+      (cleanup-exit (return)))))

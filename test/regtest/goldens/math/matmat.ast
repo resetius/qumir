@@ -75,4 +75,4 @@
         (call output_string "matmat: ||e||_inf  = ")
         (call output_double res_inf 0 -1)
         (call output_string "\n"))
-      (return))))
+      (cleanup-exit (return)))))

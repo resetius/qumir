@@ -12,7 +12,7 @@
       (= A [5] 2)
       (call qSort 1 5)
       (for i 1 N 1 (block (block (call output_int64 (index A i) 0) (call output_symbol (cast 32 char)))))
-      (return)))
+      (cleanup-exit (return))))
   (fun qSort ((var nStart i64)
       (var nEnd i64))
     (block
@@ -20,7 +20,7 @@
       (var R i64)
       (var c i64)
       (var X i64)
-      (if (>= nStart nEnd) (block (return)))
+      (if (>= nStart nEnd) (block (cleanup-exit (return))))
       (= L nStart)
       (= R nEnd)
       (= X (index A (call div (+ L R) 2)))
@@ -32,4 +32,4 @@
           (if (<= L R) (block (= c (index A L)) (= A [L] (index A R)) (= A [R] c) (= L (+ L 1)) (= R (- R 1))))))
       (call qSort nStart R)
       (call qSort L nEnd)
-      (return))))
+      (cleanup-exit (return)))))

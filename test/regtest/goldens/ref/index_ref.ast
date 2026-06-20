@@ -6,7 +6,9 @@
       (replace s (own-literal "s12345"))
       (call g s)
       (replace знач (retain (borrow s)))
-      (return знач)))
+      (block
+        (var __lifetime_0 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_0)) (destroy s) (destroy знач)))))
   (fun g ((var s <ref string>))
     (block
       (var a char)
@@ -15,8 +17,8 @@
         s
         (move
           (block
-            (var __lifetime_0 = (move (call str_from_unicode a)))
-            (var __lifetime_1 = (call str_concat (borrow s) (borrow __lifetime_0)))
-            (destroy __lifetime_0)
-            (move __lifetime_1))))
-      (return))))
+            (var __lifetime_1 = (move (call str_from_unicode a)))
+            (var __lifetime_2 = (call str_concat (borrow s) (borrow __lifetime_1)))
+            (destroy __lifetime_1)
+            (move __lifetime_2))))
+      (cleanup-exit (return)))))

@@ -101,7 +101,7 @@
                       (= uex (* (* (call sin (* pi x)) (call sin (* pi y))) (call sin (* pi z))))
                       (= diff (block (var $$value = (- (index u [i j k]) uex)) (if (< $$value 0) (- $$value) $$value)))
                       (= err (block (var $$left = err) (var $$right = diff) (if (> $$left $$right) $$left $$right)))))))))
-          (if (< err tol) (block break))))
+          (if (< err tol) (block (cleanup-exit (break))))))
       (= err 0)
       (for i
         0
@@ -131,4 +131,4 @@
         (call output_double err 8 8)
         (call output_symbol (cast 10 char)))
       (if (< err tol) (block (block (call output_string "OK\n"))) (block (block (call output_string "FAIL\n"))))
-      (return))))
+      (cleanup-exit (return)))))

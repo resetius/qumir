@@ -84,4 +84,4 @@
                                     (block
                                       (call output_string "ошибка")
                                       (call output_string "\n")))))))))))))))))
-      (return))))
+      (cleanup-exit (return)))))

@@ -3,4 +3,4 @@
     (block
       (block
         (call output_symbol (cast 97 char)))
-      (return))))
+      (cleanup-exit (return)))))

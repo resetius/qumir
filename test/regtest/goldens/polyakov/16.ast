@@ -15,4 +15,4 @@
               (replace s (move (call str_replace_sym (borrow s) (cast 1073 char) i)))))))
       (block
         (call output_string (borrow s)))
-      (return))))
+      (cleanup-exit (return) (destroy s)))))

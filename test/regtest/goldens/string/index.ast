@@ -5,4 +5,6 @@
       (var с = (bitcast 0 string))
       (replace с (own-literal "строка"))
       (replace знач (move (call str_from_unicode (call str_symbol_at (borrow с) 3))))
-      (return знач))))
+      (block
+        (var __lifetime_0 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_0)) (destroy с) (destroy знач))))))

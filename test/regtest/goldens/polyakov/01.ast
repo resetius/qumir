@@ -1,4 +1,4 @@
 (block
   (fun Куку ()
     (block
-      (return))))
+      (cleanup-exit (return)))))

@@ -137,10 +137,10 @@ function тест_неравенство_символ_строка () { ; i64
     load tmp(46,i64) = local(3,i64) 
     stre local(0,i64) tmp(46,i64) 
     load tmp(47,i64) = local(0,i64) 
+    stre local(12,i64) tmp(47,i64) 
     load tmp(48,ptr to i8) = local(2,ptr to i8) 
     arg tmp(48,ptr to i8) 
     call str_release 
-    stre local(12,i64) tmp(47,i64) 
     jmp label(1) 
   }
   block {

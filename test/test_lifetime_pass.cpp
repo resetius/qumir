@@ -193,10 +193,10 @@ TEST(LifetimePass, DestroysTwoOwnedCallArgumentsInReverseOrder) {
     ASSERT_EQ(body->Stmts.size(), 2u);
     EXPECT_EQ(
         Print(body->Stmts[0]),
-        "(block (var __lifetime_0 = (move (call make_first))) "
-        "(var __lifetime_1 = (move (call make_second))) "
-        "(call consume (borrow __lifetime_0) (borrow __lifetime_1)) "
-        "(destroy __lifetime_1) (destroy __lifetime_0))");
+        "(block (var __lifetime_2 = (move (call make_first))) "
+        "(var __lifetime_3 = (move (call make_second))) "
+        "(call consume (borrow __lifetime_2) (borrow __lifetime_3)) "
+        "(destroy __lifetime_3) (destroy __lifetime_2))");
 }
 
 TEST(LifetimePass, PreservesNestedCallResultPastArgumentCleanup) {
@@ -231,9 +231,9 @@ TEST(LifetimePass, PreservesNestedCallResultPastArgumentCleanup) {
     EXPECT_EQ(
         Print(body->Stmts[1]),
         "(replace result (move (block "
-        "(var __lifetime_0 = (move (call make))) "
-        "(var __lifetime_1 = (call wrap (borrow __lifetime_0))) "
-        "(destroy __lifetime_0) (move __lifetime_1))))");
+        "(var __lifetime_2 = (move (call make))) "
+        "(var __lifetime_3 = (call wrap (borrow __lifetime_2))) "
+        "(destroy __lifetime_2) (move __lifetime_3))))");
 }
 
 TEST(LifetimePass, MaterializesLiteralOnlyWhenCallAbiRequiresIt) {
@@ -278,11 +278,75 @@ TEST(LifetimePass, MaterializesLiteralOnlyWhenCallAbiRequiresIt) {
     EXPECT_EQ(Print(body->Stmts[0]), "(call raw \"raw\")");
     EXPECT_EQ(
         Print(body->Stmts[1]),
-        "(block (var __lifetime_0 = (own-literal \"managed\")) "
-        "(call managed (borrow __lifetime_0)) (destroy __lifetime_0))");
+        "(block (var __lifetime_1 = (own-literal \"managed\")) "
+        "(call managed (borrow __lifetime_1)) (destroy __lifetime_1))");
     EXPECT_EQ(
         Print(body->Stmts[2]),
         "(destroy (move (call make_unused)))");
+}
+
+TEST(LifetimePass, CleansNestedStringLocalsOnReturnInLifoOrder) {
+    auto stringType = std::make_shared<TStringType>();
+    auto first = Variable("first", stringType);
+    first->Init = Literal("first");
+    auto second = Variable("second", stringType);
+    second->Init = Literal("second");
+    auto nested = Block({
+        second,
+        std::make_shared<TReturnExpr>(TLocation{}, Ident("first")),
+    });
+    auto body = Block({first, nested});
+    TExprPtr root = Block({Function("value", {}, body, stringType)});
+    NSemantics::TNameResolver resolver;
+
+    auto source = NTransform::RunSourceTransformFixpoint(root, resolver);
+    ASSERT_TRUE(source.has_value()) << source.error().ToString();
+    auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
+    ASSERT_TRUE(final.has_value()) << final.error().ToString();
+
+    EXPECT_EQ(
+        Print(nested->Stmts.back()),
+        "(block (var __lifetime_0 = (retain (borrow first))) "
+        "(cleanup-exit (return (move __lifetime_0)) "
+        "(destroy second) (destroy first)))");
+    EXPECT_FALSE(TMaybeNode<TDestroyExpr>(body->Stmts.back()));
+}
+
+TEST(LifetimePass, LoopExitCleansOnlyLocalsDeclaredBeforeTheExit) {
+    auto condition = std::make_shared<TNumberExpr>(TLocation{}, int64_t{1});
+    condition->Type = std::make_shared<TBoolType>();
+    auto loopCondition = std::make_shared<TNumberExpr>(TLocation{}, int64_t{1});
+    loopCondition->Type = std::make_shared<TBoolType>();
+    auto value = Variable("value", std::make_shared<TStringType>());
+    value->Init = Literal("iteration");
+    auto earlyBreak = Block({std::make_shared<TBreakStmt>(TLocation{})});
+    auto loopBody = Block({
+        std::make_shared<TIfExpr>(
+            TLocation{},
+            condition,
+            earlyBreak,
+            Block({})),
+        value,
+        std::make_shared<TContinueStmt>(TLocation{}),
+    });
+    auto loop = std::make_shared<TWhileStmtExpr>(
+        TLocation{},
+        loopCondition,
+        loopBody);
+    auto body = Block({loop});
+    TExprPtr root = Block({Function("main", {}, body)});
+    NSemantics::TNameResolver resolver;
+
+    auto source = NTransform::RunSourceTransformFixpoint(root, resolver);
+    ASSERT_TRUE(source.has_value()) << source.error().ToString();
+    auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
+    ASSERT_TRUE(final.has_value()) << final.error().ToString();
+
+    ASSERT_EQ(earlyBreak->Stmts.size(), 1u);
+    EXPECT_EQ(Print(earlyBreak->Stmts[0]), "(cleanup-exit (break))");
+    EXPECT_EQ(
+        Print(loopBody->Stmts.back()),
+        "(cleanup-exit (continue) (destroy value))");
 }
 
 int main(int argc, char** argv) {

@@ -6,9 +6,9 @@
       (block
         (call output_symbol a)
         (call output_string "\n"))
-      (return)))
+      (cleanup-exit (return))))
   (fun f () -> char
     (block
       (var знач char)
       (= знач (cast 1103 char))
-      (return знач))))
+      (cleanup-exit (return знач)))))

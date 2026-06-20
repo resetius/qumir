@@ -17,4 +17,4 @@
       (= y (cast (+ (cast (cast (* 2 (call fpow (cast a f64) 2)) i64) f64) (call fpow (cast b f64) 3)) i64))
       (block
         (call output_int64 y 0))
-      (return))))
+      (cleanup-exit (return)))))

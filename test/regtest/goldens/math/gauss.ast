@@ -54,7 +54,7 @@
           (= scale (* Eps rowmax))
           (= sum p)
           (if (< sum 0) (block (= sum (- sum))))
-          (if (<= sum scale) (block break))
+          (if (<= sum scale) (block (cleanup-exit (break))))
           (for j k (- n 1) 1 (block (= A [k j] (/ (index A [k j]) p))))
           (= B [k] (/ (index B k) p))
           (for i
@@ -109,4 +109,4 @@
         (call output_string "||r||_inf  = ")
         (call output_double res_inf 8 8)
         (call output_string "\n"))
-      (return))))
+      (cleanup-exit (return)))))

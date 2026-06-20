@@ -7,4 +7,4 @@
       (var a f64)
       (var b f64)
       (var c f64)
-      (return))))
+      (cleanup-exit (return)))))

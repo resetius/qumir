@@ -12,4 +12,6 @@
             (var __lifetime_1 = (call str_slice (borrow __lifetime_0) 1 10))
             (destroy __lifetime_0)
             (move __lifetime_1))))
-      (return знач))))
+      (block
+        (var __lifetime_2 = (retain (borrow знач)))
+        (cleanup-exit (return (move __lifetime_2)) (destroy с) (destroy знач))))))

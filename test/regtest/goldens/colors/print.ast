@@ -23,4 +23,4 @@
           (: (cast (| (| (| (<< (& 255 255) 24) (<< (& 255 255) 16)) (<< (& 128 255) 8)) (& 0 255)) <named цвет>)
             <named цвет>))
         (call output_string "\n"))
-      (return))))
+      (cleanup-exit (return)))))

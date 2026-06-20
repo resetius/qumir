@@ -68,11 +68,6 @@ private:
     // (used to flush destructors on early exit: break/continue/return).
     void EmitDestructors(size_t from, size_t to);
 
-    // Lowers `ret->Value` (if any) to an operand suitable for storing into
-    // `scope.RetLocal`, retaining it if it's a borrowed string. Caller is
-    // responsible for emitting the `stre`/`jmp` and any destructor calls.
-    TExpectedTask<std::optional<TOperand>, TError, TLocation> LowerReturnValue(std::shared_ptr<NAst::TReturnExpr> ret, TBlockScope scope);
-
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerWhile(std::shared_ptr<NAst::TWhileStmtExpr> loop, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerFor(std::shared_ptr<NAst::TForStmtExpr> loop, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerRepeat(std::shared_ptr<NAst::TRepeatStmtExpr> loop, TBlockScope scope);

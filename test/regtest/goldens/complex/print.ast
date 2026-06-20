@@ -25,4 +25,4 @@
       (block
         (call __unop_вывод_Named::компл (: z <named компл>))
         (call output_string "\n"))
-      (return))))
+      (cleanup-exit (return)))))

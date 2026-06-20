@@ -4,10 +4,10 @@
     (block
       (var знач i64)
       (= знач (+ (await (call value)) 1))
-      (return знач)))
+      (cleanup-exit (return знач))))
   (fun value () -> <future i64>
     (block
       (var знач i64)
       (await (call вверх))
       (= знач 12)
-      (return знач))))
+      (cleanup-exit (return знач)))))

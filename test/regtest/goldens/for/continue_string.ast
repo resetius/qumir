@@ -12,7 +12,8 @@
         (block
           (var s = (bitcast 0 string))
           (replace s (own-literal "hello"))
-          (if (> i 7) (block continue))
-          (= j (+ j 1))))
+          (if (> i 7) (block (cleanup-exit (continue) (destroy s))))
+          (= j (+ j 1))
+          (destroy s)))
       (= знач j)
-      (return знач))))
+      (cleanup-exit (return знач)))))
