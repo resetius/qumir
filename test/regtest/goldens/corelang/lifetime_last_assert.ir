@@ -1,0 +1,53 @@
+function <main> () { ; void
+  block {
+    label: label(0)
+    call tmp(0,ptr to i8) = checked_string 
+    arg tmp(0,ptr to i8) 
+    call output_string 
+    arg tmp(0,ptr to i8) 
+    call str_release 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}
+function checked_string () { ; ptr to i8
+  block {
+    label: label(0)
+    arg imm(2,ptr to i8) 
+    call tmp(0,ptr to i8) = str_from_lit 
+    load tmp(1,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(1,ptr to i8) 
+    call str_release 
+    stre local(0,ptr to i8) tmp(0,ptr to i8) 
+    load tmp(2,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(2,ptr to i8) 
+    call str_retain 
+    load tmp(3,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(3,ptr to i8) 
+    call str_release 
+    stre local(1,ptr to i8) tmp(2,ptr to i8) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(4,ptr to i8) = local(0,ptr to i8) 
+    arg imm(2,ptr to i8) 
+    call tmp(5,ptr to i8) = str_from_lit 
+    arg tmp(4,ptr to i8) 
+    arg tmp(5,ptr to i8) 
+    call tmp(6,i64) = str_compare 
+    arg tmp(5,ptr to i8) 
+    call str_release 
+    == tmp(7) = tmp(6,i64) imm(0,i64) 
+    arg tmp(7) 
+    arg imm(3,ptr to i8) 
+    call __ensure 
+    load tmp(8,ptr to i8) = local(1,ptr to i8) 
+    ret tmp(8,ptr to i8) 
+  }
+}
