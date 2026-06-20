@@ -16,13 +16,15 @@ Source (.kum / core-lang)
     [ Lexer / Parser ]
         │  raw AST
         ▼
- ┌─ Semantic passes ──────────────────────┐
- │  1. Name resolution                    │
- │  2. Type annotation                    │
- │  3. Definite assignment                │
- │  4. Transform (AST rewrites)           │
- └────────────────────────────────────────┘
-        │  annotated AST
+ ┌─ Semantic passes ───────────────────────────────┐
+ │  1. Source transform fixpoint                   │
+ │     (resolve → annotate → rewrite)              │
+ │  2. Definite assignment                         │
+ │  3. Return normalization                        │
+ │  4. Lifetime rewrite                            │
+ │  5. Final resolve → annotate → lifetime validate│
+ └─────────────────────────────────────────────────┘
+        │  finalized AST with explicit lifetime operations
         ▼
   [ IR lowering ]  →  TModule (SSA IR)
         │
@@ -103,27 +105,51 @@ Types are `shared_ptr<TType>` subtypes, matched with `TMaybeType<T>`:
 
 ## 4. Semantic passes
 
-All four passes run in order via `NTransform::Pipeline()`.
+The complete sequence runs via `NTransform::Pipeline()`. See
+[AST transformation pipeline](transformation-pipeline.md) for the exact pass
+order, contracts, and fixpoint behavior.
 
-### 4.1 Name resolution
+### 4.1 Source transform fixpoint
 
-Builds a symbol table and resolves every identifier to its declaration.
-Module imports (`использовать`) are processed here; imported names are
-registered before parsing the user's program body.
+Name resolution, type annotation, and source-level AST rewrites repeat until
+the tree stops changing. Name resolution builds the symbol table and resolves
+every identifier to its declaration. Module imports (`использовать`) are
+processed here. Type annotation infers and checks expression types. Rewrites
+include array-bound normalization, syntactic-sugar elimination, loop
+conversion, and optional coroutine annotation.
 
-### 4.2 Type annotation
+### 4.2 Definite assignment
 
-Infers and checks types bottom-up.  After this pass every expression node
-carries a `TTypePtr`.
+Checks source-level control flow for reads of potentially uninitialized
+variables. It runs before internal lifetime nodes are introduced.
 
-### 4.3 Definite assignment
+### 4.3 Return normalization
 
-Detects uses of potentially-uninitialised variables via dataflow analysis.
+Makes function termination explicit. Void fallthrough receives an explicit
+return, while a non-void final expression becomes a return. Whether a nested
+block or conditional terminates is control-flow information; `return` itself
+remains a void-typed final expression and is never usable as a value.
 
-### 4.4 Transform
+### 4.4 Lifetime rewrite
 
-AST-level rewrites before IR lowering: array bound normalisation, syntactic
-sugar elimination, `Loop` → `while` conversion.
+Rewrites ownership into explicit internal AST operations. Assignments become
+`replace`, borrowed reads become `borrow`, ownership transfers become `move`,
+copies of reference-counted values use `retain`, literals use `own-literal`,
+and scope exits contain explicit `destroy` operations. Structured exits use
+`cleanup-exit`; module-level destruction uses one `cleanup-global` node.
+
+### 4.5 Final semantic validation
+
+The rewritten tree is resolved and annotated again because the lifetime pass
+introduces synthetic locals and expressions. The lifetime validator then
+rejects invalid ownership combinations before IR lowering.
+
+### 4.6 Lifetime and ownership
+
+Lifetime policy belongs to the semantic AST, not to IR lowering. Strings,
+arrays, aggregate traits, explicit ownership nodes, lexical and structured-exit
+cleanup, globals, validation, and the lowering boundary are documented in
+[lifetime analysis](lifetime.md).
 
 ---
 
@@ -292,4 +318,32 @@ row-major multidimensional layout, and by-pointer function passing;
 LLVM value ABI for arguments/returns, and reference-parameter copies; and
 [strings](strings.md) describes `лит` as `TString::Data` / browser handles with
 reference counting, ownership tracking, literal materialization, and
-retain/release rules around calls, returns, assignments, and destruction.
+retain/release rules around calls, returns, assignments, and destruction. The
+cross-type semantic ownership model is described in
+[lifetime analysis](lifetime.md).
+
+---
+
+## 10. Inspirations
+
+The compiler's design and the way its implementation is explained were shaped
+by several books, production-language systems, and lecture series:
+
+- Bjarne Stroustrup,
+  [*Programming: Principles and Practice Using C++*](https://www.stroustrup.com/programming.html)
+  — the engineering and teaching principles behind building programs from
+  explicit abstractions and invariants.
+- [YQL reference and architecture](https://ydb.tech/docs/en/yql/reference/?version=v25.4)
+  — an example of a production query language with a typed expression model,
+  staged transformations, and multiple execution environments.
+- Robert Nystrom, [*Crafting Interpreters*](https://craftinginterpreters.com/)
+  — a concrete end-to-end treatment of language implementation, from syntax
+  and semantic analysis to execution.
+- Matthias Braun et al.,
+  [*Simple and Efficient Construction of Static Single Assignment Form*](https://c9x.me/compile/bib/braun13cc.pdf)
+  — the basis for constructing SSA directly from structured control flow and
+  resolving incomplete phi nodes without a separate dominance-frontier pass.
+- Konstantin Vladimirov's
+  [compiler and systems programming lectures](https://www.youtube.com/@tilir)
+  — lectures that influenced the compiler's implementation approach and its
+  treatment of low-level language mechanics.

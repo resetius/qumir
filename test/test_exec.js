@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// JS execution test harness for .kum programs compiled to WebAssembly via `qumirc --wasm`.
+// JS execution test harness for .kum/.oz programs compiled to WebAssembly via `qumirc --wasm`.
 // Focus: execution only (analogous to Exec* tests in test_reg.cpp) comparing return value and stdout against goldens.
 // Usage:
 //   node test/test_exec.js [--root test/regtest] [--update] [--print] [--wasm-dir build/wasm]
 // Environment overrides:
 //   QUMIRC   path to qumirc/qumiri compiler (default tries bin/qumirc then bin/qumiri)
 // Notes:
-//   Each .kum file should define exactly one top-level algorithm (after splitting: one file = one function).
+//   Each .kum file should define exactly one top-level algorithm. In --core mode
+//   each .oz file must define <main>.
 //   Goldens: .result for return value, optional .result.stdout for printed output.
 
 import fs from 'fs';
@@ -27,6 +28,7 @@ let wasmDir = 'build/wasm';
 let runtimeDir = null; // directory with JS runtime host functions
 let filterPattern = null; // optional glob-style filter for case names (similar to gtest_filter)
 let xmlOutputPath = null; // optional path to write JUnit-style XML report
+let coreInput = false;
 for (let i=2;i<process.argv.length;i++) {
   const arg = process.argv[i];
   if (arg === '--root' && i+1 < process.argv.length) { rootDir = process.argv[++i]; }
@@ -36,6 +38,7 @@ for (let i=2;i<process.argv.length;i++) {
   else if (arg === '--runtime' && i+1 < process.argv.length) { runtimeDir = process.argv[++i]; }
   else if (arg === '--filter' && i+1 < process.argv.length) { filterPattern = process.argv[++i]; }
   else if (arg === '--xml' && i+1 < process.argv.length) { xmlOutputPath = process.argv[++i]; }
+  else if (arg === '--core') { coreInput = true; }
 }
 
 const casesDir = path.join(rootDir, 'cases');
@@ -288,13 +291,14 @@ function writeAll(p, data) {
 
 function collectCases(dir) {
   const out = [];
+  const extension = coreInput ? '.oz' : '.kum';
   function walk(d){
     for (const e of fs.readdirSync(d)) {
       const full = path.join(d,e);
       const st = fs.statSync(full);
-      if (st.isDirectory()) walk(full); else if (st.isFile() && e.endsWith('.kum')) {
+      if (st.isDirectory()) walk(full); else if (st.isFile() && e.endsWith(extension)) {
         const rel = path.relative(dir, full);
-        out.push(rel.slice(0, -4)); // strip .kum
+        out.push(rel.slice(0, -extension.length));
       }
     }
   }
@@ -342,10 +346,13 @@ function parseAlgHeader(code) {
 }
 
 function compileCase(compiler, caseBase) {
-  const srcPath = path.join(casesDir, caseBase + '.kum');
+  const extension = coreInput ? '.oz' : '.kum';
+  const srcPath = path.join(casesDir, caseBase + extension);
   const outPath = path.join(wasmDir, caseBase + '.wasm');
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  const args = [compiler, '--wasm', srcPath, '-o', outPath];
+  const args = [compiler, '--wasm'];
+  if (coreInput) args.push('--core');
+  args.push(srcPath, '-o', outPath);
   const r = cp.spawnSync(args[0], args.slice(1), { stdio: 'inherit' });
   if (r.status !== 0) throw new Error('Compile failed for ' + srcPath);
   return outPath;
@@ -737,7 +744,8 @@ async function runAll() {
         continue;
       }
     }
-    const srcPath = path.join(casesDir, caseBase + '.kum');
+    const extension = coreInput ? '.oz' : '.kum';
+    const srcPath = path.join(casesDir, caseBase + extension);
     const firstLine = readAll(srcPath).split(/\r?\n/)[0];
     if (firstLine.includes('disable_exec')) {
       if (printOutput) log('[SKIP]', caseBase, '(disable_exec)');
@@ -749,7 +757,9 @@ async function runAll() {
     }
     const wasmPath = compileCase(compiler, caseBase);
     const code = readAll(srcPath);
-    const { type: algType, name: algName } = parseAlgHeader(code);
+    const { type: algType, name: algName } = coreInput
+      ? { type: null, name: '<main>' }
+      : parseAlgHeader(code);
     const goldenResultPath = path.join(goldensDir, caseBase + '.result');
     const goldenStdOutPath = path.join(goldensDir, caseBase + '.result.stdout');
 
