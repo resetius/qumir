@@ -1041,6 +1041,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(expr->Location, TErrorString::Get<EErrorId::RETURN_OUTSIDE_FUNCTION>());
         }
         auto returnValue = co_await LowerReturnValue(ret, scope);
+        if (scope.LastAssert) {
+            co_await Lower(scope.LastAssert, scope);
+        }
         // release all locals declared in this function before returning
         // (the return value was retained above, so returning one of these
         // locals transfers ownership rather than freeing it)
@@ -1513,6 +1516,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             .ContinueLabel = std::nullopt,
             .ReturnLabel = endLabel,
             .RetLocal = retLocal,
+            .LastAssert = fun->LastAssert,
             .FunctionPendingDestructorsMark = functionPendingDestructorsMark
         };
         for (auto& param : fun->Params) {
@@ -1533,6 +1537,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             .ContinueLabel = std::nullopt,
             .ReturnLabel = endLabel,
             .RetLocal = retLocal,
+            .LastAssert = fun->LastAssert,
             .FunctionPendingDestructorsMark = functionPendingDestructorsMark
         });
         // Jump to final return block unless already terminated by earlier logic (e.g. explicit `return`).
@@ -1560,17 +1565,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         // Materialize final return block and emit single ret there.
         Builder.NewBlock(endLabel);
-        if (fun->LastAssert) {
-            co_await Lower(fun->LastAssert, TBlockScope {
-                .FuncIdx = funcIdx,
-                .Id = NSemantics::TScopeId{funScope},
-                .BreakLabel = std::nullopt,
-                .ContinueLabel = std::nullopt,
-                .ReturnLabel = endLabel,
-                .RetLocal = retLocal,
-                .FunctionPendingDestructorsMark = functionPendingDestructorsMark
-            });
-        }
         if (retLocal) {
             auto loaded = Builder.Emit1("load"_op, {TOperand{*retLocal}});
             Builder.SetType(loaded, FromAstType(retAstType, Module.Types));

@@ -30,6 +30,7 @@ private:
         std::optional<TLabel> ContinueLabel;
         std::optional<TLabel> ReturnLabel; // function's exit block, set for every scope inside a function body
         std::optional<TLocal> RetLocal; // holds the return value; unset for void-returning functions
+        NAst::TExprPtr LastAssert; // function epilogue executed after evaluating the return value and before cleanup
         size_t LoopPendingDestructorsMark = 0; // PendingDestructors size at loop body entry; break/continue flush down to here
         size_t FunctionPendingDestructorsMark = 0; // PendingDestructors size at function body entry; return flushes down to here
     };
