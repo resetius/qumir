@@ -19,6 +19,7 @@ ut(test_field_access test_field_access.cpp)
 ut(test_bit_ops test_bit_ops.cpp)
 ut(test_if_expr test_if_expr.cpp)
 ut(test_future test_future.cpp)
+ut(test_lifetime_traits test_lifetime_traits.cpp)
 ut(test_printer test_printer.cpp)
 
 # JavaScript execution tests (Node.js required)

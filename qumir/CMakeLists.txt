@@ -69,6 +69,8 @@ add_library(qumir
     semantics/name_resolution/name_resolver.cpp
     semantics/return_analysis.h
     semantics/return_analysis.cpp
+    semantics/lifetime/type_traits.h
+    semantics/lifetime/type_traits.cpp
     semantics/transform/transform.h
     semantics/transform/transform.cpp
     semantics/type_annotation/coercions.h
