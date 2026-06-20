@@ -153,21 +153,22 @@ std::expected<TExprPtr, TError> RequireOwned(TExprPtr value) {
     if (!ownership) {
         return std::unexpected(ownership.error());
     }
+    auto loc = value->Location;
     switch (*ownership) {
     case EValueOwnership::Literal:
-        return std::make_shared<TOwnLiteralExpr>(value->Location, std::move(value));
+        return std::make_shared<TOwnLiteralExpr>(loc, std::move(value));
     case EValueOwnership::Borrowed:
         return std::make_shared<TRetainExpr>(
-            value->Location,
-            std::make_shared<TBorrowExpr>(value->Location, std::move(value)));
+            loc,
+            std::make_shared<TBorrowExpr>(loc, std::move(value)));
     case EValueOwnership::Owned:
-        return std::make_shared<TMoveExpr>(value->Location, std::move(value));
+        return std::make_shared<TMoveExpr>(loc, std::move(value));
     case EValueOwnership::NotApplicable:
         return std::unexpected(TError(
-            value->Location,
+            loc,
             "Owned string value was required for a non-string expression."));
     }
-    return std::unexpected(TError(value->Location, "Unknown string ownership."));
+    return std::unexpected(TError(loc, "Unknown string ownership."));
 }
 
 TExprPtr MakeNullString(const TLocation& location, const TTypePtr& type) {
@@ -587,10 +588,11 @@ private:
                     return std::unexpected(ownership.error());
                 }
                 if (*ownership == EValueOwnership::Owned) {
+                    auto loc = statement->Location;
                     statement = std::make_shared<TDestroyExpr>(
-                        statement->Location,
+                        loc,
                         std::make_shared<TMoveExpr>(
-                            statement->Location,
+                            loc,
                             std::move(statement)));
                     changed = true;
                 }
@@ -812,8 +814,9 @@ private:
             }
             if (*ownership == EValueOwnership::Borrowed) {
                 if (!TMaybeNode<TBorrowExpr>(argument)) {
+                    auto loc = argument->Location;
                     argument = std::make_shared<TBorrowExpr>(
-                        argument->Location,
+                        loc,
                         std::move(argument));
                     changed = true;
                 }
