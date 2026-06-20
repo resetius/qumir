@@ -32,4 +32,5 @@
           (if (<= L R) (block (= c (index A L)) (= A [L] (index A R)) (= A [R] c) (= L (+ L 1)) (= R (- R 1))))))
       (call qSort nStart R)
       (call qSort L nEnd)
-      (cleanup-exit (return)))))
+      (cleanup-exit (return))))
+  (cleanup-global (destroy A)))

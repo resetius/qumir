@@ -136,6 +136,52 @@ std::expected<TLowered, TError> Lower(
     };
 }
 
+std::expected<TLowered, TError> LowerNamedFunction(
+    TExprPtr root,
+    std::string_view functionName)
+{
+    NSemantics::TNameResolver resolver;
+    NRegistry::SystemModule system;
+    resolver.RegisterModule(&system);
+    auto import = resolver.ImportModule(system.Name());
+    if (!import) {
+        return std::unexpected(TError({}, import.error()));
+    }
+    if (auto source = NTransform::RunSourceTransformFixpoint(root, resolver); !source) {
+        return std::unexpected(source.error());
+    }
+    if (auto final = NTransform::RunFinalSemanticPipeline(root, resolver); !final) {
+        return std::unexpected(final.error());
+    }
+
+    TModule module;
+    TBuilder builder(module);
+    TAstLowerer lowerer(module, builder, resolver);
+    if (auto result = lowerer.LowerTop(root); !result) {
+        return std::unexpected(result.error());
+    }
+    auto* function = module.GetFunctionByName(std::string(functionName));
+    if (!function) {
+        return std::unexpected(TError({}, "lowered function not found"));
+    }
+
+    std::string trace;
+    for (const auto& block : function->Blocks) {
+        for (const auto& instruction : block.Instrs) {
+            if (!trace.empty()) {
+                trace += " ";
+            }
+            trace += InstructionName(instruction, resolver);
+        }
+    }
+    std::ostringstream ir;
+    module.Print(ir);
+    return TLowered{
+        .Trace = std::move(trace),
+        .Ir = ir.str(),
+    };
+}
+
 void ExpectTrace(
     std::vector<TParam> parameters,
     std::vector<TExprPtr> statements,
@@ -283,16 +329,42 @@ TEST(LifetimeLowering, StructuredCleanupExitLowersItsActionsBeforeExit) {
     }, "arg call:str_from_lit arg call:str_release jmp ret");
 }
 
-TEST(LifetimeLowering, GlobalCleanupHasDedicatedError) {
-    auto globalResult = Lower({}, {
-        std::make_shared<TGlobalCleanupExpr>(
-            TLocation{},
-            std::vector<TExprPtr>{}),
+TEST(LifetimeLowering, GlobalCleanupBuildsModuleDestructorInLifoOrder) {
+    auto stringType = std::make_shared<TStringType>();
+    auto first = std::make_shared<TVarStmt>(TLocation{}, "first", stringType);
+    first->Init = std::make_shared<TStringLiteralExpr>(TLocation{}, "first");
+    auto plain = std::make_shared<TVarStmt>(
+        TLocation{},
+        "plain",
+        std::make_shared<TArrayType>(std::make_shared<TIntegerType>(), 1));
+    plain->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{2}),
     });
-    ASSERT_FALSE(globalResult.has_value());
-    EXPECT_NE(
-        globalResult.error().ToString().find("cleanup-global lowering is not implemented"),
-        std::string::npos);
+    auto words = std::make_shared<TVarStmt>(
+        TLocation{},
+        "words",
+        std::make_shared<TArrayType>(stringType, 1));
+    words->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{2}),
+    });
+    TExprPtr root = std::make_shared<TBlockExpr>(
+        TLocation{},
+        std::vector<TExprPtr>{
+            first,
+            plain,
+            words,
+            Function({}, {}),
+        });
+
+    auto result = LowerNamedFunction(root, "$$module_destructor");
+    ASSERT_TRUE(result.has_value()) << result.error().ToString();
+    EXPECT_EQ(
+        result->Trace,
+        "load load arg arg call:array_str_destroy load arg "
+        "call:array_destroy load arg call:str_release ret")
+        << result->Ir;
 }
 
 int main(int argc, char** argv) {

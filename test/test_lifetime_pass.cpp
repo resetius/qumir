@@ -497,6 +497,53 @@ TEST(LifetimePass, EvaluatesEffectfulStringArrayBoundOnce) {
         std::string::npos);
 }
 
+TEST(LifetimePass, CollectsGlobalCleanupOnceInReverseDeclarationOrder) {
+    auto first = Variable("first", std::make_shared<TStringType>());
+    first->Init = Literal("first");
+    auto plain = Variable(
+        "plain",
+        std::make_shared<TArrayType>(std::make_shared<TIntegerType>(), 1));
+    plain->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{2}),
+    });
+    auto words = Variable(
+        "words",
+        std::make_shared<TArrayType>(std::make_shared<TStringType>(), 1));
+    words->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{3}),
+    });
+    TExprPtr root = Block({
+        first,
+        plain,
+        words,
+        Function("main", {}, Block({})),
+    });
+    NSemantics::TNameResolver resolver;
+
+    auto source = NTransform::RunSourceTransformFixpoint(root, resolver);
+    ASSERT_TRUE(source.has_value()) << source.error().ToString();
+    auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
+    ASSERT_TRUE(final.has_value()) << final.error().ToString();
+
+    auto rootBlock = TMaybeNode<TBlockExpr>(root).Cast();
+    size_t cleanupCount = 0;
+    std::shared_ptr<TGlobalCleanupExpr> cleanup;
+    for (const auto& statement : rootBlock->Stmts) {
+        if (auto candidate = TMaybeNode<TGlobalCleanupExpr>(statement)) {
+            ++cleanupCount;
+            cleanup = candidate.Cast();
+        }
+    }
+    EXPECT_EQ(cleanupCount, 1u);
+    ASSERT_TRUE(cleanup);
+    EXPECT_EQ(
+        Print(cleanup),
+        "(cleanup-global (destroy words __lifetime_0) "
+        "(destroy plain) (destroy first))");
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

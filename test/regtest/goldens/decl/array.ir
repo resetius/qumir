@@ -94,22 +94,22 @@ function $$module_constructor () { ; void
 function $$module_destructor () { ; void
   block {
     label: label(0)
-    load tmp(0,ptr to i64) = slot(75,ptr to i64) 
+    load tmp(0,ptr to i64) = slot(81,ptr to i64) 
     arg tmp(0,ptr to i64) 
     call array_destroy 
-    load tmp(1,ptr to i64) = slot(76,ptr to i64) 
+    load tmp(1,ptr to i64) = slot(79,ptr to i64) 
     arg tmp(1,ptr to i64) 
     call array_destroy 
-    load tmp(2,ptr to f64) = slot(77,ptr to f64) 
-    arg tmp(2,ptr to f64) 
+    load tmp(2,ptr to i1) = slot(78,ptr to i1) 
+    arg tmp(2,ptr to i1) 
     call array_destroy 
-    load tmp(3,ptr to i1) = slot(78,ptr to i1) 
-    arg tmp(3,ptr to i1) 
+    load tmp(3,ptr to f64) = slot(77,ptr to f64) 
+    arg tmp(3,ptr to f64) 
     call array_destroy 
-    load tmp(4,ptr to i64) = slot(79,ptr to i64) 
+    load tmp(4,ptr to i64) = slot(76,ptr to i64) 
     arg tmp(4,ptr to i64) 
     call array_destroy 
-    load tmp(5,ptr to i64) = slot(81,ptr to i64) 
+    load tmp(5,ptr to i64) = slot(75,ptr to i64) 
     arg tmp(5,ptr to i64) 
     call array_destroy 
     ret 

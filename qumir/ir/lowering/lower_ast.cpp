@@ -705,9 +705,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         Builder.Emit0("jmp"_op, {*target});
         co_return TValueWithBlock{std::nullopt, Builder.CurrentBlockLabel()};
-    } else if (NAst::TMaybeNode<NAst::TGlobalCleanupExpr>(expr)) {
-        co_return TError(expr->Location,
-            "cleanup-global lowering is not implemented");
+    } else if (auto maybeGlobal = NAst::TMaybeNode<NAst::TGlobalCleanupExpr>(expr)) {
+        for (const auto& cleanup : maybeGlobal.Cast()->Cleanups) {
+            co_await Lower(cleanup, scope);
+        }
+        co_return TValueWithBlock{std::nullopt, Builder.CurrentBlockLabel()};
     } else if (auto maybeBitcast = NAst::TMaybeNode<NAst::TBitcastExpr>(expr)) {
         auto bitcast = maybeBitcast.Cast();
         auto operand = co_await Lower(bitcast->Operand, scope);
@@ -1308,7 +1310,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto assignRes = co_await Lower(assign, scope);
             Builder.SetCurrentBlock(assignRes.ProducingLabel);
         }
-        if (auto maybeArrayType = NAst::TMaybeType<NAst::TArrayType>(var->Type)) {
+        if (NAst::TMaybeType<NAst::TArrayType>(var->Type)) {
             auto arrayType = FromAstType(var->Type, Module.Types);
             auto elemType = Module.Types.UnderlyingType(arrayType);
             auto elemSize = Module.Types.SizeInBytes(elemType);
@@ -1324,25 +1326,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto arrayPtr = Builder.Emit1("call"_op, {TImm{ctorId}});
             Builder.SetType(arrayPtr, arrayType);
 
-            const auto elementAstType = NAst::UnwrapNamedType(maybeArrayType.Cast()->ElementType);
-            bool arrayOfStrings = NAst::TMaybeType<NAst::TStringType>(elementAstType).Cast() != nullptr;
             TOperand arg = (sidOpt->FunctionLevelIdx >= 0)
                 ? TOperand { TLocal{ sidOpt->FunctionLevelIdx } }
                 : TOperand { TSlot{ sidOpt->Id } };
             Builder.Emit0("stre"_op, {arg, arrayPtr});
-            if (sidOpt->FunctionLevelIdx < 0) {
-                auto dtorId = co_await GlobalSymbolId(
-                    arrayOfStrings ? "array_str_destroy" : "array_destroy");
-                std::vector<TOperand> args = {arg};
-                if (arrayOfStrings) {
-                    args.push_back(arraySize);
-                }
-                PendingDestructors.push_back(TDestructor{
-                    .Args = std::move(args),
-                    .TypeIds = {arrayType},
-                    .FunctionId = {dtorId},
-                });
-            }
         }
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(expr)) {
@@ -1743,6 +1730,26 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
                 if (!lowered) {
                     return std::unexpected(lowered.error());
                 }
+            } else if (NAst::TMaybeNode<NAst::TGlobalCleanupExpr>(s)) {
+                if (destructorFunctionId != -1) {
+                    return std::unexpected(TError(
+                        s->Location,
+                        "Only one global cleanup node is allowed."));
+                }
+                destructorFunctionId = Builder.NewFunction(
+                    destructorFunctionName,
+                    {},
+                    -2 /*symbolId*/);
+                Builder.SetReturnType(Module.Types.I(EKind::Void));
+                auto lowered = Lower(s, TBlockScope{
+                    .FuncIdx = destructorFunctionId,
+                    .Id = scope.Id,
+                }).result();
+                if (!lowered) {
+                    return std::unexpected(lowered.error());
+                }
+                Builder.Emit0("ret"_op, {});
+                Module.ModuleDestructorFunctionId = destructorFunctionId;
             } else if (NAst::TMaybeNode<NAst::TUseExpr>(s)) {
                 // Imports are handled during parsing/name resolution; keep the AST node
                 // for source/core printing but do not lower it to IR.
@@ -1763,26 +1770,6 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
         Builder.SetCurrentFunction(constructorFunctionId);
         Builder.Emit0("ret"_op, {});
         Module.ModuleConstructorFunctionId = constructorFunctionId;
-    }
-
-    if (!PendingDestructors.empty()) {
-        destructorFunctionId = Builder.NewFunction(destructorFunctionName, {}, -2 /*symbolId*/);
-        Builder.SetReturnType(Module.Types.I(EKind::Void));
-        for (auto& dtor : PendingDestructors) {
-            for (auto& arg : dtor.Args) {
-                if (arg.Type == TOperand::EType::Slot) {
-                    // load slot value
-                    auto tmp = Builder.Emit1("load"_op, {arg});
-                    Builder.SetType(tmp, Module.GlobalTypes[arg.Slot.Idx]);
-                    arg = tmp;
-                }
-                Builder.Emit0("arg"_op, {arg});
-            }
-            Builder.Emit0("call"_op, { TImm{ dtor.FunctionId } });
-        }
-        Builder.Emit0("ret"_op, {});
-        Module.ModuleDestructorFunctionId = destructorFunctionId;
-        PendingDestructors.clear();
     }
 
     return {};

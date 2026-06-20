@@ -6,4 +6,5 @@
   (var multi <array i64 2> [0 10] [0 20])
   (var i i64)
   (= i 1)
-  (var multi2 <array i64 2> [i (+ i 10)] [i (* i 20)]))
+  (var multi2 <array i64 2> [i (+ i 10)] [i (* i 20)])
+  (cleanup-global (destroy multi2) (destroy multi) (destroy тт) (destroy l) (destroy ц) (destroy й)))

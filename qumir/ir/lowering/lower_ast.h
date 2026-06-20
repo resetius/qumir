@@ -33,14 +33,6 @@ private:
         NAst::TExprPtr LastAssert; // function epilogue executed after evaluating the return value and before cleanup
     };
 
-    struct TDestructor {
-        std::vector<TOperand> Args;
-        std::vector<int> TypeIds;
-        TImm FunctionId;
-    };
-
-    using TPendingDestructors = std::vector<TDestructor>;
-
     enum class EOwnership {
         Unkwnown,
         Owned,
@@ -86,7 +78,6 @@ private:
     TBuilder& Builder;
     NSemantics::TNameResolver& Context;
 
-    TPendingDestructors PendingDestructors;
     std::unordered_map<int32_t, TArrayLayout> ArrayLayouts;
     int32_t NextHiddenGlobalSlot = -1;
 

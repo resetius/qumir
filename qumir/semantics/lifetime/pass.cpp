@@ -177,7 +177,49 @@ public:
     {}
 
     std::expected<bool, TError> Rewrite(TExprPtr& root) {
-        return RewriteExpr(root, TScopeId{0}, false);
+        if (auto block = TMaybeNode<TBlockExpr>(root)) {
+            size_t globalCleanupCount = 0;
+            for (const auto& statement : block.Cast()->Stmts) {
+                if (TMaybeNode<TGlobalCleanupExpr>(statement)) {
+                    ++globalCleanupCount;
+                }
+            }
+            if (globalCleanupCount > 1) {
+                return std::unexpected(TError(
+                    root->Location,
+                    "Only one global cleanup node is allowed."));
+            }
+            if (globalCleanupCount == 1) {
+                // Serialized core AST can re-enter the final pipeline. The
+                // root cleanup marker means lifetime rewriting is complete.
+                return false;
+            }
+        }
+        auto result = RewriteExpr(root, TScopeId{0}, false);
+        if (!result) {
+            return result;
+        }
+        if (GlobalLocals_.empty()) {
+            return result;
+        }
+        auto block = TMaybeNode<TBlockExpr>(root);
+        if (!block) {
+            return std::unexpected(TError(
+                root->Location,
+                "Lifetime pass requires a root block for global cleanup."));
+        }
+        std::vector<TExprPtr> cleanups;
+        cleanups.reserve(GlobalLocals_.size());
+        for (auto local = GlobalLocals_.rbegin();
+             local != GlobalLocals_.rend();
+             ++local)
+        {
+            cleanups.push_back(MakeDestroy(*local));
+        }
+        block.Cast()->Stmts.push_back(std::make_shared<TGlobalCleanupExpr>(
+            root->Location,
+            std::move(cleanups)));
+        return true;
     }
 
 private:
@@ -192,25 +234,27 @@ private:
         std::vector<TLocal> Locals;
     };
 
+    TExprPtr MakeDestroy(const TLocal& local) const {
+        auto value = std::make_shared<TIdentExpr>(local.Location, local.Name);
+        value->Type = local.Type;
+        TExprPtr aux;
+        if (local.AuxName) {
+            aux = std::make_shared<TIdentExpr>(local.Location, *local.AuxName);
+            aux->Type = std::make_shared<TIntegerType>();
+        }
+        return std::make_shared<TDestroyExpr>(
+            local.Location,
+            std::move(value),
+            std::move(aux));
+    }
+
     // Builds cleanup actions for active scopes in lexical LIFO order.
     std::vector<TExprPtr> MakeCleanups(size_t firstScope) const {
         std::vector<TExprPtr> cleanups;
         for (size_t scopeIndex = Scopes_.size(); scopeIndex-- > firstScope; ) {
             const auto& locals = Scopes_[scopeIndex].Locals;
             for (auto local = locals.rbegin(); local != locals.rend(); ++local) {
-                auto value = std::make_shared<TIdentExpr>(local->Location, local->Name);
-                value->Type = local->Type;
-                TExprPtr aux;
-                if (local->AuxName) {
-                    aux = std::make_shared<TIdentExpr>(
-                        local->Location,
-                        *local->AuxName);
-                    aux->Type = std::make_shared<TIntegerType>();
-                }
-                cleanups.push_back(std::make_shared<TDestroyExpr>(
-                    local->Location,
-                    std::move(value),
-                    std::move(aux)));
+                cleanups.push_back(MakeDestroy(*local));
             }
         }
         return cleanups;
@@ -379,17 +423,25 @@ private:
                             return std::unexpected(result.error());
                         }
                         changed = result.value() || changed;
-                        if (FunctionBoundary_
-                            && IsStringArray(variable.Cast()->Type)
+                        if (IsStringArray(variable.Cast()->Type)
                             && !IsReusableArrayBound(*bound))
                         {
                             const auto boundName = SyntheticNames_.Next();
+                            const auto boundLocation = (*bound)->Location;
                             auto boundValue = std::make_shared<TVarStmt>(
-                                (*bound)->Location,
+                                boundLocation,
                                 boundName,
                                 std::make_shared<TIntegerType>());
-                            boundValue->Init = std::move(*bound);
+                            if (FunctionBoundary_) {
+                                boundValue->Init = std::move(*bound);
+                            }
                             statements.push_back(std::move(boundValue));
+                            if (!FunctionBoundary_) {
+                                statements.push_back(std::make_shared<TAssignExpr>(
+                                    boundLocation,
+                                    boundName,
+                                    std::move(*bound)));
+                            }
                             auto savedBound = std::make_shared<TIdentExpr>(
                                 variable.Cast()->Location,
                                 boundName);
@@ -402,18 +454,33 @@ private:
                 statements.push_back(statement);
 
                 std::optional<std::string> auxName;
-                if (FunctionBoundary_ && IsStringArray(variable.Cast()->Type)) {
+                if (IsStringArray(variable.Cast()->Type)) {
                     auxName = SyntheticNames_.Next();
                     auto allocationSize = std::make_shared<TVarStmt>(
                         variable.Cast()->Location,
                         *auxName,
                         std::make_shared<TIntegerType>());
-                    allocationSize->Init = ArrayAllocationSize(*variable.Cast());
+                    if (FunctionBoundary_) {
+                        allocationSize->Init = ArrayAllocationSize(*variable.Cast());
+                    }
                     statements.push_back(std::move(allocationSize));
+                    if (!FunctionBoundary_) {
+                        statements.push_back(std::make_shared<TAssignExpr>(
+                            variable.Cast()->Location,
+                            *auxName,
+                            ArrayAllocationSize(*variable.Cast())));
+                    }
                     changed = true;
                 }
                 if (FunctionBoundary_) {
                     Scopes_.back().Locals.push_back({
+                        variable.Cast()->Location,
+                        variable.Cast()->Name,
+                        variable.Cast()->Type,
+                        std::move(auxName),
+                    });
+                } else {
+                    GlobalLocals_.push_back({
                         variable.Cast()->Location,
                         variable.Cast()->Name,
                         variable.Cast()->Type,
@@ -430,6 +497,12 @@ private:
                     statements.push_back(statement);
                     if (FunctionBoundary_) {
                         Scopes_.back().Locals.push_back({
+                            variable.Cast()->Location,
+                            variable.Cast()->Name,
+                            variable.Cast()->Type,
+                        });
+                    } else {
+                        GlobalLocals_.push_back({
                             variable.Cast()->Location,
                             variable.Cast()->Name,
                             variable.Cast()->Type,
@@ -464,6 +537,12 @@ private:
                 }
                 if (FunctionBoundary_) {
                     Scopes_.back().Locals.push_back({
+                        variable.Cast()->Location,
+                        variable.Cast()->Name,
+                        variable.Cast()->Type,
+                    });
+                } else {
+                    GlobalLocals_.push_back({
                         variable.Cast()->Location,
                         variable.Cast()->Name,
                         variable.Cast()->Type,
@@ -898,6 +977,7 @@ private:
     TNameResolver& Context_;
     TSyntheticNameGenerator& SyntheticNames_;
     std::vector<TLifetimeScope> Scopes_;
+    std::vector<TLocal> GlobalLocals_;
     std::vector<size_t> LoopBoundaries_;
     std::optional<size_t> FunctionBoundary_;
 };
