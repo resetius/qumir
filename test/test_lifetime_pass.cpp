@@ -120,7 +120,7 @@ TEST(LifetimePass, RewritesAllStringAssignmentTargets) {
     auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
     ASSERT_TRUE(final.has_value()) << final.error().ToString();
 
-    ASSERT_EQ(body->Stmts.size(), 11u);
+    ASSERT_EQ(body->Stmts.size(), 12u);
     EXPECT_EQ(Print(a->Init), "(bitcast 0 string)");
     EXPECT_EQ(Print(b->Init), "(bitcast 0 string)");
     EXPECT_EQ(Print(body->Stmts[2]), "(replace a (own-literal \"literal\"))");
@@ -128,10 +128,10 @@ TEST(LifetimePass, RewritesAllStringAssignmentTargets) {
     EXPECT_EQ(Print(body->Stmts[4]), "(replace a (retain (borrow a)))");
     EXPECT_EQ(Print(body->Stmts[5]), "(replace a (move (call make)))");
     EXPECT_EQ(
-        Print(body->Stmts[7]),
+        Print(body->Stmts[8]),
         "(replace (index items 1) (own-literal \"element\"))");
     EXPECT_EQ(
-        Print(body->Stmts[9]),
+        Print(body->Stmts[10]),
         "(replace (field object text) (retain (borrow b)))");
     EXPECT_EQ(
         Print(refBody->Stmts[0]),
@@ -319,6 +319,13 @@ TEST(LifetimePass, LoopExitCleansOnlyLocalsDeclaredBeforeTheExit) {
     loopCondition->Type = std::make_shared<TBoolType>();
     auto value = Variable("value", std::make_shared<TStringType>());
     value->Init = Literal("iteration");
+    auto items = Variable(
+        "items",
+        std::make_shared<TArrayType>(std::make_shared<TIntegerType>(), 1));
+    items->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{2}),
+    });
     auto earlyBreak = Block({std::make_shared<TBreakStmt>(TLocation{})});
     auto loopBody = Block({
         std::make_shared<TIfExpr>(
@@ -327,6 +334,7 @@ TEST(LifetimePass, LoopExitCleansOnlyLocalsDeclaredBeforeTheExit) {
             earlyBreak,
             Block({})),
         value,
+        items,
         std::make_shared<TContinueStmt>(TLocation{}),
     });
     auto loop = std::make_shared<TWhileStmtExpr>(
@@ -346,7 +354,147 @@ TEST(LifetimePass, LoopExitCleansOnlyLocalsDeclaredBeforeTheExit) {
     EXPECT_EQ(Print(earlyBreak->Stmts[0]), "(cleanup-exit (break))");
     EXPECT_EQ(
         Print(loopBody->Stmts.back()),
-        "(cleanup-exit (continue) (destroy value))");
+        "(cleanup-exit (continue) (destroy items) (destroy value))");
+}
+
+TEST(LifetimePass, DestroysLocalArraysOnNormalAndReturnExits) {
+    auto i64 = std::make_shared<TIntegerType>();
+    auto plain = Variable("plain", std::make_shared<TArrayType>(i64, 1));
+    plain->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{3}),
+    });
+    auto marker = Variable("marker", i64);
+    auto nested = Block({
+        plain,
+        marker,
+        std::make_shared<TAssignExpr>(
+            TLocation{},
+            "marker",
+            std::make_shared<TNumberExpr>(TLocation{}, int64_t{0})),
+    });
+
+    auto strings = Variable(
+        "strings",
+        std::make_shared<TArrayType>(std::make_shared<TStringType>(), 1));
+    strings->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{2}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{4}),
+    });
+    auto body = Block({nested, strings});
+    TExprPtr root = Block({Function("main", {}, body)});
+    NSemantics::TNameResolver resolver;
+
+    auto source = NTransform::RunSourceTransformFixpoint(root, resolver);
+    ASSERT_TRUE(source.has_value()) << source.error().ToString();
+    auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
+    ASSERT_TRUE(final.has_value()) << final.error().ToString();
+
+    EXPECT_EQ(
+        Print(nested),
+        "(block (var plain <array i64 1> [1 3]) (var marker i64) "
+        "(= marker 0) (destroy plain))");
+    ASSERT_EQ(body->Stmts.size(), 4u);
+    EXPECT_EQ(
+        Print(body->Stmts[3]),
+        "(cleanup-exit (return) (destroy strings __lifetime_0))");
+}
+
+TEST(LifetimePass, SavesStringArrayAllocationSizeForMultidimensionalBounds) {
+    auto i64 = std::make_shared<TIntegerType>();
+    auto lower = Variable("lower", i64);
+    lower->Init = std::make_shared<TNumberExpr>(TLocation{}, int64_t{1});
+    auto upper = Variable("upper", i64);
+    upper->Init = std::make_shared<TNumberExpr>(TLocation{}, int64_t{2});
+    auto grid = Variable(
+        "grid",
+        std::make_shared<TArrayType>(std::make_shared<TStringType>(), 2));
+    grid->Bounds.push_back({Ident("lower"), Ident("upper")});
+    grid->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{0}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{2}),
+    });
+    auto body = Block({
+        lower,
+        upper,
+        grid,
+        std::make_shared<TAssignExpr>(
+            TLocation{},
+            "upper",
+            std::make_shared<TNumberExpr>(TLocation{}, int64_t{100})),
+    });
+    TExprPtr root = Block({Function("main", {}, body)});
+    NSemantics::TNameResolver resolver;
+
+    auto source = NTransform::RunSourceTransformFixpoint(root, resolver);
+    ASSERT_TRUE(source.has_value()) << source.error().ToString();
+    auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
+    ASSERT_TRUE(final.has_value()) << final.error().ToString();
+
+    ASSERT_EQ(body->Stmts.size(), 6u);
+    EXPECT_EQ(
+        Print(body->Stmts[3]),
+        "(var __lifetime_0 = (* (* (* 1 (+ (- upper lower) 1)) (+ (- 2 0) 1)) 8))");
+    EXPECT_EQ(
+        Print(body->Stmts[5]),
+        "(cleanup-exit (return) (destroy grid __lifetime_0))");
+}
+
+TEST(LifetimePass, DoesNotDestroyArrayParameter) {
+    auto arrayType = std::make_shared<TArrayType>(
+        std::make_shared<TStringType>(),
+        1);
+    auto parameter = Variable("items", arrayType);
+    parameter->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{2}),
+    });
+    auto body = Block({});
+    TExprPtr root = Block({Function("consume", {parameter}, body)});
+    NSemantics::TNameResolver resolver;
+
+    auto source = NTransform::RunSourceTransformFixpoint(root, resolver);
+    ASSERT_TRUE(source.has_value()) << source.error().ToString();
+    auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
+    ASSERT_TRUE(final.has_value()) << final.error().ToString();
+
+    EXPECT_EQ(Print(body), "(block (cleanup-exit (return)))");
+}
+
+TEST(LifetimePass, EvaluatesEffectfulStringArrayBoundOnce) {
+    auto bound = Function(
+        "bound",
+        {},
+        Block({std::make_shared<TReturnExpr>(
+            TLocation{},
+            std::make_shared<TNumberExpr>(TLocation{}, int64_t{2}))}),
+        std::make_shared<TIntegerType>());
+    auto items = Variable(
+        "items",
+        std::make_shared<TArrayType>(std::make_shared<TStringType>(), 1));
+    items->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+        Call("bound"),
+    });
+    auto body = Block({items});
+    TExprPtr root = Block({bound, Function("main", {}, body)});
+    NSemantics::TNameResolver resolver;
+
+    auto source = NTransform::RunSourceTransformFixpoint(root, resolver);
+    ASSERT_TRUE(source.has_value()) << source.error().ToString();
+    auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
+    ASSERT_TRUE(final.has_value()) << final.error().ToString();
+
+    const auto printed = Print(body);
+    const auto firstCall = printed.find("(call bound)");
+    ASSERT_NE(firstCall, std::string::npos);
+    EXPECT_EQ(printed.find("(call bound)", firstCall + 1), std::string::npos);
+    EXPECT_NE(
+        printed.find("(var items <array string 1> [1 __lifetime_0])"),
+        std::string::npos);
+    EXPECT_NE(
+        printed.find("(destroy items __lifetime_1)"),
+        std::string::npos);
 }
 
 int main(int argc, char** argv) {

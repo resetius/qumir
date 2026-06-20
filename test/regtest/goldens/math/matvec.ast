@@ -54,4 +54,4 @@
         (call output_string "matvec: ||e||_inf  = ")
         (call output_double res_inf 0 -1)
         (call output_string "\n"))
-      (cleanup-exit (return)))))
+      (cleanup-exit (return) (destroy y) (destroy x) (destroy A)))))

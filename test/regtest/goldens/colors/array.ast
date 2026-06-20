@@ -32,4 +32,4 @@
         (call output_string " b=")
         (call output_int64 b 0)
         (call output_string "\n"))
-      (cleanup-exit (return)))))
+      (cleanup-exit (return) (destroy палитра)))))

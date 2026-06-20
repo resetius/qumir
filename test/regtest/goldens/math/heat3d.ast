@@ -128,4 +128,4 @@
         (call output_double err 8 8)
         (call output_symbol (cast 10 char)))
       (if (< err 0.01) (block (block (call output_string "OK\n"))) (block (block (call output_string "FAIL\n"))))
-      (cleanup-exit (return)))))
+      (cleanup-exit (return) (destroy un) (destroy u)))))

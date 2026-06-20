@@ -8,4 +8,4 @@
       (= б [3] (cast #t bool))
       (= б [4] (cast #f bool))
       (for i 1 4 1 (block (block (call output_bool (index б i)) (call output_string "\n"))))
-      (cleanup-exit (return)))))
+      (cleanup-exit (return) (destroy б)))))

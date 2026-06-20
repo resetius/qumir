@@ -31,6 +31,61 @@ bool IsString(const TTypePtr& type) {
     return static_cast<bool>(TMaybeType<TStringType>(ValueType(type)));
 }
 
+TMaybeType<TArrayType> AsArray(const TTypePtr& type) {
+    return TMaybeType<TArrayType>(ValueType(type));
+}
+
+bool IsStringArray(const TTypePtr& type) {
+    auto array = AsArray(type);
+    return array && IsString(array.Cast()->ElementType);
+}
+
+TExprPtr Integer(const TLocation& location, int64_t value) {
+    auto result = std::make_shared<TNumberExpr>(location, value);
+    result->Type = std::make_shared<TIntegerType>();
+    return result;
+}
+
+TExprPtr Binary(
+    const TLocation& location,
+    TOperator op,
+    TExprPtr left,
+    TExprPtr right)
+{
+    auto result = std::make_shared<TBinaryExpr>(
+        location,
+        op,
+        std::move(left),
+        std::move(right));
+    result->Type = std::make_shared<TIntegerType>();
+    return result;
+}
+
+TExprPtr ArrayAllocationSize(const TVarStmt& variable) {
+    TExprPtr elements = Integer(variable.Location, 1);
+    for (const auto& [lower, upper] : variable.Bounds) {
+        auto dimension = Binary(
+            variable.Location,
+            '+',
+            Binary(variable.Location, '-', upper, lower),
+            Integer(variable.Location, 1));
+        elements = Binary(
+            variable.Location,
+            '*',
+            std::move(elements),
+            std::move(dimension));
+    }
+    return Binary(
+        variable.Location,
+        '*',
+        std::move(elements),
+        Integer(variable.Location, sizeof(char*)));
+}
+
+bool IsReusableArrayBound(const TExprPtr& expr) {
+    return TMaybeNode<TNumberExpr>(expr) || TMaybeNode<TIdentExpr>(expr);
+}
+
 bool IsSynthetic(std::string_view name) {
     return name.starts_with("__lifetime_");
 }
@@ -130,6 +185,7 @@ private:
         TLocation Location;
         std::string Name;
         TTypePtr Type;
+        std::optional<std::string> AuxName;
     };
 
     struct TLifetimeScope {
@@ -144,9 +200,17 @@ private:
             for (auto local = locals.rbegin(); local != locals.rend(); ++local) {
                 auto value = std::make_shared<TIdentExpr>(local->Location, local->Name);
                 value->Type = local->Type;
+                TExprPtr aux;
+                if (local->AuxName) {
+                    aux = std::make_shared<TIdentExpr>(
+                        local->Location,
+                        *local->AuxName);
+                    aux->Type = std::make_shared<TIntegerType>();
+                }
                 cleanups.push_back(std::make_shared<TDestroyExpr>(
                     local->Location,
-                    std::move(value)));
+                    std::move(value),
+                    std::move(aux)));
             }
         }
         return cleanups;
@@ -303,6 +367,59 @@ private:
                     changed = result.value() || changed;
                 }
                 statements.push_back(statement);
+                continue;
+            }
+            if (auto variable = TMaybeNode<TVarStmt>(statement);
+                variable && AsArray(variable.Cast()->Type))
+            {
+                for (auto& [lower, upper] : variable.Cast()->Bounds) {
+                    for (auto* bound : {&lower, &upper}) {
+                        auto result = RewriteExpr(*bound, scopeId, true);
+                        if (!result) {
+                            return std::unexpected(result.error());
+                        }
+                        changed = result.value() || changed;
+                        if (FunctionBoundary_
+                            && IsStringArray(variable.Cast()->Type)
+                            && !IsReusableArrayBound(*bound))
+                        {
+                            const auto boundName = SyntheticNames_.Next();
+                            auto boundValue = std::make_shared<TVarStmt>(
+                                (*bound)->Location,
+                                boundName,
+                                std::make_shared<TIntegerType>());
+                            boundValue->Init = std::move(*bound);
+                            statements.push_back(std::move(boundValue));
+                            auto savedBound = std::make_shared<TIdentExpr>(
+                                variable.Cast()->Location,
+                                boundName);
+                            savedBound->Type = std::make_shared<TIntegerType>();
+                            *bound = std::move(savedBound);
+                            changed = true;
+                        }
+                    }
+                }
+                statements.push_back(statement);
+
+                std::optional<std::string> auxName;
+                if (FunctionBoundary_ && IsStringArray(variable.Cast()->Type)) {
+                    auxName = SyntheticNames_.Next();
+                    auto allocationSize = std::make_shared<TVarStmt>(
+                        variable.Cast()->Location,
+                        *auxName,
+                        std::make_shared<TIntegerType>());
+                    allocationSize->Init = ArrayAllocationSize(*variable.Cast());
+                    statements.push_back(std::move(allocationSize));
+                    changed = true;
+                }
+                if (FunctionBoundary_) {
+                    Scopes_.back().Locals.push_back({
+                        variable.Cast()->Location,
+                        variable.Cast()->Name,
+                        variable.Cast()->Type,
+                        std::move(auxName),
+                    });
+                }
                 continue;
             }
             if (auto variable = TMaybeNode<TVarStmt>(statement);

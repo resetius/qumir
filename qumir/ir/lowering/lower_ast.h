@@ -31,8 +31,6 @@ private:
         std::optional<TLabel> ReturnLabel; // function's exit block, set for every scope inside a function body
         std::optional<TLocal> RetLocal; // holds the return value; unset for void-returning functions
         NAst::TExprPtr LastAssert; // function epilogue executed after evaluating the return value and before cleanup
-        size_t LoopPendingDestructorsMark = 0; // PendingDestructors size at loop body entry; break/continue flush down to here
-        size_t FunctionPendingDestructorsMark = 0; // PendingDestructors size at function body entry; return flushes down to here
     };
 
     struct TDestructor {
@@ -63,10 +61,6 @@ private:
     };
 
     TExpectedTask<TValueWithBlock, TError, TLocation> Lower(const NAst::TExprPtr& expr, TBlockScope scope);
-
-    // Emits PendingDestructors[from, to) in LIFO order without resizing
-    // (used to flush destructors on early exit: break/continue/return).
-    void EmitDestructors(size_t from, size_t to);
 
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerWhile(std::shared_ptr<NAst::TWhileStmtExpr> loop, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerFor(std::shared_ptr<NAst::TForStmtExpr> loop, TBlockScope scope);

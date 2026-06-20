@@ -132,9 +132,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .ContinueLabel = condLabel,
         .ReturnLabel = scope.ReturnLabel,
         .RetLocal = scope.RetLocal,
-        .LastAssert = scope.LastAssert,
-        .LoopPendingDestructorsMark = PendingDestructors.size(),
-        .FunctionPendingDestructorsMark = scope.FunctionPendingDestructorsMark
+        .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {condLabel});
@@ -162,9 +160,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .ContinueLabel = condLabel,
         .ReturnLabel = scope.ReturnLabel,
         .RetLocal = scope.RetLocal,
-        .LastAssert = scope.LastAssert,
-        .LoopPendingDestructorsMark = PendingDestructors.size(),
-        .FunctionPendingDestructorsMark = scope.FunctionPendingDestructorsMark
+        .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {condLabel});
@@ -258,9 +254,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .ContinueLabel = postLabel,
         .ReturnLabel = scope.ReturnLabel,
         .RetLocal = scope.RetLocal,
-        .LastAssert = scope.LastAssert,
-        .LoopPendingDestructorsMark = PendingDestructors.size(),
-        .FunctionPendingDestructorsMark = scope.FunctionPendingDestructorsMark
+        .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {postLabel});
@@ -324,9 +318,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .ContinueLabel = postLabel,
         .ReturnLabel = scope.ReturnLabel,
         .RetLocal = scope.RetLocal,
-        .LastAssert = scope.LastAssert,
-        .LoopPendingDestructorsMark = PendingDestructors.size(),
-        .FunctionPendingDestructorsMark = scope.FunctionPendingDestructorsMark
+        .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
         Builder.Emit0("jmp"_op, {postLabel});
@@ -557,30 +549,6 @@ static bool IsAddressableFieldBase(const NAst::TExprPtr& expr) {
     return false;
 }
 
-void TAstLowerer::EmitDestructors(size_t from, size_t to) {
-    // Release in reverse order of declaration. Operate on copies: this range
-    // may also be flushed again (resized away) by the enclosing block, and
-    // mutating PendingDestructors[i] in place would leave stale TTmp refs.
-    for (size_t i = to; i-- > from; ) {
-        TDestructor dtor = PendingDestructors[i];
-        for (size_t j = 0; j < dtor.Args.size(); ++j) {
-            auto& operand = dtor.Args[j];
-            if (operand.Type == TOperand::EType::Local || operand.Type == TOperand::EType::Slot) {
-                TTmp val = Builder.Emit1("load"_op, { operand });
-                auto typeId = dtor.TypeIds[j];
-                if (typeId >= 0) {
-                    Builder.SetType(val, typeId);
-                }
-                operand = val;
-            }
-        }
-        for (auto& operand : dtor.Args) {
-            Builder.Emit0("arg"_op, { operand });
-        }
-        Builder.Emit0("call"_op, { TImm{ dtor.FunctionId } });
-    }
-}
-
 TExpectedTask<std::monostate, TError, TLocation> TAstLowerer::EmitLifetimeDestroy(
     TOperand value,
     const NAst::TTypePtr& inputType,
@@ -719,11 +687,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             for (const auto& cleanup : exit->Cleanups) {
                 co_await Lower(cleanup, scope);
             }
-            // Arrays still use lowering-time destructor records until their
-            // allocation size is represented explicitly in the AST.
-            EmitDestructors(
-                scope.FunctionPendingDestructorsMark,
-                PendingDestructors.size());
             Builder.Emit0("jmp"_op, {*scope.ReturnLabel});
             co_return TValueWithBlock{std::nullopt, Builder.CurrentBlockLabel()};
         }
@@ -740,8 +703,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         for (const auto& cleanup : exit->Cleanups) {
             co_await Lower(cleanup, scope);
         }
-        // Preserve legacy array cleanup while string cleanup is AST-driven.
-        EmitDestructors(scope.LoopPendingDestructorsMark, PendingDestructors.size());
         Builder.Emit0("jmp"_op, {*target});
         co_return TValueWithBlock{std::nullopt, Builder.CurrentBlockLabel()};
     } else if (NAst::TMaybeNode<NAst::TGlobalCleanupExpr>(expr)) {
@@ -833,9 +794,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto newScope = scope;
         newScope.Id = NSemantics::TScopeId{block->Scope};
 
-        // Track scope for destructors
-        size_t initialPendingDestructorsSize = PendingDestructors.size();
-
         for (size_t stmtIdx = 0; stmtIdx < block->Stmts.size(); ++stmtIdx) {
             auto& s = block->Stmts[stmtIdx];
 
@@ -847,17 +805,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 break;
             }
         }
-        // Emit destructors for objects declared in this block (LIFO)
-        if (PendingDestructors.size() > initialPendingDestructorsSize) {
-            if (!block->SkipDestructors && !Builder.IsCurrentBlockTerminated()) {
-                EmitDestructors(initialPendingDestructorsSize, PendingDestructors.size());
-            }
-            // Explicit-lifetime blocks own their cleanup AST and only need to
-            // discard legacy bookkeeping. If terminated, break/continue/return
-            // already flushed these (and possibly outer-scope entries too).
-            PendingDestructors.resize(initialPendingDestructorsSize);
-        }
-
         // TODO: return only if function block and last is 'return'
         co_return TValueWithBlock{ last, Builder.CurrentBlockLabel() };
     } else if (auto maybeUnary = NAst::TMaybeNode<NAst::TUnaryExpr>(expr)) {
@@ -1377,30 +1324,25 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto arrayPtr = Builder.Emit1("call"_op, {TImm{ctorId}});
             Builder.SetType(arrayPtr, arrayType);
 
-            auto dtorId = co_await GlobalSymbolId("array_destroy");
             const auto elementAstType = NAst::UnwrapNamedType(maybeArrayType.Cast()->ElementType);
             bool arrayOfStrings = NAst::TMaybeType<NAst::TStringType>(elementAstType).Cast() != nullptr;
-            if (arrayOfStrings) {
-                dtorId = co_await GlobalSymbolId("array_str_destroy");
-            }
             TOperand arg = (sidOpt->FunctionLevelIdx >= 0)
                 ? TOperand { TLocal{ sidOpt->FunctionLevelIdx } }
                 : TOperand { TSlot{ sidOpt->Id } };
-            std::vector<TOperand> args = {
-                arg
-            };
-            if (arrayOfStrings) {
-                args.push_back(arraySize);
-            }
             Builder.Emit0("stre"_op, {arg, arrayPtr});
-            auto node = Context.GetSymbolNode(NSemantics::TSymbolId{ sidOpt->Id });
-            std::vector<int> types = { arrayType };
-            TDestructor dtor = TDestructor {
-                .Args = std::move(args),
-                .TypeIds = std::move(types),
-                .FunctionId = { dtorId }
-            };
-            PendingDestructors.emplace_back(std::move(dtor));
+            if (sidOpt->FunctionLevelIdx < 0) {
+                auto dtorId = co_await GlobalSymbolId(
+                    arrayOfStrings ? "array_str_destroy" : "array_destroy");
+                std::vector<TOperand> args = {arg};
+                if (arrayOfStrings) {
+                    args.push_back(arraySize);
+                }
+                PendingDestructors.push_back(TDestructor{
+                    .Args = std::move(args),
+                    .TypeIds = {arrayType},
+                    .FunctionId = {dtorId},
+                });
+            }
         }
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(expr)) {
@@ -1473,8 +1415,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // Create a dedicated final return block label beforehand and pass it as ReturnLabel for `return` and early exits.
         auto endLabel = Builder.NewLabel();
 
-        size_t functionPendingDestructorsMark = PendingDestructors.size();
-
         TBlockScope functionBodyScope {
             .FuncIdx = funcIdx,
             .Id = NSemantics::TScopeId{funScope},
@@ -1482,8 +1422,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             .ContinueLabel = std::nullopt,
             .ReturnLabel = endLabel,
             .RetLocal = retLocal,
-            .LastAssert = fun->LastAssert,
-            .FunctionPendingDestructorsMark = functionPendingDestructorsMark
+            .LastAssert = fun->LastAssert
         };
         for (auto& param : fun->Params) {
             if (param->Bounds.empty() || !NAst::TMaybeType<NAst::TArrayType>(param->Type)) {
@@ -1503,8 +1442,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             .ContinueLabel = std::nullopt,
             .ReturnLabel = endLabel,
             .RetLocal = retLocal,
-            .LastAssert = fun->LastAssert,
-            .FunctionPendingDestructorsMark = functionPendingDestructorsMark
+            .LastAssert = fun->LastAssert
         });
         // Jump to final return block unless already terminated by earlier logic (e.g. explicit `return`).
         if (!Builder.IsCurrentBlockTerminated()) {

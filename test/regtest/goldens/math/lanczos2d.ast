@@ -196,7 +196,15 @@
         (call output_string ", ")
         (call output_double lam22 8 8)
         (call output_symbol (cast 10 char)))
-      (cleanup-exit (return))))
+      (cleanup-exit
+        (return)
+        (destroy evals)
+        (destroy beta)
+        (destroy alpha)
+        (destroy Q)
+        (destroy w)
+        (destroy v1)
+        (destroy v0))))
   (fun dot ((var N i64)
       (var x <array f64 1> [0 (- N 1)])
       (var y <array f64 1> [0 (- N 1)])) -> f64

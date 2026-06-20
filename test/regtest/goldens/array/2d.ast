@@ -9,4 +9,4 @@
       (= j 5)
       (= A [0 j] 1)
       (= знач (index A [0 j]))
-      (cleanup-exit (return знач)))))
+      (cleanup-exit (return знач) (destroy A)))))

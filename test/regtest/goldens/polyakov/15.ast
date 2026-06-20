@@ -29,4 +29,4 @@
         (block
           (block
             (call output_string "Не нашли!"))))
-      (cleanup-exit (return)))))
+      (cleanup-exit (return) (destroy A)))))

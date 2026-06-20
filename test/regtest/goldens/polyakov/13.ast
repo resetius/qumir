@@ -21,4 +21,4 @@
         (call output_symbol (cast 32 char))
         (call output_int64 sum 0)
         (call output_string "\n"))
-      (cleanup-exit (return)))))
+      (cleanup-exit (return) (destroy A)))))

@@ -5,4 +5,4 @@
       (var A <array f64 1> [0 10])
       (= A [0] 1)
       (= знач (index A 0))
-      (cleanup-exit (return знач)))))
+      (cleanup-exit (return знач) (destroy A)))))

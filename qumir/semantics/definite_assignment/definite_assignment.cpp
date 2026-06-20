@@ -404,20 +404,25 @@ TDefiniteAssignmentChecker::CheckVar(
     TScopeId scopeId,
     const TAssignedSet& inAssigned)
 {
+    if (!var->Init && !TMaybeType<TArrayType>(var->Type)) {
+        return inAssigned;
+    }
+
+    TAssignedSet out = inAssigned;
     if (var->Init) {
         auto res = CheckExpr(var->Init, scopeId, inAssigned);
         if (!res) {
             return std::unexpected(res.error());
         }
-        auto symbolId = GetSymbolId(var->Name, scopeId, var);
-        if (!symbolId) {
-            return std::unexpected(symbolId.error());
-        }
-        TAssignedSet out = *res;
-        out.insert(*symbolId);
-        return out;
+        out = std::move(*res);
     }
-    return inAssigned;
+
+    auto symbolId = GetSymbolId(var->Name, scopeId, var);
+    if (!symbolId) {
+        return std::unexpected(symbolId.error());
+    }
+    out.insert(*symbolId);
+    return out;
 }
 
 std::expected<TDefiniteAssignmentChecker::TAssignedSet, TError>
