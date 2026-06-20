@@ -179,6 +179,129 @@ TEST(ParserCustomNodes, UnknownFormErrors) {
     EXPECT_FALSE(result.has_value());
 }
 
+TEST(LifetimeNodes, UnaryFormsPrintCompactly) {
+    auto borrowed = std::make_shared<TBorrowExpr>(TLocation{}, MakeIdent("s"));
+    auto retained = std::make_shared<TRetainExpr>(TLocation{}, borrowed);
+    auto ownedLiteral = std::make_shared<TOwnLiteralExpr>(TLocation{}, MakeIdent("literal"));
+    auto moved = std::make_shared<TMoveExpr>(TLocation{}, MakeIdent("owned"));
+
+    EXPECT_EQ(PrintAst(retained, MakeOptions(false)), "(retain (borrow s))");
+    EXPECT_EQ(PrintAst(ownedLiteral, MakeOptions(false)), "(own-literal literal)");
+    EXPECT_EQ(PrintAst(moved, MakeOptions(false)), "(move owned)");
+}
+
+TEST(LifetimeNodes, DestroyAndReplacePrintCompactly) {
+    auto destroy = std::make_shared<TDestroyExpr>(
+        TLocation{},
+        MakeIdent("array"),
+        MakeIdent("array_size"));
+    auto replace = std::make_shared<TReplaceExpr>(
+        TLocation{},
+        MakeIdent("target"),
+        std::make_shared<TRetainExpr>(
+            TLocation{},
+            std::make_shared<TBorrowExpr>(TLocation{}, MakeIdent("source"))));
+
+    EXPECT_EQ(PrintAst(destroy, MakeOptions(false)), "(destroy array array_size)");
+    EXPECT_EQ(
+        PrintAst(replace, MakeOptions(false)),
+        "(replace target (retain (borrow source)))");
+}
+
+TEST(LifetimeNodes, CleanupFormsPreserveStoredOrder) {
+    std::vector<TExprPtr> cleanups {
+        std::make_shared<TDestroyExpr>(TLocation{}, MakeIdent("second")),
+        std::make_shared<TDestroyExpr>(TLocation{}, MakeIdent("first")),
+    };
+    auto exit = std::make_shared<TCleanupExitExpr>(
+        TLocation{},
+        ECleanupExitKind::Return,
+        std::make_shared<TRetainExpr>(
+            TLocation{},
+            std::make_shared<TBorrowExpr>(TLocation{}, MakeIdent("result"))),
+        cleanups);
+    auto global = std::make_shared<TGlobalCleanupExpr>(TLocation{}, cleanups);
+    auto breakExit = std::make_shared<TCleanupExitExpr>(
+        TLocation{},
+        ECleanupExitKind::Break,
+        nullptr,
+        cleanups);
+    auto continueExit = std::make_shared<TCleanupExitExpr>(
+        TLocation{},
+        ECleanupExitKind::Continue,
+        nullptr,
+        std::vector<TExprPtr>{});
+
+    EXPECT_EQ(
+        PrintAst(exit, MakeOptions(false)),
+        "(cleanup-exit (return (retain (borrow result))) (destroy second) (destroy first))");
+    EXPECT_EQ(
+        PrintAst(global, MakeOptions(false)),
+        "(cleanup-global (destroy second) (destroy first))");
+    EXPECT_EQ(
+        PrintAst(breakExit, MakeOptions(false)),
+        "(cleanup-exit (break) (destroy second) (destroy first))");
+    EXPECT_EQ(PrintAst(continueExit, MakeOptions(false)), "(cleanup-exit (continue))");
+}
+
+TEST(LifetimeNodes, ReplaceChildrenUseStructuralOrder) {
+    auto target = MakeIdent("target");
+    auto value = MakeIdent("value");
+    auto replace = std::make_shared<TReplaceExpr>(TLocation{}, target, value);
+
+    const auto children = replace->Children();
+    ASSERT_EQ(children.size(), 2u);
+    EXPECT_EQ(children[0], target);
+    EXPECT_EQ(children[1], value);
+
+    const auto mutableChildren = replace->MutableChildren();
+    ASSERT_EQ(mutableChildren.size(), 2u);
+    EXPECT_EQ(mutableChildren[0], &replace->Target);
+    EXPECT_EQ(mutableChildren[1], &replace->Value);
+}
+
+TEST(LifetimeNodes, DestroyChildrenIncludeOptionalAux) {
+    auto value = MakeIdent("value");
+    auto aux = MakeIdent("aux");
+    auto withoutAux = std::make_shared<TDestroyExpr>(TLocation{}, value);
+    auto withAux = std::make_shared<TDestroyExpr>(TLocation{}, value, aux);
+
+    ASSERT_EQ(withoutAux->Children().size(), 1u);
+    ASSERT_EQ(withAux->Children().size(), 2u);
+    EXPECT_EQ(withAux->Children()[0], value);
+    EXPECT_EQ(withAux->Children()[1], aux);
+    EXPECT_EQ(withAux->MutableChildren()[0], &withAux->Value);
+    EXPECT_EQ(withAux->MutableChildren()[1], &withAux->Aux);
+}
+
+TEST(LifetimeNodes, CleanupChildrenPutValueBeforeOrderedCleanups) {
+    auto value = MakeIdent("value");
+    auto cleanup1 = MakeIdent("cleanup1");
+    auto cleanup2 = MakeIdent("cleanup2");
+    auto exit = std::make_shared<TCleanupExitExpr>(
+        TLocation{},
+        ECleanupExitKind::Return,
+        value,
+        std::vector<TExprPtr>{cleanup1, cleanup2});
+
+    const auto children = exit->Children();
+    ASSERT_EQ(children.size(), 3u);
+    EXPECT_EQ(children[0], value);
+    EXPECT_EQ(children[1], cleanup1);
+    EXPECT_EQ(children[2], cleanup2);
+
+    auto replacement = MakeIdent("replacement");
+    auto mutableChildren = exit->MutableChildren();
+    ASSERT_EQ(mutableChildren.size(), 3u);
+    *mutableChildren[1] = replacement;
+    EXPECT_EQ(exit->Cleanups[0], replacement);
+
+    auto global = std::make_shared<TGlobalCleanupExpr>(
+        TLocation{},
+        std::vector<TExprPtr>{cleanup2, cleanup1});
+    EXPECT_EQ(global->Children(), (std::vector<TExprPtr>{cleanup2, cleanup1}));
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

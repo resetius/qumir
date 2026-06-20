@@ -37,6 +37,14 @@ void TTypeDeclStmt::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TFieldAccessExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TStructConstructExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TFieldAssignExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TRetainExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TOwnLiteralExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TMoveExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TBorrowExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TDestroyExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TReplaceExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TCleanupExitExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TGlobalCleanupExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 
 } // namespace NAst
 } // namespace NQumir
