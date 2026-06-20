@@ -507,6 +507,17 @@ void CollectTypesFromExpr(const TExprPtr& expr, TNamedTypeMap& out) {
     }
 }
 
+std::string_view CleanupExitKindName(ECleanupExitKind kind) {
+    switch (kind) {
+        case ECleanupExitKind::Break:
+            return "break";
+        case ECleanupExitKind::Continue:
+            return "continue";
+        case ECleanupExitKind::Return:
+            return "return";
+    }
+    throw std::runtime_error("unknown cleanup exit kind");
+}
 
 } // anonymous namespace
 
@@ -746,6 +757,61 @@ struct TPrintExpr : public IVisitor {
         *Out << ')';
     }
 
+    void Visit(TRetainExpr& node) override {
+        PrintLifetimeUnary("retain", node.Value);
+    }
+
+    void Visit(TOwnLiteralExpr& node) override {
+        PrintLifetimeUnary("own-literal", node.Value);
+    }
+
+    void Visit(TMoveExpr& node) override {
+        PrintLifetimeUnary("move", node.Value);
+    }
+
+    void Visit(TBorrowExpr& node) override {
+        PrintLifetimeUnary("borrow", node.Value);
+    }
+
+    void Visit(TDestroyExpr& node) override {
+        *Out << "(destroy";
+        Printer.Separator(Frame.Level + 1);
+        Printer.PrintExpr(node.Value, true, Frame.Level + 1);
+        if (node.Aux) {
+            Printer.Separator(Frame.Level + 1);
+            Printer.PrintExpr(node.Aux, true, Frame.Level + 1);
+        }
+        *Out << ')';
+    }
+
+    void Visit(TReplaceExpr& node) override {
+        *Out << "(replace";
+        Printer.Separator(Frame.Level + 1);
+        Printer.PrintExpr(node.Target, true, Frame.Level + 1);
+        Printer.Separator(Frame.Level + 1);
+        Printer.PrintExpr(node.Value, true, Frame.Level + 1);
+        *Out << ')';
+    }
+
+    void Visit(TCleanupExitExpr& node) override {
+        *Out << "(cleanup-exit";
+        Printer.Separator(Frame.Level + 1);
+        *Out << '(' << CleanupExitKindName(node.Kind);
+        if (node.Value) {
+            Printer.Separator(Frame.Level + 2);
+            Printer.PrintExpr(node.Value, true, Frame.Level + 2);
+        }
+        *Out << ')';
+        PrintCleanups(node.Cleanups);
+        *Out << ')';
+    }
+
+    void Visit(TGlobalCleanupExpr& node) override {
+        *Out << "(cleanup-global";
+        PrintCleanups(node.Cleanups);
+        *Out << ')';
+    }
+
     void VisitOtherwise(TExpr& node) override {
         auto it = Printer.Options.NodePrinters.find(node.NodeName());
         if (it != Printer.Options.NodePrinters.end()) {
@@ -753,6 +819,20 @@ struct TPrintExpr : public IVisitor {
             return;
         }
         throw std::runtime_error("unsupported AST node for core print: " + std::string(node.NodeName()));
+    }
+
+    void PrintLifetimeUnary(std::string_view head, const TExprPtr& value) {
+        *Out << '(' << head;
+        Printer.Separator(Frame.Level + 1);
+        Printer.PrintExpr(value, true, Frame.Level + 1);
+        *Out << ')';
+    }
+
+    void PrintCleanups(const std::vector<TExprPtr>& cleanups) {
+        for (const auto& cleanup : cleanups) {
+            Printer.Separator(Frame.Level + 1);
+            Printer.PrintExpr(cleanup, true, Frame.Level + 1);
+        }
     }
 
     std::ostream* Out;

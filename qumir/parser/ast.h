@@ -19,6 +19,17 @@ namespace NAst {
 struct TExpr;
 using TExprPtr = std::shared_ptr<TExpr>;
 
+// Lifetime AST node forward declarations.
+struct TRetainExpr;
+struct TOwnLiteralExpr;
+struct TMoveExpr;
+struct TBorrowExpr;
+struct TDestroyExpr;
+struct TReplaceExpr;
+struct TCleanupExitExpr;
+struct TGlobalCleanupExpr;
+// End lifetime AST node forward declarations.
+
 template<typename T>
 struct TMaybeNode {
     TMaybeNode(TExprPtr node);
@@ -1129,6 +1140,197 @@ public:
     void Accept(IVisitor& visitor) override;
 };
 
+// Lifetime AST nodes.
+struct TRetainExpr : TExpr {
+    static constexpr const char* NodeId = "Retain";
+
+    TExprPtr Value;
+
+    TRetainExpr(TLocation loc, TExprPtr value)
+        : TExpr(std::move(loc), value ? value->Type : nullptr)
+        , Value(std::move(value))
+    { }
+
+    const std::string_view NodeName() const override { return NodeId; }
+    std::vector<TExprPtr> Children() const override { return { Value }; }
+    std::vector<TExprPtr*> MutableChildren() override { return { &Value }; }
+    void Accept(IVisitor& visitor) override;
+};
+
+struct TOwnLiteralExpr : TExpr {
+    static constexpr const char* NodeId = "OwnLiteral";
+
+    TExprPtr Value;
+
+    TOwnLiteralExpr(TLocation loc, TExprPtr value)
+        : TExpr(std::move(loc), value ? value->Type : nullptr)
+        , Value(std::move(value))
+    { }
+
+    const std::string_view NodeName() const override { return NodeId; }
+    std::vector<TExprPtr> Children() const override { return { Value }; }
+    std::vector<TExprPtr*> MutableChildren() override { return { &Value }; }
+    void Accept(IVisitor& visitor) override;
+};
+
+struct TMoveExpr : TExpr {
+    static constexpr const char* NodeId = "Move";
+
+    TExprPtr Value;
+
+    TMoveExpr(TLocation loc, TExprPtr value)
+        : TExpr(std::move(loc), value ? value->Type : nullptr)
+        , Value(std::move(value))
+    { }
+
+    const std::string_view NodeName() const override { return NodeId; }
+    std::vector<TExprPtr> Children() const override { return { Value }; }
+    std::vector<TExprPtr*> MutableChildren() override { return { &Value }; }
+    void Accept(IVisitor& visitor) override;
+};
+
+struct TBorrowExpr : TExpr {
+    static constexpr const char* NodeId = "Borrow";
+
+    TExprPtr Value;
+
+    TBorrowExpr(TLocation loc, TExprPtr value)
+        : TExpr(std::move(loc), value ? value->Type : nullptr)
+        , Value(std::move(value))
+    { }
+
+    const std::string_view NodeName() const override { return NodeId; }
+    std::vector<TExprPtr> Children() const override { return { Value }; }
+    std::vector<TExprPtr*> MutableChildren() override { return { &Value }; }
+    void Accept(IVisitor& visitor) override;
+};
+
+struct TDestroyExpr : TExpr {
+    static constexpr const char* NodeId = "Destroy";
+
+    TExprPtr Value;
+    TExprPtr Aux;
+
+    TDestroyExpr(TLocation loc, TExprPtr value, TExprPtr aux = nullptr)
+        : TExpr(std::move(loc), std::make_shared<TVoidType>())
+        , Value(std::move(value))
+        , Aux(std::move(aux))
+    { }
+
+    const std::string_view NodeName() const override { return NodeId; }
+
+    std::vector<TExprPtr> Children() const override {
+        if (Aux) {
+            return { Value, Aux };
+        }
+        return { Value };
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        if (Aux) {
+            return { &Value, &Aux };
+        }
+        return { &Value };
+    }
+
+    void Accept(IVisitor& visitor) override;
+};
+
+struct TReplaceExpr : TExpr {
+    static constexpr const char* NodeId = "Replace";
+
+    TExprPtr Target;
+    TExprPtr Value;
+
+    TReplaceExpr(TLocation loc, TExprPtr target, TExprPtr value)
+        : TExpr(std::move(loc), std::make_shared<TVoidType>())
+        , Target(std::move(target))
+        , Value(std::move(value))
+    { }
+
+    const std::string_view NodeName() const override { return NodeId; }
+    std::vector<TExprPtr> Children() const override { return { Target, Value }; }
+    std::vector<TExprPtr*> MutableChildren() override { return { &Target, &Value }; }
+    void Accept(IVisitor& visitor) override;
+};
+
+enum class ECleanupExitKind {
+    Break,
+    Continue,
+    Return,
+};
+
+struct TCleanupExitExpr : TExpr {
+    static constexpr const char* NodeId = "CleanupExit";
+
+    ECleanupExitKind Kind;
+    TExprPtr Value;
+    std::vector<TExprPtr> Cleanups;
+
+    TCleanupExitExpr(
+        TLocation loc,
+        ECleanupExitKind kind,
+        TExprPtr value,
+        std::vector<TExprPtr> cleanups)
+        : TExpr(std::move(loc), std::make_shared<TVoidType>())
+        , Kind(kind)
+        , Value(std::move(value))
+        , Cleanups(std::move(cleanups))
+    { }
+
+    const std::string_view NodeName() const override { return NodeId; }
+
+    std::vector<TExprPtr> Children() const override {
+        std::vector<TExprPtr> result;
+        result.reserve(Cleanups.size() + (Value ? 1 : 0));
+        if (Value) {
+            result.push_back(Value);
+        }
+        result.insert(result.end(), Cleanups.begin(), Cleanups.end());
+        return result;
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        std::vector<TExprPtr*> result;
+        result.reserve(Cleanups.size() + (Value ? 1 : 0));
+        if (Value) {
+            result.push_back(&Value);
+        }
+        for (auto& cleanup : Cleanups) {
+            result.push_back(&cleanup);
+        }
+        return result;
+    }
+
+    void Accept(IVisitor& visitor) override;
+};
+
+struct TGlobalCleanupExpr : TExpr {
+    static constexpr const char* NodeId = "GlobalCleanup";
+
+    std::vector<TExprPtr> Cleanups;
+
+    TGlobalCleanupExpr(TLocation loc, std::vector<TExprPtr> cleanups)
+        : TExpr(std::move(loc), std::make_shared<TVoidType>())
+        , Cleanups(std::move(cleanups))
+    { }
+
+    const std::string_view NodeName() const override { return NodeId; }
+    std::vector<TExprPtr> Children() const override { return Cleanups; }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        std::vector<TExprPtr*> result;
+        result.reserve(Cleanups.size());
+        for (auto& cleanup : Cleanups) {
+            result.push_back(&cleanup);
+        }
+        return result;
+    }
+
+    void Accept(IVisitor& visitor) override;
+};
+// End lifetime AST nodes.
+
 struct IVisitor {
     virtual ~IVisitor() = default;
     virtual void Visit(TIdentExpr& node) = 0;
@@ -1165,6 +1367,14 @@ struct IVisitor {
     virtual void Visit(TFieldAccessExpr& node) = 0;
     virtual void Visit(TStructConstructExpr& node) = 0;
     virtual void Visit(TFieldAssignExpr& node) = 0;
+    virtual void Visit(TRetainExpr& node) = 0;
+    virtual void Visit(TOwnLiteralExpr& node) = 0;
+    virtual void Visit(TMoveExpr& node) = 0;
+    virtual void Visit(TBorrowExpr& node) = 0;
+    virtual void Visit(TDestroyExpr& node) = 0;
+    virtual void Visit(TReplaceExpr& node) = 0;
+    virtual void Visit(TCleanupExitExpr& node) = 0;
+    virtual void Visit(TGlobalCleanupExpr& node) = 0;
 
     virtual void VisitOtherwise(TExpr& node) = 0;
      // Add more
