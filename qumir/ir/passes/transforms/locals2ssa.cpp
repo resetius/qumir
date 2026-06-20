@@ -22,6 +22,9 @@ struct PhiInfo {
     std::vector<std::pair<TOperand, TLabel>> Incoming;
 };
 
+// Implements the sealed-block SSA construction algorithm described by Braun
+// et al., "Simple and Efficient Construction of Static Single Assignment Form":
+// https://c9x.me/compile/bib/braun13cc.pdf
 struct TSSABuilder {
     TSSABuilder(TModule& module, TFunction& function)
         : Module(module)
