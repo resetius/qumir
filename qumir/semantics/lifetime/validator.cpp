@@ -12,7 +12,7 @@ namespace {
 
 using namespace NAst;
 
-enum class EOwnership {
+enum class EManagedValueKind {
     None,
     Literal,
     Borrowed,
@@ -73,12 +73,12 @@ bool NeedsDestroy(const TExprPtr& expr) {
     return traits && traits->NeedsDestroy;
 }
 
-EOwnership Ownership(const TExprPtr& expr) {
+EManagedValueKind ManagedValueKind(const TExprPtr& expr) {
     if (!expr || !NeedsDestroy(expr)) {
-        return EOwnership::None;
+        return EManagedValueKind::None;
     }
     if (TMaybeNode<TStringLiteralExpr>(expr)) {
-        return EOwnership::Literal;
+        return EManagedValueKind::Literal;
     }
     if (TMaybeNode<TRetainExpr>(expr)
         || TMaybeNode<TOwnLiteralExpr>(expr)
@@ -86,7 +86,7 @@ EOwnership Ownership(const TExprPtr& expr) {
         || TMaybeNode<TCallExpr>(expr)
         || TMaybeNode<TAwaitExpr>(expr))
     {
-        return EOwnership::Owned;
+        return EManagedValueKind::Owned;
     }
     if (TMaybeNode<TBorrowExpr>(expr)
         || TMaybeNode<TIdentExpr>(expr)
@@ -94,15 +94,15 @@ EOwnership Ownership(const TExprPtr& expr) {
         || TMaybeNode<TMultiIndexExpr>(expr)
         || TMaybeNode<TFieldAccessExpr>(expr))
     {
-        return EOwnership::Borrowed;
+        return EManagedValueKind::Borrowed;
     }
     if (auto block = TMaybeNode<TBlockExpr>(expr)) {
         if (block.Cast()->Stmts.empty()) {
-            return EOwnership::None;
+            return EManagedValueKind::None;
         }
-        return Ownership(block.Cast()->Stmts.back());
+        return ManagedValueKind(block.Cast()->Stmts.back());
     }
-    return EOwnership::Unknown;
+    return EManagedValueKind::Unknown;
 }
 
 bool IsSynthetic(std::string_view name) {
@@ -235,7 +235,7 @@ private:
                 if (LifetimeMode_
                     && traits
                     && !traits->CanCopy
-                    && Ownership(variable.Cast()->Init) == EOwnership::Borrowed)
+                    && ManagedValueKind(variable.Cast()->Init) == EManagedValueKind::Borrowed)
                 {
                     return Fail(expr, "Unique value cannot be copied.");
                 }
@@ -263,7 +263,7 @@ private:
             || TMaybeNode<TMoveExpr>(expr);
         if (LifetimeMode_
             && explicitOwnedValue
-            && Ownership(expr) == EOwnership::Owned
+            && ManagedValueKind(expr) == EManagedValueKind::Owned
             && !consumesOwned)
         {
             return Fail(expr, "Owned result has no move/destroy consumer.");
@@ -274,7 +274,7 @@ private:
             if (!traits || traits->Kind != ELifetimeKind::RefCounted) {
                 return Fail(expr, "retain requires a ref-counted value.");
             }
-            if (Ownership(retain.Cast()->Value) != EOwnership::Borrowed) {
+            if (ManagedValueKind(retain.Cast()->Value) != EManagedValueKind::Borrowed) {
                 return Fail(expr, "retain requires a borrowed value.");
             }
             return ValidateNode(retain.Cast()->Value, scopeId, false);
@@ -286,7 +286,7 @@ private:
             return ValidateNode(literal.Cast()->Value, scopeId, false);
         }
         if (auto move = TMaybeNode<TMoveExpr>(expr)) {
-            if (Ownership(move.Cast()->Value) != EOwnership::Owned
+            if (ManagedValueKind(move.Cast()->Value) != EManagedValueKind::Owned
                 && !IsOwnedStorage(move.Cast()->Value, scopeId))
             {
                 return Fail(expr, "move requires an owned value.");
@@ -294,7 +294,7 @@ private:
             return ValidateNode(move.Cast()->Value, scopeId, true);
         }
         if (auto borrow = TMaybeNode<TBorrowExpr>(expr)) {
-            if (Ownership(borrow.Cast()->Value) != EOwnership::Borrowed) {
+            if (ManagedValueKind(borrow.Cast()->Value) != EManagedValueKind::Borrowed) {
                 return Fail(expr, "borrow requires a borrowed managed value.");
             }
             return ValidateNode(borrow.Cast()->Value, scopeId, false);
@@ -305,7 +305,7 @@ private:
             if (!traits || !traits->NeedsDestroy) {
                 return Fail(expr, "destroy requires a managed value.");
             }
-            if (Ownership(destroy.Cast()->Value) != EOwnership::Owned
+            if (ManagedValueKind(destroy.Cast()->Value) != EManagedValueKind::Owned
                 && !IsOwnedStorage(destroy.Cast()->Value, scopeId))
             {
                 return Fail(expr, "destroy cannot consume a borrowed value.");
@@ -321,7 +321,7 @@ private:
             if (!traits || !traits->NeedsDestroy) {
                 return Fail(expr, "replace requires managed storage.");
             }
-            if (Ownership(replace.Cast()->Value) != EOwnership::Owned) {
+            if (ManagedValueKind(replace.Cast()->Value) != EManagedValueKind::Owned) {
                 if (!traits->CanCopy) {
                     return Fail(expr, "Unique value cannot be copied.");
                 }
@@ -339,7 +339,7 @@ private:
         if (auto exit = TMaybeNode<TCleanupExitExpr>(expr)) {
             if (exit.Cast()->Value
                 && NeedsDestroy(exit.Cast()->Value)
-                && Ownership(exit.Cast()->Value) != EOwnership::Owned)
+                && ManagedValueKind(exit.Cast()->Value) != EManagedValueKind::Owned)
             {
                 return Fail(expr, "Managed return value must be owned.");
             }

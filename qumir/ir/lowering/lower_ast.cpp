@@ -3,6 +3,7 @@
 #include "qumir/parser/parser.h"
 #include "qumir/parser/core/printer.h"
 #include "qumir/parser/type.h"
+#include "qumir/semantics/lifetime/validator.h"
 #include "qumir/error.h"
 
 #include <iostream>
@@ -412,7 +413,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 {
     if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(expr)) {
         auto addr = co_await LoadVar(maybeIdent.Cast()->Name, scope, expr->Location, true /*address*/);
-        co_return TValueWithBlock{addr, Builder.CurrentBlockLabel(), EOwnership::Borrowed};
+        co_return TValueWithBlock{addr, Builder.CurrentBlockLabel()};
     }
 
     if (auto maybeIndex = NAst::TMaybeNode<NAst::TIndexExpr>(expr)) {
@@ -466,7 +467,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         auto destPtr = Builder.Emit1("+"_op, {arrayPtr, byteOffset});
         Builder.SetType(destPtr, arrayType);
-        co_return TValueWithBlock{destPtr, Builder.CurrentBlockLabel(), EOwnership::Borrowed};
+        co_return TValueWithBlock{destPtr, Builder.CurrentBlockLabel()};
     }
 
     if (auto maybeMultiIndex = NAst::TMaybeNode<NAst::TMultiIndexExpr>(expr)) {
@@ -495,7 +496,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         auto destPtr = Builder.Emit1("+"_op, {arrayPtr, *indices.Value});
         Builder.SetType(destPtr, arrayType);
-        co_return TValueWithBlock{destPtr, Builder.CurrentBlockLabel(), EOwnership::Borrowed};
+        co_return TValueWithBlock{destPtr, Builder.CurrentBlockLabel()};
     }
 
     if (auto maybeField = NAst::TMaybeNode<NAst::TFieldAccessExpr>(expr)) {
@@ -524,7 +525,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         int ptrTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
         auto fieldPtr = Builder.Emit1("+"_op, {objAddr, TImm{fieldByteOffset, i64}});
         Builder.SetType(fieldPtr, ptrTypeId);
-        co_return TValueWithBlock{fieldPtr, Builder.CurrentBlockLabel(), EOwnership::Borrowed};
+        co_return TValueWithBlock{fieldPtr, Builder.CurrentBlockLabel()};
     }
 
     co_return TError(expr->Location, TErrorString::Get<EErrorId::ARG_REF_MUST_BE_IDENTIFIER>());
@@ -586,7 +587,6 @@ TExpectedTask<std::monostate, TError, TLocation> TAstLowerer::EmitLifetimeDestro
 }
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& inputExpr, TBlockScope scope) {
-    int lowStringTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
     NAst::TExprPtr expr = inputExpr;
 
     if (auto maybeRetain = NAst::TMaybeNode<NAst::TRetainExpr>(expr)) {
@@ -598,7 +598,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto retainId = co_await GlobalSymbolId("str_retain");
         Builder.Emit0("arg"_op, {*value.Value});
         Builder.Emit0("call"_op, {TImm{retainId}});
-        value.Ownership = EOwnership::Owned;
         co_return value;
     } else if (auto maybeLiteral = NAst::TMaybeNode<NAst::TOwnLiteralExpr>(expr)) {
         auto literal = maybeLiteral.Cast();
@@ -610,18 +609,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         Builder.Emit0("arg"_op, {*value.Value});
         auto owned = Builder.Emit1("call"_op, {TImm{constructorId}});
         Builder.SetType(owned, FromAstType(literal->Type, Module.Types));
-        co_return TValueWithBlock{
-            owned,
-            Builder.CurrentBlockLabel(),
-            EOwnership::Owned,
-        };
+        co_return TValueWithBlock{owned, Builder.CurrentBlockLabel()};
     } else if (auto maybeMove = NAst::TMaybeNode<NAst::TMoveExpr>(expr)) {
         auto value = co_await Lower(maybeMove.Cast()->Value, scope);
-        value.Ownership = EOwnership::Owned;
         co_return value;
     } else if (auto maybeBorrow = NAst::TMaybeNode<NAst::TBorrowExpr>(expr)) {
         auto value = co_await Lower(maybeBorrow.Cast()->Value, scope);
-        value.Ownership = EOwnership::Borrowed;
         co_return value;
     } else if (auto maybeDestroy = NAst::TMaybeNode<NAst::TDestroyExpr>(expr)) {
         auto destroy = maybeDestroy.Cast();
@@ -1074,7 +1067,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.SetType(destPtr, arrayType);
             auto loaded = Builder.Emit1("lde"_op, { destPtr });
             Builder.SetType(loaded, elemTypeId);
-            co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
+            co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
         }
         auto layoutIt = ArrayLayouts.find(indexSymbol->Id);
         if (layoutIt == ArrayLayouts.end()) {
@@ -1099,11 +1092,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (isStructElem) {
             int ptrType = Module.Types.Ptr(Module.Types.I(EKind::I8));
             Builder.SetType(destPtr, ptrType);
-            co_return TValueWithBlock{ destPtr, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
+            co_return TValueWithBlock{ destPtr, Builder.CurrentBlockLabel() };
         }
         auto loaded = Builder.Emit1("lde"_op, { destPtr });
         Builder.SetType(loaded, elemTypeId);
-        co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
+        co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
     } else if (auto maybeConstruct = NAst::TMaybeNode<NAst::TStructConstructExpr>(expr)) {
         auto sc = maybeConstruct.Cast();
         auto objAstType = NAst::UnwrapReferenceType(NAst::UnwrapNamedType(sc->Type));
@@ -1133,7 +1126,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
             offset += Module.Types.SizeInBytes(fieldTypeId >= 0 ? fieldTypeId : 8);
         }
-        co_return TValueWithBlock{ ptr, Builder.CurrentBlockLabel(), EOwnership::Unkwnown };
+        co_return TValueWithBlock{ ptr, Builder.CurrentBlockLabel() };
     } else if (NAst::TMaybeNode<NAst::TFieldAccessExpr>(expr) || NAst::TMaybeNode<NAst::TFieldAssignExpr>(expr)) {
         auto maybeRead  = NAst::TMaybeNode<NAst::TFieldAccessExpr>(expr);
         auto maybeWrite = NAst::TMaybeNode<NAst::TFieldAssignExpr>(expr);
@@ -1183,11 +1176,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         int fieldTypeId = FromAstType(fieldAstType, Module.Types);
         if (maybeRead) {
             if (Module.Types.GetKind(fieldTypeId) == EKind::Struct) {
-                co_return TValueWithBlock{ fieldPtr, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
+                co_return TValueWithBlock{ fieldPtr, Builder.CurrentBlockLabel() };
             }
             auto loaded = Builder.Emit1("lde"_op, { fieldPtr });
             Builder.SetType(loaded, fieldTypeId);
-            co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
+            co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
         } else {
             auto rhs = co_await Lower(maybeWrite.Cast()->Value, scope);
             if (!rhs.Value) {
@@ -1231,7 +1224,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         Builder.SetType(destPtr, arrayType);
         auto loaded = Builder.Emit1("lde"_op, { destPtr });
         Builder.SetType(loaded, FromAstType(expr->Type, Module.Types));
-        co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
+        co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
     } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(expr)) {
         auto asg = maybeAsg.Cast();
         auto rhs = co_await Lower(asg->Value, scope);
@@ -1291,9 +1284,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
         }
 
-        // Borrowed for stack values ignored
-        // For strings, we need to track destructors for owned temporaries
-        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(), EOwnership::Borrowed };
+        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
     } else if (auto maybeVar = NAst::TMaybeNode<NAst::TVarStmt>(expr)) {
         // TODO: zero memory for strings?
         auto var = maybeVar.Cast();
@@ -1441,16 +1432,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     // value-producing expression).
                     co_return TError(fun->Location, "Тело функции должно заканчиваться оператором `return` или выражением, возвращающим значение.");
                 }
-                TOperand returnValue = *loweredBody.Value;
-                // TODO: copy-paste (mirrors TAssignExpr's literal materialization)
-                if (returnValue.Type == TOperand::EType::Imm && returnValue.Imm.TypeId == lowStringTypeId) {
-                    auto constructorId = co_await GlobalSymbolId("str_from_lit");
-                    Builder.Emit0("arg"_op, {returnValue});
-                    auto materialized = Builder.Emit1("call"_op, {TImm{constructorId}});
-                    Builder.SetType(materialized, lowStringTypeId);
-                    returnValue = materialized;
-                }
-                Builder.Emit0("stre"_op, {TOperand{*retLocal}, returnValue});
+                Builder.Emit0("stre"_op, {
+                    TOperand{*retLocal},
+                    *loweredBody.Value,
+                });
             }
             Builder.Emit0("jmp"_op, { endLabel });
         }
@@ -1479,8 +1464,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.SetType(tmp->Tmp, FromAstType(awaitExpr->Type, Module.Types));
         }
 
-        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(),
-            NAst::TMaybeType<NAst::TStringType>(awaitExpr->Type) ? EOwnership::Owned : EOwnership::Unkwnown };
+        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
     } else if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(expr)) {
         auto call = maybeCall.Cast();
         // Evaluate callee and perform a function call.
@@ -1555,8 +1539,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         } else {
             Builder.Emit0("call"_op, {TImm{calleeSymId}});
         }
-        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(),
-            NAst::TMaybeType<NAst::TStringType>(returnType) ? EOwnership::Owned : EOwnership::Unkwnown };
+        co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
     } else {
         std::ostringstream oss;
         oss << expr;
@@ -1613,6 +1596,10 @@ void TAstLowerer::ImportExternalFunctions() {
 }
 
 std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr& expr) {
+    NSemantics::TLifetimeValidator validator(Context);
+    if (auto validation = validator.Validate(expr); !validation) {
+        return std::unexpected(validation.error());
+    }
     ImportExternalFunctions();
     auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr);
     if (!maybeBlock) {

@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 #include <qumir/parser/core/printer.h>
+#include <qumir/semantics/lifetime/pass.h>
+#include <qumir/semantics/lifetime/synthetic_name_generator.h>
 #include <qumir/semantics/transform/transform.h>
 
 #include <memory>
@@ -542,6 +544,25 @@ TEST(LifetimePass, CollectsGlobalCleanupOnceInReverseDeclarationOrder) {
         Print(cleanup),
         "(cleanup-global (destroy words __lifetime_0) "
         "(destroy plain) (destroy first))");
+}
+
+TEST(LifetimePass, DoesNotRewriteFinalizedLifetimeAstTwice) {
+    auto value = Variable("value", std::make_shared<TStringType>());
+    value->Init = Literal("value");
+    TExprPtr root = Block({Function("main", {}, Block({value}))});
+    NSemantics::TNameResolver resolver;
+
+    auto source = NTransform::RunSourceTransformFixpoint(root, resolver);
+    ASSERT_TRUE(source.has_value()) << source.error().ToString();
+    auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
+    ASSERT_TRUE(final.has_value()) << final.error().ToString();
+    const auto before = Print(root);
+
+    NSemantics::TSyntheticNameGenerator syntheticNames(resolver, root);
+    auto secondRun = NSemantics::LifetimePass(root, resolver, syntheticNames);
+    ASSERT_TRUE(secondRun.has_value()) << secondRun.error().ToString();
+    EXPECT_FALSE(*secondRun);
+    EXPECT_EQ(Print(root), before);
 }
 
 int main(int argc, char** argv) {

@@ -244,43 +244,67 @@ TEST(LifetimeLowering, BorrowAddsNoInstructions) {
 }
 
 TEST(LifetimeLowering, DestroyStringUsesRelease) {
-    auto parameter = Parameter("value", std::make_shared<TStringType>());
+    auto value = Parameter("value", std::make_shared<TStringType>());
+    value->Init = OwnedLiteral();
     ExpectTrace(
-        {parameter},
-        {Destroy(Ident("value"))},
-        "load arg call:str_release jmp ret");
+        {},
+        {value, Destroy(Ident("value"))},
+        "arg call:str_from_lit stre load arg call:str_release jmp ret");
+}
+
+TEST(LifetimeLowering, ValidatesLifetimeAstBeforeLowering) {
+    auto parameter = Parameter("value", std::make_shared<TStringType>());
+    auto result = Lower({parameter}, {Destroy(Ident("value"))});
+    ASSERT_FALSE(result.has_value());
+    EXPECT_NE(
+        result.error().ToString().find("destroy cannot consume a borrowed value"),
+        std::string::npos);
 }
 
 TEST(LifetimeLowering, DestroyPlainArrayUsesArrayDestroy) {
     auto arrayType = std::make_shared<TArrayType>(
         std::make_shared<TIntegerType>(),
         1);
-    auto parameter = Parameter("items", arrayType);
-    ExpectTrace(
-        {parameter},
-        {Destroy(Ident("items"))},
-        "load arg call:array_destroy jmp ret");
+    auto items = Parameter("items", arrayType);
+    items->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+    });
+    auto result = Lower({}, {items, Destroy(Ident("items"))});
+    ASSERT_TRUE(result.has_value()) << result.error().ToString();
+    EXPECT_NE(result->Trace.find("call:array_create"), std::string::npos);
+    EXPECT_NE(result->Trace.find("call:array_destroy"), std::string::npos);
 }
 
 TEST(LifetimeLowering, DestroyStringArrayPassesAllocationSize) {
     auto arrayType = std::make_shared<TArrayType>(
         std::make_shared<TStringType>(),
         1);
-    auto parameter = Parameter("items", arrayType);
-    ExpectTrace(
-        {parameter},
-        {Destroy(
+    auto items = Parameter("items", arrayType);
+    items->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{4}),
+    });
+    auto result = Lower(
+        {},
+        {items, Destroy(
             Ident("items"),
-            std::make_shared<TNumberExpr>(TLocation{}, int64_t{32}))},
-        "load arg arg call:array_str_destroy jmp ret");
+            std::make_shared<TNumberExpr>(TLocation{}, int64_t{32}))});
+    ASSERT_TRUE(result.has_value()) << result.error().ToString();
+    EXPECT_NE(result->Trace.find("call:array_create"), std::string::npos);
+    EXPECT_NE(result->Trace.find("call:array_str_destroy"), std::string::npos);
 }
 
 TEST(LifetimeLowering, DestroyStringArrayRequiresAllocationSize) {
     auto arrayType = std::make_shared<TArrayType>(
         std::make_shared<TStringType>(),
         1);
-    auto parameter = Parameter("items", arrayType);
-    auto result = Lower({parameter}, {Destroy(Ident("items"))});
+    auto items = Parameter("items", arrayType);
+    items->Bounds.push_back({
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}),
+    });
+    auto result = Lower({}, {items, Destroy(Ident("items"))});
     ASSERT_FALSE(result.has_value());
     EXPECT_NE(
         result.error().ToString().find("requires an allocation-size operand"),

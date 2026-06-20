@@ -86,6 +86,29 @@ bool IsReusableArrayBound(const TExprPtr& expr) {
     return TMaybeNode<TNumberExpr>(expr) || TMaybeNode<TIdentExpr>(expr);
 }
 
+bool IsLifetimeNode(const TExprPtr& expr) {
+    return TMaybeNode<TRetainExpr>(expr)
+        || TMaybeNode<TOwnLiteralExpr>(expr)
+        || TMaybeNode<TMoveExpr>(expr)
+        || TMaybeNode<TBorrowExpr>(expr)
+        || TMaybeNode<TDestroyExpr>(expr)
+        || TMaybeNode<TReplaceExpr>(expr)
+        || TMaybeNode<TCleanupExitExpr>(expr)
+        || TMaybeNode<TGlobalCleanupExpr>(expr);
+}
+
+bool ContainsLifetimeNode(const TExprPtr& expr) {
+    if (IsLifetimeNode(expr)) {
+        return true;
+    }
+    for (const auto& child : expr->Children()) {
+        if (child && ContainsLifetimeNode(child)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool IsSynthetic(std::string_view name) {
     return name.starts_with("__lifetime_");
 }
@@ -189,11 +212,11 @@ public:
                     root->Location,
                     "Only one global cleanup node is allowed."));
             }
-            if (globalCleanupCount == 1) {
-                // Serialized core AST can re-enter the final pipeline. The
-                // root cleanup marker means lifetime rewriting is complete.
-                return false;
-            }
+        }
+        // Serialized core AST can re-enter the final pipeline. Any lifetime
+        // node is a completion marker: the pass must never rewrite it twice.
+        if (ContainsLifetimeNode(root)) {
+            return false;
         }
         auto result = RewriteExpr(root, TScopeId{0}, false);
         if (!result) {
@@ -324,7 +347,6 @@ private:
             auto wrapper = std::make_shared<TBlockExpr>(
                 returnExpr->Location,
                 std::vector<TExprPtr>{std::move(result), std::move(exit)});
-            wrapper->SkipDestructors = true;
             wrapper->Type = std::make_shared<TVoidType>();
             expr = std::move(wrapper);
             return true;
@@ -399,7 +421,6 @@ private:
             if (auto variable = TMaybeNode<TVarStmt>(statement);
                 variable && IsSynthetic(variable.Cast()->Name))
             {
-                block->SkipDestructors = true;
                 if (variable.Cast()->Init) {
                     auto result = RewriteExpr(
                         variable.Cast()->Init,
@@ -578,7 +599,7 @@ private:
         }
         const bool fallsThrough = !AlwaysExits(
             std::make_shared<TBlockExpr>(block->Location, statements));
-        if (FunctionBoundary_ && !block->SkipDestructors && fallsThrough) {
+        if (FunctionBoundary_ && fallsThrough) {
             auto cleanups = MakeCleanups(Scopes_.size() - 1);
             if (!cleanups.empty()) {
                 statements.insert(
@@ -878,7 +899,6 @@ private:
         auto wrapper = std::make_shared<TBlockExpr>(
             call->Location,
             std::move(statements));
-        wrapper->SkipDestructors = true;
         wrapper->Type = call->Type;
         expr = std::move(wrapper);
         return true;
