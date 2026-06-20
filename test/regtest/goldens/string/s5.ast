@@ -6,68 +6,120 @@
       (var result1 = (bitcast 0 string))
       (replace s1 (own-literal "Hello"))
       (replace s2 (own-literal " World"))
-      (replace result1 (move (call str_concat s1 s2)))
+      (replace result1 (move (call str_concat (borrow s1) (borrow s2))))
       (block
         (call output_string "string + string: ")
-        (call output_string result1)
+        (call output_string (borrow result1))
         (call output_string "\n"))
       (var s3 = (bitcast 0 string))
       (var sym1 char)
       (var result2 = (bitcast 0 string))
       (replace s3 (own-literal "Test"))
       (= sym1 (cast 33 char))
-      (replace result2 (move (call str_concat s3 (call str_from_unicode sym1))))
+      (replace
+        result2
+        (move
+          (block
+            (var __lifetime_0 = (move (call str_from_unicode sym1)))
+            (var __lifetime_1 = (call str_concat (borrow s3) (borrow __lifetime_0)))
+            (destroy __lifetime_0)
+            (move __lifetime_1))))
       (block
         (call output_string "string + symbol: ")
-        (call output_string result2)
+        (call output_string (borrow result2))
         (call output_string "\n"))
       (var sym2 char)
       (var s4 = (bitcast 0 string))
       (var result3 = (bitcast 0 string))
       (= sym2 (cast 65 char))
       (replace s4 (own-literal "BC"))
-      (replace result3 (move (call str_concat (call str_from_unicode sym2) s4)))
+      (replace
+        result3
+        (move
+          (block
+            (var __lifetime_2 = (move (call str_from_unicode sym2)))
+            (var __lifetime_3 = (call str_concat (borrow __lifetime_2) (borrow s4)))
+            (destroy __lifetime_2)
+            (move __lifetime_3))))
       (block
         (call output_string "symbol + string: ")
-        (call output_string result3)
+        (call output_string (borrow result3))
         (call output_string "\n"))
       (var sym3 char)
       (var sym4 char)
       (var result4 = (bitcast 0 string))
       (= sym3 (cast 88 char))
       (= sym4 (cast 89 char))
-      (replace result4 (move (call str_concat (call str_from_unicode sym3) (call str_from_unicode sym4))))
+      (replace
+        result4
+        (move
+          (block
+            (var __lifetime_4 = (move (call str_from_unicode sym3)))
+            (var __lifetime_5 = (move (call str_from_unicode sym4)))
+            (var __lifetime_6 = (call str_concat (borrow __lifetime_4) (borrow __lifetime_5)))
+            (destroy __lifetime_5)
+            (destroy __lifetime_4)
+            (move __lifetime_6))))
       (block
         (call output_string "symbol + symbol: ")
-        (call output_string result4)
+        (call output_string (borrow result4))
         (call output_string "\n"))
       (var chain = (bitcast 0 string))
       (replace
         chain
         (move
-          (call
-            str_concat
-            (call
-              str_concat
-              (call str_concat (call str_concat "Start" (call str_from_unicode (cast 45 char))) "Middle")
-              (call str_from_unicode (cast 45 char)))
-            "End")))
+          (block
+            (var __lifetime_14 = (move
+                (block
+                  (var __lifetime_11 = (move
+                      (block
+                        (var __lifetime_9 = (move
+                            (block
+                              (var __lifetime_7 = (move (call str_from_unicode (cast 45 char))))
+                              (var __lifetime_8 = (call str_concat "Start" (borrow __lifetime_7)))
+                              (destroy __lifetime_7)
+                              (move __lifetime_8))))
+                        (var __lifetime_10 = (call str_concat (borrow __lifetime_9) "Middle"))
+                        (destroy __lifetime_9)
+                        (move __lifetime_10))))
+                  (var __lifetime_12 = (move (call str_from_unicode (cast 45 char))))
+                  (var __lifetime_13 = (call str_concat (borrow __lifetime_11) (borrow __lifetime_12)))
+                  (destroy __lifetime_12)
+                  (destroy __lifetime_11)
+                  (move __lifetime_13))))
+            (var __lifetime_15 = (call str_concat (borrow __lifetime_14) "End"))
+            (destroy __lifetime_14)
+            (move __lifetime_15))))
       (block
         (call output_string "chain: ")
-        (call output_string chain)
+        (call output_string (borrow chain))
         (call output_string "\n"))
       (var empty = (bitcast 0 string))
       (var result5 = (bitcast 0 string))
       (replace empty (own-literal ""))
-      (replace result5 (move (call str_concat empty (call str_from_unicode (cast 90 char)))))
+      (replace
+        result5
+        (move
+          (block
+            (var __lifetime_16 = (move (call str_from_unicode (cast 90 char))))
+            (var __lifetime_17 = (call str_concat (borrow empty) (borrow __lifetime_16)))
+            (destroy __lifetime_16)
+            (move __lifetime_17))))
       (block
         (call output_string "empty + symbol: ")
-        (call output_string result5)
+        (call output_string (borrow result5))
         (call output_string "\n"))
       (var result6 = (bitcast 0 string))
-      (replace result6 (move (call str_concat (call str_from_unicode (cast 64 char)) "")))
+      (replace
+        result6
+        (move
+          (block
+            (var __lifetime_18 = (move (call str_from_unicode (cast 64 char))))
+            (var __lifetime_19 = (call str_concat (borrow __lifetime_18) ""))
+            (destroy __lifetime_18)
+            (move __lifetime_19))))
       (block
         (call output_string "symbol + empty: ")
-        (call output_string result6)
+        (call output_string (borrow result6))
         (call output_string "\n"))
       (return))))

@@ -823,26 +823,19 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto r = co_await Lower(s, newScope);
             last = r.Value;
 
-            if (r.Ownership == EOwnership::Owned) {
-                last = std::nullopt;
-                auto dtorId = co_await GlobalSymbolId("str_release");
-                Builder.Emit0("arg"_op, {*r.Value});
-                Builder.Emit0("call"_op, { TImm{ dtorId } });
-                last = r.Value;
-            }
-
             // Stop lowering subsequent statements if current block has a terminating instruction (e.g. break -> jmp)
             if (Builder.IsCurrentBlockTerminated()) {
                 break;
             }
         }
         // Emit destructors for objects declared in this block (LIFO)
-        if (!block->SkipDestructors && PendingDestructors.size() > initialPendingDestructorsSize) {
-            if (!Builder.IsCurrentBlockTerminated()) {
+        if (PendingDestructors.size() > initialPendingDestructorsSize) {
+            if (!block->SkipDestructors && !Builder.IsCurrentBlockTerminated()) {
                 EmitDestructors(initialPendingDestructorsSize, PendingDestructors.size());
             }
-            // If terminated, break/continue/return already flushed these
-            // (and possibly outer-scope entries too); just drop bookkeeping.
+            // Explicit-lifetime blocks own their cleanup AST and only need to
+            // discard legacy bookkeeping. If terminated, break/continue/return
+            // already flushed these (and possibly outer-scope entries too).
             PendingDestructors.resize(initialPendingDestructorsSize);
         }
 
@@ -1637,7 +1630,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             ImportExternalFunction(calleeSymId, *funDecl);
         }
 
-        std::vector<std::pair<TOperand, EOwnership>> argv;
+        std::vector<TOperand> argv;
         argv.reserve(call->Args.size());
         int i = 0;
         for (auto& a : call->Args) {
@@ -1657,20 +1650,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
             if (!av.Value) co_return TError(a->Location, TErrorString::Get<EErrorId::INVALID_ARGUMENT>());
 
-            if (av.Value->Type == TOperand::EType::Imm && av.Value->Imm.TypeId == lowStringTypeId && (!funDecl->IsExternal() || funDecl->RequireArgsMaterialization)) {
-                // Argument is a string literal pointer: materialize to string object
-                if (NAst::TMaybeType<NAst::TStringType>(argType)) {
-                    auto constructorId = co_await GlobalSymbolId("str_from_lit");
-                    Builder.Emit0("arg", {*av.Value});
-                    auto materializedString = Builder.Emit1("call"_op, {TImm{constructorId}});
-                    Builder.SetType(materializedString, FromAstType(argType, Module.Types));
-                    av.Value = materializedString;
-                    av.Ownership = EOwnership::Owned;
-                }
-            }
-            argv.emplace_back(*av.Value, av.Ownership);
+            argv.push_back(*av.Value);
         }
-        for (auto [arg, _] : argv) {
+        for (auto arg : argv) {
             Builder.Emit0("arg"_op, {arg});
         }
         // Decide if callee returns a value (non-void). If void -> Emit0
@@ -1687,16 +1669,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.SetType(tmp->Tmp, FromAstType(returnType, Module.Types));
         } else {
             Builder.Emit0("call"_op, {TImm{calleeSymId}});
-        }
-        for (auto [arg, ownership] : argv) {
-            // For string arguments passed as owned temporaries: release after call
-            if (ownership == EOwnership::Owned) {
-                // TODO: check that arg is string type
-                // TODO: destructors for other types
-                auto dtorId = co_await GlobalSymbolId("str_release");
-                Builder.Emit0("arg"_op, {arg});
-                Builder.Emit0("call"_op, { TImm{dtorId} });
-            }
         }
         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel(),
             NAst::TMaybeType<NAst::TStringType>(returnType) ? EOwnership::Owned : EOwnership::Unkwnown };

@@ -28,10 +28,10 @@
             (- 1)
             (block
               (if
-                (< (call str_compare (index S (+ j 1)) (index S j)) 0)
+                (< (call str_compare (borrow (index S (+ j 1))) (borrow (index S j))) 0)
                 (block
                   (replace s1 (retain (borrow (index S j))))
                   (replace (index S j) (retain (borrow (index S (+ j 1)))))
                   (replace (index S (+ j 1)) (retain (borrow s1)))))))))
-      (for i 1 N 1 (block (block (call output_string (index S i)) (call output_string "\n"))))
+      (for i 1 N 1 (block (block (call output_string (borrow (index S i))) (call output_string "\n"))))
       (return))))

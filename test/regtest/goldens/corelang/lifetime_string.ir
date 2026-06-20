@@ -27,21 +27,27 @@ function <main> () { ; void
     load tmp(9,ptr to i8) = local(0,ptr to i8) 
     arg tmp(9,ptr to i8) 
     call tmp(10,ptr to i8) = surround 
-    arg tmp(10,ptr to i8) 
-    call output_string 
-    arg tmp(10,ptr to i8) 
-    call str_release 
-    arg imm(3,ptr to i8) 
-    call output_string 
-    call tmp(11,ptr to i8) = make_string 
+    stre local(1,ptr to i8) tmp(10,ptr to i8) 
+    load tmp(11,ptr to i8) = local(1,ptr to i8) 
     arg tmp(11,ptr to i8) 
     call output_string 
-    arg tmp(11,ptr to i8) 
-    call str_release 
-    arg imm(3,ptr to i8) 
-    call output_string 
-    load tmp(12,ptr to i8) = local(0,ptr to i8) 
+    load tmp(12,ptr to i8) = local(1,ptr to i8) 
     arg tmp(12,ptr to i8) 
+    call str_release 
+    arg imm(3,ptr to i8) 
+    call output_string 
+    call tmp(13,ptr to i8) = make_string 
+    stre local(2,ptr to i8) tmp(13,ptr to i8) 
+    load tmp(14,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(14,ptr to i8) 
+    call output_string 
+    load tmp(15,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(15,ptr to i8) 
+    call str_release 
+    arg imm(3,ptr to i8) 
+    call output_string 
+    load tmp(16,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(16,ptr to i8) 
     call str_release 
     jmp label(1) 
   }
@@ -57,18 +63,23 @@ function surround (local(0)) { ; ptr to i8
     arg imm(4,ptr to i8) 
     arg tmp(0,ptr to i8) 
     call tmp(1,ptr to i8) = str_concat 
-    arg tmp(1,ptr to i8) 
+    stre local(1,ptr to i8) tmp(1,ptr to i8) 
+    load tmp(2,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(2,ptr to i8) 
     arg imm(5,ptr to i8) 
-    call tmp(2,ptr to i8) = str_concat 
-    arg tmp(1,ptr to i8) 
+    call tmp(3,ptr to i8) = str_concat 
+    stre local(2,ptr to i8) tmp(3,ptr to i8) 
+    load tmp(4,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(4,ptr to i8) 
     call str_release 
-    stre local(1,ptr to i8) tmp(2,ptr to i8) 
+    load tmp(5,ptr to i8) = local(2,ptr to i8) 
+    stre local(3,ptr to i8) tmp(5,ptr to i8) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(3,ptr to i8) = local(1,ptr to i8) 
-    ret tmp(3,ptr to i8) 
+    load tmp(6,ptr to i8) = local(3,ptr to i8) 
+    ret tmp(6,ptr to i8) 
   }
 }
 function make_string () { ; ptr to i8

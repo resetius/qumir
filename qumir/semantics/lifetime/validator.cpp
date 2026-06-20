@@ -200,6 +200,9 @@ private:
             }
             return result;
         }
+        if (auto returnExpr = TMaybeNode<TReturnExpr>(expr)) {
+            return ValidateNode(returnExpr.Cast()->Value, scopeId, true);
+        }
         if (auto ident = TMaybeNode<TIdentExpr>(expr)) {
             if (auto result = ValidateSynthetic(
                 expr,
@@ -283,7 +286,9 @@ private:
             return ValidateNode(literal.Cast()->Value, scopeId, false);
         }
         if (auto move = TMaybeNode<TMoveExpr>(expr)) {
-            if (Ownership(move.Cast()->Value) != EOwnership::Owned) {
+            if (Ownership(move.Cast()->Value) != EOwnership::Owned
+                && !IsOwnedStorage(move.Cast()->Value, scopeId))
+            {
                 return Fail(expr, "move requires an owned value.");
             }
             return ValidateNode(move.Cast()->Value, scopeId, true);

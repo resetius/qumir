@@ -9,9 +9,9 @@
       (var результат = (bitcast 0 string))
       (replace а (own-literal "Привет, "))
       (replace б (own-literal "мир!"))
-      (replace результат (move (call str_concat а б)))
+      (replace результат (move (call str_concat (borrow а) (borrow б))))
       (block
-        (call output_string результат)
+        (call output_string (borrow результат))
         (call output_string "\n"))
       (block
         (call output_string "\n"))
@@ -25,13 +25,13 @@
       (replace строка2 (own-literal "яблоко"))
       (replace строка3 (own-literal "груша"))
       (if
-        (== (call str_compare строка1 строка2) 0)
+        (== (call str_compare (borrow строка1) (borrow строка2)) 0)
         (block
           (block
             (call output_string "строка1 = строка2: истина")
             (call output_string "\n"))))
       (if
-        (== (call str_compare строка1 строка3) 0)
+        (== (call str_compare (borrow строка1) (borrow строка3)) 0)
         (block
           (block
             (call output_string "строка1 = строка3: истина")
@@ -41,7 +41,7 @@
             (call output_string "строка1 = строка3: ложь")
             (call output_string "\n"))))
       (if
-        (< (call str_compare строка3 строка2) 0)
+        (< (call str_compare (borrow строка3) (borrow строка2)) 0)
         (block
           (block
             (call output_string "строка3 < строка2")
@@ -56,7 +56,7 @@
       (var код i64)
       (var код_а i64)
       (replace текст (own-literal "Привет"))
-      (= код (cast (call str_symbol_at текст 1) i64))
+      (= код (cast (call str_symbol_at (borrow текст) 1) i64))
       (block
         (call output_string "Первый символ строки 'Привет': ")
         (call output_int64 код 0)
@@ -88,25 +88,44 @@
       (replace
         слово
         (move
-          (call
-            str_concat
-            (call
-              str_concat
-              (call
-                str_concat
-                (call
-                  str_concat
-                  (call
-                    str_concat
-                    (call str_from_unicode (cast код1 char))
-                    (call str_from_unicode (cast код2 char)))
-                  (call str_from_unicode (cast код3 char)))
-                (call str_from_unicode (cast код4 char)))
-              (call str_from_unicode (cast код5 char)))
-            (call str_from_unicode (cast код6 char)))))
+          (block
+            (var __lifetime_12 = (move
+                (block
+                  (var __lifetime_9 = (move
+                      (block
+                        (var __lifetime_6 = (move
+                            (block
+                              (var __lifetime_3 = (move
+                                  (block
+                                    (var __lifetime_0 = (move (call str_from_unicode (cast код1 char))))
+                                    (var __lifetime_1 = (move (call str_from_unicode (cast код2 char))))
+                                    (var __lifetime_2 = (call str_concat (borrow __lifetime_0) (borrow __lifetime_1)))
+                                    (destroy __lifetime_1)
+                                    (destroy __lifetime_0)
+                                    (move __lifetime_2))))
+                              (var __lifetime_4 = (move (call str_from_unicode (cast код3 char))))
+                              (var __lifetime_5 = (call str_concat (borrow __lifetime_3) (borrow __lifetime_4)))
+                              (destroy __lifetime_4)
+                              (destroy __lifetime_3)
+                              (move __lifetime_5))))
+                        (var __lifetime_7 = (move (call str_from_unicode (cast код4 char))))
+                        (var __lifetime_8 = (call str_concat (borrow __lifetime_6) (borrow __lifetime_7)))
+                        (destroy __lifetime_7)
+                        (destroy __lifetime_6)
+                        (move __lifetime_8))))
+                  (var __lifetime_10 = (move (call str_from_unicode (cast код5 char))))
+                  (var __lifetime_11 = (call str_concat (borrow __lifetime_9) (borrow __lifetime_10)))
+                  (destroy __lifetime_10)
+                  (destroy __lifetime_9)
+                  (move __lifetime_11))))
+            (var __lifetime_13 = (move (call str_from_unicode (cast код6 char))))
+            (var __lifetime_14 = (call str_concat (borrow __lifetime_12) (borrow __lifetime_13)))
+            (destroy __lifetime_13)
+            (destroy __lifetime_12)
+            (move __lifetime_14))))
       (block
         (call output_string "Слово из кодов: ")
-        (call output_string слово)
+        (call output_string (borrow слово))
         (call output_string "\n"))
       (block
         (call output_string "\n"))
@@ -120,34 +139,34 @@
       (var окончание = (bitcast 0 string))
       (var длина i64)
       (replace фраза (own-literal "Программирование"))
-      (= длина (call длин фраза))
+      (= длина (call длин (borrow фраза)))
       (block
         (call output_string "Строка: ")
-        (call output_string фраза)
+        (call output_string (borrow фраза))
         (call output_string "\n"))
       (block
         (call output_string "Длина строки: ")
         (call output_int64 длина 0)
         (call output_string "\n"))
-      (replace первый (move (call str_from_unicode (call str_symbol_at фраза 1))))
+      (replace первый (move (call str_from_unicode (call str_symbol_at (borrow фраза) 1))))
       (block
         (call output_string "Первый символ (индекс 1): ")
-        (call output_string первый)
+        (call output_string (borrow первый))
         (call output_string "\n"))
-      (replace третий (move (call str_from_unicode (call str_symbol_at фраза 3))))
+      (replace третий (move (call str_from_unicode (call str_symbol_at (borrow фраза) 3))))
       (block
         (call output_string "Третий символ (индекс 3): ")
-        (call output_string третий)
+        (call output_string (borrow третий))
         (call output_string "\n"))
-      (replace подстрока (move (call str_slice фраза 1 7)))
+      (replace подстрока (move (call str_slice (borrow фраза) 1 7)))
       (block
         (call output_string "Подстрока [1:7]: ")
-        (call output_string подстрока)
+        (call output_string (borrow подстрока))
         (call output_string "\n"))
-      (replace окончание (move (call str_slice фраза 8 16)))
+      (replace окончание (move (call str_slice (borrow фраза) 8 16)))
       (block
         (call output_string "Подстрока [8:16]: ")
-        (call output_string окончание)
+        (call output_string (borrow окончание))
         (call output_string "\n"))
       (block
         (call output_string "\n"))
@@ -161,24 +180,24 @@
       (var поз_не_найден i64)
       (replace предложение (own-literal "Это тестовое предложение для теста"))
       (replace образец (own-literal "тест"))
-      (= позиция (call поз предложение образец))
+      (= позиция (call поз (borrow предложение) (borrow образец)))
       (block
         (call output_string "Строка: ")
-        (call output_string предложение)
+        (call output_string (borrow предложение))
         (call output_string "\n"))
       (block
         (call output_string "Ищем: ")
-        (call output_string образец)
+        (call output_string (borrow образец))
         (call output_string "\n"))
       (block
         (call output_string "Первое вхождение на позиции: ")
         (call output_int64 позиция 0)
         (call output_string "\n"))
       (replace не_найдено (own-literal "xyz"))
-      (= поз_не_найден (call поз предложение не_найдено))
+      (= поз_не_найден (call поз (borrow предложение) (borrow не_найдено)))
       (block
         (call output_string "Ищем: ")
-        (call output_string не_найдено)
+        (call output_string (borrow не_найдено))
         (call output_string "\n"))
       (block
         (call output_string "Результат (не найдено): ")
@@ -196,19 +215,21 @@
       (var третья_поз i64)
       (replace текст2 (own-literal "Это тестовое предложение для теста"))
       (replace образец2 (own-literal "тест"))
-      (= первая_поз (call поз текст2 образец2))
+      (= первая_поз (call поз (borrow текст2) (borrow образец2)))
       (block
         (call output_string "Первое вхождение 'тест': ")
         (call output_int64 первая_поз 0)
         (call output_string "\n"))
-      (= вторая_поз (call |поз после| (+ первая_поз 1) текст2 образец2))
+      (= вторая_поз
+        (call |поз после| (+ первая_поз 1) (borrow текст2) (borrow образец2)))
       (block
         (call output_string "Второе вхождение 'тест' (поиск после позиции ")
         (call output_int64 (+ первая_поз 1) 0)
         (call output_string "): ")
         (call output_int64 вторая_поз 0)
         (call output_string "\n"))
-      (= третья_поз (call |поз после| (+ вторая_поз 1) текст2 образец2))
+      (= третья_поз
+        (call |поз после| (+ вторая_поз 1) (borrow текст2) (borrow образец2)))
       (block
         (call output_string "Третье вхождение (не найдено): ")
         (call output_int64 третья_поз 0)

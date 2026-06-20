@@ -157,7 +157,12 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
             }
         }
         auto newScope = Scopes[scopeId.Id];
-        co_return co_await Resolve(fdecl->Body, newScope, newScope);
+        co_await Resolve(fdecl->Body, newScope, newScope);
+        if (fdecl->LastAssert) {
+            auto bodyScope = Scopes[fdecl->Body->Scope];
+            co_await Resolve(fdecl->LastAssert, bodyScope, newScope);
+        }
+        co_return std::monostate{};
     } else if (auto maybeBlock = TMaybeNode<TBlockExpr>(node)) {
         auto block = maybeBlock.Cast();
         if (block->Scope < 0) {

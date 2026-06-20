@@ -4,5 +4,5 @@
       (var знач i64)
       (var c = (bitcast 0 string))
       (replace c (own-literal "строка"))
-      (= знач (call длин c))
+      (= знач (call длин (borrow c)))
       (return знач))))

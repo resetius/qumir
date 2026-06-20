@@ -2,7 +2,10 @@
   (fun ф () -> string
     (block
       (var знач = (bitcast 0 string))
-      (call g "строка")
+      (block
+        (var __lifetime_0 = (own-literal "строка"))
+        (call g (borrow __lifetime_0))
+        (destroy __lifetime_0))
       (replace знач (own-literal "ok"))
       (return знач)))
   (fun g ((var й string))

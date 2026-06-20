@@ -17,20 +17,25 @@ function тест_сравнение_символ_строка () { ; i64
     load tmp(6,i32) = local(1,i32) 
     arg tmp(6,i32) 
     call tmp(7,ptr to i8) = str_from_unicode 
-    load tmp(8,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(7,ptr to i8) 
+    stre local(4,ptr to i8) tmp(7,ptr to i8) 
+    load tmp(8,ptr to i8) = local(4,ptr to i8) 
+    load tmp(9,ptr to i8) = local(2,ptr to i8) 
     arg tmp(8,ptr to i8) 
-    call tmp(9,i64) = str_compare 
-    arg tmp(7,ptr to i8) 
+    arg tmp(9,ptr to i8) 
+    call tmp(10,i64) = str_compare 
+    stre local(5,i64) tmp(10,i64) 
+    load tmp(11,ptr to i8) = local(4,ptr to i8) 
+    arg tmp(11,ptr to i8) 
     call str_release 
-    == tmp(10,i1) = tmp(9,i64) imm(0,i64) 
-    cmp tmp(10,i1) label(2) label(3) 
+    load tmp(12,i64) = local(5,i64) 
+    == tmp(13,i1) = tmp(12,i64) imm(0,i64) 
+    cmp tmp(13,i1) label(2) label(3) 
   }
   block {
     label: label(2)
-    load tmp(11,i64) = local(3,i64) 
-    + tmp(12,i64) = tmp(11,i64) imm(1,i64) 
-    stre local(3,i64) tmp(12,i64) 
+    load tmp(14,i64) = local(3,i64) 
+    + tmp(15,i64) = tmp(14,i64) imm(1,i64) 
+    stre local(3,i64) tmp(15,i64) 
     jmp label(4) 
   }
   block {
@@ -39,23 +44,28 @@ function тест_сравнение_символ_строка () { ; i64
   }
   block {
     label: label(4)
-    load tmp(13,i32) = local(1,i32) 
-    arg tmp(13,i32) 
-    call tmp(14,ptr to i8) = str_from_unicode 
-    load tmp(15,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(14,ptr to i8) 
-    arg tmp(15,ptr to i8) 
-    call tmp(16,i64) = str_compare 
-    arg tmp(14,ptr to i8) 
+    load tmp(16,i32) = local(1,i32) 
+    arg tmp(16,i32) 
+    call tmp(17,ptr to i8) = str_from_unicode 
+    stre local(6,ptr to i8) tmp(17,ptr to i8) 
+    load tmp(18,ptr to i8) = local(6,ptr to i8) 
+    load tmp(19,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(18,ptr to i8) 
+    arg tmp(19,ptr to i8) 
+    call tmp(20,i64) = str_compare 
+    stre local(7,i64) tmp(20,i64) 
+    load tmp(21,ptr to i8) = local(6,ptr to i8) 
+    arg tmp(21,ptr to i8) 
     call str_release 
-    != tmp(17,i1) = tmp(16,i64) imm(0,i64) 
-    cmp tmp(17,i1) label(5) label(6) 
+    load tmp(22,i64) = local(7,i64) 
+    != tmp(23,i1) = tmp(22,i64) imm(0,i64) 
+    cmp tmp(23,i1) label(5) label(6) 
   }
   block {
     label: label(5)
-    load tmp(18,i64) = local(3,i64) 
-    + tmp(19,i64) = tmp(18,i64) imm(1000,i64) 
-    stre local(3,i64) tmp(19,i64) 
+    load tmp(24,i64) = local(3,i64) 
+    + tmp(25,i64) = tmp(24,i64) imm(1000,i64) 
+    stre local(3,i64) tmp(25,i64) 
     jmp label(7) 
   }
   block {
@@ -64,23 +74,28 @@ function тест_сравнение_символ_строка () { ; i64
   }
   block {
     label: label(7)
-    load tmp(20,i32) = local(1,i32) 
-    arg tmp(20,i32) 
-    call tmp(21,ptr to i8) = str_from_unicode 
-    load tmp(22,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(21,ptr to i8) 
-    arg tmp(22,ptr to i8) 
-    call tmp(23,i64) = str_compare 
-    arg tmp(21,ptr to i8) 
+    load tmp(26,i32) = local(1,i32) 
+    arg tmp(26,i32) 
+    call tmp(27,ptr to i8) = str_from_unicode 
+    stre local(8,ptr to i8) tmp(27,ptr to i8) 
+    load tmp(28,ptr to i8) = local(8,ptr to i8) 
+    load tmp(29,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(28,ptr to i8) 
+    arg tmp(29,ptr to i8) 
+    call tmp(30,i64) = str_compare 
+    stre local(9,i64) tmp(30,i64) 
+    load tmp(31,ptr to i8) = local(8,ptr to i8) 
+    arg tmp(31,ptr to i8) 
     call str_release 
-    <= tmp(24,i1) = tmp(23,i64) imm(0,i64) 
-    cmp tmp(24,i1) label(8) label(9) 
+    load tmp(32,i64) = local(9,i64) 
+    <= tmp(33,i1) = tmp(32,i64) imm(0,i64) 
+    cmp tmp(33,i1) label(8) label(9) 
   }
   block {
     label: label(8)
-    load tmp(25,i64) = local(3,i64) 
-    + tmp(26,i64) = tmp(25,i64) imm(1,i64) 
-    stre local(3,i64) tmp(26,i64) 
+    load tmp(34,i64) = local(3,i64) 
+    + tmp(35,i64) = tmp(34,i64) imm(1,i64) 
+    stre local(3,i64) tmp(35,i64) 
     jmp label(10) 
   }
   block {
@@ -89,23 +104,28 @@ function тест_сравнение_символ_строка () { ; i64
   }
   block {
     label: label(10)
-    load tmp(27,i32) = local(1,i32) 
-    arg tmp(27,i32) 
-    call tmp(28,ptr to i8) = str_from_unicode 
-    load tmp(29,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(28,ptr to i8) 
-    arg tmp(29,ptr to i8) 
-    call tmp(30,i64) = str_compare 
-    arg tmp(28,ptr to i8) 
+    load tmp(36,i32) = local(1,i32) 
+    arg tmp(36,i32) 
+    call tmp(37,ptr to i8) = str_from_unicode 
+    stre local(10,ptr to i8) tmp(37,ptr to i8) 
+    load tmp(38,ptr to i8) = local(10,ptr to i8) 
+    load tmp(39,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(38,ptr to i8) 
+    arg tmp(39,ptr to i8) 
+    call tmp(40,i64) = str_compare 
+    stre local(11,i64) tmp(40,i64) 
+    load tmp(41,ptr to i8) = local(10,ptr to i8) 
+    arg tmp(41,ptr to i8) 
     call str_release 
-    >= tmp(31,i1) = tmp(30,i64) imm(0,i64) 
-    cmp tmp(31,i1) label(11) label(12) 
+    load tmp(42,i64) = local(11,i64) 
+    >= tmp(43,i1) = tmp(42,i64) imm(0,i64) 
+    cmp tmp(43,i1) label(11) label(12) 
   }
   block {
     label: label(11)
-    load tmp(32,i64) = local(3,i64) 
-    + tmp(33,i64) = tmp(32,i64) imm(1,i64) 
-    stre local(3,i64) tmp(33,i64) 
+    load tmp(44,i64) = local(3,i64) 
+    + tmp(45,i64) = tmp(44,i64) imm(1,i64) 
+    stre local(3,i64) tmp(45,i64) 
     jmp label(13) 
   }
   block {
@@ -114,16 +134,16 @@ function тест_сравнение_символ_строка () { ; i64
   }
   block {
     label: label(13)
-    load tmp(34,i32) = local(1,i32) 
-    mov tmp(35,i32) = imm(98,i64) 
-    < tmp(36,i1) = tmp(34,i32) tmp(35,i32) 
-    cmp tmp(36,i1) label(14) label(15) 
+    load tmp(46,i32) = local(1,i32) 
+    mov tmp(47,i32) = imm(98,i64) 
+    < tmp(48,i1) = tmp(46,i32) tmp(47,i32) 
+    cmp tmp(48,i1) label(14) label(15) 
   }
   block {
     label: label(14)
-    load tmp(37,i64) = local(3,i64) 
-    + tmp(38,i64) = tmp(37,i64) imm(1,i64) 
-    stre local(3,i64) tmp(38,i64) 
+    load tmp(49,i64) = local(3,i64) 
+    + tmp(50,i64) = tmp(49,i64) imm(1,i64) 
+    stre local(3,i64) tmp(50,i64) 
     jmp label(16) 
   }
   block {
@@ -132,16 +152,16 @@ function тест_сравнение_символ_строка () { ; i64
   }
   block {
     label: label(16)
-    load tmp(39,i32) = local(1,i32) 
-    mov tmp(40,i32) = imm(96,i64) 
-    > tmp(41,i1) = tmp(39,i32) tmp(40,i32) 
-    cmp tmp(41,i1) label(17) label(18) 
+    load tmp(51,i32) = local(1,i32) 
+    mov tmp(52,i32) = imm(96,i64) 
+    > tmp(53,i1) = tmp(51,i32) tmp(52,i32) 
+    cmp tmp(53,i1) label(17) label(18) 
   }
   block {
     label: label(17)
-    load tmp(42,i64) = local(3,i64) 
-    + tmp(43,i64) = tmp(42,i64) imm(1,i64) 
-    stre local(3,i64) tmp(43,i64) 
+    load tmp(54,i64) = local(3,i64) 
+    + tmp(55,i64) = tmp(54,i64) imm(1,i64) 
+    stre local(3,i64) tmp(55,i64) 
     jmp label(19) 
   }
   block {
@@ -150,18 +170,18 @@ function тест_сравнение_символ_строка () { ; i64
   }
   block {
     label: label(19)
-    load tmp(44,i64) = local(3,i64) 
-    stre local(0,i64) tmp(44,i64) 
-    load tmp(45,i64) = local(0,i64) 
-    load tmp(46,ptr to i8) = local(2,ptr to i8) 
-    arg tmp(46,ptr to i8) 
+    load tmp(56,i64) = local(3,i64) 
+    stre local(0,i64) tmp(56,i64) 
+    load tmp(57,i64) = local(0,i64) 
+    load tmp(58,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(58,ptr to i8) 
     call str_release 
-    stre local(4,i64) tmp(45,i64) 
+    stre local(12,i64) tmp(57,i64) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(47,i64) = local(4,i64) 
-    ret tmp(47,i64) 
+    load tmp(59,i64) = local(12,i64) 
+    ret tmp(59,i64) 
   }
 }

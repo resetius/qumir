@@ -8,6 +8,13 @@
       (replace s3 (own-literal "a "))
       (replace s2 (own-literal "b "))
       (replace s1 (own-literal "ыыы"))
-      (replace s1 (move (call str_concat (call str_concat s1 s2) s3)))
+      (replace
+        s1
+        (move
+          (block
+            (var __lifetime_0 = (move (call str_concat (borrow s1) (borrow s2))))
+            (var __lifetime_1 = (call str_concat (borrow __lifetime_0) (borrow s3)))
+            (destroy __lifetime_0)
+            (move __lifetime_1))))
       (replace знач (retain (borrow s1)))
       (return знач))))

@@ -3,9 +3,18 @@
     (block
       (var s = (bitcast 0 string))
       (replace s (own-literal "12.12.12"))
-      (replace s (move (call replaceBad s "12" "A12B")))
+      (replace
+        s
+        (move
+          (block
+            (var __lifetime_0 = (own-literal "12"))
+            (var __lifetime_1 = (own-literal "A12B"))
+            (var __lifetime_2 = (call replaceBad (borrow s) (borrow __lifetime_0) (borrow __lifetime_1)))
+            (destroy __lifetime_1)
+            (destroy __lifetime_0)
+            (move __lifetime_2))))
       (block
-        (call output_string s))
+        (call output_string (borrow s)))
       (return)))
   (fun replaceBad ((var s0 string)
       (var sOld string)
@@ -16,13 +25,13 @@
       (replace s (retain (borrow s0)))
       (var p i64)
       (var len i64)
-      (= len (call длин sOld))
-      (= p (call позиция sOld s))
+      (= len (call длин (borrow sOld)))
+      (= p (call позиция (borrow sOld) (borrow s)))
       (while
         (> p 0)
         (block
           (call удалить s p len)
-          (call вставить sNew s p)
-          (= p (call |позиция после| (+ p (call длин sNew)) sOld s))))
+          (call вставить (borrow sNew) s p)
+          (= p (call |позиция после| (+ p (call длин (borrow sNew))) (borrow sOld) (borrow s)))))
       (replace знач (retain (borrow s)))
       (return знач))))

@@ -3,9 +3,14 @@
     (block
       (var s = (bitcast 0 string))
       (replace s (own-literal "12.12.12"))
-      (call replaceAll s "12" "A12B")
       (block
-        (call output_string s))
+        (var __lifetime_0 = (own-literal "12"))
+        (var __lifetime_1 = (own-literal "A12B"))
+        (call replaceAll s (borrow __lifetime_0) (borrow __lifetime_1))
+        (destroy __lifetime_1)
+        (destroy __lifetime_0))
+      (block
+        (call output_string (borrow s)))
       (return)))
   (fun replaceAll ((var s <ref string>)
       (var wOld string)
@@ -14,20 +19,30 @@
       (var res = (bitcast 0 string))
       (var p i64)
       (var len i64)
-      (= len (call длин wOld))
+      (= len (call длин (borrow wOld)))
       (replace res (own-literal ""))
       (while
-        (> (call длин s) 0)
+        (> (call длин (borrow s)) 0)
         (block
-          (= p (call позиция wOld s))
-          (if (< p 0) (block (replace res (move (call str_concat res s))) break))
-          (if (> p 1) (block (replace res (move (call str_concat res (call str_slice s 1 (- p 1)))))))
-          (replace res (move (call str_concat res wNew)))
+          (= p (call позиция (borrow wOld) (borrow s)))
+          (if (< p 0) (block (replace res (move (call str_concat (borrow res) (borrow s)))) break))
           (if
-            (> (+ p len) (call длин s))
+            (> p 1)
+            (block
+              (replace
+                res
+                (move
+                  (block
+                    (var __lifetime_2 = (move (call str_slice (borrow s) 1 (- p 1))))
+                    (var __lifetime_3 = (call str_concat (borrow res) (borrow __lifetime_2)))
+                    (destroy __lifetime_2)
+                    (move __lifetime_3))))))
+          (replace res (move (call str_concat (borrow res) (borrow wNew))))
+          (if
+            (> (+ p len) (call длин (borrow s)))
             (block
               (replace s (own-literal "")))
             (block
-              (replace s (move (call str_slice s (+ p len) (call длин s))))))))
+              (replace s (move (call str_slice (borrow s) (+ p len) (call длин (borrow s)))))))))
       (replace s (retain (borrow res)))
       (return))))

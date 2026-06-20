@@ -10,6 +10,13 @@
   (fun g ((var s <ref string>))
     (block
       (var a char)
-      (= a (call str_symbol_at s 1))
-      (replace s (move (call str_concat s (call str_from_unicode a))))
+      (= a (call str_symbol_at (borrow s) 1))
+      (replace
+        s
+        (move
+          (block
+            (var __lifetime_0 = (move (call str_from_unicode a)))
+            (var __lifetime_1 = (call str_concat (borrow s) (borrow __lifetime_0)))
+            (destroy __lifetime_0)
+            (move __lifetime_1))))
       (return))))

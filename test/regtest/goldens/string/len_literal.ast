@@ -2,5 +2,10 @@
   (fun ф () -> i64
     (block
       (var знач i64)
-      (= знач (call длин "строка"))
+      (= знач
+        (block
+          (var __lifetime_0 = (own-literal "строка"))
+          (var __lifetime_1 = (call длин (borrow __lifetime_0)))
+          (destroy __lifetime_0)
+          __lifetime_1))
       (return знач))))
