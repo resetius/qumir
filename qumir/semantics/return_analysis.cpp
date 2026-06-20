@@ -7,6 +7,9 @@ bool AlwaysReturns(const NAst::TExprPtr& expr) {
     if (NAst::TMaybeNode<NAst::TReturnExpr>(expr)) {
         return true;
     }
+    if (auto exit = NAst::TMaybeNode<NAst::TCleanupExitExpr>(expr)) {
+        return exit.Cast()->Kind == NAst::ECleanupExitKind::Return;
+    }
     if (auto block = NAst::TMaybeNode<NAst::TBlockExpr>(expr)) {
         for (const auto& stmt : block.Cast()->Stmts) {
             if (AlwaysReturns(stmt)) {

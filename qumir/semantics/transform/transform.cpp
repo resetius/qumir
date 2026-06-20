@@ -6,6 +6,7 @@
 #include <qumir/semantics/type_annotation/type_annotation.h>
 #include <qumir/semantics/definite_assignment/definite_assignment.h>
 #include <qumir/semantics/lifetime/pass.h>
+#include <qumir/semantics/lifetime/validator.h>
 #include <qumir/semantics/return_normalization/pass.h>
 
 #include <algorithm>
@@ -934,7 +935,15 @@ std::expected<std::monostate, TError> RunFinalSemanticPipeline(
     if (auto result = FinalNameResolution(expr, context); !result) {
         return result;
     }
-    return FinalTypeAnnotation(expr, context);
+    if (auto result = FinalTypeAnnotation(expr, context); !result) {
+        return result;
+    }
+
+    NSemantics::TLifetimeValidator validator(context);
+    if (auto result = validator.Validate(expr); !result) {
+        return std::unexpected(result.error());
+    }
+    return std::monostate{};
 }
 
 std::expected<std::monostate, TError> Pipeline(
