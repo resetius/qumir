@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <qumir/modules/module.h>
+#include <qumir/parser/core/printer.h>
 #include <qumir/semantics/lifetime/pass.h>
 #include <qumir/semantics/lifetime/synthetic_name_generator.h>
 #include <qumir/semantics/return_normalization/pass.h>
@@ -61,6 +62,12 @@ std::shared_ptr<TFunDecl> MakeVoidFunction(
         std::make_shared<TVoidType>());
 }
 
+std::string Print(const TExprPtr& expr) {
+    NAst::NCore::TPrintOptions options;
+    options.Pretty = false;
+    return NAst::NCore::PrintAst(expr, options);
+}
+
 } // namespace
 
 TEST(SyntheticNameGenerator, AvoidsSourceAndImportedNamesPerPass) {
@@ -99,6 +106,89 @@ TEST(FinalSemanticPipeline, InitialPassesDoNotChangeAst) {
     ASSERT_TRUE(lifetimeResult.has_value());
     EXPECT_FALSE(lifetimeResult.value());
     EXPECT_EQ(root, original);
+}
+
+TEST(ReturnNormalization, MakesFallthroughReturnsExplicit) {
+    auto implicitValue = std::make_shared<TNumberExpr>(TLocation{}, int64_t{42});
+    auto valueBody = MakeRoot({implicitValue});
+    auto valueFunction = std::make_shared<TFunDecl>(
+        TLocation{},
+        "value",
+        std::vector<TParam>{},
+        valueBody,
+        std::make_shared<TIntegerType>());
+    auto voidBody = MakeRoot({});
+    auto voidFunction = MakeVoidFunction("action", voidBody);
+    TExprPtr root = MakeRoot({valueFunction, voidFunction});
+    TNameResolver resolver;
+
+    auto result = ReturnNormalizationPass(root, resolver);
+    ASSERT_TRUE(result.has_value()) << result.error().ToString();
+    EXPECT_TRUE(result.value());
+    EXPECT_EQ(Print(valueBody), "(block (return 42))");
+    EXPECT_EQ(Print(voidBody), "(block (return))");
+}
+
+TEST(ReturnNormalization, PreservesDirectAndFullyTerminatingBranchReturns) {
+    auto directReturn = std::make_shared<TReturnExpr>(
+        TLocation{},
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{1}));
+    auto directBody = MakeRoot({directReturn});
+    auto directFunction = std::make_shared<TFunDecl>(
+        TLocation{},
+        "direct",
+        std::vector<TParam>{},
+        directBody,
+        std::make_shared<TIntegerType>());
+    auto assertCondition = std::make_shared<TNumberExpr>(TLocation{}, int64_t{1});
+    assertCondition->Type = std::make_shared<TBoolType>();
+    directFunction->LastAssert = std::make_shared<TAssertStmt>(
+        TLocation{},
+        assertCondition);
+
+    auto condition = std::make_shared<TNumberExpr>(TLocation{}, int64_t{1});
+    condition->Type = std::make_shared<TBoolType>();
+    auto elseIfCondition = std::make_shared<TNumberExpr>(TLocation{}, int64_t{0});
+    elseIfCondition->Type = std::make_shared<TBoolType>();
+    auto elseIf = std::make_shared<TIfExpr>(
+        TLocation{},
+        elseIfCondition,
+        MakeRoot({std::make_shared<TReturnExpr>(
+            TLocation{},
+            std::make_shared<TNumberExpr>(TLocation{}, int64_t{3}))}),
+        MakeRoot({std::make_shared<TReturnExpr>(
+            TLocation{},
+            std::make_shared<TNumberExpr>(TLocation{}, int64_t{4}))}));
+    auto branch = std::make_shared<TIfExpr>(
+        TLocation{},
+        condition,
+        MakeRoot({std::make_shared<TReturnExpr>(
+            TLocation{},
+            std::make_shared<TNumberExpr>(TLocation{}, int64_t{2}))}),
+        elseIf);
+    auto branchBody = MakeRoot({MakeRoot({MakeRoot({branch})})});
+    auto branchFunction = std::make_shared<TFunDecl>(
+        TLocation{},
+        "branch",
+        std::vector<TParam>{},
+        branchBody,
+        std::make_shared<TIntegerType>());
+    TExprPtr root = MakeRoot({directFunction, branchFunction});
+    TNameResolver resolver;
+
+    auto result = ReturnNormalizationPass(root, resolver);
+    ASSERT_TRUE(result.has_value()) << result.error().ToString();
+    EXPECT_FALSE(result.value());
+    EXPECT_EQ(directBody->Stmts.size(), 1u);
+    EXPECT_EQ(branchBody->Stmts.size(), 1u);
+    EXPECT_EQ(
+        Print(directFunction),
+        "(fun direct () -> i64 (attrs (expect_after (assert #t))) "
+        "(block (return 1)))");
+    EXPECT_EQ(
+        Print(branchBody),
+        "(block (block (block (if #t (block (return 2)) "
+        "(if #f (block (return 3)) (block (return 4)))))))");
 }
 
 TEST(FinalSemanticPipeline, ResolvesAndAnnotatesInsertedNestedBlock) {

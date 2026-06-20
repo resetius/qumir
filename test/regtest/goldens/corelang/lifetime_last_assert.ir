@@ -11,6 +11,17 @@ function <main> () { ; void
     call str_release 
     arg imm(1,ptr to i8) 
     call output_string 
+    arg imm(1,i64) 
+    call tmp(3,ptr to i8) = checked_string_early 
+    stre local(1,ptr to i8) tmp(3,ptr to i8) 
+    load tmp(4,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(4,ptr to i8) 
+    call output_string 
+    load tmp(5,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(5,ptr to i8) 
+    call str_release 
+    arg imm(2,ptr to i8) 
+    call output_string 
     jmp label(1) 
   }
   block {
@@ -23,7 +34,7 @@ function checked_string () { ; ptr to i8
     label: label(0)
     bitcast tmp(0,ptr to i8) = imm(0,i64) 
     stre local(0,ptr to i8) tmp(0,ptr to i8) 
-    arg imm(2,ptr to i8) 
+    arg imm(3,ptr to i8) 
     call tmp(1,ptr to i8) = str_from_lit 
     lea tmp(2,ptr to i8) = local(0,ptr to i8) 
     lde tmp(3,ptr to i8) = tmp(2,ptr to i8) 
@@ -33,32 +44,109 @@ function checked_string () { ; ptr to i8
     load tmp(4,ptr to i8) = local(0,ptr to i8) 
     arg tmp(4,ptr to i8) 
     call str_retain 
-    load tmp(5,ptr to i8) = local(0,ptr to i8) 
-    arg tmp(5,ptr to i8) 
+    arg imm(3,ptr to i8) 
+    call tmp(5,ptr to i8) = str_from_lit 
+    stre local(1,ptr to i8) tmp(5,ptr to i8) 
+    load tmp(6,ptr to i8) = local(0,ptr to i8) 
+    load tmp(7,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(6,ptr to i8) 
+    arg tmp(7,ptr to i8) 
+    call tmp(8,i64) = str_compare 
+    stre local(2,i64) tmp(8,i64) 
+    load tmp(9,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(9,ptr to i8) 
+    call str_release 
+    load tmp(10,i64) = local(2,i64) 
+    == tmp(11,i1) = tmp(10,i64) imm(0,i64) 
+    arg tmp(11,i1) 
+    arg imm(4,ptr to i8) 
+    call __ensure 
+    load tmp(12,ptr to i8) = local(0,ptr to i8) 
+    arg tmp(12,ptr to i8) 
     call str_release 
     stre local(3,ptr to i8) tmp(4,ptr to i8) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    arg imm(2,ptr to i8) 
+    load tmp(13,ptr to i8) = local(3,ptr to i8) 
+    ret tmp(13,ptr to i8) 
+  }
+}
+function checked_string_early (local(0)) { ; ptr to i8
+  block {
+    label: label(0)
+    bitcast tmp(0,ptr to i8) = imm(0,i64) 
+    stre local(1,ptr to i8) tmp(0,ptr to i8) 
+    arg imm(3,ptr to i8) 
+    call tmp(1,ptr to i8) = str_from_lit 
+    lea tmp(2,ptr to i8) = local(1,ptr to i8) 
+    lde tmp(3,ptr to i8) = tmp(2,ptr to i8) 
+    arg tmp(3,ptr to i8) 
+    call str_release 
+    ste tmp(2,ptr to i8) tmp(1,ptr to i8) 
+    load tmp(4,i1) = local(0,i1) 
+    cmp tmp(4,i1) label(2) label(3) 
+  }
+  block {
+    label: label(2)
+    load tmp(5,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(5,ptr to i8) 
+    call str_retain 
+    arg imm(3,ptr to i8) 
     call tmp(6,ptr to i8) = str_from_lit 
-    stre local(1,ptr to i8) tmp(6,ptr to i8) 
-    load tmp(7,ptr to i8) = local(0,ptr to i8) 
-    load tmp(8,ptr to i8) = local(1,ptr to i8) 
+    stre local(2,ptr to i8) tmp(6,ptr to i8) 
+    load tmp(7,ptr to i8) = local(1,ptr to i8) 
+    load tmp(8,ptr to i8) = local(2,ptr to i8) 
     arg tmp(7,ptr to i8) 
     arg tmp(8,ptr to i8) 
     call tmp(9,i64) = str_compare 
-    stre local(2,i64) tmp(9,i64) 
-    load tmp(10,ptr to i8) = local(1,ptr to i8) 
+    stre local(3,i64) tmp(9,i64) 
+    load tmp(10,ptr to i8) = local(2,ptr to i8) 
     arg tmp(10,ptr to i8) 
     call str_release 
-    load tmp(11,i64) = local(2,i64) 
+    load tmp(11,i64) = local(3,i64) 
     == tmp(12,i1) = tmp(11,i64) imm(0,i64) 
     arg tmp(12,i1) 
-    arg imm(3,ptr to i8) 
+    arg imm(5,ptr to i8) 
     call __ensure 
-    load tmp(13,ptr to i8) = local(3,ptr to i8) 
-    ret tmp(13,ptr to i8) 
+    load tmp(13,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(13,ptr to i8) 
+    call str_release 
+    stre local(4,ptr to i8) tmp(5,ptr to i8) 
+    jmp label(1) 
+  }
+  block {
+    label: label(3)
+    load tmp(14,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(14,ptr to i8) 
+    call str_retain 
+    arg imm(3,ptr to i8) 
+    call tmp(15,ptr to i8) = str_from_lit 
+    stre local(2,ptr to i8) tmp(15,ptr to i8) 
+    load tmp(16,ptr to i8) = local(1,ptr to i8) 
+    load tmp(17,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(16,ptr to i8) 
+    arg tmp(17,ptr to i8) 
+    call tmp(18,i64) = str_compare 
+    stre local(3,i64) tmp(18,i64) 
+    load tmp(19,ptr to i8) = local(2,ptr to i8) 
+    arg tmp(19,ptr to i8) 
+    call str_release 
+    load tmp(20,i64) = local(3,i64) 
+    == tmp(21,i1) = tmp(20,i64) imm(0,i64) 
+    arg tmp(21,i1) 
+    arg imm(5,ptr to i8) 
+    call __ensure 
+    load tmp(22,ptr to i8) = local(1,ptr to i8) 
+    arg tmp(22,ptr to i8) 
+    call str_release 
+    stre local(4,ptr to i8) tmp(14,ptr to i8) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(23,ptr to i8) = local(4,ptr to i8) 
+    ret tmp(23,ptr to i8) 
   }
 }

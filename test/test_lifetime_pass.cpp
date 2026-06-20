@@ -120,7 +120,7 @@ TEST(LifetimePass, RewritesAllStringAssignmentTargets) {
     auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
     ASSERT_TRUE(final.has_value()) << final.error().ToString();
 
-    ASSERT_EQ(body->Stmts.size(), 10u);
+    ASSERT_EQ(body->Stmts.size(), 11u);
     EXPECT_EQ(Print(a->Init), "(bitcast 0 string)");
     EXPECT_EQ(Print(b->Init), "(bitcast 0 string)");
     EXPECT_EQ(Print(body->Stmts[2]), "(replace a (own-literal \"literal\"))");
@@ -150,7 +150,7 @@ TEST(LifetimePass, SplitsStringDeclarationInitializerAfterNullInitialization) {
     auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
     ASSERT_TRUE(final.has_value()) << final.error().ToString();
 
-    ASSERT_EQ(body->Stmts.size(), 2u);
+    ASSERT_EQ(body->Stmts.size(), 3u);
     EXPECT_EQ(Print(value->Init), "(bitcast 0 string)");
     EXPECT_EQ(
         Print(body->Stmts[1]),
@@ -190,7 +190,7 @@ TEST(LifetimePass, DestroysTwoOwnedCallArgumentsInReverseOrder) {
     auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
     ASSERT_TRUE(final.has_value()) << final.error().ToString();
 
-    ASSERT_EQ(body->Stmts.size(), 1u);
+    ASSERT_EQ(body->Stmts.size(), 2u);
     EXPECT_EQ(
         Print(body->Stmts[0]),
         "(block (var __lifetime_0 = (move (call make_first))) "
@@ -227,7 +227,7 @@ TEST(LifetimePass, PreservesNestedCallResultPastArgumentCleanup) {
     auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
     ASSERT_TRUE(final.has_value()) << final.error().ToString();
 
-    ASSERT_EQ(body->Stmts.size(), 2u);
+    ASSERT_EQ(body->Stmts.size(), 3u);
     EXPECT_EQ(
         Print(body->Stmts[1]),
         "(replace result (move (block "
@@ -274,7 +274,7 @@ TEST(LifetimePass, MaterializesLiteralOnlyWhenCallAbiRequiresIt) {
     auto final = NTransform::RunFinalSemanticPipeline(root, resolver);
     ASSERT_TRUE(final.has_value()) << final.error().ToString();
 
-    ASSERT_EQ(body->Stmts.size(), 3u);
+    ASSERT_EQ(body->Stmts.size(), 4u);
     EXPECT_EQ(Print(body->Stmts[0]), "(call raw \"raw\")");
     EXPECT_EQ(
         Print(body->Stmts[1]),
