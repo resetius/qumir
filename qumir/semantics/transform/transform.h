@@ -6,12 +6,25 @@
 #include <qumir/semantics/name_resolution/name_resolver.h>
 
 #include <expected>
+#include <functional>
+#include <vector>
 
 namespace NQumir {
 namespace NTransform {
 
+using TTransformPass = std::function<std::expected<bool, TError>(
+    NAst::TExprPtr& expr,
+    NSemantics::TNameResolver& context)>;
+
+struct TPipelineExtensions {
+    std::vector<TTransformPass> BeforeNameResolution;
+    std::vector<TTransformPass> AfterNameResolution;
+    std::vector<TTransformPass> AfterTypeAnnotation;
+};
+
 struct TPipelineOptions {
     bool EnableCoroutineAnalysis = false;
+    TPipelineExtensions Extensions;
 };
 
 std::expected<bool, TError> PreNameResolutionTransform(NAst::TExprPtr& expr);

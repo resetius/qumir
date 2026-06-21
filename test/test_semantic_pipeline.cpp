@@ -108,6 +108,69 @@ TEST(FinalSemanticPipeline, InitialPassesDoNotChangeAst) {
     EXPECT_EQ(root, original);
 }
 
+TEST(SourceTransformExtensions, RunInStablePhaseOrder) {
+    TExprPtr root = MakeRoot({});
+    TNameResolver resolver;
+    std::vector<std::string> phases;
+    NTransform::TPipelineOptions options;
+    options.Extensions.BeforeNameResolution.push_back(
+        [&](TExprPtr&, TNameResolver&) -> std::expected<bool, TError> {
+            phases.push_back("before-name");
+            return false;
+        });
+    options.Extensions.AfterNameResolution.push_back(
+        [&](TExprPtr&, TNameResolver&) -> std::expected<bool, TError> {
+            phases.push_back("after-name");
+            return false;
+        });
+    options.Extensions.AfterTypeAnnotation.push_back(
+        [&](TExprPtr&, TNameResolver&) -> std::expected<bool, TError> {
+            phases.push_back("after-type");
+            return false;
+        });
+
+    auto result = NTransform::RunSourceTransformFixpoint(
+        root,
+        resolver,
+        std::move(options));
+
+    ASSERT_TRUE(result.has_value()) << result.error().ToString();
+    EXPECT_EQ(
+        phases,
+        (std::vector<std::string>{
+            "before-name",
+            "after-name",
+            "after-type",
+            "before-name",
+            "after-name",
+        }));
+}
+
+TEST(SourceTransformExtensions, PropagateErrorsAndStopLaterPasses) {
+    TExprPtr root = MakeRoot({});
+    TNameResolver resolver;
+    bool laterPassRan = false;
+    NTransform::TPipelineOptions options;
+    options.Extensions.BeforeNameResolution.push_back(
+        [](TExprPtr&, TNameResolver&) -> std::expected<bool, TError> {
+            return std::unexpected(TError("injected failure"));
+        });
+    options.Extensions.AfterNameResolution.push_back(
+        [&](TExprPtr&, TNameResolver&) -> std::expected<bool, TError> {
+            laterPassRan = true;
+            return false;
+        });
+
+    auto result = NTransform::RunSourceTransformFixpoint(
+        root,
+        resolver,
+        std::move(options));
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_NE(result.error().ToString().find("injected failure"), std::string::npos);
+    EXPECT_FALSE(laterPassRan);
+}
+
 TEST(ReturnNormalization, MakesFallthroughReturnsExplicit) {
     auto implicitValue = std::make_shared<TNumberExpr>(TLocation{}, int64_t{42});
     auto valueBody = MakeRoot({implicitValue});

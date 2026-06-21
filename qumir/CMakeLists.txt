@@ -79,6 +79,8 @@ add_library(qumir
     semantics/lifetime/type_traits.cpp
     semantics/lifetime/validator.h
     semantics/lifetime/validator.cpp
+    semantics/kumir/pipeline.h
+    semantics/kumir/pipeline.cpp
     semantics/transform/transform.h
     semantics/transform/transform.cpp
     semantics/type_annotation/coercions.h
