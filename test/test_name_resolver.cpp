@@ -107,7 +107,9 @@ TExprPtr annotateWithRobotCoroutines(const std::string& src) {
     auto result = NTransform::Pipeline(
         ast,
         resolver,
-        NTransform::TPipelineOptions{.EnableCoroutineAnalysis = true});
+        NTransform::TPipelineOptions{.Extensions = {
+            .AfterTypeAnnotation = {NTransform::CoroutineAnnotationTransform},
+        }});
     if (!result) {
         ADD_FAILURE() << result.error().ToString();
         return nullptr;
@@ -181,7 +183,9 @@ std::optional<NIR::TModule> buildRobotCoroutineModule(const std::string& src) {
     auto result = NTransform::Pipeline(
         ast,
         resolver,
-        NTransform::TPipelineOptions{.EnableCoroutineAnalysis = true});
+        NTransform::TPipelineOptions{.Extensions = {
+            .AfterTypeAnnotation = {NTransform::CoroutineAnnotationTransform},
+        }});
     if (!result) {
         ADD_FAILURE() << result.error().ToString();
         return std::nullopt;
@@ -221,7 +225,9 @@ std::optional<NIR::TModule> buildTurtleCoroutineModule(const std::string& src) {
     auto result = NTransform::Pipeline(
         ast,
         resolver,
-        NTransform::TPipelineOptions{.EnableCoroutineAnalysis = true});
+        NTransform::TPipelineOptions{.Extensions = {
+            .AfterTypeAnnotation = {NTransform::CoroutineAnnotationTransform},
+        }});
     if (!result) {
         ADD_FAILURE() << result.error().ToString();
         return std::nullopt;

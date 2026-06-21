@@ -905,14 +905,6 @@ std::expected<std::monostate, TError> RunSourceTransformFixpoint(
             changed = result.value() || changed;
         }
 
-        if (options.EnableCoroutineAnalysis) {
-            auto coroutineResult = CoroutineAnnotationTransform(expr, context);
-            if (!coroutineResult) {
-                return std::unexpected(coroutineResult.error());
-            }
-            changed = coroutineResult.value() || changed;
-        }
-
         auto nameResolution = RunSourceNameResolution(
             expr,
             context,

@@ -6,6 +6,10 @@ namespace NQumir {
 namespace NSemantics {
 namespace NKumir {
 
+std::expected<bool, TError> PowerTransform(
+    NAst::TExprPtr& expr,
+    TNameResolver& context);
+
 NTransform::TPipelineExtensions PipelineExtensions();
 
 } // namespace NKumir

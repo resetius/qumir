@@ -51,13 +51,14 @@ std::expected<NAst::TExprPtr, TError> ParseInput(std::istream& in, NSemantics::T
 }
 
 NTransform::TPipelineOptions PipelineOptions(bool coreInput) {
-    auto options = NTransform::TPipelineOptions{
-        .EnableCoroutineAnalysis = coreInput,
-    };
-    if (!coreInput) {
-        options.Extensions = NSemantics::NKumir::PipelineExtensions();
+    NTransform::TPipelineExtensions extensions;
+    if (coreInput) {
+        extensions.AfterTypeAnnotation.push_back(
+            NTransform::CoroutineAnnotationTransform);
+    } else {
+        extensions = NSemantics::NKumir::PipelineExtensions();
     }
-    return options;
+    return NTransform::TPipelineOptions{.Extensions = std::move(extensions)};
 }
 
 std::shared_ptr<std::istream> OpenInputFile(const std::string& filename) {

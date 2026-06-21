@@ -1,7 +1,10 @@
 #include <gtest/gtest.h>
 
 #include <qumir/modules/module.h>
+#include <qumir/modules/system/system.h>
 #include <qumir/parser/core/printer.h>
+#include <qumir/parser/lexer.h>
+#include <qumir/parser/parser.h>
 #include <qumir/semantics/kumir/pipeline.h>
 #include <qumir/semantics/lifetime/pass.h>
 #include <qumir/semantics/lifetime/synthetic_name_generator.h>
@@ -9,6 +12,7 @@
 #include <qumir/semantics/transform/transform.h>
 
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -177,7 +181,58 @@ TEST(KumirPipeline, InjectsCoroutineAnnotationAfterTypeAnnotation) {
 
     EXPECT_TRUE(extensions.BeforeNameResolution.empty());
     EXPECT_TRUE(extensions.AfterNameResolution.empty());
-    EXPECT_EQ(extensions.AfterTypeAnnotation.size(), 1u);
+    EXPECT_EQ(extensions.AfterTypeAnnotation.size(), 2u);
+}
+
+TEST(KumirPipeline, ParserEmitsDistinctPowerOperator) {
+    NRegistry::SystemModule system;
+    TNameResolver resolver;
+    resolver.RegisterModule(&system);
+    ASSERT_TRUE(resolver.ImportModule(system.Name()).has_value());
+    std::istringstream input(
+        "алг\n"
+        "нач\n"
+        "  цел x\n"
+        "  x := 2 ** 3\n"
+        "кон\n");
+    TTokenStream tokens(input);
+    TParser parser;
+    auto parsed = parser.parse(tokens, &resolver);
+    ASSERT_TRUE(parsed.has_value()) << parsed.error().ToString();
+    auto root = TMaybeNode<TBlockExpr>(*parsed).Cast();
+    ASSERT_NE(root, nullptr);
+    auto function = TMaybeNode<TFunDecl>(root->Stmts.front()).Cast();
+    ASSERT_NE(function, nullptr);
+    auto assignment = TMaybeNode<TAssignExpr>(function->Body->Stmts[1]).Cast();
+    ASSERT_NE(assignment, nullptr);
+    auto power = TMaybeNode<TBinaryExpr>(assignment->Value).Cast();
+    ASSERT_NE(power, nullptr);
+    EXPECT_EQ(power->Operator.ToString(), "**");
+}
+
+TEST(KumirPipeline, ExpandsPowerWithoutReusingCoreOperator) {
+    NRegistry::SystemModule system;
+    TNameResolver resolver;
+    resolver.RegisterModule(&system);
+    ASSERT_TRUE(resolver.ImportModule(system.Name()).has_value());
+    auto right = std::make_shared<TNumberExpr>(TLocation{}, int64_t{3});
+    right->Type = std::make_shared<TIntegerType>();
+    TExprPtr ast = std::make_shared<TBinaryExpr>(
+        TLocation{},
+        TOperator("**"),
+        std::make_shared<TNumberExpr>(TLocation{}, int64_t{2}),
+        std::move(right));
+
+    auto result = NSemantics::NKumir::PowerTransform(ast, resolver);
+
+    ASSERT_TRUE(result.has_value()) << result.error().ToString();
+    EXPECT_TRUE(*result);
+    auto call = TMaybeNode<TCallExpr>(ast).Cast();
+    ASSERT_NE(call, nullptr);
+    auto callee = TMaybeNode<TIdentExpr>(call->Callee).Cast();
+    ASSERT_NE(callee, nullptr);
+    EXPECT_EQ(callee->Name, "fpow");
+    EXPECT_EQ(call->Args.size(), 2u);
 }
 
 TEST(ReturnNormalization, MakesFallthroughReturnsExplicit) {

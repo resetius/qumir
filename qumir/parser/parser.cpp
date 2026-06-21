@@ -138,7 +138,7 @@ enum class EOperator : uint8_t {
 */
 inline TOperator MakeOperator(EOperator op) {
     switch (op) {
-        case EOperator::Pow: return '^';
+        case EOperator::Pow: return TOperator("**");
         case EOperator::Mul: return '*';
         case EOperator::FDiv: return '/';
         case EOperator::Plus: return '+';

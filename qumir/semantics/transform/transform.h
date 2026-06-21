@@ -23,7 +23,6 @@ struct TPipelineExtensions {
 };
 
 struct TPipelineOptions {
-    bool EnableCoroutineAnalysis = false;
     TPipelineExtensions Extensions;
 };
 

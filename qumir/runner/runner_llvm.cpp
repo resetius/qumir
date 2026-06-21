@@ -110,12 +110,16 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
         std::cerr << "============================\n\n";
     }
 
-    auto pipelineOptions = NTransform::TPipelineOptions{
-        .EnableCoroutineAnalysis = Options.CoreInput,
-    };
-    if (!Options.CoreInput) {
-        pipelineOptions.Extensions = NSemantics::NKumir::PipelineExtensions();
+    NTransform::TPipelineExtensions extensions;
+    if (Options.CoreInput) {
+        extensions.AfterTypeAnnotation.push_back(
+            NTransform::CoroutineAnnotationTransform);
+    } else {
+        extensions = NSemantics::NKumir::PipelineExtensions();
     }
+    auto pipelineOptions = NTransform::TPipelineOptions{
+        .Extensions = std::move(extensions),
+    };
     auto error = NTransform::Pipeline(ast, Resolver, std::move(pipelineOptions));
     if (!error) {
         return std::unexpected(error.error());

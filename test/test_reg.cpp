@@ -12,6 +12,7 @@
 #include <qumir/parser/core/printer.h>
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
+#include <qumir/semantics/kumir/pipeline.h>
 #include <qumir/semantics/type_annotation/type_annotation.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
@@ -122,7 +123,10 @@ std::string BuildAst(NAst::TTokenStream& ts) {
     }
 
     auto expr = parsed.value();
-    auto error = NTransform::Pipeline(expr, nr, {.EnableCoroutineAnalysis = true});
+    auto error = NTransform::Pipeline(
+        expr,
+        nr,
+        {.Extensions = NSemantics::NKumir::PipelineExtensions()});
     if (!error) {
         return error.error().ToString() + "\n";
     }
@@ -144,7 +148,10 @@ std::string BuildCoreSource(NAst::TTokenStream& ts) {
     }
 
     auto expr = parsed.value();
-    auto error = NTransform::Pipeline(expr, nr);
+    auto error = NTransform::Pipeline(
+        expr,
+        nr,
+        {.Extensions = NSemantics::NKumir::PipelineExtensions()});
     if (!error) {
         return error.error().ToString() + "\n";
     }
@@ -183,7 +190,17 @@ std::string BuildIR(std::istream& input, bool coreInput = false) {
             return resolveError->ToString() + "\n";
         }
     }
-    auto error = NTransform::Pipeline(expr, resolver, {.EnableCoroutineAnalysis = true});
+    NTransform::TPipelineExtensions extensions;
+    if (coreInput) {
+        extensions.AfterTypeAnnotation.push_back(
+            NTransform::CoroutineAnnotationTransform);
+    } else {
+        extensions = NSemantics::NKumir::PipelineExtensions();
+    }
+    auto error = NTransform::Pipeline(
+        expr,
+        resolver,
+        {.Extensions = std::move(extensions)});
     if (!error) {
         return error.error().ToString() + "\n";
     }

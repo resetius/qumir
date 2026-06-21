@@ -648,7 +648,8 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
             }
             break;
         case TOperator("^"):
-            // power: left^right
+        case TOperator("**"):
+            // power: left ** right; ^ remains a transitional compatibility case
             if (TMaybeType<TFloatType>(left) && TMaybeType<TIntegerType>(right)) {
                 type = std::make_shared<TFloatType>();
             } else if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
