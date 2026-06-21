@@ -822,7 +822,8 @@ namespace {
 
 std::expected<bool, TError> RunSourceNameResolution(
     NAst::TExprPtr& expr,
-    NSemantics::TNameResolver& context)
+    NSemantics::TNameResolver& context,
+    const TPipelineExtensions& extensions)
 {
     bool changed = false;
     auto preResult = PreNameResolutionTransform(expr);
@@ -830,6 +831,14 @@ std::expected<bool, TError> RunSourceNameResolution(
         return std::unexpected(preResult.error());
     }
     changed = preResult.value();
+
+    for (const auto& pass : extensions.BeforeNameResolution) {
+        auto result = pass(expr, context);
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+        changed = result.value() || changed;
+    }
 
     auto importResult = ImportPendingCoreUses(expr, context);
     if (!importResult) {
@@ -845,7 +854,16 @@ std::expected<bool, TError> RunSourceNameResolution(
     if (!postResult) {
         return std::unexpected(postResult.error());
     }
-    return postResult.value() || changed;
+    changed = postResult.value() || changed;
+
+    for (const auto& pass : extensions.AfterNameResolution) {
+        auto result = pass(expr, context);
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+        changed = result.value() || changed;
+    }
+    return changed;
 }
 
 } // namespace
@@ -857,7 +875,10 @@ std::expected<std::monostate, TError> RunSourceTransformFixpoint(
 {
     static constexpr int MaxIterations = 10;
 
-    auto initialNameResolution = RunSourceNameResolution(expr, context);
+    auto initialNameResolution = RunSourceNameResolution(
+        expr,
+        context,
+        options.Extensions);
     if (!initialNameResolution) {
         return std::unexpected(initialNameResolution.error());
     }
@@ -876,6 +897,14 @@ std::expected<std::monostate, TError> RunSourceTransformFixpoint(
         }
         bool changed = postResult.value();
 
+        for (const auto& pass : options.Extensions.AfterTypeAnnotation) {
+            auto result = pass(expr, context);
+            if (!result) {
+                return std::unexpected(result.error());
+            }
+            changed = result.value() || changed;
+        }
+
         if (options.EnableCoroutineAnalysis) {
             auto coroutineResult = CoroutineAnnotationTransform(expr, context);
             if (!coroutineResult) {
@@ -884,7 +913,10 @@ std::expected<std::monostate, TError> RunSourceTransformFixpoint(
             changed = coroutineResult.value() || changed;
         }
 
-        auto nameResolution = RunSourceNameResolution(expr, context);
+        auto nameResolution = RunSourceNameResolution(
+            expr,
+            context,
+            options.Extensions);
         if (!nameResolution) {
             return std::unexpected(nameResolution.error());
         }

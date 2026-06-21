@@ -5,6 +5,7 @@
 #include <cstdlib>
 
 #include <qumir/parser/parser.h>
+#include <qumir/semantics/kumir/pipeline.h>
 #include <qumir/parser/core/lexer.h>
 #include <qumir/parser/core/parser.h>
 #include <qumir/ir/lowering/lower_ast.h>
@@ -47,6 +48,16 @@ std::expected<NAst::TExprPtr, TError> ParseInput(std::istream& in, NSemantics::T
     NAst::TTokenStream ts(in);
     NAst::TParser p;
     return p.parse(ts, &r);
+}
+
+NTransform::TPipelineOptions PipelineOptions(bool coreInput) {
+    auto options = NTransform::TPipelineOptions{
+        .EnableCoroutineAnalysis = coreInput,
+    };
+    if (!coreInput) {
+        options.Extensions = NSemantics::NKumir::PipelineExtensions();
+    }
+    return options;
 }
 
 std::shared_ptr<std::istream> OpenInputFile(const std::string& filename) {
@@ -120,9 +131,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     }
     auto ast = std::move(expected.value());
     if (transformed) {
-        auto error = NTransform::Pipeline(ast, r, NTransform::TPipelineOptions{
-            .EnableCoroutineAnalysis = true
-        });
+        auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput));
         if (!error) {
             std::cerr << error.error().ToString() << "\n";
             return 1;
@@ -176,9 +185,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     }
     auto ast = std::move(expected.value());
 
-    auto error = NTransform::Pipeline(ast, r, NTransform::TPipelineOptions{
-        .EnableCoroutineAnalysis = true
-    });
+    auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput));
     if (!error) {
         std::cerr << error.error().ToString() << "\n";
         return 1;
@@ -244,9 +251,7 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     }
     auto ast = std::move(expected.value());
 
-    auto error = NTransform::Pipeline(ast, r, NTransform::TPipelineOptions{
-        .EnableCoroutineAnalysis = true
-    });
+    auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput));
     if (!error) {
         std::cerr << error.error().ToString() << "\n";
         return 1;
@@ -427,9 +432,7 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     }
     auto ast = std::move(expected.value());
 
-    auto error = NTransform::Pipeline(ast, r, NTransform::TPipelineOptions{
-        .EnableCoroutineAnalysis = true
-    });
+    auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput));
     if (!error) {
         std::cerr << error.error().ToString() << "\n";
         return 1;

@@ -2,6 +2,7 @@
 
 #include <exception>
 #include <qumir/parser/lexer.h>
+#include <qumir/semantics/kumir/pipeline.h>
 #include <qumir/parser/core/lexer.h>
 #include <qumir/parser/core/parser.h>
 #include <qumir/parser/core/printer.h>
@@ -90,9 +91,13 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
         std::cerr << "============================\n\n";
     }
 
-    auto error = NTransform::Pipeline(ast, Resolver, NTransform::TPipelineOptions{
-        .EnableCoroutineAnalysis = true
-    });
+    auto pipelineOptions = NTransform::TPipelineOptions{
+        .EnableCoroutineAnalysis = Options.CoreInput,
+    };
+    if (!Options.CoreInput) {
+        pipelineOptions.Extensions = NSemantics::NKumir::PipelineExtensions();
+    }
+    auto error = NTransform::Pipeline(ast, Resolver, std::move(pipelineOptions));
     if (!error) {
         return std::unexpected(error.error());
     }
