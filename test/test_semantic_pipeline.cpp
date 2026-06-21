@@ -2,6 +2,7 @@
 
 #include <qumir/modules/module.h>
 #include <qumir/parser/core/printer.h>
+#include <qumir/semantics/kumir/pipeline.h>
 #include <qumir/semantics/lifetime/pass.h>
 #include <qumir/semantics/lifetime/synthetic_name_generator.h>
 #include <qumir/semantics/return_normalization/pass.h>
@@ -169,6 +170,14 @@ TEST(SourceTransformExtensions, PropagateErrorsAndStopLaterPasses) {
     ASSERT_FALSE(result.has_value());
     EXPECT_NE(result.error().ToString().find("injected failure"), std::string::npos);
     EXPECT_FALSE(laterPassRan);
+}
+
+TEST(KumirPipeline, InjectsCoroutineAnnotationAfterTypeAnnotation) {
+    auto extensions = NSemantics::NKumir::PipelineExtensions();
+
+    EXPECT_TRUE(extensions.BeforeNameResolution.empty());
+    EXPECT_TRUE(extensions.AfterNameResolution.empty());
+    EXPECT_EQ(extensions.AfterTypeAnnotation.size(), 1u);
 }
 
 TEST(ReturnNormalization, MakesFallthroughReturnsExplicit) {
