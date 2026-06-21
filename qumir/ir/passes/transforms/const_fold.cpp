@@ -74,7 +74,7 @@ void ConstFold(TFunction& function, TModule& module) {
         if constexpr (std::is_integral_v<decltype(v1)>) {
             if (op == "&"_op) return v1 & v2;
             if (op == "|"_op) return v1 | v2;
-            if (op == "xor"_op) return v1 ^ v2;
+            if (op == "^"_op) return v1 ^ v2;
             if (op == "<<"_op) {
                 auto lhs = static_cast<uint64_t>(v1);
                 auto shift = static_cast<uint64_t>(v2) & 63;
@@ -92,7 +92,7 @@ void ConstFold(TFunction& function, TModule& module) {
         auto& op = instr.Op;
         if (!(op == "+"_op || op == "-"_op ||
             op == "*"_op || op == "/"_op ||
-            op == "&"_op || op == "|"_op || op == "xor"_op ||
+            op == "&"_op || op == "|"_op || op == "^"_op ||
             op == "<<"_op || op == ">>"_op || op == "~"_op))
         {
             return false;

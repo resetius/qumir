@@ -235,6 +235,30 @@ TEST(KumirPipeline, ExpandsPowerWithoutReusingCoreOperator) {
     EXPECT_EQ(call->Args.size(), 2u);
 }
 
+TEST(KumirPipeline, ExpandsFloatPowerToPow) {
+    NRegistry::SystemModule system;
+    TNameResolver resolver;
+    resolver.RegisterModule(&system);
+    ASSERT_TRUE(resolver.ImportModule(system.Name()).has_value());
+    TExprPtr ast = std::make_shared<TBinaryExpr>(
+        TLocation{},
+        TOperator("**"),
+        std::make_shared<TNumberExpr>(TLocation{}, 2.0),
+        std::make_shared<TNumberExpr>(TLocation{}, 0.5));
+
+    auto result = NTransform::RunSourceTransformFixpoint(
+        ast,
+        resolver,
+        {.Extensions = NSemantics::NKumir::PipelineExtensions()});
+
+    ASSERT_TRUE(result.has_value()) << result.error().ToString();
+    auto call = TMaybeNode<TCallExpr>(ast).Cast();
+    ASSERT_NE(call, nullptr);
+    auto callee = TMaybeNode<TIdentExpr>(call->Callee).Cast();
+    ASSERT_NE(callee, nullptr);
+    EXPECT_EQ(callee->Name, "pow");
+}
+
 TEST(ReturnNormalization, MakesFallthroughReturnsExplicit) {
     auto implicitValue = std::make_shared<TNumberExpr>(TLocation{}, int64_t{42});
     auto valueBody = MakeRoot({implicitValue});

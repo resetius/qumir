@@ -1128,7 +1128,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
         }
         case "&"_op:
         case "|"_op:
-        case "xor"_op:
+        case "^"_op:
         case "<<"_op:
         case ">>"_op: {
             if (!outputType || !outputType->isIntegerTy()) {
@@ -1143,7 +1143,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                     return storeTmp(irb->CreateAnd(lhs, rhs, "bandtmp"));
                 case "|"_op:
                     return storeTmp(irb->CreateOr(lhs, rhs, "bortmp"));
-                case "xor"_op:
+                case "^"_op:
                     return storeTmp(irb->CreateXor(lhs, rhs, "bxortmp"));
                 case "<<"_op:
                 case ">>"_op: {

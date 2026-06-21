@@ -172,6 +172,16 @@ TEST(ParserCustomNodes, UnknownFormFallsBackToBinaryOp) {
     EXPECT_NE(dynamic_cast<TBinaryExpr*>(expr.get()), nullptr);
 }
 
+TEST(CoreParser, CanonicalizesXorCompatibilityAlias) {
+    auto expr = Parse("(xor a b)");
+
+    ASSERT_NE(expr, nullptr);
+    auto binary = dynamic_cast<TBinaryExpr*>(expr.get());
+    ASSERT_NE(binary, nullptr);
+    EXPECT_EQ(binary->Operator, TOperator("^"));
+    EXPECT_EQ(PrintAst(expr, MakeOptions()), "(^ a b)");
+}
+
 TEST(ParserCustomNodes, UnknownFormErrors) {
     std::istringstream in("(mystery a b c)");
     TTokenStream ts(in);

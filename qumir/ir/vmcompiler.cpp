@@ -283,10 +283,10 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 out.Op = EVMOp::IOr;
                 break;
             }
-            case "xor"_op: {
+            case '^'_op: {
                 require(ins, 1, 2);
                 if (Module.Types.IsFloat(typeId(out.Operands[0].Tmp))) {
-                    throw std::runtime_error("Bitwise 'xor' is not defined for float types");
+                    throw std::runtime_error("Bitwise '^' is not defined for float types");
                 }
                 out.Op = EVMOp::IXor;
                 break;

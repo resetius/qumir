@@ -213,20 +213,6 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
                     }
                 }
 
-                if (binary->Operator == NAst::TOperator("^")) {
-                    // transform a**b into pow(a, b)
-                    std::vector<NAst::TExprPtr> args;
-                    args.push_back(binary->Left);
-                    args.push_back(binary->Right);
-                    std::string funcName = "pow";
-                    if (NAst::TMaybeType<NAst::TIntegerType>(rightType)) {
-                        funcName = "fpow";
-                    }
-                    return std::make_shared<NAst::TCallExpr>(
-                        binary->Location,
-                        std::make_shared<NAst::TIdentExpr>(binary->Location, funcName),
-                        std::move(args));
-                }
             } else if (auto maybeOutput = NAst::TMaybeNode<NAst::TOutputExpr>(node)) {
                 auto output = maybeOutput.Cast();
                 // transform output(a, b, c) into a series of calls to output_xxx functions

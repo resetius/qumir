@@ -158,7 +158,7 @@ void ExpectBinaryOps(EBackend backend) {
     const std::vector<TCase> cases = {
         {"&",   6, 3, "2\n"},
         {"|",   4, 1, "5\n"},
-        {"xor", 7, 3, "4\n"},
+        {"^",   7, 3, "4\n"},
         {"<<",  1, 8, "256\n"},
         {">>",  256, 4, "16\n"},
         {">>", -1, 1, "-1\n"},
@@ -195,7 +195,7 @@ TEST(BitOps, LLVMExecutesUnaryBitNot) {
 }
 
 TEST(BitOps, ConstFoldEliminatesLiteralBitOps) {
-    auto expr = binary("xor",
+    auto expr = binary("^",
         binary("|",
             binary("&", num(6), num(3)),
             binary("<<", num(1), num(8))),
@@ -206,7 +206,7 @@ TEST(BitOps, ConstFoldEliminatesLiteralBitOps) {
     EXPECT_EQ(result.output, "-259\n");
     EXPECT_EQ(result.ir.find(" & "), std::string::npos) << result.ir;
     EXPECT_EQ(result.ir.find(" | "), std::string::npos) << result.ir;
-    EXPECT_EQ(result.ir.find(" xor "), std::string::npos) << result.ir;
+    EXPECT_EQ(result.ir.find(" ^ "), std::string::npos) << result.ir;
     EXPECT_EQ(result.ir.find(" << "), std::string::npos) << result.ir;
     EXPECT_EQ(result.ir.find(" ~ "), std::string::npos) << result.ir;
 }
@@ -215,6 +215,16 @@ TEST(BitOps, TypeRejectsNonIntegerOperands) {
     const std::string src = "алг\nнач\n  цел x\n  вывод x, нс\nкон\n";
     auto result = RunWithInjection(src, 1, {
         assignX(binary("&", std::make_shared<TNumberExpr>(TLocation{}, 1.5), num(1))),
+    });
+
+    EXPECT_FALSE(result.ok());
+    EXPECT_NE(result.error.find("Битовые операции"), std::string::npos) << result.error;
+}
+
+TEST(BitOps, XorRejectsNonIntegerOperands) {
+    const std::string src = "алг\nнач\n  цел x\n  вывод x, нс\nкон\n";
+    auto result = RunWithInjection(src, 1, {
+        assignX(binary("^", std::make_shared<TNumberExpr>(TLocation{}, 1.5), num(1))),
     });
 
     EXPECT_FALSE(result.ok());

@@ -12,7 +12,7 @@ function <main> () { ; void
     arg imm(1,ptr to i8) 
     call output_string 
     load tmp(4,u64) = local(0,u64) 
-    xor tmp(5,u64) = tmp(4,u64) imm(1,u64) 
+    ^ tmp(5,u64) = tmp(4,u64) imm(1,u64) 
     mov tmp(6,i64) = tmp(5,u64) 
     arg tmp(6,i64) 
     arg imm(0,i64) 

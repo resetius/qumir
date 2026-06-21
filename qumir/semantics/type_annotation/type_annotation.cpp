@@ -647,20 +647,21 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 co_return TError(binary->Location, "binary expression operands must be both integer types");
             }
             break;
-        case TOperator("^"):
         case TOperator("**"):
-            // power: left ** right; ^ remains a transitional compatibility case
-            if (TMaybeType<TFloatType>(left) && TMaybeType<TIntegerType>(right)) {
+            // power: left ** right
+            if (TMaybeType<TFloatType>(left) &&
+                (TMaybeType<TIntegerType>(right) || TMaybeType<TFloatType>(right)))
+            {
                 type = std::make_shared<TFloatType>();
             } else if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
                 type = std::make_shared<TIntegerType>();
             } else {
-                co_return TError(binary->Location, "binary expression operands must be both numeric types (float^int or int^int)");
+                co_return TError(binary->Location, "binary expression operands must be numeric types (float ** float, float ** int, or int ** int)");
             }
             break;
         case TOperator("&"):
         case TOperator("|"):
-        case TOperator("xor"):
+        case TOperator("^"):
         case TOperator("<<"):
         case TOperator(">>"):
             if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {

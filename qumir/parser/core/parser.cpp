@@ -314,7 +314,12 @@ TAstTask ParseList(TParserContext& context, TLocation location) {
         co_return std::make_shared<TUnaryExpr>(location, TOperator(head), std::move(args[0]));
     }
     if (args.size() == 2) {
-        co_return std::make_shared<TBinaryExpr>(location, TOperator(head), std::move(args[0]), std::move(args[1]));
+        auto op = head == "xor" ? "^" : head;
+        co_return std::make_shared<TBinaryExpr>(
+            location,
+            TOperator(op),
+            std::move(args[0]),
+            std::move(args[1]));
     }
     co_return TError(location, "unknown core form: " + head);
 }
