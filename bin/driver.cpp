@@ -13,6 +13,7 @@
 #include <qumir/ir/passes/transforms/pipeline.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/transform/transform.h>
+#include <qumir/frontend/compose.h>
 #include <qumir/codegen/llvm/llvm_codegen.h>
 #include <qumir/codegen/llvm/llvm_initializer.h>
 #include <qumir/modules/system/system.h>
@@ -25,6 +26,7 @@
 #include <qumir/modules/keyboard/keyboard.h>
 #include <sstream>
 #include <string>
+#include <filesystem>
 
 #include <sys/wait.h>
 #include <thread>
@@ -39,11 +41,28 @@ using namespace NQumir;
 
 namespace {
 
-std::expected<NAst::TExprPtr, TError> ParseInput(std::istream& in, NSemantics::TNameResolver& r, bool coreInput) {
+struct TModuleConfig {
+    std::vector<std::string> Paths;
+    std::vector<std::string> Files;
+};
+
+std::expected<NAst::TExprPtr, TError> ParseInput(
+    std::istream& in, NSemantics::TNameResolver& r, bool coreInput,
+    const TModuleConfig& modules = {})
+{
     if (coreInput) {
         NAst::NCore::TTokenStream ts(in);
         NAst::NCore::TParser p;
-        return p.Parse(ts);
+        auto parsed = p.Parse(ts);
+        if (!parsed) {
+            return parsed;
+        }
+        auto composed = NFrontend::LoadAndCompose(*parsed, p.Pragmas, modules.Paths, modules.Files);
+        if (!composed) {
+            return std::unexpected(composed.error());
+        }
+        r.ApplyPragmas(composed->Pragmas);
+        return composed->Ast;
     }
     NAst::TTokenStream ts(in);
     NAst::TParser p;
@@ -123,7 +142,7 @@ std::shared_ptr<std::ostream> OpenOutputFile(const std::string& filename, bool r
     }
 }
 
-int GenerateAst(const std::string& inputFile, const std::string& outputFile, bool transformed, bool coreInput, bool verbose) {
+int GenerateAst(const std::string& inputFile, const std::string& outputFile, bool transformed, bool coreInput, bool verbose, const TModuleConfig& moduleConfig) {
     if (verbose) {
         std::cerr << "Generating " << (transformed ? "transformed " : "") << "AST from " << inputFile << " to " << outputFile << "\n";
     }
@@ -137,7 +156,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     NSemantics::TNameResolver r;
     auto modules = SetupModules(r, coreInput);
 
-    auto expected = ParseInput(*in, r, coreInput);
+    auto expected = ParseInput(*in, r, coreInput, moduleConfig);
     if (!expected.has_value()) {
         std::cerr << expected.error().ToString() << std::endl;
         return 1;
@@ -161,7 +180,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     return 0;
 }
 
-int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose) {
+int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig) {
     if (verbose) {
         std::cerr << "Generating IR from " << inputFile << " to " << outputFile << "\n";
     }
@@ -175,7 +194,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     NSemantics::TNameResolver r;
     auto modules = SetupModules(r, coreInput);
 
-    auto expected = ParseInput(*in, r, coreInput);
+    auto expected = ParseInput(*in, r, coreInput, moduleConfig);
     if (!expected.has_value()) {
         std::cerr << expected.error().ToString() << std::endl;
         return 1;
@@ -211,7 +230,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     return 0;
 }
 
-int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose) {
+int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig) {
     if (verbose) {
         std::cerr << "Generating LLVM IR from " << inputFile << " to " << outputFile << "\n";
     }
@@ -225,7 +244,7 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     NSemantics::TNameResolver r;
     auto modules = SetupModules(r, coreInput);
 
-    auto expected = ParseInput(*in, r, coreInput);
+    auto expected = ParseInput(*in, r, coreInput, moduleConfig);
     if (!expected.has_value()) {
         std::cerr << expected.error().ToString() << std::endl;
         return 1;
@@ -376,7 +395,7 @@ void GenerateObjFromAsm(const std::string& asmCode, std::ostream& objOut) {
 }
 #endif
 
-int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, bool targetWasm, bool coreInput, bool verbose) {
+int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, bool targetWasm, bool coreInput, bool verbose, const TModuleConfig& moduleConfig) {
     if (verbose) {
         std::cerr << "Compiling " << inputFile << " to " << outputFile << "\n";
     }
@@ -390,7 +409,7 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     NSemantics::TNameResolver r;
     auto modules = SetupModules(r, coreInput);
 
-    auto expected = ParseInput(*in, r, coreInput);
+    auto expected = ParseInput(*in, r, coreInput, moduleConfig);
     if (!expected.has_value()) {
         std::cerr << expected.error().ToString() << std::endl;
         return 1;
@@ -490,6 +509,7 @@ int main(int argc, char** argv) {
     bool targetWasm = false;
     bool coreInput = false;
     bool verbose = false;
+    TModuleConfig moduleConfig;
     for (int i = 1; i < argc; ++i) {
         if (!std::strcmp(argv[i], "-c")) {
             compileOnly = true;
@@ -509,6 +529,8 @@ int main(int argc, char** argv) {
                          "  --transformed-ast Generate transformed AST only (no IR, no codegen)\n"
                          "  --ir          Generate IR only (no codegen)\n"
                          "  --wasm        Target WebAssembly (wasm32-unknown-unknown)\n"
+                         "  --module-path <dir>  Add a search directory for .oz modules (repeatable)\n"
+                         "  --module <file.oz>   Register an explicit .oz module (repeatable)\n"
                          "  -S            Generate assembly only (no linking), implies -c\n"
                          "  -O <level>    Optimization level (0-3), default 0\n"
                          "  -O0           Optimization level 0 (no optimizations)\n"
@@ -558,6 +580,20 @@ int main(int argc, char** argv) {
             optLevel = 3;
         } else if (!std::strcmp(argv[i], "--core")) {
             coreInput = true;
+        } else if (!std::strcmp(argv[i], "--module-path")) {
+            if (i + 1 < argc) {
+                moduleConfig.Paths.push_back(argv[++i]);
+            } else {
+                std::cerr << "--module-path requires a directory argument\n";
+                return 1;
+            }
+        } else if (!std::strcmp(argv[i], "--module")) {
+            if (i + 1 < argc) {
+                moduleConfig.Files.push_back(argv[++i]);
+            } else {
+                std::cerr << "--module requires a file argument\n";
+                return 1;
+            }
         } else if (!std::strcmp(argv[i], "--verbose")) {
             verbose = true;
         } else if (argv[i][0] == '-' && argv[i][1] != '\0') {
@@ -572,25 +608,31 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    // The directory of the main source file is searched before explicit paths.
+    {
+        auto dir = std::filesystem::path(inputFile).parent_path();
+        moduleConfig.Paths.insert(moduleConfig.Paths.begin(), dir.empty() ? "." : dir.string());
+    }
+
     if (generateAst || generateTransformedAst) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ast");
         }
-        return GenerateAst(inputFile, outputFile, generateTransformedAst, coreInput, verbose);
+        return GenerateAst(inputFile, outputFile, generateTransformedAst, coreInput, verbose, moduleConfig);
     }
 
     if (generateIr) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ir");
         }
-        return GenerateIr(inputFile, outputFile, optLevel, coreInput, verbose);
+        return GenerateIr(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig);
     }
 
     if (generateLlvm) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ll");
         }
-        return GenerateLlvm(inputFile, outputFile, optLevel, coreInput, verbose);
+        return GenerateLlvm(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig);
     }
 
     if (!compileOnly && outputFile.empty()) {
@@ -606,5 +648,5 @@ int main(int argc, char** argv) {
             : outputFile;
     }
 
-    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, targetWasm, coreInput, verbose);
+    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, targetWasm, coreInput, verbose, moduleConfig);
 }

@@ -297,6 +297,10 @@ function collectCases(dir) {
       const full = path.join(d,e);
       const st = fs.statSync(full);
       if (st.isDirectory()) walk(full); else if (st.isFile() && e.endsWith(extension)) {
+        // Library modules imported via `use` are compiled as part of a main
+        // program, not as standalone cases.
+        const firstLine = fs.readFileSync(full, 'utf8').split('\n', 1)[0];
+        if (firstLine.includes('module-fixture')) continue;
         const rel = path.relative(dir, full);
         out.push(rel.slice(0, -extension.length));
       }

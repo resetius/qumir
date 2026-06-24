@@ -94,7 +94,8 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     auto ast = std::move(parsed.value());
 
     if (Options.CoreInput) {
-        auto composed = NFrontend::LoadAndCompose(ast, corePragmas, Options.ModuleSearchPaths);
+        auto composed = NFrontend::LoadAndCompose(
+            ast, corePragmas, Options.ModuleSearchPaths, Options.ModuleFiles);
         if (!composed) {
             return std::unexpected(composed.error());
         }

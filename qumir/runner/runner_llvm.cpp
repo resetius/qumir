@@ -107,7 +107,8 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
     auto ast = std::move(parsed.value());
 
     if (Options.CoreInput) {
-        auto composed = NFrontend::LoadAndCompose(ast, corePragmas, Options.ModuleSearchPaths);
+        auto composed = NFrontend::LoadAndCompose(
+            ast, corePragmas, Options.ModuleSearchPaths, Options.ModuleFiles);
         if (!composed) {
             return std::unexpected(composed.error());
         }

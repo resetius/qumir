@@ -38,7 +38,8 @@ std::expected<TComposeResult, TError> Compose(
 std::expected<TComposeResult, TError> LoadAndCompose(
     const NAst::TExprPtr& mainAst,
     const std::vector<NAst::TPragma>& corePragmas,
-    const std::vector<std::string>& searchPaths);
+    const std::vector<std::string>& searchPaths,
+    const std::vector<std::string>& explicitModules = {});
 
 } // namespace NFrontend
 } // namespace NQumir
