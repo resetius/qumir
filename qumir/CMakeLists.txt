@@ -38,6 +38,8 @@ add_library(qumir
     frontend/source_module.h
     frontend/source_module_loader.h
     frontend/source_module_loader.cpp
+    frontend/compose.h
+    frontend/compose.cpp
     runner/runner_ir.h
     runner/runner_ir.cpp
     runner/runner_llvm.h

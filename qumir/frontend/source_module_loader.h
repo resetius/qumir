@@ -29,6 +29,8 @@ public:
 
     std::expected<const TSourceModule*, TError> Load(const std::string& name);
 
+    bool Resolvable(const std::string& name) const { return ResolvePath(name).has_value(); }
+
     std::vector<const TSourceModule*> TopologicalOrder() const;
 
     const TSourceModule* Find(const std::string& name) const;

@@ -26,6 +26,8 @@ ut(test_lifetime_pass test_lifetime_pass.cpp)
 ut(test_printer test_printer.cpp)
 ut(test_semantic_pipeline test_semantic_pipeline.cpp)
 ut(test_source_module_loader test_source_module_loader.cpp)
+ut(test_compose test_compose.cpp)
+ut(test_module_exec test_module_exec.cpp)
 
 # JavaScript execution tests (Node.js required)
 find_program(NODE_EXECUTABLE node)
