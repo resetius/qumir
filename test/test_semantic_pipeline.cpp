@@ -265,6 +265,30 @@ TEST(ModuleAliases, KumirFrontendAliasesAreSystem) {
     EXPECT_EQ(aliases.at("Строки"), "System");
 }
 
+// The same legacy name resolves only when the frontend registers the alias;
+// core and Kumir sessions differ purely by configuration.
+TEST(ModuleAliases, SameUseDiffersBetweenCoreAndKumirSessions) {
+    NRegistry::SystemModule system;
+
+    TNameResolver core;
+    core.RegisterModule(&system);
+    EXPECT_FALSE(core.ImportModule("Файлы").has_value());
+
+    TNameResolver kumir;
+    kumir.RegisterModule(&system);
+    for (const auto& [alias, canonical] : NKumir::ModuleAliases()) {
+        kumir.RegisterModuleAlias(alias, canonical);
+    }
+    EXPECT_TRUE(kumir.ImportModule("Файлы").has_value());
+}
+
+TEST(ModulesList, IncludesRegisteredSystemModule) {
+    NRegistry::SystemModule system;
+    TNameResolver resolver;
+    resolver.RegisterModule(&system);
+    EXPECT_NE(resolver.ModulesList().find("System"), std::string::npos);
+}
+
 TEST(KumirPipeline, ExpandsPowerWithoutReusingCoreOperator) {
     NRegistry::SystemModule system;
     TNameResolver resolver;

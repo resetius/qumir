@@ -50,7 +50,7 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     }
 
     if (!Options.CoreInput) {
-        // Kumir frontend prelude: standard runtime modules + legacy aliases.
+        // Kumir prelude: standard runtime modules plus legacy module aliases.
         for (const auto& mod : RegisteredModules) {
             (void)Resolver.ImportModule(mod->Name());
         }
@@ -58,8 +58,7 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
             Resolver.RegisterModuleAlias(alias, canonical);
         }
     } else {
-        // Core frontend: import only the host-provided prelude. Pure core-lang
-        // imports nothing.
+        // Core has no implicit prelude; the host imports what it needs.
         for (const auto& name : Options.Prelude) {
             (void)Resolver.ImportModule(name);
         }

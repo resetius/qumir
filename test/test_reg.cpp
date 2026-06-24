@@ -536,9 +536,8 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::ValuesIn(Collect(CasesDir / "corelang", ".oz")),
     [](const ::testing::TestParamInfo<ProgCase>& i){ return "CORE_" + NameFromPath(i.param.base); });
 
-// D3: pure core-lang imports nothing. A core program that uses runtime symbols
-// (here `output`) fails without a host prelude and succeeds once the host
-// provides System.
+// `output` resolves only when the host imports System; an empty prelude leaves
+// core-lang with nothing imported.
 TEST(CorePrelude, PureCoreImportsNothing) {
     const std::string program =
         "(block (fun <main> () (block (output (: 42 i64) \"\\n\"))))";

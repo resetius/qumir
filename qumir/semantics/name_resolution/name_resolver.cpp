@@ -685,9 +685,6 @@ std::string TNameResolver::ModulesList() const
 {
     std::ostringstream oss;
     for (const auto& [name, module] : Modules) {
-        if (name == "System") {
-            continue; // skip System module
-        }
         oss << name << ",";
     }
     for (const auto& [alias, canonical] : ModuleAliases) {
