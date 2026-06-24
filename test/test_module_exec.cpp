@@ -173,6 +173,55 @@ TEST_F(ModuleExecTest, KumirEntryNotShadowedByModuleNoArgFunction) {
     EXPECT_EQ(RunKumir(main, EBackend::LLVM), "70");
 }
 
+TEST_F(ModuleExecTest, KumirUsesImportedOzType) {
+    WriteModule("pt",
+        "(block"
+        " (type точка <struct (x i64) (y i64)>)"
+        " (fun создать ((var a i64) (var b i64)) -> точка"
+        "   (block (return (: (struct ((x a) (y b))) точка))))"
+        " (fun сумма ((var p точка)) -> i64"
+        "   (block (return (+ (field p x) (field p y))))))");
+
+    const std::string main =
+        "использовать pt\n"
+        "алг\n"
+        "нач\n"
+        "    точка p\n"
+        "    p := создать(20, 22)\n"
+        "    вывод сумма(p)\n"
+        "кон\n";
+
+    EXPECT_EQ(RunKumir(main, EBackend::IR), "42");
+    EXPECT_EQ(RunKumir(main, EBackend::LLVM), "42");
+}
+
+// `outer` references a type defined in its dependency `inner`; the transitive
+// type must resolve in the composed unit.
+TEST_F(ModuleExecTest, KumirUsesTransitiveOzType) {
+    WriteModule("inner",
+        "(block"
+        " (type ед <struct (v i64)>)"
+        " (fun обернуть ((var n i64)) -> ед"
+        "   (block (return (: (struct ((v n))) ед)))))");
+    WriteModule("outer",
+        "(block"
+        " (use inner)"
+        " (fun развернуть ((var u ед)) -> i64 (block (return (field u v)))))");
+
+    const std::string main =
+        "использовать outer\n"
+        "использовать inner\n"
+        "алг\n"
+        "нач\n"
+        "    ед u\n"
+        "    u := обернуть(42)\n"
+        "    вывод развернуть(u)\n"
+        "кон\n";
+
+    EXPECT_EQ(RunKumir(main, EBackend::IR), "42");
+    EXPECT_EQ(RunKumir(main, EBackend::LLVM), "42");
+}
+
 } // namespace
 
 int main(int argc, char** argv) {

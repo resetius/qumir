@@ -240,6 +240,9 @@ public:
 
     NAst::TTypePtr LookupType(const std::string& name) const override;
     void RegisterType(const std::string& name, NAst::TTypePtr type);
+    void RegisterImportedType(const std::string& name, NAst::TTypePtr type) override {
+        RegisterType(name, std::move(type));
+    }
 
 private:
     using TTask = TExpectedTask<std::monostate, TError, TLocation>;

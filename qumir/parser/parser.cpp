@@ -1699,10 +1699,31 @@ TAstTask stmt(TParserContext& context) {
         if (!isOp(next, EOperator::Eol)) {
             co_return TError(next.Location, "ожидается новая строка после имени модуля");
         }
-        // A `.oz` source module is inlined during post-parse composition, not
-        // imported as a runtime module here.
+        // A `.oz` source module is inlined during post-parse composition. Its
+        // exported types must still be registered now so the lexer tokenizes
+        // them as type names and `LookupType` resolves variable declarations
+        // referencing them during parsing.
         bool sourceModule = context.Loader && context.Loader->Resolvable(moduleName);
-        if (mm && !sourceModule) {
+        if (sourceModule) {
+            auto loaded = context.Loader->Load(moduleName);
+            if (!loaded) {
+                co_return loaded.error();
+            }
+            if (auto block = TMaybeNode<TBlockExpr>((*loaded)->Ast)) {
+                for (const auto& stmt : block.Cast()->Stmts) {
+                    auto td = TMaybeNode<TTypeDeclStmt>(stmt);
+                    if (!td) continue;
+                    auto named = TMaybeType<TNamedType>(td.Cast()->Type);
+                    if (!named) continue;
+                    if (mm) {
+                        mm->RegisterImportedType(named.Cast()->Name, named.Cast()->UnderlyingType);
+                    }
+                    if (context.LexerContext) {
+                        context.LexerContext->ImportTypeNames({named.Cast()->Name});
+                    }
+                }
+            }
+        } else if (mm) {
             auto result = mm->ImportModule(moduleName);
             if (!result) {
                 co_return TError(first.Location, result.error());
