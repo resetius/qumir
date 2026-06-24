@@ -7,6 +7,7 @@
 #include <qumir/parser/ast.h>
 #include <qumir/parser/operator.h>
 #include <qumir/modules/module.h>
+#include <qumir/frontend/source_module_loader.h>
 
 #include <set>
 #include <iostream>
@@ -20,16 +21,19 @@ struct TParserContext {
     TWrappedTokenStream& Stream;
     IModuleManager* ModuleManager;
     ILexerContext* LexerContext;
+    NFrontend::TSourceModuleLoader* Loader;
     int LoopDepth = 0;
     // Whether the enclosing `алг` returns void; used by `выход` outside a
     // loop to decide between `(return)` and `(return знач)`. Defaults to
     // true (void) for `выход` encountered outside any function.
     bool CurrentFunctionReturnsVoid = true;
 
-    TParserContext(TWrappedTokenStream& stream, IModuleManager* mm, ILexerContext* lc)
+    TParserContext(TWrappedTokenStream& stream, IModuleManager* mm, ILexerContext* lc,
+        NFrontend::TSourceModuleLoader* loader = nullptr)
         : Stream(stream)
         , ModuleManager(mm)
         , LexerContext(lc)
+        , Loader(loader)
     { }
 };
 
@@ -1695,7 +1699,10 @@ TAstTask stmt(TParserContext& context) {
         if (!isOp(next, EOperator::Eol)) {
             co_return TError(next.Location, "ожидается новая строка после имени модуля");
         }
-        if (mm) {
+        // A `.oz` source module is inlined during post-parse composition, not
+        // imported as a runtime module here.
+        bool sourceModule = context.Loader && context.Loader->Resolvable(moduleName);
+        if (mm && !sourceModule) {
             auto result = mm->ImportModule(moduleName);
             if (!result) {
                 co_return TError(first.Location, result.error());
@@ -1715,10 +1722,11 @@ TAstTask stmt(TParserContext& context) {
 
 } // namespace
 
-std::expected<TExprPtr, TError> TParser::parse(TTokenStream& stream, IModuleManager* mm)
+std::expected<TExprPtr, TError> TParser::parse(
+    TTokenStream& stream, IModuleManager* mm, NFrontend::TSourceModuleLoader* loader)
 {
     TWrappedTokenStream wrappedStream(stream, /*windowSize = */ 10);
-    TParserContext context(wrappedStream, mm, stream.GetContext());
+    TParserContext context(wrappedStream, mm, stream.GetContext(), loader);
     auto task = stmt_list(context, {});
     auto result = task.result();
     if (result && mm) {

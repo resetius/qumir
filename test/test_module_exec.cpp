@@ -69,6 +69,28 @@ protected:
         return out.str();
     }
 
+    std::string RunKumir(const std::string& main, EBackend backend) {
+        std::ostringstream out;
+        NRuntime::SetOutputStream(&out);
+        NRuntime::SetInputStream(nullptr);
+        std::istringstream src(main);
+        std::expected<std::optional<std::string>, TError> res;
+        if (backend == EBackend::IR) {
+            std::istringstream in;
+            TIRRunner runner(out, in, TIRRunnerOptions{
+                .ModuleSearchPaths = {Dir.string()},
+            });
+            res = runner.Run(src);
+        } else {
+            TLLVMRunner runner(TLLVMRunnerOptions{
+                .ModuleSearchPaths = {Dir.string()},
+            });
+            res = runner.Run(src);
+        }
+        EXPECT_TRUE(res) << (res ? "" : res.error().ToString());
+        return out.str();
+    }
+
     // Runs across VM, LLVM JIT and optimization levels; all must agree.
     void ExpectAll(const std::string& main, const std::string& expected) {
         static const std::vector<TBackendCase> cases = {
@@ -113,6 +135,42 @@ TEST_F(ModuleExecTest, GenericFunctionInModule) {
         "(block (pragma language overloads) (use gen)"
         " (fun <main> () (block (output (call id (: 7 i64)) \"\\n\"))))",
         "7\n");
+}
+
+TEST_F(ModuleExecTest, KumirCallsImportedOzFunction) {
+    WriteModule("dbl",
+        "(block (fun udvoit ((var x i64)) -> i64 (block (return (+ x x)))))");
+
+    const std::string main =
+        "использовать dbl\n"
+        "алг\n"
+        "нач\n"
+        "    цел x\n"
+        "    x := udvoit(21)\n"
+        "    вывод x\n"
+        "кон\n";
+
+    EXPECT_EQ(RunKumir(main, EBackend::IR), "42");
+    EXPECT_EQ(RunKumir(main, EBackend::LLVM), "42");
+}
+
+// Kumir's entry point is the first no-arg function. A module exporting a
+// no-arg function must not be picked over the main program's algorithm.
+TEST_F(ModuleExecTest, KumirEntryNotShadowedByModuleNoArgFunction) {
+    WriteModule("ent",
+        "(block (fun base () -> i64 (block (return (: 7 i64)))))");
+
+    const std::string main =
+        "использовать ent\n"
+        "алг\n"
+        "нач\n"
+        "    цел x\n"
+        "    x := base()\n"
+        "    вывод x * 10\n"
+        "кон\n";
+
+    EXPECT_EQ(RunKumir(main, EBackend::IR), "70");
+    EXPECT_EQ(RunKumir(main, EBackend::LLVM), "70");
 }
 
 } // namespace

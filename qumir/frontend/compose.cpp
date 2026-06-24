@@ -146,7 +146,10 @@ std::expected<TComposeResult, TError> Compose(
         moduleNames.insert(m->Name);
     }
 
-    std::vector<TExprPtr> uses, types, globals, functions, other;
+    // Kumir's entry point is the first function in the program (any name, no
+    // args — see TModule::GetEntryPoint). The main program's functions must
+    // therefore precede module functions so the entry stays first.
+    std::vector<TExprPtr> uses, types, globals, mainFunctions, moduleFunctions, other;
     std::unordered_set<std::string> seenUses;
     for (const auto& unit : units) {
         for (const auto& stmt : *unit.Stmts) {
@@ -161,7 +164,7 @@ std::expected<TComposeResult, TError> Compose(
             } else if (TMaybeNode<TTypeDeclStmt>(stmt)) {
                 types.push_back(stmt);
             } else if (TMaybeNode<TFunDecl>(stmt)) {
-                functions.push_back(stmt);
+                (unit.IsMain ? mainFunctions : moduleFunctions).push_back(stmt);
             } else if (unit.IsMain && IsGlobal(stmt)) {
                 globals.push_back(stmt);
             } else if (unit.IsMain) {
@@ -171,8 +174,9 @@ std::expected<TComposeResult, TError> Compose(
     }
 
     std::vector<TExprPtr> stmts;
-    stmts.reserve(uses.size() + types.size() + globals.size() + functions.size() + other.size());
-    for (auto* group : {&uses, &types, &globals, &functions, &other}) {
+    stmts.reserve(uses.size() + types.size() + globals.size()
+        + mainFunctions.size() + moduleFunctions.size() + other.size());
+    for (auto* group : {&uses, &types, &globals, &mainFunctions, &moduleFunctions, &other}) {
         stmts.insert(stmts.end(), group->begin(), group->end());
     }
 
@@ -180,6 +184,29 @@ std::expected<TComposeResult, TError> Compose(
         std::make_shared<TBlockExpr>(mainAst->Location, std::move(stmts)),
         std::move(*pragmas),
     };
+}
+
+std::expected<TComposeResult, TError> LoadAndCompose(
+    TSourceModuleLoader& loader,
+    const TExprPtr& mainAst,
+    const std::vector<TPragma>& corePragmas)
+{
+    if (auto block = TMaybeNode<TBlockExpr>(mainAst)) {
+        for (const auto& stmt : block.Cast()->Stmts) {
+            auto use = TMaybeNode<TUseExpr>(stmt);
+            if (use && loader.Resolvable(use.Cast()->ModuleName)) {
+                if (auto loaded = loader.Load(use.Cast()->ModuleName); !loaded) {
+                    return std::unexpected(loaded.error());
+                }
+            }
+        }
+    }
+
+    auto modules = loader.TopologicalOrder();
+    if (modules.empty()) {
+        return TComposeResult{mainAst, corePragmas};
+    }
+    return Compose(modules, mainAst, corePragmas, "<main>");
 }
 
 std::expected<TComposeResult, TError> LoadAndCompose(
@@ -197,23 +224,7 @@ std::expected<TComposeResult, TError> LoadAndCompose(
             return std::unexpected(reg.error());
         }
     }
-
-    if (auto block = TMaybeNode<TBlockExpr>(mainAst)) {
-        for (const auto& stmt : block.Cast()->Stmts) {
-            auto use = TMaybeNode<TUseExpr>(stmt);
-            if (use && loader.Resolvable(use.Cast()->ModuleName)) {
-                if (auto loaded = loader.Load(use.Cast()->ModuleName); !loaded) {
-                    return std::unexpected(loaded.error());
-                }
-            }
-        }
-    }
-
-    auto modules = loader.TopologicalOrder();
-    if (modules.empty()) {
-        return TComposeResult{mainAst, corePragmas};
-    }
-    return Compose(modules, mainAst, corePragmas, "<main>");
+    return LoadAndCompose(loader, mainAst, corePragmas);
 }
 
 } // namespace NFrontend

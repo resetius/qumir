@@ -14,6 +14,7 @@
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/frontend/compose.h>
+#include <qumir/frontend/source_module_loader.h>
 #include <qumir/codegen/llvm/llvm_codegen.h>
 #include <qumir/codegen/llvm/llvm_initializer.h>
 #include <qumir/modules/system/system.h>
@@ -50,23 +51,43 @@ std::expected<NAst::TExprPtr, TError> ParseInput(
     std::istream& in, NSemantics::TNameResolver& r, bool coreInput,
     const TModuleConfig& modules = {})
 {
+    NFrontend::TSourceModuleLoader loader;
+    for (const auto& dir : modules.Paths) {
+        loader.AddSearchPath(dir);
+    }
+    for (const auto& file : modules.Files) {
+        if (auto reg = loader.RegisterSourceModule(file); !reg) {
+            return std::unexpected(reg.error());
+        }
+    }
+
+    std::expected<NAst::TExprPtr, TError> parsed;
+    std::vector<NAst::TPragma> mainPragmas;
     if (coreInput) {
         NAst::NCore::TTokenStream ts(in);
         NAst::NCore::TParser p;
-        auto parsed = p.Parse(ts);
-        if (!parsed) {
-            return parsed;
+        parsed = p.Parse(ts);
+        if (parsed) {
+            mainPragmas = std::move(p.Pragmas);
         }
-        auto composed = NFrontend::LoadAndCompose(*parsed, p.Pragmas, modules.Paths, modules.Files);
-        if (!composed) {
-            return std::unexpected(composed.error());
+    } else {
+        NAst::TTokenStream ts(in);
+        NAst::TParser p;
+        parsed = p.parse(ts, &r, &loader);
+        if (parsed) {
+            mainPragmas = ts.GetContext()->GetPragmas();
         }
-        r.ApplyPragmas(composed->Pragmas);
-        return composed->Ast;
     }
-    NAst::TTokenStream ts(in);
-    NAst::TParser p;
-    return p.parse(ts, &r);
+    if (!parsed) {
+        return parsed;
+    }
+
+    auto composed = NFrontend::LoadAndCompose(loader, *parsed, mainPragmas);
+    if (!composed) {
+        return std::unexpected(composed.error());
+    }
+    r.ApplyPragmas(composed->Pragmas);
+    return composed->Ast;
 }
 
 NTransform::TPipelineOptions PipelineOptions(bool coreInput) {

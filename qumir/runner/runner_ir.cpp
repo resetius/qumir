@@ -71,21 +71,32 @@ TIRRunner::TIRRunner(
 }
 
 std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& input) {
+    NFrontend::TSourceModuleLoader loader;
+    for (const auto& dir : Options.ModuleSearchPaths) {
+        loader.AddSearchPath(dir);
+    }
+    for (const auto& file : Options.ModuleFiles) {
+        if (auto reg = loader.RegisterSourceModule(file); !reg) {
+            return std::unexpected(reg.error());
+        }
+    }
+
     std::expected<TExprPtr, TError> parsed;
-    std::vector<NAst::TPragma> corePragmas;
+    std::vector<NAst::TPragma> mainPragmas;
     if (Options.CoreInput) {
         NCore::TTokenStream ts(input);
         NCore::TParser p;
         parsed = p.Parse(ts);
         if (parsed) {
-            corePragmas = std::move(p.Pragmas);
+            mainPragmas = std::move(p.Pragmas);
         }
     } else {
         TTokenStream ts(input);
         TParser p;
-        parsed = p.parse(ts, &Resolver);
+        parsed = p.parse(ts, &Resolver, &loader);
         if (parsed) {
-            Resolver.ApplyPragmas(ts.GetContext()->GetPragmas());
+            mainPragmas = ts.GetContext()->GetPragmas();
+            Resolver.ApplyPragmas(mainPragmas);
         }
     }
     if (!parsed) {
@@ -93,9 +104,8 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     }
     auto ast = std::move(parsed.value());
 
-    if (Options.CoreInput) {
-        auto composed = NFrontend::LoadAndCompose(
-            ast, corePragmas, Options.ModuleSearchPaths, Options.ModuleFiles);
+    {
+        auto composed = NFrontend::LoadAndCompose(loader, ast, mainPragmas);
         if (!composed) {
             return std::unexpected(composed.error());
         }

@@ -31,10 +31,18 @@ std::expected<TComposeResult, TError> Compose(
     const std::vector<NAst::TPragma>& mainPragmas,
     const std::string& mainLabel);
 
+class TSourceModuleLoader;
+
 // Frontend entry shared by runners: loads the `.oz` source modules referenced
-// by `use` in the core program and composes them with the main AST. When no
+// by `use` in the main program and composes them with the main AST. When no
 // `use` resolves to a source module, returns the main AST unchanged with
-// `corePragmas`.
+// `corePragmas`. The loader overload reuses an already-configured loader (e.g.
+// one consulted during parsing) instead of building a fresh one.
+std::expected<TComposeResult, TError> LoadAndCompose(
+    TSourceModuleLoader& loader,
+    const NAst::TExprPtr& mainAst,
+    const std::vector<NAst::TPragma>& corePragmas);
+
 std::expected<TComposeResult, TError> LoadAndCompose(
     const NAst::TExprPtr& mainAst,
     const std::vector<NAst::TPragma>& corePragmas,

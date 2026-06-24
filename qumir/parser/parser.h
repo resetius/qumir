@@ -8,13 +8,24 @@
 #include <expected>
 
 namespace NQumir {
+
+namespace NFrontend {
+class TSourceModuleLoader;
+}
+
 namespace NAst {
 
 class TParser {
 public:
     // moduleManager: if non-null, `использовать X` imports X at parse time;
-    // type names from imported modules are registered in the stream's TLexerContext
-    std::expected<TExprPtr, TError> parse(TTokenStream& stream, IModuleManager* moduleManager = nullptr);
+    // type names from imported modules are registered in the stream's TLexerContext.
+    // loader: if non-null, `использовать X` where X resolves to an `.oz` source
+    // module emits a plain use node (the module is composed in after parsing)
+    // instead of a runtime import.
+    std::expected<TExprPtr, TError> parse(
+        TTokenStream& stream,
+        IModuleManager* moduleManager = nullptr,
+        NFrontend::TSourceModuleLoader* loader = nullptr);
 };
 
 } // namespace NAst

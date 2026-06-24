@@ -16,6 +16,7 @@
 #include <qumir/modules/keyboard/keyboard.h>
 #include <qumir/ir/passes/transforms/pipeline.h>
 #include <qumir/frontend/compose.h>
+#include <qumir/frontend/source_module_loader.h>
 
 #include <algorithm>
 #include <cstring>
@@ -86,29 +87,41 @@ void TLLVMRunner::RegisterModule(std::shared_ptr<NRegistry::IModule> module, boo
 }
 
 std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream& input) {
+    NFrontend::TSourceModuleLoader loader;
+    for (const auto& dir : Options.ModuleSearchPaths) {
+        loader.AddSearchPath(dir);
+    }
+    for (const auto& file : Options.ModuleFiles) {
+        if (auto reg = loader.RegisterSourceModule(file); !reg) {
+            return std::unexpected(reg.error());
+        }
+    }
+
     // Parse source into AST
     std::expected<NAst::TExprPtr, TError> parsed;
-    std::vector<NAst::TPragma> corePragmas;
+    std::vector<NAst::TPragma> mainPragmas;
     if (Options.CoreInput) {
         NAst::NCore::TTokenStream ts(input);
         NAst::NCore::TParser p;
         parsed = p.Parse(ts);
         if (parsed) {
-            corePragmas = std::move(p.Pragmas);
+            mainPragmas = std::move(p.Pragmas);
         }
     } else {
         NAst::TTokenStream ts(input);
         NAst::TParser p;
-        parsed = p.parse(ts, &Resolver);
+        parsed = p.parse(ts, &Resolver, &loader);
+        if (parsed) {
+            mainPragmas = ts.GetContext()->GetPragmas();
+        }
     }
     if (!parsed) {
         return std::unexpected(parsed.error());
     }
     auto ast = std::move(parsed.value());
 
-    if (Options.CoreInput) {
-        auto composed = NFrontend::LoadAndCompose(
-            ast, corePragmas, Options.ModuleSearchPaths, Options.ModuleFiles);
+    {
+        auto composed = NFrontend::LoadAndCompose(loader, ast, mainPragmas);
         if (!composed) {
             return std::unexpected(composed.error());
         }

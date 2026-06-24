@@ -68,9 +68,9 @@ TEST(ComposeTest, OrderingAndSourceUseDropped) {
         "Use:System",   // runtime use kept; source use `m` dropped
         "Type:t",       // module type before main
         "Var",          // main global before functions
-        "Fun:helper",   // module functions before main functions
-        "Fun:aux",
+        "Fun:aux",      // main functions first (Kumir entry must stay first)
         "Fun:<main>",
+        "Fun:helper",   // module functions after main
     }));
 }
 
