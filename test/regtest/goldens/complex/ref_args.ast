@@ -21,16 +21,16 @@
         (call output_double (field (: z <named компл>) im) 0 -1)
         (call output_string "\n"))
       (cleanup-exit (return))))
-  (fun split ((var z <named компл>)
-      (var re <ref <f64 (mutable)>>)
-      (var im <ref <f64 (mutable)>>))
+  (fun split ((var z <named компл (readonly)>)
+      (var re <ref <f64 (writeonly)>>)
+      (var im <ref <f64 (writeonly)>>))
     (block
-      (= re (field (: z <named компл>) re))
-      (= im (field (: z <named компл>) im))
+      (= re (field (: z <named компл (readonly)>) re))
+      (= im (field (: z <named компл (readonly)>) im))
       (cleanup-exit (return))))
-  (fun make_by_ref ((var re f64)
-      (var im f64)
-      (var z <ref <named компл>>))
+  (fun make_by_ref ((var re <f64 (readonly)>)
+      (var im <f64 (readonly)>)
+      (var z <ref <named компл (writeonly)>>))
     (block
       (= z
         (: (struct ((re (+ (field (: (struct ((re re) (im 0))) <named компл>) re)
@@ -60,10 +60,10 @@
           <named компл>))
       (cleanup-exit (return))))
   (fun add_in_place ((var z <ref <named компл>>)
-      (var delta <named компл>))
+      (var delta <named компл (readonly)>))
     (block
       (= z
-        (: (struct ((re (+ (field z re) (field (: delta <named компл>) re)))
-              (im (+ (field z im) (field (: delta <named компл>) im)))))
+        (: (struct ((re (+ (field z re) (field (: delta <named компл (readonly)>) re)))
+              (im (+ (field z im) (field (: delta <named компл (readonly)>) im)))))
           <named компл>))
       (cleanup-exit (return)))))

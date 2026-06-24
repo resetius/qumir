@@ -20,18 +20,18 @@
         (call output_double (field (: b <named компл>) im) 0 -1)
         (call output_string "\n"))
       (cleanup-exit (return))))
-  (fun real_part ((var z <named компл>)) -> f64
+  (fun real_part ((var z <named компл (readonly)>)) -> f64
     (block
       (var знач f64)
-      (= знач (field (: z <named компл>) re))
+      (= знач (field (: z <named компл (readonly)>) re))
       (cleanup-exit (return знач))))
-  (fun imag_part ((var z <named компл>)) -> f64
+  (fun imag_part ((var z <named компл (readonly)>)) -> f64
     (block
       (var знач f64)
-      (= знач (field (: z <named компл>) im))
+      (= знач (field (: z <named компл (readonly)>) im))
       (cleanup-exit (return знач))))
-  (fun make_complex ((var re f64)
-      (var im f64)) -> <named компл>
+  (fun make_complex ((var re <f64 (readonly)>)
+      (var im <f64 (readonly)>)) -> <named компл>
     (block
       (var знач <named компл>)
       (= знач
@@ -61,22 +61,26 @@
                   im)))))
           <named компл>))
       (cleanup-exit (return (: знач <named компл>)))))
-  (fun add_twice ((var a <named компл>)
-      (var b <named компл>)) -> <named компл>
+  (fun add_twice ((var a <named компл (readonly)>)
+      (var b <named компл (readonly)>)) -> <named компл>
     (block
       (var знач <named компл>)
       (= знач
         (: (struct ((re (+ (field
-                  (: (struct ((re (+ (field (: a <named компл>) re) (field (: b <named компл>) re)))
-                        (im (+ (field (: a <named компл>) im) (field (: b <named компл>) im)))))
+                  (: (struct ((re (+ (field (: a <named компл (readonly)>) re)
+                          (field (: b <named компл (readonly)>) re)))
+                        (im (+ (field (: a <named компл (readonly)>) im)
+                          (field (: b <named компл (readonly)>) im)))))
                     <named компл>)
                   re)
-                (field (: b <named компл>) re)))
+                (field (: b <named компл (readonly)>) re)))
               (im (+ (field
-                  (: (struct ((re (+ (field (: a <named компл>) re) (field (: b <named компл>) re)))
-                        (im (+ (field (: a <named компл>) im) (field (: b <named компл>) im)))))
+                  (: (struct ((re (+ (field (: a <named компл (readonly)>) re)
+                          (field (: b <named компл (readonly)>) re)))
+                        (im (+ (field (: a <named компл (readonly)>) im)
+                          (field (: b <named компл (readonly)>) im)))))
                     <named компл>)
                   im)
-                (field (: b <named компл>) im)))))
+                (field (: b <named компл (readonly)>) im)))))
           <named компл>))
       (cleanup-exit (return (: знач <named компл>))))))

@@ -7,11 +7,11 @@
       (call ф i)
       (= знач i)
       (cleanup-exit (return знач))))
-  (fun ф ((var i <ref <i64 (mutable)>>))
+  (fun ф ((var i <ref <i64 (writeonly)>>))
     (block
       (call р i)
       (cleanup-exit (return))))
-  (fun р ((var i <ref <i64 (mutable)>>))
+  (fun р ((var i <ref <i64 (writeonly)>>))
     (block
       (= i 31337)
       (cleanup-exit (return)))))

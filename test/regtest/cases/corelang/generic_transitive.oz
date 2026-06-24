@@ -6,10 +6,10 @@
       (output (call wrap (: 5 i64)) "\n")
       (output (call wrap "hi") "\n")))
 
-  (fun identity ((var x <named K (template readable mutable)>)) -> <named K (template readable mutable)>
+  (fun identity ((var x <named K (template)>)) -> <named K (template)>
     (block
       (return x)))
 
-  (fun wrap ((var y <named T (template readable mutable)>)) -> <named T (template readable mutable)>
+  (fun wrap ((var y <named T (template)>)) -> <named T (template)>
     (block
       (return (call identity y)))))
