@@ -35,6 +35,9 @@ add_library(qumir
     parser/parser.cpp
     parser/type.h
     parser/type.cpp
+    frontend/source_module.h
+    frontend/source_module_loader.h
+    frontend/source_module_loader.cpp
     runner/runner_ir.h
     runner/runner_ir.cpp
     runner/runner_llvm.h
