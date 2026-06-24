@@ -129,8 +129,6 @@ public:
     GenericExternalModule() {
         auto placeholder = std::make_shared<TNamedType>("K", nullptr);
         placeholder->Template = true;
-        placeholder->Readable = true;
-        placeholder->Mutable = true;
 
         ExternalFunctions_ = {
             {

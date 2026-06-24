@@ -337,7 +337,7 @@ the call is rejected as ambiguous.
 Generic functions:
 
 ```core
-(fun identity ((var x <named K (template readable mutable)>)) -> <named K (template readable mutable)>
+(fun identity ((var x <named K (template)>)) -> <named K (template)>
   (block
     (return x)))
 ```
@@ -482,23 +482,24 @@ which is equivalent to a `TNamedType` without an underlying type attached.
 
 ## Type Attributes
 
-Types carry `Readable` and `Mutable` flags. The default type is readable and
-not mutable. Core syntax can spell attributes by wrapping a scalar or composite
-type in angle brackets:
+Types carry `Readable` and `Mutable` access flags. By default a type is both
+readable and mutable. Core syntax can spell non-default access modes by wrapping
+a scalar or composite type in angle brackets:
 
 ```core
-<i64 (mutable)>
-<ref string (mutable)>
-<named buffer <array i64 1> (mutable)>
+<i64 (readonly)>
+<ref string (writeonly)>
+<named buffer <array i64 1> (readonly)>
 ```
 
-The parser also accepts `(readable)` in the attribute list, but the printer
-omits default attributes. In canonical output, `readable` is not printed; only
-the current non-default case, `mutable` without `readable`, is emitted.
+The access modifiers `mutable`, `readonly`, and `writeonly` are mutually
+exclusive. `mutable` explicitly selects the default readable and mutable state,
+which the printer omits in canonical output. The fully immutable, unreadable
+state cannot be spelled — there is no attribute for it.
 
 `template` is an additional attribute accepted only on named types
-(`<named K (template)>`, `<named K (template readable mutable)>`). It marks
-the type as a generic placeholder rather than a real declared type — see
+(`<named K (template)>`). It does not change access flags and marks the type as
+a generic placeholder rather than a real declared type — see
 "Generic functions" above.
 
 ## Printer Conventions

@@ -20,6 +20,8 @@ using NQumir::NAst::TFunDecl;
 using NQumir::NAst::TFutureType;
 using NQumir::NAst::TIntegerType;
 using NQumir::NAst::TNamedType;
+using NQumir::NAst::TTypePtr;
+using NQumir::NAst::TVarStmt;
 using NQumir::NAst::TVoidType;
 using NQumir::NAst::TypeKey;
 
@@ -59,6 +61,23 @@ namespace {
         EXPECT_EQ(value.Type, TToken::Boolean); \
         EXPECT_EQ(value.Value.i64, (v)); \
     } while (0)
+
+TTypePtr ParseVarType(const std::string& type) {
+    std::istringstream input("(var value " + type + ")");
+    TTokenStream tokens(input);
+    TParser parser;
+    auto parsed = parser.Parse(tokens);
+    if (!parsed) {
+        ADD_FAILURE() << parsed.error().ToString();
+        return nullptr;
+    }
+    auto variable = TMaybeNode<TVarStmt>(*parsed).Cast();
+    if (!variable) {
+        ADD_FAILURE() << "expected variable declaration";
+        return nullptr;
+    }
+    return variable->Type;
+}
 
 } // namespace
 
@@ -165,6 +184,64 @@ TEST(CoreTypeTest, IntegerWidthsPrintAndParse) {
     auto parsed = parser.Parse(tokens);
     ASSERT_TRUE(parsed.has_value()) << parsed.error().ToString();
     EXPECT_EQ(PrintAst(*parsed, TPrintOptions{.Pretty = false}), "(var x u32)");
+}
+
+TEST(CoreTypeAttrs, ParseAndPrintCanonicalAccessModes) {
+    struct TCase {
+        std::string Source;
+        bool Readable;
+        bool Mutable;
+        std::string Canonical;
+    };
+    const std::vector<TCase> cases = {
+        {"i64", true, true, "i64"},
+        {"<i64 (mutable)>", true, true, "i64"},
+        {"<i64 (readonly)>", true, false, "<i64 (readonly)>"},
+        {"<i64 (writeonly)>", false, true, "<i64 (writeonly)>"},
+    };
+
+    for (const auto& testCase : cases) {
+        SCOPED_TRACE(testCase.Source);
+        auto type = ParseVarType(testCase.Source);
+        ASSERT_NE(type, nullptr);
+        EXPECT_EQ(type->Readable, testCase.Readable);
+        EXPECT_EQ(type->Mutable, testCase.Mutable);
+        EXPECT_EQ(PrintType(type), testCase.Canonical);
+
+        auto reparsed = ParseVarType(testCase.Canonical);
+        ASSERT_NE(reparsed, nullptr);
+        EXPECT_EQ(reparsed->Readable, testCase.Readable);
+        EXPECT_EQ(reparsed->Mutable, testCase.Mutable);
+    }
+}
+
+TEST(CoreTypeAttrs, TemplatePreservesDefaultAccess) {
+    auto type = ParseVarType("<named K (template)>");
+
+    ASSERT_NE(type, nullptr);
+    EXPECT_TRUE(type->Readable);
+    EXPECT_TRUE(type->Mutable);
+    EXPECT_TRUE(type->Template);
+    EXPECT_EQ(PrintType(type), "<named K (template)>");
+}
+
+TEST(CoreTypeAttrs, RejectsDuplicateAndConflictingAttributes) {
+    const std::vector<std::string> types = {
+        "<i64 (mutable mutable)>",
+        "<i64 (readonly mutable)>",
+        "<i64 (readonly writeonly)>",
+        "<i64 (readable)>",
+        "<named K (template template)>",
+        "<i64 (template)>",
+    };
+
+    for (const auto& type : types) {
+        SCOPED_TRACE(type);
+        std::istringstream input("(var value " + type + ")");
+        TTokenStream tokens(input);
+        TParser parser;
+        EXPECT_FALSE(parser.Parse(tokens).has_value());
+    }
 }
 
 TEST(CoreParserTest, NonDefaultIntegerLiteralKeepsTypeAnnotation) {

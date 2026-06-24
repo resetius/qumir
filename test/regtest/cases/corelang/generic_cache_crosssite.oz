@@ -16,6 +16,6 @@
     (block
       (return (call identity x))))
 
-  (fun identity ((var x <named K (template readable mutable)>)) -> <named K (template readable mutable)>
+  (fun identity ((var x <named K (template)>)) -> <named K (template)>
     (block
       (return x))))

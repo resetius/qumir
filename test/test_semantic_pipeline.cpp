@@ -210,6 +210,37 @@ TEST(KumirPipeline, ParserEmitsDistinctPowerOperator) {
     EXPECT_EQ(power->Operator.ToString(), "**");
 }
 
+TEST(KumirParser, ParameterAccessModesAreExplicit) {
+    NRegistry::SystemModule system;
+    TNameResolver resolver;
+    resolver.RegisterModule(&system);
+    ASSERT_TRUE(resolver.ImportModule(system.Name()).has_value());
+    std::istringstream input(
+        "алг test(арг цел a, рез цел b, аргрез цел c)\n"
+        "нач\n"
+        "кон\n");
+    TTokenStream tokens(input);
+    TParser parser;
+
+    auto parsed = parser.parse(tokens, &resolver);
+
+    ASSERT_TRUE(parsed.has_value()) << parsed.error().ToString();
+    auto root = TMaybeNode<TBlockExpr>(*parsed).Cast();
+    ASSERT_NE(root, nullptr);
+    auto function = TMaybeNode<TFunDecl>(root->Stmts.front()).Cast();
+    ASSERT_NE(function, nullptr);
+    ASSERT_EQ(function->Params.size(), 3u);
+    auto inputType = UnwrapReferenceType(function->Params[0]->Type);
+    auto outputType = UnwrapReferenceType(function->Params[1]->Type);
+    auto inputOutputType = UnwrapReferenceType(function->Params[2]->Type);
+    EXPECT_TRUE(inputType->Readable);
+    EXPECT_FALSE(inputType->Mutable);
+    EXPECT_FALSE(outputType->Readable);
+    EXPECT_TRUE(outputType->Mutable);
+    EXPECT_TRUE(inputOutputType->Readable);
+    EXPECT_TRUE(inputOutputType->Mutable);
+}
+
 TEST(KumirPipeline, ExpandsPowerWithoutReusingCoreOperator) {
     NRegistry::SystemModule system;
     TNameResolver resolver;

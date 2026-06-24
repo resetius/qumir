@@ -39,3 +39,9 @@
 
 # debug information files
 *.dwo
+
+.DS_Store
+.vscode
+Testing
+build
+node_modules

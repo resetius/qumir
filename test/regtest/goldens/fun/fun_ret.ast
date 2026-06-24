@@ -1,7 +1,7 @@
 (block
-  (fun функция ((var i1 <ref <i64 (mutable)>>)
-      (var j1 f64)
-      (var k1 bool))
+  (fun функция ((var i1 <ref <i64 (writeonly)>>)
+      (var j1 <f64 (readonly)>)
+      (var k1 <bool (readonly)>))
     (block
       (var i i64)
       (var j i64)

@@ -8,6 +8,6 @@
       (output (call identity (: 3.5 f64)) "\n")
       (output (call identity (: 7 i64)) "\n")))
 
-  (fun identity ((var x <named K (template readable mutable)>)) -> <named K (template readable mutable)>
+  (fun identity ((var x <named K (template)>)) -> <named K (template)>
     (block
       (return x))))

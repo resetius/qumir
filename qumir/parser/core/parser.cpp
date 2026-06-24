@@ -357,15 +357,17 @@ TAstTask ParseExpr(TParserContext& context) {
     co_return Error(token, "expected expression");
 }
 
-// Reads optional "(readable mutable template)" attrs and applies them to type.
+// Reads an optional "(...)" attribute list and applies the modifiers to type.
+// Access modifiers (mutable/readonly/writeonly) are mutually exclusive; the
+// independent 'template' marks a generic placeholder on named types.
 TExpectedTask<std::monostate, TError, TLocation> ParseTypeAttrs(TParserContext& context, TType& type) {
     auto token = context.Stream.Next();
     if (!IsOp(token, '(')) {
         context.Stream.Unget(token);
         co_return std::monostate{};
     }
-    type.Readable = false;
-    type.Mutable = false;
+    bool accessSeen = false;
+    bool templateSeen = false;
     while (true) {
         token = context.Stream.Next();
         if (IsOp(token, ')')) {
@@ -374,14 +376,21 @@ TExpectedTask<std::monostate, TError, TLocation> ParseTypeAttrs(TParserContext& 
         if (token.Type != TToken::Identifier) {
             co_return Error(token, "expected type attribute");
         }
-        if (token.Name == "readable") {
-            type.Readable = true;
-        } else if (token.Name == "mutable") {
-            type.Mutable = true;
+        if (token.Name == "mutable" || token.Name == "readonly" || token.Name == "writeonly") {
+            if (accessSeen) {
+                co_return Error(token, "duplicate or conflicting access type attribute: " + token.Name);
+            }
+            accessSeen = true;
+            type.Readable = token.Name != "writeonly";
+            type.Mutable = token.Name != "readonly";
         } else if (token.Name == "template") {
+            if (templateSeen) {
+                co_return Error(token, "duplicate type attribute: template");
+            }
             if (type.TypeName() != std::string_view(TNamedType::TypeId)) {
                 co_return Error(token, "'template' attribute is only allowed on named types");
             }
+            templateSeen = true;
             type.Template = true;
         } else {
             co_return Error(token, "unknown type attribute: " + token.Name);

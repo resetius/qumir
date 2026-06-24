@@ -97,7 +97,7 @@ bool TPrinter::IsNonDefaultIntegerLiteral(const TExprPtr& expr) const {
 }
 
 bool TPrinter::HasPrintableTypeAttrs(TTypePtr type) const {
-    return type && type->Mutable && !type->Readable;
+    return type && (type->Template || !type->Readable || !type->Mutable);
 }
 
 void TPrinter::PrintTypeAttrs(TTypePtr type) {
@@ -105,8 +105,23 @@ void TPrinter::PrintTypeAttrs(TTypePtr type) {
         return;
     }
     *Out << " (";
-    if (type->Mutable) {
-        *Out << "mutable";
+    bool hasPrevious = false;
+    auto printAttribute = [&](std::string_view attribute) {
+        if (hasPrevious) {
+            *Out << ' ';
+        }
+        *Out << attribute;
+        hasPrevious = true;
+    };
+    if (type->Template) {
+        printAttribute("template");
+    }
+    if (type->Readable && !type->Mutable) {
+        printAttribute("readonly");
+    } else if (!type->Readable && type->Mutable) {
+        printAttribute("writeonly");
+    } else if (!type->Readable && !type->Mutable) {
+        throw std::runtime_error("type cannot be both unreadable and immutable");
     }
     *Out << ')';
 }
@@ -161,14 +176,12 @@ void TPrinter::PrintType(TTypePtr type, int level) {
         *Out << '>';
     } else if (auto t = TMaybeType<TNamedType>(type)) {
         *Out << "<named ";
-        if (Options.ShortNamedTypes.contains(t.Cast()->Name)) {
-            PrintIdentifier(t.Cast()->Name);
-        } else {
-            PrintIdentifier(t.Cast()->Name);
+        PrintIdentifier(t.Cast()->Name);
+        if (!Options.ShortNamedTypes.contains(t.Cast()->Name) && t.Cast()->UnderlyingType) {
             *Out << ' ';
             PrintType(t.Cast()->UnderlyingType, level);
-            PrintTypeAttrs(type);
         }
+        PrintTypeAttrs(type);
         *Out << '>';
     } else if (auto t = TMaybeType<TStructType>(type)) {
         PrintStructType(t.Cast(), level);
