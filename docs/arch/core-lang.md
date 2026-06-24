@@ -157,6 +157,13 @@ before `use` and `type` declarations.
   ...)
 ```
 
+Core-lang does not define an I/O runtime and does not import anything
+implicitly: a pure core program imports only what it spells with `use`. The
+runtime modules (such as `System`) are provided by the host. The `qumiri` and
+`qumirc` core modes import `System` as a host prelude so that forms like
+`output` resolve; module aliases like the legacy Kumir `Файлы` exist only in
+the Kumir frontend.
+
 **`type`** declares a named type alias. It must appear after `use` statements.
 Declaring a type whose name is already imported from a module is an error.
 

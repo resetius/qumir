@@ -47,15 +47,24 @@ TIRRunner::TIRRunner(
 
     for (const auto& mod : RegisteredModules) {
         Resolver.RegisterModule(mod.get());
-        (void)Resolver.ImportModule(mod->Name());
     }
     for (const auto& mod : AvailableModules) {
         Resolver.RegisterModule(mod.get());
     }
 
     if (!Options.CoreInput) {
+        // Kumir frontend prelude: standard runtime modules + legacy aliases.
+        for (const auto& mod : RegisteredModules) {
+            (void)Resolver.ImportModule(mod->Name());
+        }
         for (const auto& [alias, canonical] : NSemantics::NKumir::ModuleAliases()) {
             Resolver.RegisterModuleAlias(alias, canonical);
+        }
+    } else {
+        // Core frontend: import only the host-provided prelude. Pure core-lang
+        // imports nothing.
+        for (const auto& name : Options.Prelude) {
+            (void)Resolver.ImportModule(name);
         }
     }
 }

@@ -121,6 +121,12 @@ int main(int argc, char ** argv) {
         in = &infile;
     }
 
+    // qumiri is a host: it provides the System runtime as the core prelude.
+    std::vector<std::string> corePrelude;
+    if (coreInput) {
+        corePrelude = {"System"};
+    }
+
     TIRRunner irRunner(
         std::cout,
         std::cin,
@@ -130,7 +136,8 @@ int main(int argc, char ** argv) {
             .PrintIr = printIr,
             .PrintByteCode = printByteCode,
             .CoreInput = coreInput,
-            .OptLevel = optLevel
+            .OptLevel = optLevel,
+            .Prelude = corePrelude
         }
     );
 
@@ -141,7 +148,8 @@ int main(int argc, char ** argv) {
         .PrintLlvm = printLlvm,
         .PrintAsm = printAsm,
         .CoreInput = coreInput,
-        .OptLevel = optLevel
+        .OptLevel = optLevel,
+        .Prelude = corePrelude
     });
 
     long long lastEvalUs = 0;

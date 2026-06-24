@@ -61,6 +61,34 @@ NTransform::TPipelineOptions PipelineOptions(bool coreInput) {
     return NTransform::TPipelineOptions{.Extensions = std::move(extensions)};
 }
 
+// Registers the standard module set into the resolver and keeps the instances
+// alive in the returned vector. qumirc is a host: it provides the System
+// runtime as the prelude. For the Kumir frontend it also registers the legacy
+// module aliases (e.g. "Файлы" -> "System").
+std::vector<std::shared_ptr<NRegistry::IModule>> SetupModules(
+    NSemantics::TNameResolver& r, bool coreInput) {
+    std::vector<std::shared_ptr<NRegistry::IModule>> modules = {
+        std::make_shared<NRegistry::SystemModule>(),
+        std::make_shared<NRegistry::TurtleModule>(),
+        std::make_shared<NRegistry::RobotModule>(),
+        std::make_shared<NRegistry::DrawerModule>(),
+        std::make_shared<NRegistry::PainterModule>(),
+        std::make_shared<NRegistry::ComplexModule>(),
+        std::make_shared<NRegistry::ColorsModule>(),
+        std::make_shared<NRegistry::KeyboardModule>(),
+    };
+    for (const auto& mod : modules) {
+        r.RegisterModule(mod.get());
+    }
+    (void)r.ImportModule("System");
+    if (!coreInput) {
+        for (const auto& [alias, canonical] : NSemantics::NKumir::ModuleAliases()) {
+            r.RegisterModuleAlias(alias, canonical);
+        }
+    }
+    return modules;
+}
+
 std::shared_ptr<std::istream> OpenInputFile(const std::string& filename) {
     if (filename == "-") {
         return std::make_shared<std::istream>(std::cin.rdbuf());
@@ -107,23 +135,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     }
 
     NSemantics::TNameResolver r;
-    NRegistry::SystemModule sys;
-    r.RegisterModule(&sys);
-    r.ImportModule(sys.Name());
-    NRegistry::TurtleModule turtle;
-    r.RegisterModule(&turtle);
-    NRegistry::RobotModule robot;
-    r.RegisterModule(&robot);
-    NRegistry::DrawerModule drawer;
-    r.RegisterModule(&drawer);
-    NRegistry::PainterModule painter;
-    r.RegisterModule(&painter);
-    NRegistry::ComplexModule complex;
-    r.RegisterModule(&complex);
-    NRegistry::ColorsModule colors;
-    r.RegisterModule(&colors);
-    NRegistry::KeyboardModule keyboard;
-    r.RegisterModule(&keyboard);
+    auto modules = SetupModules(r, coreInput);
 
     auto expected = ParseInput(*in, r, coreInput);
     if (!expected.has_value()) {
@@ -161,23 +173,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     }
 
     NSemantics::TNameResolver r;
-    NRegistry::SystemModule sys;
-    r.RegisterModule(&sys);
-    r.ImportModule(sys.Name());
-    NRegistry::TurtleModule turtle;
-    r.RegisterModule(&turtle);
-    NRegistry::RobotModule robot;
-    r.RegisterModule(&robot);
-    NRegistry::DrawerModule drawer;
-    r.RegisterModule(&drawer);
-    NRegistry::PainterModule painter;
-    r.RegisterModule(&painter);
-    NRegistry::ComplexModule complex;
-    r.RegisterModule(&complex);
-    NRegistry::ColorsModule colors;
-    r.RegisterModule(&colors);
-    NRegistry::KeyboardModule keyboard;
-    r.RegisterModule(&keyboard);
+    auto modules = SetupModules(r, coreInput);
 
     auto expected = ParseInput(*in, r, coreInput);
     if (!expected.has_value()) {
@@ -227,23 +223,7 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     }
 
     NSemantics::TNameResolver r;
-    NRegistry::SystemModule sys;
-    r.RegisterModule(&sys);
-    r.ImportModule(sys.Name());
-    NRegistry::TurtleModule turtle;
-    r.RegisterModule(&turtle);
-    NRegistry::RobotModule robot;
-    r.RegisterModule(&robot);
-    NRegistry::DrawerModule drawer;
-    r.RegisterModule(&drawer);
-    NRegistry::PainterModule painter;
-    r.RegisterModule(&painter);
-    NRegistry::ComplexModule complex;
-    r.RegisterModule(&complex);
-    NRegistry::ColorsModule colors;
-    r.RegisterModule(&colors);
-    NRegistry::KeyboardModule keyboard;
-    r.RegisterModule(&keyboard);
+    auto modules = SetupModules(r, coreInput);
 
     auto expected = ParseInput(*in, r, coreInput);
     if (!expected.has_value()) {
@@ -408,23 +388,7 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     }
 
     NSemantics::TNameResolver r;
-    NRegistry::SystemModule sys;
-    r.RegisterModule(&sys);
-    r.ImportModule(sys.Name());
-    NRegistry::TurtleModule turtle;
-    r.RegisterModule(&turtle);
-    NRegistry::RobotModule robot;
-    r.RegisterModule(&robot);
-    NRegistry::DrawerModule drawer;
-    r.RegisterModule(&drawer);
-    NRegistry::PainterModule painter;
-    r.RegisterModule(&painter);
-    NRegistry::ComplexModule complex;
-    r.RegisterModule(&complex);
-    NRegistry::ColorsModule colors;
-    r.RegisterModule(&colors);
-    NRegistry::KeyboardModule keyboard;
-    r.RegisterModule(&keyboard);
+    auto modules = SetupModules(r, coreInput);
 
     auto expected = ParseInput(*in, r, coreInput);
     if (!expected.has_value()) {

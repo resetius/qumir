@@ -29,6 +29,10 @@ struct TLLVMRunnerOptions {
     bool ResolveCoreInput = true;
     bool AllowOverloads = false; // enable function overloads / generics (pragma language overloads)
     int OptLevel = 0; // 0-3
+    // Core frontend host prelude: modules imported on behalf of the host.
+    // Empty means pure core-lang imports nothing. Ignored for the Kumir
+    // frontend, which imports its own prelude.
+    std::vector<std::string> Prelude;
 };
 
 class TLLVMRunner {

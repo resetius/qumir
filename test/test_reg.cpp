@@ -301,12 +301,20 @@ std::pair<std::string, std::string> RunExec(
     }
     NRuntime::SetInputStream(inStream);
 
+    // The test harness is a host: it provides the System runtime as the core
+    // prelude. Kumir fixtures import their prelude through the frontend.
+    std::vector<std::string> corePrelude;
+    if (coreInput) {
+        corePrelude = {"System"};
+    }
+
     std::expected<std::optional<std::string>, TError> res;
     if (backend == EExecBackend::IR) {
         TIRRunner runner(std::cout, std::cin, {
             .CoreInput = coreInput,
             .ResolveCoreInput = coreInput,
             .OptLevel = optLevel,
+            .Prelude = corePrelude,
         });
         res = runner.Run(input);
     } else {
@@ -314,6 +322,7 @@ std::pair<std::string, std::string> RunExec(
             .CoreInput = coreInput,
             .ResolveCoreInput = coreInput,
             .OptLevel = optLevel,
+            .Prelude = corePrelude,
         });
         res = runner.Run(input);
     }
@@ -450,6 +459,7 @@ TEST_P(RegExec, CoreExec) {
     TIRRunner runner(std::cout, std::cin, {
         .CoreInput = true,
         .ResolveCoreInput = false,
+        .Prelude = {"System"},
     });
     auto res = runner.Run(coreInput);
     auto got = ResultString(res);
@@ -525,6 +535,34 @@ INSTANTIATE_TEST_SUITE_P(
     RegCoreLang,
     ::testing::ValuesIn(Collect(CasesDir / "corelang", ".oz")),
     [](const ::testing::TestParamInfo<ProgCase>& i){ return "CORE_" + NameFromPath(i.param.base); });
+
+// D3: pure core-lang imports nothing. A core program that uses runtime symbols
+// (here `output`) fails without a host prelude and succeeds once the host
+// provides System.
+TEST(CorePrelude, PureCoreImportsNothing) {
+    const std::string program =
+        "(block (fun <main> () (block (output (: 42 i64) \"\\n\"))))";
+    std::ostringstream sink;
+    NRuntime::SetOutputStream(&sink);
+
+    {
+        std::istringstream in(program);
+        TIRRunner runner(std::cout, std::cin, {
+            .CoreInput = true,
+            .ResolveCoreInput = true,
+        });
+        EXPECT_FALSE(runner.Run(in).has_value());
+    }
+    {
+        std::istringstream in(program);
+        TIRRunner runner(std::cout, std::cin, {
+            .CoreInput = true,
+            .ResolveCoreInput = true,
+            .Prelude = {"System"},
+        });
+        EXPECT_TRUE(runner.Run(in).has_value());
+    }
+}
 
 int main(int argc, char** argv) {
     if (argc > 1) {
