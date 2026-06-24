@@ -1,5 +1,7 @@
 #include "compose.h"
 
+#include <qumir/frontend/source_module_loader.h>
+
 #include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
@@ -178,6 +180,34 @@ std::expected<TComposeResult, TError> Compose(
         std::make_shared<TBlockExpr>(mainAst->Location, std::move(stmts)),
         std::move(*pragmas),
     };
+}
+
+std::expected<TComposeResult, TError> LoadAndCompose(
+    const TExprPtr& mainAst,
+    const std::vector<TPragma>& corePragmas,
+    const std::vector<std::string>& searchPaths)
+{
+    TSourceModuleLoader loader;
+    for (const auto& dir : searchPaths) {
+        loader.AddSearchPath(dir);
+    }
+
+    if (auto block = TMaybeNode<TBlockExpr>(mainAst)) {
+        for (const auto& stmt : block.Cast()->Stmts) {
+            auto use = TMaybeNode<TUseExpr>(stmt);
+            if (use && loader.Resolvable(use.Cast()->ModuleName)) {
+                if (auto loaded = loader.Load(use.Cast()->ModuleName); !loaded) {
+                    return std::unexpected(loaded.error());
+                }
+            }
+        }
+    }
+
+    auto modules = loader.TopologicalOrder();
+    if (modules.empty()) {
+        return TComposeResult{mainAst, corePragmas};
+    }
+    return Compose(modules, mainAst, corePragmas, "<main>");
 }
 
 } // namespace NFrontend

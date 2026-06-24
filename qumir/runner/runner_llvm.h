@@ -33,6 +33,8 @@ struct TLLVMRunnerOptions {
     // Empty means pure core-lang imports nothing. Ignored for the Kumir
     // frontend, which imports its own prelude.
     std::vector<std::string> Prelude;
+    // Directories searched for `.oz` source modules referenced by `use`.
+    std::vector<std::string> ModuleSearchPaths;
 };
 
 class TLLVMRunner {

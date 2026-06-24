@@ -15,6 +15,7 @@
 #include <qumir/modules/colors/colors.h>
 #include <qumir/modules/keyboard/keyboard.h>
 #include <qumir/ir/passes/transforms/pipeline.h>
+#include <qumir/frontend/compose.h>
 
 #include <algorithm>
 #include <cstring>
@@ -87,12 +88,13 @@ void TLLVMRunner::RegisterModule(std::shared_ptr<NRegistry::IModule> module, boo
 std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream& input) {
     // Parse source into AST
     std::expected<NAst::TExprPtr, TError> parsed;
+    std::vector<NAst::TPragma> corePragmas;
     if (Options.CoreInput) {
         NAst::NCore::TTokenStream ts(input);
         NAst::NCore::TParser p;
         parsed = p.Parse(ts);
         if (parsed) {
-            Resolver.ApplyPragmas(p.Pragmas);
+            corePragmas = std::move(p.Pragmas);
         }
     } else {
         NAst::TTokenStream ts(input);
@@ -103,6 +105,15 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
         return std::unexpected(parsed.error());
     }
     auto ast = std::move(parsed.value());
+
+    if (Options.CoreInput) {
+        auto composed = NFrontend::LoadAndCompose(ast, corePragmas, Options.ModuleSearchPaths);
+        if (!composed) {
+            return std::unexpected(composed.error());
+        }
+        ast = std::move(composed->Ast);
+        Resolver.ApplyPragmas(composed->Pragmas);
+    }
 
     // Name resolution
     auto scope = Resolver.GetOrCreateRootScope();

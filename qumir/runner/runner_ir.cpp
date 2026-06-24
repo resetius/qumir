@@ -70,40 +70,6 @@ TIRRunner::TIRRunner(
     }
 }
 
-std::optional<TError> TIRRunner::LoadAndComposeModules(
-    TExprPtr& ast, const std::vector<NAst::TPragma>& corePragmas)
-{
-    NFrontend::TSourceModuleLoader loader;
-    for (const auto& dir : Options.ModuleSearchPaths) {
-        loader.AddSearchPath(dir);
-    }
-
-    if (auto block = TMaybeNode<TBlockExpr>(ast)) {
-        for (const auto& stmt : block.Cast()->Stmts) {
-            auto use = TMaybeNode<TUseExpr>(stmt);
-            if (use && loader.Resolvable(use.Cast()->ModuleName)) {
-                if (auto loaded = loader.Load(use.Cast()->ModuleName); !loaded) {
-                    return loaded.error();
-                }
-            }
-        }
-    }
-
-    auto modules = loader.TopologicalOrder();
-    if (modules.empty()) {
-        Resolver.ApplyPragmas(corePragmas);
-        return std::nullopt;
-    }
-
-    auto composed = NFrontend::Compose(modules, ast, corePragmas, "<main>");
-    if (!composed) {
-        return composed.error();
-    }
-    ast = std::move(composed->Ast);
-    Resolver.ApplyPragmas(composed->Pragmas);
-    return std::nullopt;
-}
-
 std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& input) {
     std::expected<TExprPtr, TError> parsed;
     std::vector<NAst::TPragma> corePragmas;
@@ -128,9 +94,12 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
     auto ast = std::move(parsed.value());
 
     if (Options.CoreInput) {
-        if (auto err = LoadAndComposeModules(ast, corePragmas)) {
-            return std::unexpected(*err);
+        auto composed = NFrontend::LoadAndCompose(ast, corePragmas, Options.ModuleSearchPaths);
+        if (!composed) {
+            return std::unexpected(composed.error());
         }
+        ast = std::move(composed->Ast);
+        Resolver.ApplyPragmas(composed->Pragmas);
     }
 
     auto scope = Resolver.GetOrCreateRootScope();

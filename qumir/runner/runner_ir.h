@@ -47,12 +47,6 @@ public:
     std::expected<std::optional<std::string>, TError> Run(std::istream& input);
 
 private:
-    // Loads `.oz` source modules referenced by `use` in the core program,
-    // composes one combined AST and applies the merged pragmas. No-op when no
-    // `use` resolves to a source module. Replaces `ast` with the combined unit.
-    std::optional<TError> LoadAndComposeModules(
-        NAst::TExprPtr& ast, const std::vector<NAst::TPragma>& corePragmas);
-
     NIR::TModule Module;
     NIR::TRuntime Runtime;
     NIR::TBuilder Builder;

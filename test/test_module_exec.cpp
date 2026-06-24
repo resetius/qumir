@@ -1,17 +1,26 @@
 #include <gtest/gtest.h>
 
 #include <qumir/runner/runner_ir.h>
+#include <qumir/runner/runner_llvm.h>
 #include <qumir/runtime/io.h>
 
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 using namespace NQumir;
 namespace fs = std::filesystem;
 
 namespace {
+
+enum class EBackend { IR, LLVM };
+
+struct TBackendCase {
+    EBackend Backend;
+    int OptLevel;
+};
 
 class ModuleExecTest : public ::testing::Test {
 protected:
@@ -29,21 +38,50 @@ protected:
         std::ofstream out(Dir / (name + ".oz"));
         out << content;
     }
-    std::string Run(const std::string& main) {
+
+    std::string Run(const std::string& main, TBackendCase bc) {
         std::ostringstream out;
         NRuntime::SetOutputStream(&out);
-        std::istringstream in;
-        TIRRunner runner(out, in, TIRRunnerOptions{
-            .CoreInput = true,
-            .ResolveCoreInput = true,
-            .Prelude = {"System"},
-            .ModuleSearchPaths = {Dir.string()},
-        });
+        NRuntime::SetInputStream(nullptr);
         std::istringstream src(main);
-        auto res = runner.Run(src);
+        std::expected<std::optional<std::string>, TError> res;
+        if (bc.Backend == EBackend::IR) {
+            std::istringstream in;
+            TIRRunner runner(out, in, TIRRunnerOptions{
+                .CoreInput = true,
+                .ResolveCoreInput = true,
+                .OptLevel = bc.OptLevel,
+                .Prelude = {"System"},
+                .ModuleSearchPaths = {Dir.string()},
+            });
+            res = runner.Run(src);
+        } else {
+            TLLVMRunner runner(TLLVMRunnerOptions{
+                .CoreInput = true,
+                .ResolveCoreInput = true,
+                .OptLevel = bc.OptLevel,
+                .Prelude = {"System"},
+                .ModuleSearchPaths = {Dir.string()},
+            });
+            res = runner.Run(src);
+        }
         EXPECT_TRUE(res) << (res ? "" : res.error().ToString());
         return out.str();
     }
+
+    // Runs across VM, LLVM JIT and optimization levels; all must agree.
+    void ExpectAll(const std::string& main, const std::string& expected) {
+        static const std::vector<TBackendCase> cases = {
+            {EBackend::IR, 0}, {EBackend::IR, 1},
+            {EBackend::LLVM, 0}, {EBackend::LLVM, 1}, {EBackend::LLVM, 2}, {EBackend::LLVM, 3},
+        };
+        for (const auto& bc : cases) {
+            EXPECT_EQ(Run(main, bc), expected)
+                << "backend=" << (bc.Backend == EBackend::IR ? "IR" : "LLVM")
+                << " opt=" << bc.OptLevel;
+        }
+    }
+
     fs::path Dir;
 };
 
@@ -51,10 +89,9 @@ TEST_F(ModuleExecTest, MainCallsImportedFunction) {
     WriteModule("mod",
         "(block (fun add ((var a i64) (var b i64)) -> i64 (block (return (+ a b)))))");
 
-    auto output = Run(
-        "(block (use mod) (fun <main> () (block (output (call add (: 2 i64) (: 3 i64)) \"\\n\"))))");
-
-    EXPECT_EQ(output, "5\n");
+    ExpectAll(
+        "(block (use mod) (fun <main> () (block (output (call add (: 2 i64) (: 3 i64)) \"\\n\"))))",
+        "5\n");
 }
 
 TEST_F(ModuleExecTest, TransitiveImport) {
@@ -62,10 +99,20 @@ TEST_F(ModuleExecTest, TransitiveImport) {
     WriteModule("mid",
         "(block (use low) (fun bump () -> i64 (block (return (+ (call base) (: 2 i64))))))");
 
-    auto output = Run(
-        "(block (use mid) (fun <main> () (block (output (call bump) \"\\n\"))))");
+    ExpectAll(
+        "(block (use mid) (fun <main> () (block (output (call bump) \"\\n\"))))",
+        "42\n");
+}
 
-    EXPECT_EQ(output, "42\n");
+TEST_F(ModuleExecTest, GenericFunctionInModule) {
+    WriteModule("gen",
+        "(block (pragma language overloads)"
+        " (fun id ((var x <named T (template)>)) -> <named T (template)> (block (return x))))");
+
+    ExpectAll(
+        "(block (pragma language overloads) (use gen)"
+        " (fun <main> () (block (output (call id (: 7 i64)) \"\\n\"))))",
+        "7\n");
 }
 
 } // namespace

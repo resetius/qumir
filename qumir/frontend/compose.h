@@ -31,5 +31,14 @@ std::expected<TComposeResult, TError> Compose(
     const std::vector<NAst::TPragma>& mainPragmas,
     const std::string& mainLabel);
 
+// Frontend entry shared by runners: loads the `.oz` source modules referenced
+// by `use` in the core program and composes them with the main AST. When no
+// `use` resolves to a source module, returns the main AST unchanged with
+// `corePragmas`.
+std::expected<TComposeResult, TError> LoadAndCompose(
+    const NAst::TExprPtr& mainAst,
+    const std::vector<NAst::TPragma>& corePragmas,
+    const std::vector<std::string>& searchPaths);
+
 } // namespace NFrontend
 } // namespace NQumir
