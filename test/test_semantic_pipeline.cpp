@@ -241,6 +241,30 @@ TEST(KumirParser, ParameterAccessModesAreExplicit) {
     EXPECT_TRUE(inputOutputType->Mutable);
 }
 
+TEST(ModuleAliases, ResolveImportAndListThroughAlias) {
+    NRegistry::SystemModule system;
+    TNameResolver resolver;
+    resolver.RegisterModule(&system);
+
+    // Without an alias the legacy Kumir name is unknown.
+    EXPECT_FALSE(resolver.ImportModule("Файлы").has_value());
+
+    resolver.RegisterModuleAlias("Файлы", system.Name());
+    EXPECT_TRUE(resolver.ImportModule("Файлы").has_value());
+    EXPECT_NE(resolver.ModulesList().find("Файлы"), std::string::npos);
+}
+
+TEST(ModuleAliases, RejectsAliasToUnregisteredModule) {
+    TNameResolver resolver;
+    EXPECT_THROW(resolver.RegisterModuleAlias("Файлы", "System"), std::runtime_error);
+}
+
+TEST(ModuleAliases, KumirFrontendAliasesAreSystem) {
+    auto aliases = NKumir::ModuleAliases();
+    EXPECT_EQ(aliases.at("Файлы"), "System");
+    EXPECT_EQ(aliases.at("Строки"), "System");
+}
+
 TEST(KumirPipeline, ExpandsPowerWithoutReusingCoreOperator) {
     NRegistry::SystemModule system;
     TNameResolver resolver;

@@ -187,6 +187,10 @@ public:
 
     // just adds module to dict of modules
     void RegisterModule(NRegistry::IModule* module);
+    // Registers a frontend module alias (e.g. Kumir "Файлы" -> "System"). The
+    // canonical module must already be registered. Imports and the module list
+    // resolve the alias transparently.
+    void RegisterModuleAlias(const std::string& alias, const std::string& canonical);
     // IModuleManager: imports module symbols; returns module pointer on success,
     // error message on failure (unknown module or name conflict between modules).
     std::expected<bool, std::string> ImportModule(const std::string& name) override;
@@ -271,6 +275,7 @@ private:
     std::vector<TScopePtr> Scopes;
 
     std::unordered_map<std::string, NRegistry::IModule*> Modules;
+    std::unordered_map<std::string, std::string> ModuleAliases; // frontend alias -> canonical module name
     std::unordered_set<std::string> ImportedModules;        // modules already imported (for idempotency)
     std::unordered_map<std::string, std::string> ImportedModuleSymbols; // symbol/type name -> source module
     std::unordered_map<std::string, NAst::TTypePtr> ImportedTypes; // type name -> resolved type

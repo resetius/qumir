@@ -10,13 +10,6 @@ namespace NSemantics {
 
 using namespace NAst;
 
-namespace {
-    std::unordered_set<std::string> implicitImports = {
-        "Файлы",
-        "Строки",
-    };
-};
-
 TNameResolver::TNameResolver(const TNameResolverOptions& options)
     : Options(options)
 { }
@@ -677,6 +670,17 @@ void TNameResolver::RegisterModule(NRegistry::IModule* module) {
     }
 }
 
+void TNameResolver::RegisterModuleAlias(const std::string& alias, const std::string& canonical) {
+    if (!Modules.count(canonical)) {
+        throw std::runtime_error(
+            "Cannot register alias '" + alias + "': unknown module '" + canonical + "'");
+    }
+    auto [it, inserted] = ModuleAliases.insert({alias, canonical});
+    if (!inserted && it->second != canonical) {
+        throw std::runtime_error("Conflicting alias '" + alias + "'");
+    }
+}
+
 std::string TNameResolver::ModulesList() const
 {
     std::ostringstream oss;
@@ -686,8 +690,8 @@ std::string TNameResolver::ModulesList() const
         }
         oss << name << ",";
     }
-    for (const auto& name : implicitImports) {
-        oss << name << ",";
+    for (const auto& [alias, canonical] : ModuleAliases) {
+        oss << alias << ",";
     }
     return oss.str().substr(0, oss.str().size() - 1); // remove last comma
 }
@@ -713,13 +717,15 @@ std::vector<NRegistry::TLiteralSuffix> TNameResolver::GetAllImportedLiteralSuffi
     return result;
 }
 
-std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& name) {
-    if (implicitImports.count(name) || ImportedModules.count(name)) {
+std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& aliasOrName) {
+    auto aliasIt = ModuleAliases.find(aliasOrName);
+    const std::string& name = aliasIt != ModuleAliases.end() ? aliasIt->second : aliasOrName;
+    if (ImportedModules.count(name)) {
         return false;
     }
     auto it = Modules.find(name);
     if (it == Modules.end()) {
-        return std::unexpected("Неизвестный модуль: " + name + ", доступные модули: " + ModulesList());
+        return std::unexpected("Неизвестный модуль: " + aliasOrName + ", доступные модули: " + ModulesList());
     }
     auto* module = it->second;
 

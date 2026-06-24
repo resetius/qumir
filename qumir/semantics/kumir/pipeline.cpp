@@ -45,6 +45,13 @@ NTransform::TPipelineExtensions PipelineExtensions() {
     return extensions;
 }
 
+std::unordered_map<std::string, std::string> ModuleAliases() {
+    return {
+        {"Файлы", "System"},
+        {"Строки", "System"},
+    };
+}
+
 } // namespace NKumir
 } // namespace NSemantics
 } // namespace NQumir

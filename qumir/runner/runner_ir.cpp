@@ -52,6 +52,12 @@ TIRRunner::TIRRunner(
     for (const auto& mod : AvailableModules) {
         Resolver.RegisterModule(mod.get());
     }
+
+    if (!Options.CoreInput) {
+        for (const auto& [alias, canonical] : NSemantics::NKumir::ModuleAliases()) {
+            Resolver.RegisterModuleAlias(alias, canonical);
+        }
+    }
 }
 
 std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& input) {

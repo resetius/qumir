@@ -52,6 +52,12 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     for (const auto& mod : AvailableModules) {
         Resolver.RegisterModule(mod.get());
     }
+
+    if (!Options.CoreInput) {
+        for (const auto& [alias, canonical] : NSemantics::NKumir::ModuleAliases()) {
+            Resolver.RegisterModuleAlias(alias, canonical);
+        }
+    }
 }
 
 void TLLVMRunner::RegisterModule(std::shared_ptr<NRegistry::IModule> module, bool import) {
