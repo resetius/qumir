@@ -52,8 +52,13 @@ SystemModule::SystemModule() {
     auto voidType = std::make_shared<NAst::TVoidType>();
     auto stringType = std::make_shared<NAst::TStringType>();
     auto voidPtrType = std::make_shared<NAst::TPointerType>(voidType);
-    auto fileType = std::make_shared<NAst::TFileType>();
+    auto fileUnderlying = std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::I32);
+    auto fileType = std::make_shared<NAst::TNamedType>("file", fileUnderlying);
     auto symbolType = std::make_shared<NAst::TSymbolType>();
+
+    ExternalTypes_ = {
+        { .Name = "file", .Type = fileUnderlying },
+    };
 
     auto ident = [](const std::string& name) {
         return std::make_shared<NAst::TIdentExpr>(TLocation{}, name);
@@ -777,6 +782,8 @@ SystemModule::SystemModule() {
                 auto ret = NRuntime::file_eof(static_cast<int32_t>(args[0]));
                 return static_cast<uint64_t>(ret);
             },
+            .ArgTypes = { fileType },
+            .ReturnType = boolType,
         },
         {
             .Name = "__ensure",

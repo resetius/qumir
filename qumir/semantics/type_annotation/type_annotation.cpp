@@ -1081,9 +1081,6 @@ TTypePtr CloneTypeShape(const TTypePtr& shape) {
     if (TMaybeType<TSymbolType>(shape)) {
         return std::make_shared<TSymbolType>();
     }
-    if (TMaybeType<TFileType>(shape)) {
-        return std::make_shared<TFileType>();
-    }
     if (TMaybeType<TVoidType>(shape)) {
         return std::make_shared<TVoidType>();
     }

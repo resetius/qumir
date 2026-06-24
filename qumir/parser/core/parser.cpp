@@ -415,8 +415,6 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
             scalar = std::make_shared<TStringType>();
         } else if (head == "char") {
             scalar = std::make_shared<TSymbolType>();
-        } else if (head == "file") {
-            scalar = std::make_shared<TFileType>();
         } else if (head == "void") {
             scalar = std::make_shared<TVoidType>();
         }
@@ -512,7 +510,6 @@ TTypeTask ParseType(TParserContext& context) {
         if (token.Name == "bool") co_return std::make_shared<TBoolType>();
         if (token.Name == "string") co_return std::make_shared<TStringType>();
         if (token.Name == "char") co_return std::make_shared<TSymbolType>();
-        if (token.Name == "file") co_return std::make_shared<TFileType>();
         if (token.Name == "void") co_return std::make_shared<TVoidType>();
         co_return std::make_shared<TNamedType>(token.Name, nullptr);
     }

@@ -149,8 +149,6 @@ void TPrinter::PrintType(TTypePtr type, int level) {
         PrintScalarType("string", type);
     } else if (TMaybeType<TSymbolType>(type)) {
         PrintScalarType("char", type);
-    } else if (TMaybeType<TFileType>(type)) {
-        PrintScalarType("file", type);
     } else if (TMaybeType<TVoidType>(type)) {
         PrintScalarType("void", type);
     } else if (auto t = TMaybeType<TFunctionType>(type)) {

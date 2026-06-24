@@ -141,7 +141,6 @@ Types:
       bool      -> TBoolType, TypeId = "Bool"
       string    -> TStringType, TypeId = "String"
       char      -> TSymbolType, TypeId = "Char"
-      file      -> TFileType, TypeId = "File"
       void      -> TVoidType, TypeId = "Void"
 
   Composite:
@@ -173,7 +172,6 @@ Types:
       bool
       string
       char
-      file
       void
       <fun bool (i64 f64) () body>
       <array i64 1>

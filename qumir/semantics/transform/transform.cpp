@@ -22,6 +22,11 @@ namespace NTransform {
 
 namespace {
 
+bool IsFileType(const NAst::TTypePtr& type) {
+    auto named = NAst::TMaybeType<NAst::TNamedType>(type);
+    return named && named.Cast()->Name == "file";
+}
+
 std::optional<int> ScalarSizeInBytes(const NAst::TTypePtr& inputType) {
     auto type = NAst::UnwrapNamedType(NAst::UnwrapReferenceType(inputType));
     if (auto integer = NAst::TMaybeType<NAst::TIntegerType>(type)) {
@@ -224,7 +229,7 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
                 int i = 0;
                 const auto& arg0 = output->Args[0];
                 bool hasFileArg = false;
-                if (NAst::TMaybeType<NAst::TFileType>(arg0.Expr->Type)) {
+                if (IsFileType(arg0.Expr->Type)) {
                     // first argument is a file, set output file
                     auto call = std::make_shared<NAst::TCallExpr>(
                         output->Location,
@@ -364,7 +369,7 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
                 int i = 0;
                 const auto& arg0 = input->Args[0];
                 bool hasFileArg = false;
-                if (NAst::TMaybeType<NAst::TFileType>(arg0->Type)) {
+                if (IsFileType(arg0->Type)) {
                     auto call = std::make_shared<NAst::TCallExpr>(
                         input->Location,
                         std::make_shared<NAst::TIdentExpr>(input->Location, "input_set_file"),
