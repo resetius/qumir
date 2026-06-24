@@ -52,4 +52,15 @@ if(NODE_EXECUTABLE)
             --xml ${CMAKE_BINARY_DIR}/test/test_js_core_lifetime.xml
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
+    add_test(
+        NAME test_exec_js_core_module
+        COMMAND ${NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_exec.js
+            --root ${CMAKE_SOURCE_DIR}/test/regtest/
+            --runtime ${CMAKE_SOURCE_DIR}/service/static/runtime/
+            --wasm-dir ${CMAKE_BINARY_DIR}/wasm-output-core-module
+            --core
+            --filter corelang/use_module*
+            --xml ${CMAKE_BINARY_DIR}/test/test_js_core_module.xml
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    )
 endif()

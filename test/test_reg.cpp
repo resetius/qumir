@@ -31,6 +31,7 @@
 #include <qumir/codegen/llvm/llvm_initializer.h>
 #include <qumir/runner/runner_llvm.h>
 #include <qumir/runner/runner_ir.h>
+#include <qumir/frontend/compose.h>
 
 using namespace NQumir;
 namespace fs = std::filesystem;
@@ -96,6 +97,14 @@ std::vector<ProgCase> Collect(const fs::path& root, std::string_view extension =
     for (auto& e : fs::recursive_directory_iterator(root)) {
         if (e.is_regular_file() && e.path().extension() == extension) {
             auto path = e.path();
+            // Library modules imported via `use` are compiled as part of a main
+            // program, not as standalone cases.
+            std::ifstream in(path);
+            std::string firstLine;
+            std::getline(in, firstLine);
+            if (firstLine.find("module-fixture") != std::string::npos) {
+                continue;
+            }
             v.push_back({ casePath(path) });
         }
     }
@@ -159,7 +168,7 @@ std::string BuildCoreSource(NAst::TTokenStream& ts) {
     return NAst::NCore::PrintAst(expr, {.TypeMode = NAst::NCore::ETypePrintMode::All});
 }
 
-std::string BuildIR(std::istream& input, bool coreInput = false) {
+std::string BuildIR(std::istream& input, bool coreInput = false, const fs::path& moduleDir = {}) {
     TModuleSet mods;
     NSemantics::TNameResolver resolver;
     RegisterRuntimeModules(resolver, mods);
@@ -170,7 +179,16 @@ std::string BuildIR(std::istream& input, bool coreInput = false) {
         NAst::NCore::TParser p;
         parsed = p.Parse(ts);
         if (parsed) {
-            resolver.ApplyPragmas(p.Pragmas);
+            std::vector<std::string> modulePaths;
+            if (!moduleDir.empty()) {
+                modulePaths.push_back(moduleDir.string());
+            }
+            auto composed = NFrontend::LoadAndCompose(*parsed, p.Pragmas, modulePaths);
+            if (!composed) {
+                return composed.error().ToString() + "\n";
+            }
+            parsed = composed->Ast;
+            resolver.ApplyPragmas(composed->Pragmas);
         }
     } else {
         NAst::TTokenStream ts(input);
@@ -287,9 +305,15 @@ std::pair<std::string, std::string> RunExec(
     const fs::path& stdin,
     bool coreInput,
     EExecBackend backend,
-    int optLevel)
+    int optLevel,
+    const fs::path& moduleDir = {})
 {
     std::istringstream input(code);
+
+    std::vector<std::string> modulePaths;
+    if (coreInput && !moduleDir.empty()) {
+        modulePaths.push_back(moduleDir.string());
+    }
 
     std::ostringstream out;
     NRuntime::SetOutputStream(&out);
@@ -315,6 +339,7 @@ std::pair<std::string, std::string> RunExec(
             .ResolveCoreInput = coreInput,
             .OptLevel = optLevel,
             .Prelude = corePrelude,
+            .ModuleSearchPaths = modulePaths,
         });
         res = runner.Run(input);
     } else {
@@ -323,6 +348,7 @@ std::pair<std::string, std::string> RunExec(
             .ResolveCoreInput = coreInput,
             .OptLevel = optLevel,
             .Prelude = corePrelude,
+            .ModuleSearchPaths = modulePaths,
         });
         res = runner.Run(input);
     }
@@ -346,7 +372,7 @@ void CheckExecCase(
         GTEST_SKIP() << "Execution disabled for this test case";
     }
 
-    auto [got, stdoutText] = RunExec(code, stdin, coreInput, backend, optLevel);
+    auto [got, stdoutText] = RunExec(code, stdin, coreInput, backend, optLevel, src.parent_path());
     CheckExecGoldens(src, golden, goldenStdOut, got, stdoutText, label);
 }
 
@@ -475,7 +501,7 @@ TEST_P(RegCoreLang, IR) {
     const auto code = ReadAll(src);
     std::istringstream input(code);
 
-    std::string got = BuildIR(input, true);
+    std::string got = BuildIR(input, true, src.parent_path());
 
     if (printOutput) {
         std::cout << "=== Output CORE IR for " << src << " ===\n";

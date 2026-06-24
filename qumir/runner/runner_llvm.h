@@ -35,6 +35,8 @@ struct TLLVMRunnerOptions {
     std::vector<std::string> Prelude;
     // Directories searched for `.oz` source modules referenced by `use`.
     std::vector<std::string> ModuleSearchPaths;
+    // Explicitly registered `.oz` module files (bound by file stem).
+    std::vector<std::string> ModuleFiles;
 };
 
 class TLLVMRunner {

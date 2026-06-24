@@ -6,6 +6,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <filesystem>
 #include <cstdlib>
 #include <cstring>
 #include <chrono>
@@ -39,6 +40,8 @@ int main(int argc, char ** argv) {
     bool coreInput = false;
     int optLevel = 0;
     std::string inputFile; // stdin by default if empty
+    std::vector<std::string> modulePaths;
+    std::vector<std::string> moduleFiles;
 
     for (int i = 1; i < argc; ++i) {
         if (!std::strcmp(argv[i], "--jit")) {
@@ -59,6 +62,20 @@ int main(int argc, char ** argv) {
             printByteCode = true;
         } else if (!std::strcmp(argv[i], "--core")) {
             coreInput = true;
+        } else if (!std::strcmp(argv[i], "--module-path")) {
+            if (i + 1 < argc) {
+                modulePaths.push_back(argv[++i]);
+            } else {
+                std::cerr << "--module-path requires a directory argument\n";
+                return 1;
+            }
+        } else if (!std::strcmp(argv[i], "--module")) {
+            if (i + 1 < argc) {
+                moduleFiles.push_back(argv[++i]);
+            } else {
+                std::cerr << "--module requires a file argument\n";
+                return 1;
+            }
         } else if (!std::strcmp(argv[i], "--input-file") || !std::strcmp(argv[i], "-i")) {
             if (i + 1 < argc) {
                 inputFile = argv[++i];
@@ -96,6 +113,8 @@ int main(int argc, char ** argv) {
                          "  --print-llvm         Print LLVM IR after codegen\n"
                          "  --print-asm          Print target assembly before JIT\n"
                          "  --core               Parse input as core language\n"
+                         "  --module-path <dir>  Add a search directory for .oz modules (repeatable)\n"
+                         "  --module <file.oz>   Register an explicit .oz module (repeatable)\n"
                          "  --input-file|-i <file>  Input file (default: stdin)\n"
                          "  -O <level>           Optimization level (0-3), default 0\n"
                          "  -O0                  Optimization level 0 (no optimizations)\n"
@@ -121,6 +140,12 @@ int main(int argc, char ** argv) {
         in = &infile;
     }
 
+    // The directory of the main source file is searched before explicit paths.
+    if (!inputFile.empty() && inputFile != "-") {
+        auto dir = std::filesystem::path(inputFile).parent_path();
+        modulePaths.insert(modulePaths.begin(), dir.empty() ? "." : dir.string());
+    }
+
     // qumiri is a host: it provides the System runtime as the core prelude.
     std::vector<std::string> corePrelude;
     if (coreInput) {
@@ -137,7 +162,9 @@ int main(int argc, char ** argv) {
             .PrintByteCode = printByteCode,
             .CoreInput = coreInput,
             .OptLevel = optLevel,
-            .Prelude = corePrelude
+            .Prelude = corePrelude,
+            .ModuleSearchPaths = modulePaths,
+            .ModuleFiles = moduleFiles,
         }
     );
 
@@ -149,7 +176,9 @@ int main(int argc, char ** argv) {
         .PrintAsm = printAsm,
         .CoreInput = coreInput,
         .OptLevel = optLevel,
-        .Prelude = corePrelude
+        .Prelude = corePrelude,
+        .ModuleSearchPaths = modulePaths,
+        .ModuleFiles = moduleFiles,
     });
 
     long long lastEvalUs = 0;

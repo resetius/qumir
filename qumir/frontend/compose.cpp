@@ -185,11 +185,17 @@ std::expected<TComposeResult, TError> Compose(
 std::expected<TComposeResult, TError> LoadAndCompose(
     const TExprPtr& mainAst,
     const std::vector<TPragma>& corePragmas,
-    const std::vector<std::string>& searchPaths)
+    const std::vector<std::string>& searchPaths,
+    const std::vector<std::string>& explicitModules)
 {
     TSourceModuleLoader loader;
     for (const auto& dir : searchPaths) {
         loader.AddSearchPath(dir);
+    }
+    for (const auto& file : explicitModules) {
+        if (auto reg = loader.RegisterSourceModule(file); !reg) {
+            return std::unexpected(reg.error());
+        }
     }
 
     if (auto block = TMaybeNode<TBlockExpr>(mainAst)) {
