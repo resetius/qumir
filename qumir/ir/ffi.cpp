@@ -1,11 +1,41 @@
 #include "ffi.h"
 
 #include <cassert>
-#include <stdexcept>
+#include <cstring>
+#include <new>
+#include <utility>
 
 namespace NQumir {
 namespace NIR {
 namespace NFFI {
+
+namespace {
+
+static_assert(sizeof(void*) == sizeof(int64_t));
+
+// Same ABI register classification as the real struct it stands in for.
+struct TSInt {
+    int64_t a;
+};
+struct TSSse {
+    double a;
+};
+struct TSIntInt {
+    int64_t a;
+    int64_t b;
+};
+struct TSIntSse {
+    int64_t a;
+    double b;
+};
+struct TSSseInt {
+    double a;
+    int64_t b;
+};
+struct TSSseSse {
+    double a;
+    double b;
+};
 
 template<typename ReturnType, typename... Types>
 struct TFunction : public IFunction {
@@ -15,113 +45,194 @@ struct TFunction : public IFunction {
         : Symbol(reinterpret_cast<TFunctionType>(addr))
     { }
 
-    uint64_t operator() (const uint64_t* args, size_t argCount) {
+    TFunction(void* addr, size_t returnSize)
+        : Symbol(reinterpret_cast<TFunctionType>(addr))
+        , ReturnSize(returnSize)
+    { }
+
+    uint64_t operator() (const uint64_t* args, size_t argCount) override {
+        if (ReturnSize != 0) {
+            assert(argCount == sizeof...(Types) + 1);
+            return Call(args + 1, reinterpret_cast<void*>(static_cast<uintptr_t>(args[0])), std::index_sequence_for<Types...>{});
+        }
+
         assert(argCount == sizeof...(Types));
-        return Call(args, std::index_sequence_for<Types...>{});
+        return Call(args, nullptr, std::index_sequence_for<Types...>{});
     }
 
     template<size_t... I>
-    uint64_t Call(const uint64_t* args, std::index_sequence<I...>) {
+    uint64_t Call(const uint64_t* args, void* ret, std::index_sequence<I...>) {
         if constexpr(std::is_same_v<ReturnType, void>) {
             Symbol(LoadArg<Types>(args[I])...);
+            return 0;
         } else {
-            auto ret = Symbol(LoadArg<Types>(args[I])...);
-            return StoreRet(ret);
+            ReturnType result = Symbol(LoadArg<Types>(args[I])...);
+            return StoreRet(result, ret, ReturnSize);
         }
     }
 
     TFunctionType Symbol = nullptr;
+    size_t ReturnSize = 0;
 };
 
 template<typename F>
-decltype(auto) Call(EKind k, F&& f) {
+bool DispatchScalar(EKind k, F&& f) {
     switch (k) {
         case EKind::I1:
-            f.template operator()<bool>();
-            break;
         case EKind::I8:
-            f.template operator()<int8_t>();
-            break;
-        case EKind::I16:
-            f.template operator()<int16_t>();
-            break;
-        case EKind::I32:
-            f.template operator()<int32_t>();
-            break;
-        case EKind::I64:
-            f.template operator()<int64_t>();
-            break;
-
         case EKind::U8:
-            f.template operator()<uint8_t>();
-            break;
+        case EKind::I16:
         case EKind::U16:
-            f.template operator()<uint16_t>();
-            break;
+        case EKind::I32:
         case EKind::U32:
-            f.template operator()<uint32_t>();
-            break;
+        case EKind::I64:
         case EKind::U64:
-            f.template operator()<uint64_t>();
-            break;
-
-        case EKind::F32:
-            f.template operator()<float>();
-            break;
+        case EKind::Ptr:
+            f.template operator()<int64_t>();
+            return true;
         case EKind::F64:
             f.template operator()<double>();
-            break;
-
-        case EKind::Ptr:
-            f.template operator()<void*>();
-            break;
-
-        case EKind::Struct:
-            // TODO: need to use size for ABI?
+            return true;
         default:
-            throw std::runtime_error("Unsupported FFI type");
+            return false;
     }
 }
 
-IFunction* Builder0(void* symbol, EKind k0) {
-    IFunction* ret = nullptr;
-    Call(k0, [&]<typename T0>() {
-        ret = new TFunction<T0>(symbol);
-    });
-    return ret;
+template<typename F>
+bool DispatchStruct(EStructKind sk, F&& f) {
+    switch (sk) {
+        case EStructKind::Memory:
+            f.template operator()<void*>();
+            return true;
+        case EStructKind::Int:
+            f.template operator()<TSInt>();
+            return true;
+        case EStructKind::Sse:
+            f.template operator()<TSSse>();
+            return true;
+        case EStructKind::IntInt:
+            f.template operator()<TSIntInt>();
+            return true;
+        case EStructKind::IntSse:
+            f.template operator()<TSIntSse>();
+            return true;
+        case EStructKind::SseInt:
+            f.template operator()<TSSseInt>();
+            return true;
+        case EStructKind::SseSse:
+            f.template operator()<TSSseSse>();
+            return true;
+        default:
+            return false;
+    }
 }
 
-IFunction* Builder1(void* symbol, EKind k0, EKind k1) {
-    IFunction* ret = nullptr;
-    Call(k0, [&]<typename T0>() {
-        Call(k1, [&]<typename T1>() {
-            ret = new TFunction<T0, T1>(symbol);
-        });
-    });
-    return ret;
+template<typename F>
+bool DispatchArg(EKind k, EStructKind sk, F&& f) {
+    if (k == EKind::Struct) {
+        return DispatchStruct(sk, std::forward<F>(f));
+    }
+    return DispatchScalar(k, std::forward<F>(f));
 }
 
-IFunction* Builder2(void* symbol, EKind k0, EKind k1, EKind k2) {
-    IFunction* ret = nullptr;
-    Call(k0, [&]<typename T0>() {
-        Call(k1, [&]<typename T1>() {
-            Call(k2, [&]<typename T2>() {
-                ret = new TFunction<T0, T1, T2>(symbol);
+template<typename F>
+bool DispatchRet(EKind k, F&& f) {
+    if (k == EKind::Void) {
+        f.template operator()<void>();
+        return true;
+    }
+    return DispatchScalar(k, std::forward<F>(f));
+}
+
+template<typename Finish>
+IFunction* DispatchArgs(
+    const std::vector<EKind>& ak,
+    const std::vector<EStructKind>& as,
+    Finish&& finish)
+{
+    if (ak.size() != as.size()) {
+        return nullptr;
+    }
+
+    IFunction* r = nullptr;
+    switch (ak.size()) {
+    case 0:
+        r = finish.template operator()<>();
+        break;
+    case 1:
+        if (!DispatchArg(ak[0], as[0], [&]<class T0>() {
+            r = finish.template operator()<T0>();
+        })) {
+            return nullptr;
+        }
+        break;
+    case 2:
+        if (!DispatchArg(ak[0], as[0], [&]<class T0>() {
+            if (!DispatchArg(ak[1], as[1], [&]<class T1>() {
+                r = finish.template operator()<T0, T1>();
+            })) {
+                r = nullptr;
+            }
+        })) {
+            return nullptr;
+        }
+        break;
+    case 3:
+        if (!DispatchArg(ak[0], as[0], [&]<class T0>() {
+            if (!DispatchArg(ak[1], as[1], [&]<class T1>() {
+                if (!DispatchArg(ak[2], as[2], [&]<class T2>() {
+                    r = finish.template operator()<T0, T1, T2>();
+                })) {
+                    r = nullptr;
+                }
+            })) {
+                r = nullptr;
+            }
+        })) {
+            return nullptr;
+        }
+        break;
+    default:
+        return nullptr;
+    }
+    return r;
+}
+
+} // namespace
+
+IFunction* BuildFFI(
+    void* symbol,
+    EKind retKind,
+    EStructKind retStruct,
+    size_t,
+    const std::vector<EKind>& argKinds,
+    const std::vector<EStructKind>& argStructs) noexcept
+{
+    if (retKind == EKind::Struct && retStruct == EStructKind::Memory) {
+        return nullptr;
+    }
+
+    if (retKind == EKind::Struct) {
+        IFunction* r = nullptr;
+        if (!DispatchStruct(retStruct, [&]<class Ret>() {
+            r = DispatchArgs(argKinds, argStructs, [&]<class... Args>() -> IFunction* {
+                return new (std::nothrow) TFunction<Ret, Args...>(symbol, sizeof(Ret));
             });
-        });
-    });
-    return ret;
-}
-
-IFunction* BuildFFI(void* symbol, EKind retKind, size_t retSize, const std::vector<EKind>& kinds, const std::vector<size_t>& sizes) {
-    if (kinds.size() == 0) {
-        return Builder0(symbol, retKind);
-    } else if (kinds.size() == 1) {
-        return Builder1(symbol, retKind, kinds[0]);
-    } else if (kinds.size() == 2) {
-        return Builder2(symbol, retKind, kinds[0], kinds[1]);
+        })) {
+            return nullptr;
+        }
+        return r;
     }
-    return nullptr;
+
+    IFunction* r = nullptr;
+    if (!DispatchRet(retKind, [&]<class Ret>() {
+        r = DispatchArgs(argKinds, argStructs, [&]<class... Args>() -> IFunction* {
+            return new (std::nothrow) TFunction<Ret, Args...>(symbol);
+        });
+    })) {
+        return nullptr;
+    }
+    return r;
 }
 
 } // namespace NFFI
