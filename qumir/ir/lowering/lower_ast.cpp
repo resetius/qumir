@@ -1672,6 +1672,16 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
                     if (!lowered) {
                         return std::unexpected(lowered.error());
                     }
+                } else if (var->Init) {
+                    // Scalar global with an initializer: emit its store in the
+                    // module constructor (otherwise the slot is never written —
+                    // the VM grows global storage lazily on store, so a read
+                    // would access an unbacked slot).
+                    switchToConstructorFunction();
+                    auto lowered = Lower(s, scope).result();
+                    if (!lowered) {
+                        return std::unexpected(lowered.error());
+                    }
                 }
 
             } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(s)) {

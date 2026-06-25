@@ -1,0 +1,23 @@
+function $$module_constructor () { ; void
+  block {
+    label: label(0)
+    stre slot(76,i64) imm(42,i64) 
+    ret 
+  }
+}
+function <main> () { ; void
+  block {
+    label: label(0)
+    load tmp(0,i64) = slot(76,i64) 
+    arg tmp(0,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

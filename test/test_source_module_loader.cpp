@@ -179,15 +179,15 @@ TEST_F(SourceModuleLoaderTest, ForbidEntryPoint) {
     EXPECT_NE(msg.find("a.oz"), std::string::npos) << msg; // diagnostic names the file
 }
 
-TEST_F(SourceModuleLoaderTest, ForbidGlobal) {
+TEST_F(SourceModuleLoaderTest, GlobalExported) {
     Write("a", "(block (var g i64) (fun fa () (block)))");
 
     TSourceModuleLoader loader;
     loader.AddSearchPath(Dir);
 
     auto m = loader.Load("a");
-    ASSERT_FALSE(m);
-    EXPECT_NE(m.error().ToString().find("глобальные переменные"), std::string::npos);
+    ASSERT_TRUE(m) << m.error().ToString();
+    EXPECT_EQ((*m)->ExportedGlobals(), (std::vector<std::string>{"g"}));
 }
 
 TEST_F(SourceModuleLoaderTest, ForbidExecutableTopLevel) {

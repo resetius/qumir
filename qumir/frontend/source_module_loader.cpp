@@ -58,10 +58,8 @@ std::optional<TError> CollectInterface(const fs::path& path, TSourceModule& modu
                 return Diag(path, stmt->Location, "импортируемый модуль не может объявлять `<main>`");
             }
             module.Exports.push_back({name, EExportKind::Function, stmt->Location});
-        } else if (TMaybeNode<TVarStmt>(stmt) || TMaybeNode<TVarsBlockExpr>(stmt)
-                || TMaybeNode<TAssignExpr>(stmt) || TMaybeNode<TArrayAssignExpr>(stmt)) {
-            return Diag(path, stmt->Location,
-                "глобальные переменные в импортируемых модулях пока не поддерживаются");
+        } else if (auto var = TMaybeNode<TVarStmt>(stmt)) {
+            module.Exports.push_back({var.Cast()->Name, EExportKind::Global, stmt->Location});
         } else {
             return Diag(path, stmt->Location,
                 "недопустимое верхнеуровневое выражение в модуле: `" + std::string(stmt->NodeName()) + "'");

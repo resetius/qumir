@@ -126,6 +126,32 @@ TEST_F(ModuleExecTest, TransitiveImport) {
         "42\n");
 }
 
+TEST_F(ModuleExecTest, ModuleGlobalReadByMain) {
+    WriteModule("g", "(block (var base = (: 100 i64)))");
+
+    ExpectAll(
+        "(block (use g) (fun <main> () (block (output base \"\\n\"))))",
+        "100\n");
+}
+
+TEST_F(ModuleExecTest, ModuleGlobalInitializationOrder) {
+    WriteModule("low", "(block (var lowval = (: 40 i64)))");
+    // highval's initializer reads low's global; low must initialize first.
+    WriteModule("high", "(block (use low) (var highval = (+ lowval (: 2 i64))))");
+
+    ExpectAll(
+        "(block (use high) (fun <main> () (block (output highval \"\\n\"))))",
+        "42\n");
+}
+
+TEST_F(ModuleExecTest, ModuleStringGlobal) {
+    WriteModule("s", "(block (var greeting = \"hi\"))");
+
+    ExpectAll(
+        "(block (use s) (fun <main> () (block (output greeting \"\\n\"))))",
+        "hi\n");
+}
+
 TEST_F(ModuleExecTest, GenericFunctionInModule) {
     WriteModule("gen",
         "(block (pragma language overloads)"

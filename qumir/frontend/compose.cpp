@@ -90,16 +90,20 @@ std::optional<TError> CheckConflicts(const std::vector<TUnit>& units, bool allow
                 byName[named.Cast()->Name].push_back({EExportKind::Type, unit.Label, stmt->Location});
             } else if (auto fun = TMaybeNode<TFunDecl>(stmt)) {
                 byName[fun.Cast()->Name].push_back({EExportKind::Function, unit.Label, stmt->Location});
+            } else if (auto var = TMaybeNode<TVarStmt>(stmt)) {
+                byName[var.Cast()->Name].push_back({EExportKind::Global, unit.Label, stmt->Location});
             }
         }
     }
 
     for (const auto& [name, decls] : byName) {
-        auto types = std::count_if(decls.begin(), decls.end(),
-            [](const TDecl& d) { return d.Kind == EExportKind::Type; });
-        auto funcs = decls.size() - types;
-        bool conflict = types > 1
-            || (types >= 1 && funcs >= 1)
+        auto funcs = std::count_if(decls.begin(), decls.end(),
+            [](const TDecl& d) { return d.Kind == EExportKind::Function; });
+        // Types and globals are unique (non-overloadable); functions may
+        // overload when enabled.
+        auto unique = decls.size() - funcs;
+        bool conflict = unique > 1
+            || (unique >= 1 && funcs >= 1)
             || (funcs > 1 && !allowOverloads);
         if (conflict) {
             const auto& a = decls[0];
@@ -165,7 +169,10 @@ std::expected<TComposeResult, TError> Compose(
                 types.push_back(stmt);
             } else if (TMaybeNode<TFunDecl>(stmt)) {
                 (unit.IsMain ? mainFunctions : moduleFunctions).push_back(stmt);
-            } else if (unit.IsMain && IsGlobal(stmt)) {
+            } else if (IsGlobal(stmt)) {
+                // Modules precede main in `units`, so globals are initialized in
+                // dependency order (dependencies first, main last); destruction
+                // runs in reverse.
                 globals.push_back(stmt);
             } else if (unit.IsMain) {
                 other.push_back(stmt);
