@@ -2,23 +2,23 @@ function <main> () { ; void
   block {
     label: label(0)
     arg imm(4278190080,i64) 
-    call вывод 
+    call print 
     arg imm(1,ptr to i8) 
     call output_string 
     arg imm(4294967295,i64) 
-    call вывод 
+    call print 
     arg imm(1,ptr to i8) 
     call output_string 
     arg imm(4294901760,i64) 
-    call вывод 
+    call print 
     arg imm(1,ptr to i8) 
     call output_string 
     arg imm(4278222848,i64) 
-    call вывод 
+    call print 
     arg imm(1,ptr to i8) 
     call output_string 
     arg imm(4278190335,i64) 
-    call вывод 
+    call print 
     arg imm(1,ptr to i8) 
     call output_string 
     & tmp(0,i64) = imm(255,i64) imm(255,i64) 
@@ -33,7 +33,7 @@ function <main> () { ; void
     | tmp(9,i64) = tmp(7,i64) tmp(8,i64) 
     mov tmp(10,u32) = tmp(9,i64) 
     arg tmp(10,u32) 
-    call вывод 
+    call print 
     arg imm(1,ptr to i8) 
     call output_string 
     jmp label(1) 

@@ -39,7 +39,7 @@ function <main> () { ; void
     stre local(0,struct { f64; f64}) tmp(0,ptr to i64) 
     load tmp(25,struct { f64; f64}) = local(0,struct { f64; f64}) 
     arg tmp(25,struct { f64; f64}) 
-    call вывод 
+    call print 
     arg imm(1,ptr to i8) 
     call output_string 
     salloc tmp(26,ptr to i64) = imm(16,i64) 
@@ -80,7 +80,7 @@ function <main> () { ; void
     stre local(0,struct { f64; f64}) tmp(26,ptr to i64) 
     load tmp(51,struct { f64; f64}) = local(0,struct { f64; f64}) 
     arg tmp(51,struct { f64; f64}) 
-    call вывод 
+    call print 
     arg imm(1,ptr to i8) 
     call output_string 
     salloc tmp(52,ptr to i64) = imm(16,i64) 
@@ -91,7 +91,7 @@ function <main> () { ; void
     stre local(0,struct { f64; f64}) tmp(52,ptr to i64) 
     load tmp(55,struct { f64; f64}) = local(0,struct { f64; f64}) 
     arg tmp(55,struct { f64; f64}) 
-    call вывод 
+    call print 
     arg imm(1,ptr to i8) 
     call output_string 
     jmp label(1) 

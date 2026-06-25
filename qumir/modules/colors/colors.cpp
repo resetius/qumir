@@ -794,7 +794,7 @@ ColorsModule::ColorsModule() {
 
         // ── Output operator ───────────────────────────────────────────────────
         {
-            .Name = "вывод",
+            .Name = "print",
             .MangledName = "color_print",
             .Ptr = reinterpret_cast<void*>(static_cast<void(*)(int64_t)>(color_print)),
             .Packed = +[](const uint64_t* args, size_t) -> uint64_t {

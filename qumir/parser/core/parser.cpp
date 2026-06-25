@@ -760,6 +760,7 @@ TListHandlerMap MakeDefaultHandlers() {
 
             // optional (attrs ...) block
             TFunAttrs attrs;
+            std::optional<std::string> operatorName;
             tok = ctx.Stream.Next();
             if (IsOp(tok, '(')) {
                 auto peek = ctx.Stream.Next();
@@ -775,9 +776,20 @@ TListHandlerMap MakeDefaultHandlers() {
                                 attrs.After = std::move(attrExpr);
                             } else if (attrName == "expect_before") {
                                 attrs.Before = std::move(attrExpr);
+                            } else if (attrName == "operator") {
+                                auto str = TMaybeNode<TStringLiteralExpr>(attrExpr);
+                                if (!str) {
+                                    co_return Error(attrTok, "expected string value for (operator ...) attribute");
+                                }
+                                operatorName = str.Cast()->Value;
                             }
                         } else if (attrTok.Type == TToken::Identifier) {
-                            // simple attr (inline etc.) — ignored for now
+                            // `print`: the function is its argument type's printer
+                            // (a unary "print" operator, dispatched by `вывод`).
+                            // Other simple attrs (inline etc.) — ignored for now.
+                            if (attrTok.Name == "print") {
+                                operatorName = "print";
+                            }
                         } else {
                             co_return Error(attrTok, "expected function attribute");
                         }
@@ -798,6 +810,7 @@ TListHandlerMap MakeDefaultHandlers() {
             }
             auto funDecl = std::make_shared<TFunDecl>(loc, std::move(name), std::move(params), std::move(body), std::move(returnType));
             funDecl->LastAssert = std::move(attrs.After);
+            funDecl->OperatorName = std::move(operatorName);
             std::vector<TTypePtr> paramTypes;
             for (const auto& param : funDecl->Params) {
                 paramTypes.push_back(param->Type);

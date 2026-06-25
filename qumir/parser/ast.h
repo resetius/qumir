@@ -621,6 +621,10 @@ struct TFunDecl : TExpr {
     bool RequireArgsMaterialization = false; // if true, arguments must be materialized before calling, used for strings
     NAst::TTypePtr RetType; // ret type different from TExpr::Type which is the function value type
     int32_t Scope = -1; // Function internal scope, filled in by name resolver, -1 - unscoped
+    // (operator "X") attribute: this function implements operator/cast "X"
+    // (e.g. "+", "neg", "cast", "print"); registered into the resolver's
+    // type-keyed op/cast dispatch tables instead of plain name lookup.
+    std::optional<std::string> OperatorName;
     TFunDecl(TLocation loc, std::string name, std::vector<TParam> args, std::shared_ptr<TBlockExpr> body, NAst::TTypePtr type)
         : TExpr(std::move(loc))
         , Name(std::move(name))

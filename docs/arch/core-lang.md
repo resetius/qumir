@@ -230,11 +230,54 @@ any) and before the body. Recognized attributes:
 ```core
 (expect_after expr)
 (expect_before expr)
+(operator "OP")
+print
 ```
 
 The parser stores `expect_after` on `TFunDecl::LastAssert`. `expect_before` is
-parsed for forward compatibility. Bare-identifier attributes (e.g. `inline`)
-are accepted and silently ignored for forward compatibility.
+parsed for forward compatibility. Bare-identifier attributes other than `print`
+(e.g. `inline`) are accepted and silently ignored for forward compatibility.
+
+### Operator, cast and print attributes
+
+A function may implement an operator, a cast or a type's printer instead of
+being called by name. This lets a source module (or program) provide the same
+overloaded-by-type behavior that built-in runtime modules do — without enabling
+`language overloads`.
+
+```core
+; binary operator: a + b for пара dispatches here
+(fun add ((var a пара) (var b пара)) -> пара (attrs (operator "+"))
+  (block ...))
+
+; unary operator (e.g. "neg" for unary minus)
+(fun negate ((var a пара)) -> пара (attrs (operator "neg"))
+  (block ...))
+
+; cast: implicit coercion from i64 to пара (the magic name is "cast")
+(fun from_int ((var n i64)) -> пара (attrs (operator "cast"))
+  (block ...))
+
+; printer: outputting a пара value via (output ...) dispatches here
+(fun show ((var p пара)) (attrs print)
+  (block (output "(" (field p a) ";" (field p b) ")")))
+```
+
+- `(operator "OP")` — the function implements operator `OP`. With two
+  parameters it is a binary operator (`"+"`, `"=="`, ...); with one parameter, a
+  unary operator. The reserved value `"cast"` (one parameter) registers an
+  implicit cast from the parameter type to the return type.
+- `print` (a bare attribute) — the function is its single parameter type's
+  printer; `(output value ...)` of that type dispatches to it. Equivalent to a
+  unary operator under the internal key `"print"`.
+
+These functions are resolved **by operand/result types**, in the resolver's
+dispatch tables (`ImportedBinaryOps` / `ImportedUnaryOps` / `ImportedCasts`) —
+not by their declared name. The declared name stays an ordinary symbol: e.g.
+naming the printer `print` does not clash with the operator key `"print"`,
+since the latter lives in a separate table and is invoked through a synthetic
+name. Explicit casts `(cast x T)` are *not* routed through `(operator "cast")`;
+only implicit coercions (assignment, arguments) are.
 
 `<main>` is the program's entry point: `(fun <main> () body)`. It is always
 void.
@@ -415,6 +458,34 @@ Modules and assertions:
 
 `use` accepts either an identifier-like name or a string token.
 
+### Source modules (`.oz`)
+
+A `use` name that does not name a registered runtime module but resolves to a
+`<name>.oz` file is loaded as a **source module**: it is parsed, validated and
+inlined into the compilation unit, so its top-level functions, types and globals
+become part of the program (one combined AST, one set of constructors). Module
+name = file stem.
+
+Resolution order for `<name>.oz`: explicitly registered modules (`--module`),
+then the directory of the main source file, then `--module-path` directories in
+registration order; the first match wins. (Programmatically the runners take
+`ModuleSearchPaths` / `ModuleFiles`.)
+
+A source module's `use` declarations are its transitive dependencies; the loader
+detects cycles and reports the chain. All top-level declarations are exported
+into the shared namespace (no explicit `export`/`private` yet). A source module
+may **not** declare `<main>` or executable top-level statements; it may declare
+functions, types and globals. Globals are initialized in dependency order
+(dependencies first, the main program last) and destroyed in reverse.
+
+Operator/cast/print functions (see the attributes section) carried by a source
+module are registered into the operator/cast dispatch tables on import, so
+`a + b`, implicit casts and `(output value)` work for the module's types.
+
+The same mechanism is available to the Kumir frontend: `использовать <name>`
+loads `<name>.oz`; its exported type names are registered so the Kumir
+lexer/parser recognizes them at parse time.
+
 Struct operations:
 
 ```core
@@ -517,7 +588,9 @@ The core printer is the canonical form used by tests and AST goldens.
 - String and character literals are escaped with `\n`, `\t`, `\\`, `\"`, and
   `\'`.
 - `nil` is printed for null expressions and null types.
-- Function attributes currently print only `expect_after`.
+- Function attributes currently print only `expect_after`; `operator`/`print`
+  attributes are consumed at resolution and are not yet re-emitted by the
+  printer.
 - Type annotations are printed depending on `TPrintOptions::TypeMode`.
 - Scalar types are printed bare unless they need non-default attributes.
 - Named types may be printed short when listed in `ShortNamedTypes`; otherwise
