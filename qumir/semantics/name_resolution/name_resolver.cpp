@@ -248,6 +248,7 @@ std::optional<TError> TNameResolver::Resolve(TExprPtr root) {
     if (auto err = RegisterTypeDecls(root)) {
         return err;
     }
+    RegisterOperatorDecls(root);
     auto funcRes = ResolveTopFuncDecl(root, scope).result();
     if (!funcRes) {
         return funcRes.error();
@@ -636,6 +637,33 @@ std::optional<TError> TNameResolver::RegisterTypeDecls(const NAst::TExprPtr& roo
         RegisterType(n->Name, n->UnderlyingType);
     }
     return {};
+}
+
+void TNameResolver::RegisterOperatorDecls(const NAst::TExprPtr& root) {
+    auto block = TMaybeNode<TBlockExpr>(root);
+    if (!block) return;
+    for (const auto& stmt : block.Cast()->Stmts) {
+        auto fd = TMaybeNode<TFunDecl>(stmt);
+        if (!fd) continue;
+        auto fun = fd.Cast();
+        if (!fun->OperatorName) continue;
+        const std::string& op = *fun->OperatorName;
+        std::vector<NAst::TTypePtr> argTypes;
+        for (const auto& p : fun->Params) {
+            argTypes.push_back(p->Type);
+        }
+        // Dispatch target is the function's own name (already declared at top
+        // level), unlike runtime modules which use a synthetic name.
+        if (op == "cast" && argTypes.size() == 1) {
+            ImportedCasts[{TypeKey(argTypes[0]), TypeKey(fun->RetType)}] = fun->Name;
+        } else if (argTypes.size() == 2) {
+            ImportedBinaryOps[{op, TypeKey(argTypes[0]), TypeKey(argTypes[1])}]
+                = {fun->Name, fun->RetType};
+        } else if (argTypes.size() == 1) {
+            ImportedUnaryOps[{op, TypeKey(argTypes[0])}]
+                = {fun->Name, fun->RetType};
+        }
+    }
 }
 
 void TNameResolver::ImportUseStmts(const NAst::TExprPtr& root) {

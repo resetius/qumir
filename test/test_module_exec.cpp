@@ -152,6 +152,42 @@ TEST_F(ModuleExecTest, ModuleStringGlobal) {
         "hi\n");
 }
 
+TEST_F(ModuleExecTest, ModuleOperatorAndCast) {
+    // A source module exports a struct type plus a binary operator and a cast,
+    // marked with (operator "...") attributes; main uses operator/coercion syntax.
+    WriteModule("vec",
+        "(block"
+        " (type точка <struct (x i64) (y i64)>)"
+        " (fun слож ((var a точка) (var b точка)) -> точка (attrs (operator \"+\"))"
+        "   (block (return (: (struct ((x (+ (field a x) (field b x)))"
+        "                              (y (+ (field a y) (field b y))))) точка))))"
+        " (fun изцел ((var n i64)) -> точка (attrs (operator \"cast\"))"
+        "   (block (return (: (struct ((x n) (y n))) точка)))))");
+
+    ExpectAll(
+        "(block (use vec) (fun <main> () (block"
+        "   (var p точка) (= p (: 3 i64))"          // implicit cast i64 -> точка via изцел
+        "   (var q точка) (= q (+ p p))"            // operator + via слож
+        "   (output (field q x) \" \" (field q y) \"\\n\"))))",
+        "6 6\n");
+}
+
+TEST_F(ModuleExecTest, ModulePrintOperator) {
+    // A source module supplies a custom printer via the simple `print` attribute;
+    // outputting a value of the module's type dispatches to it.
+    WriteModule("pt",
+        "(block"
+        " (type точка <struct (x i64) (y i64)>)"
+        " (fun печать ((var p точка)) (attrs print)"
+        "   (block (output \"(\" (field p x) \";\" (field p y) \")\"))))");
+
+    ExpectAll(
+        "(block (use pt) (fun <main> () (block"
+        "   (var p точка) (= p (: (struct ((x (: 1 i64)) (y (: 2 i64)))) точка))"
+        "   (output p \"\\n\"))))",
+        "(1;2)\n");
+}
+
 TEST_F(ModuleExecTest, GenericFunctionInModule) {
     WriteModule("gen",
         "(block (pragma language overloads)"
@@ -246,6 +282,36 @@ TEST_F(ModuleExecTest, KumirUsesTransitiveOzType) {
 
     EXPECT_EQ(RunKumir(main, EBackend::IR), "42");
     EXPECT_EQ(RunKumir(main, EBackend::LLVM), "42");
+}
+
+// A module supplies a custom print operator for its type; the Kumir program
+// also declares its own ordinary function named `print`. Both must coexist:
+// outputting the type dispatches to the operator, while `print(...)` calls the
+// user function (the "print" operator key lives in a separate table).
+TEST_F(ModuleExecTest, CustomPrintOperatorAndUserPrintFunction) {
+    WriteModule("pt",
+        "(block"
+        " (type точка <struct (x i64) (y i64)>)"
+        " (fun создать ((var a i64) (var b i64)) -> точка"
+        "   (block (return (: (struct ((x a) (y b))) точка))))"
+        " (fun печать ((var p точка)) (attrs print)"
+        "   (block (output \"(\" (field p x) \";\" (field p y) \")\"))))");
+
+    const std::string main =
+        "использовать pt\n"
+        "алг\n"
+        "нач\n"
+        "    точка p\n"
+        "    p := создать(1, 2)\n"
+        "    вывод p, \" \", print(21), нс\n"
+        "кон\n"
+        "алг цел print(цел n)\n"
+        "нач\n"
+        "    знач := n + n\n"
+        "кон\n";
+
+    EXPECT_EQ(RunKumir(main, EBackend::IR), "(1;2) 42\n");
+    EXPECT_EQ(RunKumir(main, EBackend::LLVM), "(1;2) 42\n");
 }
 
 } // namespace

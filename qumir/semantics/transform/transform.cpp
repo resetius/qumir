@@ -332,7 +332,7 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
                             errors.push_back(TError(output->Location, "width and precision arguments are not applicable for named type output"));
                             return node;
                         }
-                        auto op = context.GetUnaryOp("вывод", type);
+                        auto op = context.GetUnaryOp("print", type);
                         if (!op) {
                             errors.push_back(TError(arg.Expr->Location, "тип '" + named.Cast()->Name + "' не поддерживает вывод"));
                             return node;
