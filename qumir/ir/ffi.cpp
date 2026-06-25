@@ -1,5 +1,6 @@
 #include "ffi.h"
 
+#include <array>
 #include <cassert>
 #include <cstring>
 #include <new>
@@ -14,12 +15,6 @@ namespace {
 static_assert(sizeof(void*) == sizeof(int64_t));
 
 // Same ABI register classification as the real struct it stands in for.
-struct TSInt {
-    int64_t a;
-};
-struct TSSse {
-    double a;
-};
 struct TSIntInt {
     int64_t a;
     int64_t b;
@@ -37,6 +32,25 @@ struct TSSseSse {
     double b;
 };
 
+const uint64_t* NormalizeArgs(
+    const uint64_t* args,
+    size_t argCount,
+    uint64_t derefArgMask,
+    uint64_t* localArgs)
+{
+    if (derefArgMask == 0) {
+        return args;
+    }
+
+    for (size_t i = 0; i < argCount; ++i) {
+        localArgs[i] = args[i];
+        if (((derefArgMask >> i) & 1) != 0) {
+            memcpy(&localArgs[i], reinterpret_cast<const void*>(static_cast<uintptr_t>(args[i])), sizeof(uint64_t));
+        }
+    }
+    return localArgs;
+}
+
 template<typename ReturnType, typename... Types>
 struct TFunction : public IFunction {
     using TFunctionType = ReturnType(*)(Types...);
@@ -45,19 +59,28 @@ struct TFunction : public IFunction {
         : Symbol(reinterpret_cast<TFunctionType>(addr))
     { }
 
-    TFunction(void* addr, size_t returnSize)
+    TFunction(void* addr, size_t returnSize, uint64_t derefArgMask)
         : Symbol(reinterpret_cast<TFunctionType>(addr))
         , ReturnSize(returnSize)
+        , DerefArgMask(derefArgMask)
     { }
 
     uint64_t operator() (const uint64_t* args, size_t argCount) override {
+        const uint64_t* nativeArgs = args;
         if (ReturnSize != 0) {
             assert(argCount == sizeof...(Types) + 1);
-            return Call(args + 1, reinterpret_cast<void*>(static_cast<uintptr_t>(args[0])), std::index_sequence_for<Types...>{});
+            nativeArgs = args + 1;
+            return CallPrepared(nativeArgs, reinterpret_cast<void*>(static_cast<uintptr_t>(args[0])));
         }
 
         assert(argCount == sizeof...(Types));
-        return Call(args, nullptr, std::index_sequence_for<Types...>{});
+        return CallPrepared(nativeArgs, nullptr);
+    }
+
+    uint64_t CallPrepared(const uint64_t* args, void* ret) {
+        std::array<uint64_t, sizeof...(Types)> localArgs{};
+        const uint64_t* nativeArgs = NormalizeArgs(args, sizeof...(Types), DerefArgMask, localArgs.data());
+        return Call(nativeArgs, ret, std::index_sequence_for<Types...>{});
     }
 
     template<size_t... I>
@@ -73,6 +96,7 @@ struct TFunction : public IFunction {
 
     TFunctionType Symbol = nullptr;
     size_t ReturnSize = 0;
+    uint64_t DerefArgMask = 0;
 };
 
 template<typename F>
@@ -99,16 +123,42 @@ bool DispatchScalar(EKind k, F&& f) {
 }
 
 template<typename F>
-bool DispatchStruct(EStructKind sk, F&& f) {
+bool DispatchArgStruct(EStructKind sk, F&& f) {
     switch (sk) {
         case EStructKind::Memory:
-            f.template operator()<void*>();
+            f.template operator()<int64_t>();
             return true;
         case EStructKind::Int:
-            f.template operator()<TSInt>();
+            f.template operator()<int64_t>();
             return true;
         case EStructKind::Sse:
-            f.template operator()<TSSse>();
+            f.template operator()<double>();
+            return true;
+        case EStructKind::IntInt:
+            f.template operator()<TSIntInt>();
+            return true;
+        case EStructKind::IntSse:
+            f.template operator()<TSIntSse>();
+            return true;
+        case EStructKind::SseInt:
+            f.template operator()<TSSseInt>();
+            return true;
+        case EStructKind::SseSse:
+            f.template operator()<TSSseSse>();
+            return true;
+        default:
+            return false;
+    }
+}
+
+template<typename F>
+bool DispatchRetStruct(EStructKind sk, F&& f) {
+    switch (sk) {
+        case EStructKind::Int:
+            f.template operator()<int64_t>();
+            return true;
+        case EStructKind::Sse:
+            f.template operator()<double>();
             return true;
         case EStructKind::IntInt:
             f.template operator()<TSIntInt>();
@@ -130,7 +180,7 @@ bool DispatchStruct(EStructKind sk, F&& f) {
 template<typename F>
 bool DispatchArg(EKind k, EStructKind sk, F&& f) {
     if (k == EKind::Struct) {
-        return DispatchStruct(sk, std::forward<F>(f));
+        return DispatchArgStruct(sk, std::forward<F>(f));
     }
     return DispatchScalar(k, std::forward<F>(f));
 }
@@ -198,6 +248,22 @@ IFunction* DispatchArgs(
     return r;
 }
 
+uint64_t DerefArgMask(
+    const std::vector<EKind>& argKinds,
+    const std::vector<EStructKind>& argStructs)
+{
+    uint64_t mask = 0;
+    for (size_t i = 0; i < argKinds.size() && i < argStructs.size(); ++i) {
+        if (
+            argKinds[i] == EKind::Struct &&
+            (argStructs[i] == EStructKind::Int || argStructs[i] == EStructKind::Sse))
+        {
+            mask |= uint64_t{1} << i;
+        }
+    }
+    return mask;
+}
+
 } // namespace
 
 IFunction* BuildFFI(
@@ -208,15 +274,17 @@ IFunction* BuildFFI(
     const std::vector<EKind>& argKinds,
     const std::vector<EStructKind>& argStructs) noexcept
 {
+    uint64_t derefArgMask = DerefArgMask(argKinds, argStructs);
+
     if (retKind == EKind::Struct && retStruct == EStructKind::Memory) {
         return nullptr;
     }
 
     if (retKind == EKind::Struct) {
         IFunction* r = nullptr;
-        if (!DispatchStruct(retStruct, [&]<class Ret>() {
+        if (!DispatchRetStruct(retStruct, [&]<class Ret>() {
             r = DispatchArgs(argKinds, argStructs, [&]<class... Args>() -> IFunction* {
-                return new (std::nothrow) TFunction<Ret, Args...>(symbol, sizeof(Ret));
+                return new (std::nothrow) TFunction<Ret, Args...>(symbol, sizeof(Ret), derefArgMask);
             });
         })) {
             return nullptr;
@@ -227,7 +295,7 @@ IFunction* BuildFFI(
     IFunction* r = nullptr;
     if (!DispatchRet(retKind, [&]<class Ret>() {
         r = DispatchArgs(argKinds, argStructs, [&]<class... Args>() -> IFunction* {
-            return new (std::nothrow) TFunction<Ret, Args...>(symbol);
+            return new (std::nothrow) TFunction<Ret, Args...>(symbol, 0, derefArgMask);
         });
     })) {
         return nullptr;

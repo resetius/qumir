@@ -22,6 +22,14 @@ struct TDPoint {
     double y;
 };
 
+struct TIntBox {
+    int64_t x;
+};
+
+struct TDoubleBox {
+    double x;
+};
+
 struct TThin {
     char c;
 };
@@ -46,8 +54,28 @@ int64_t point_sum(TPoint p) {
     return p.x + p.y;
 }
 
+int64_t point_sum_ptr(TPoint* p) {
+    return p->x + p->y;
+}
+
 double dpoint_sum(TDPoint p) {
     return p.x + p.y;
+}
+
+int64_t int_box_get(TIntBox p) {
+    return p.x;
+}
+
+double double_box_get(TDoubleBox p) {
+    return p.x;
+}
+
+TIntBox int_box_make(int64_t v) {
+    return TIntBox{v};
+}
+
+TDoubleBox double_box_make(double v) {
+    return TDoubleBox{v};
 }
 
 TPoint point_double(TPoint p) {
@@ -99,12 +127,36 @@ TEST(FFI, StructArgInteger) {
     EXPECT_EQ(LoadArg<int64_t>((*func)(args.data(), args.size())), 7);
 }
 
+TEST(FFI, StructArgPointer) {
+    TPoint p{3, 4};
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(point_sum_ptr),
+        EKind::I64, EStructKind::None, 0, {EKind::Ptr}, {EStructKind::None}));
+    std::vector<uint64_t> args = {reinterpret_cast<uint64_t>(&p)};
+    EXPECT_EQ(LoadArg<int64_t>((*func)(args.data(), args.size())), 7);
+}
+
 TEST(FFI, StructArgSse) {
     TDPoint p{1.5, 2.25};
     auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(dpoint_sum),
         EKind::F64, EStructKind::None, 0, {EKind::Struct}, {EStructKind::SseSse}));
     std::vector<uint64_t> args = {reinterpret_cast<uint64_t>(&p)};
     EXPECT_DOUBLE_EQ(LoadArg<double>((*func)(args.data(), args.size())), 3.75);
+}
+
+TEST(FFI, StructArgSingleInt) {
+    TIntBox p{42};
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(int_box_get),
+        EKind::I64, EStructKind::None, 0, {EKind::Struct}, {EStructKind::Int}));
+    std::vector<uint64_t> args = {reinterpret_cast<uint64_t>(&p)};
+    EXPECT_EQ(LoadArg<int64_t>((*func)(args.data(), args.size())), 42);
+}
+
+TEST(FFI, StructArgSingleSse) {
+    TDoubleBox p{3.5};
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(double_box_get),
+        EKind::F64, EStructKind::None, 0, {EKind::Struct}, {EStructKind::Sse}));
+    std::vector<uint64_t> args = {reinterpret_cast<uint64_t>(&p)};
+    EXPECT_DOUBLE_EQ(LoadArg<double>((*func)(args.data(), args.size())), 3.5);
 }
 
 TEST(FFI, StructArgThin) {
@@ -140,6 +192,27 @@ TEST(FFI, StructReturnByValue) {
     (*func)(args.data(), args.size());
     EXPECT_EQ(out.x, 6);
     EXPECT_EQ(out.y, 8);
+}
+
+TEST(FFI, StructReturnSingleInt) {
+    TIntBox out{};
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(int_box_make),
+        EKind::Struct, EStructKind::Int, 0, {EKind::I64}, {EStructKind::None}));
+    std::vector<uint64_t> args = {reinterpret_cast<uint64_t>(&out), 42};
+    (*func)(args.data(), args.size());
+    EXPECT_EQ(out.x, 42);
+}
+
+TEST(FFI, StructReturnSingleSse) {
+    TDoubleBox out{};
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(double_box_make),
+        EKind::Struct, EStructKind::Sse, 0, {EKind::F64}, {EStructKind::None}));
+    std::vector<uint64_t> args = {
+        reinterpret_cast<uint64_t>(&out),
+        std::bit_cast<uint64_t>(3.5),
+    };
+    (*func)(args.data(), args.size());
+    EXPECT_DOUBLE_EQ(out.x, 3.5);
 }
 
 TEST(FFI, StructReturnFatUnsupported) {
