@@ -1711,6 +1711,13 @@ TAstTask stmt(TParserContext& context) {
             }
             if (auto block = TMaybeNode<TBlockExpr>((*loaded)->Ast)) {
                 for (const auto& stmt : block.Cast()->Stmts) {
+                    if (auto fd = TMaybeNode<TFunDecl>(stmt)) {
+                        auto fun = fd.Cast();
+                        if (fun->LiteralSuffix && context.LexerContext) {
+                            context.LexerContext->ImportLiteralSuffix(*fun->LiteralSuffix, fun->Name);
+                        }
+                        continue;
+                    }
                     auto td = TMaybeNode<TTypeDeclStmt>(stmt);
                     if (!td) continue;
                     auto named = TMaybeType<TNamedType>(td.Cast()->Type);
