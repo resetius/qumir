@@ -10,7 +10,10 @@
 using namespace NQumir::NIR;
 using namespace NQumir::NIR::NFFI;
 
-namespace {
+// BuildFFI assumes the standard C ABI, so the called symbols must have external
+// C linkage; a static/anonymous-namespace helper may get a non-standard calling
+// convention under optimization.
+extern "C" {
 
 struct TPoint {
     int64_t x;
@@ -125,9 +128,9 @@ TSseInt sse_int_make(double a, int64_t b) {
     return TSseInt{a, b};
 }
 
-// Structs larger than two eightbytes travel by pointer.
-int64_t fat_sum(TFat* p) {
-    return p->a + p->b + p->c;
+// A by-value struct larger than two eightbytes (Memory class).
+int64_t fat_sum(TFat p) {
+    return p.a + p.b + p.c;
 }
 
 // Returns a struct larger than two eightbytes by value (sret).
@@ -165,7 +168,7 @@ double seven_d_then_dpoint(double a, double b, double c, double d,
     return a + b + c + d + e + f + g + p.x + p.y;
 }
 
-} // namespace
+} // extern "C"
 
 TEST(FFI, Basic) {
     auto* symbol = reinterpret_cast<void*>((double(*)(double))sin);
@@ -251,7 +254,7 @@ TEST(FFI, StructArgThin) {
 TEST(FFI, StructArgFat) {
     TFat p{1, 2, 3};
     auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(fat_sum),
-        EKind::I64, EStructKind::None, 0, {EKind::Struct}, {EStructKind::Memory}));
+        EKind::I64, EStructKind::None, 0, {EKind::Struct}, {EStructKind::Memory}, {sizeof(TFat)}));
     std::vector<uint64_t> args = {reinterpret_cast<uint64_t>(&p)};
     EXPECT_EQ(LoadArg<int64_t>((*func)(args.data(), args.size())), 6);
 }
