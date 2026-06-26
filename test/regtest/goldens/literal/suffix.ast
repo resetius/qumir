@@ -1,0 +1,26 @@
+(block
+  (type компл <struct (re f64) (im f64)>)
+  (fun <main> ()
+    (block
+      (var z <named компл>)
+      (= z (: (call __imag 2) <named компл>))
+      (block
+        (call output_double (call Re (: z <named компл>)) 0 -1)
+        (call output_symbol (cast 32 char))
+        (call output_double (call Im (: z <named компл>)) 0 -1))
+      (= z (: (call __imag 3.5) <named компл>))
+      (block
+        (call output_symbol (cast 32 char))
+        (call output_double (call Re (: z <named компл>)) 0 -1)
+        (call output_symbol (cast 32 char))
+        (call output_double (call Im (: z <named компл>)) 0 -1))
+      (cleanup-exit (return))))
+  (fun __imag ((var x f64)) -> <named компл>
+    (block
+      (cleanup-exit (return (: (struct ((re 0) (im x))) <named компл>)))))
+  (fun Re ((var z <named компл>)) -> f64
+    (block
+      (cleanup-exit (return (field (: z <named компл>) re)))))
+  (fun Im ((var z <named компл>)) -> f64
+    (block
+      (cleanup-exit (return (field (: z <named компл>) im))))))

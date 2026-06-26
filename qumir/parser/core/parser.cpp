@@ -762,6 +762,7 @@ TListHandlerMap MakeDefaultHandlers() {
             TFunAttrs attrs;
             std::optional<std::string> operatorName;
             std::optional<std::string> externSymbol;
+            std::optional<std::string> literalSuffix;
             tok = ctx.Stream.Next();
             if (IsOp(tok, '(')) {
                 auto peek = ctx.Stream.Next();
@@ -783,6 +784,12 @@ TListHandlerMap MakeDefaultHandlers() {
                                     co_return Error(attrTok, "expected string value for (operator ...) attribute");
                                 }
                                 operatorName = str.Cast()->Value;
+                            } else if (attrName == "literal") {
+                                auto str = TMaybeNode<TStringLiteralExpr>(attrExpr);
+                                if (!str) {
+                                    co_return Error(attrTok, "expected string value for (literal ...) attribute");
+                                }
+                                literalSuffix = str.Cast()->Value;
                             } else if (attrName == "extern") {
                                 // (extern <symbol>): external function bound to <symbol>.
                                 if (auto id = TMaybeNode<TIdentExpr>(attrExpr)) {
@@ -825,6 +832,7 @@ TListHandlerMap MakeDefaultHandlers() {
             auto funDecl = std::make_shared<TFunDecl>(loc, std::move(name), std::move(params), std::move(body), std::move(returnType));
             funDecl->LastAssert = std::move(attrs.After);
             funDecl->OperatorName = std::move(operatorName);
+            funDecl->LiteralSuffix = std::move(literalSuffix);
             if (externSymbol) {
                 funDecl->MangledName = std::move(*externSymbol);
             }

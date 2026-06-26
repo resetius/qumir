@@ -624,6 +624,9 @@ struct TFunDecl : TExpr {
     // (e.g. "+", "neg", "cast", "print"); registered into the resolver's
     // type-keyed op/cast dispatch tables instead of plain name lookup.
     std::optional<std::string> OperatorName;
+    // (literal "X") attribute: this function is the constructor for the numeric
+    // literal suffix "X" (e.g. `2i` lowers to a call of this function).
+    std::optional<std::string> LiteralSuffix;
     TFunDecl(TLocation loc, std::string name, std::vector<TParam> args, std::shared_ptr<TBlockExpr> body, NAst::TTypePtr type)
         : TExpr(std::move(loc))
         , Name(std::move(name))

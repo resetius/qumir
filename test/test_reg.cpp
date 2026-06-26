@@ -32,6 +32,7 @@
 #include <qumir/runner/runner_llvm.h>
 #include <qumir/runner/runner_ir.h>
 #include <qumir/frontend/compose.h>
+#include <qumir/frontend/source_module_loader.h>
 
 using namespace NQumir;
 namespace fs = std::filesystem;
@@ -218,18 +219,31 @@ std::string NameFromPath(const fs::path& p) {
 }
 
 // TODO: move to utils
-std::string BuildAst(NAst::TTokenStream& ts) {
+std::string BuildAst(NAst::TTokenStream& ts, const fs::path& moduleDir = {}) {
     NAst::TParser p;
     TModuleSet mods;
     NSemantics::TNameResolver nr;
     RegisterRuntimeModules(nr, mods);
 
-    auto parsed = p.parse(ts, &nr);
+    NFrontend::TSourceModuleLoader loader;
+    if (!moduleDir.empty()) {
+        loader.AddSearchPath(moduleDir.string());
+    }
+    auto parsed = p.parse(ts, &nr, &loader);
     if (!parsed) {
         return parsed.error().ToString() + "\n";
     }
+    auto mainPragmas = ts.GetContext()->GetPragmas();
+    nr.ApplyPragmas(mainPragmas);
 
-    auto expr = parsed.value();
+    auto expr = std::move(parsed.value());
+    auto composed = NFrontend::LoadAndCompose(loader, expr, mainPragmas);
+    if (!composed) {
+        return composed.error().ToString() + "\n";
+    }
+    expr = std::move(composed->Ast);
+    nr.ApplyPragmas(composed->Pragmas);
+
     auto error = NTransform::Pipeline(
         expr,
         nr,
@@ -243,18 +257,31 @@ std::string BuildAst(NAst::TTokenStream& ts) {
     return out.str();
 }
 
-std::string BuildCoreSource(NAst::TTokenStream& ts) {
+std::string BuildCoreSource(NAst::TTokenStream& ts, const fs::path& moduleDir = {}) {
     NAst::TParser p;
     TModuleSet mods;
     NSemantics::TNameResolver nr;
     RegisterRuntimeModules(nr, mods);
 
-    auto parsed = p.parse(ts, &nr);
+    NFrontend::TSourceModuleLoader loader;
+    if (!moduleDir.empty()) {
+        loader.AddSearchPath(moduleDir.string());
+    }
+    auto parsed = p.parse(ts, &nr, &loader);
     if (!parsed) {
         return parsed.error().ToString() + "\n";
     }
+    auto mainPragmas = ts.GetContext()->GetPragmas();
+    nr.ApplyPragmas(mainPragmas);
 
-    auto expr = parsed.value();
+    auto expr = std::move(parsed.value());
+    auto composed = NFrontend::LoadAndCompose(loader, expr, mainPragmas);
+    if (!composed) {
+        return composed.error().ToString() + "\n";
+    }
+    expr = std::move(composed->Ast);
+    nr.ApplyPragmas(composed->Pragmas);
+
     auto error = NTransform::Pipeline(
         expr,
         nr,
@@ -291,7 +318,21 @@ std::string BuildIR(std::istream& input, bool coreInput = false, const fs::path&
     } else {
         NAst::TTokenStream ts(input);
         NAst::TParser p;
-        parsed = p.parse(ts, &resolver);
+        NFrontend::TSourceModuleLoader loader;
+        if (!moduleDir.empty()) {
+            loader.AddSearchPath(moduleDir.string());
+        }
+        parsed = p.parse(ts, &resolver, &loader);
+        if (parsed) {
+            auto mainPragmas = ts.GetContext()->GetPragmas();
+            resolver.ApplyPragmas(mainPragmas);
+            auto composed = NFrontend::LoadAndCompose(loader, *parsed, mainPragmas);
+            if (!composed) {
+                return composed.error().ToString() + "\n";
+            }
+            parsed = composed->Ast;
+            resolver.ApplyPragmas(composed->Pragmas);
+        }
     }
     if (!parsed) {
         return parsed.error().ToString() + "\n";
@@ -409,7 +450,7 @@ std::pair<std::string, std::string> RunExec(
     std::istringstream input(code);
 
     std::vector<std::string> modulePaths;
-    if (coreInput && !moduleDir.empty()) {
+    if (!moduleDir.empty()) {
         modulePaths.push_back(moduleDir.string());
     }
 
@@ -482,7 +523,7 @@ TEST_P(RegAst, Ast) {
     std::istringstream input(code);
 
     NAst::TTokenStream ts(input);
-    std::string got = BuildAst(ts);
+    std::string got = BuildAst(ts, src.parent_path());
 
     if (printOutput) {
         std::cout << "=== Output AST for " << src << " ===\n";
@@ -509,7 +550,7 @@ TEST_P(RegAst, IR) {
     const auto code = ReadAll(src);
     std::istringstream input(code);
 
-    std::string got = BuildIR(input);
+    std::string got = BuildIR(input, false, src.parent_path());
 
     if (printOutput) {
         std::cout << "=== Output IR for " << src << " ===\n";
@@ -563,7 +604,7 @@ TEST_P(RegExec, CoreExec) {
 
     std::istringstream kumirInput(code);
     NAst::TTokenStream ts(kumirInput);
-    auto coreSource = BuildCoreSource(ts);
+    auto coreSource = BuildCoreSource(ts, src.parent_path());
     if (coreSource.starts_with("Error: ")) {
         CheckExecGoldens(src, golden, goldenStdOut, coreSource, "", "CORE RUN");
         return;
