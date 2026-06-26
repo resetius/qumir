@@ -36,6 +36,24 @@
 using namespace NQumir;
 namespace fs = std::filesystem;
 
+// `extern` scenario symbols, resolved by the VM via dlsym (ENABLE_EXPORTS).
+extern "C" {
+
+struct TQumirTwoChar {
+    char a;
+    char b;
+};
+
+int64_t qumir_two_char_sum(TQumirTwoChar p) {
+    return p.a + p.b;
+}
+
+TQumirTwoChar qumir_two_char_swap(TQumirTwoChar p) {
+    return TQumirTwoChar{p.b, p.a};
+}
+
+} // extern "C"
+
 namespace {
 
 fs::path RootDir = "regtest";

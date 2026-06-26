@@ -44,6 +44,11 @@ struct TThin {
     char c;
 };
 
+struct TTwoChar {
+    char a;
+    char b;
+};
+
 struct TFat {
     int64_t a;
     int64_t b;
@@ -94,6 +99,14 @@ TPoint point_double(TPoint p) {
 
 int64_t thin_get(TThin t) {
     return t.c;
+}
+
+int64_t two_char_sum(TTwoChar p) {
+    return p.a + p.b;
+}
+
+TTwoChar two_char_make(int64_t a, int64_t b) {
+    return TTwoChar{static_cast<char>(a), static_cast<char>(b)};
 }
 
 double int_sse_sum(TIntSse p) {
@@ -415,6 +428,36 @@ TEST(FFI, HfaArgUnderFpPressure) {
     args.push_back(reinterpret_cast<uint64_t>(&p));
     expected += p.x + p.y;
     EXPECT_DOUBLE_EQ(LoadArg<double>((*func)(args.data(), args.size())), expected);
+}
+
+TEST(FFI, StructArgTwoChar) {
+    // {char, char} is one INTEGER eightbyte; back it with a full eightbyte so
+    // the by-value deref reads a valid slot.
+    union {
+        TTwoChar t;
+        int64_t raw;
+    } u{};
+    u.raw = 0;
+    u.t.a = 3;
+    u.t.b = 4;
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(two_char_sum),
+        EKind::I64, EStructKind::None, 0, {EKind::Struct}, {EStructKind::Int}));
+    std::vector<uint64_t> args = {reinterpret_cast<uint64_t>(&u.t)};
+    EXPECT_EQ(LoadArg<int64_t>((*func)(args.data(), args.size())), 7);
+}
+
+TEST(FFI, StructReturnTwoChar) {
+    union {
+        TTwoChar t;
+        int64_t raw;
+    } out{};
+    out.raw = 0;
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(two_char_make),
+        EKind::Struct, EStructKind::Int, 0, {EKind::I64, EKind::I64}, {EStructKind::None, EStructKind::None}));
+    std::vector<uint64_t> args = {reinterpret_cast<uint64_t>(&out.t), 3, 4};
+    (*func)(args.data(), args.size());
+    EXPECT_EQ(out.t.a, 3);
+    EXPECT_EQ(out.t.b, 4);
 }
 
 int main(int argc, char** argv) {
