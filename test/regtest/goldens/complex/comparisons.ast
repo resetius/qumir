@@ -5,76 +5,29 @@
       (var a <named компл>)
       (var b <named компл>)
       (= a
-        (: (struct ((re (+ (field (: (struct ((re 1) (im 0))) <named компл>) re)
-                (field
-                  (: (struct ((re (- (* (field (: (struct ((re 2) (im 0))) <named компл>) re)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) re))
-                          (* (field (: (struct ((re 2) (im 0))) <named компл>) im)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) im))))
-                        (im (+ (* (field (: (struct ((re 2) (im 0))) <named компл>) re)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) im))
-                          (* (field (: (struct ((re 2) (im 0))) <named компл>) im)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) re))))))
-                    <named компл>)
-                  re)))
-              (im (+ (field (: (struct ((re 1) (im 0))) <named компл>) im)
-                (field
-                  (: (struct ((re (- (* (field (: (struct ((re 2) (im 0))) <named компл>) re)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) re))
-                          (* (field (: (struct ((re 2) (im 0))) <named компл>) im)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) im))))
-                        (im (+ (* (field (: (struct ((re 2) (im 0))) <named компл>) re)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) im))
-                          (* (field (: (struct ((re 2) (im 0))) <named компл>) im)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) re))))))
-                    <named компл>)
-                  im)))))
+        (: (call
+            complex_add
+            (: (call complex_from_float 1) <named компл>)
+            (: (call complex_mul (: (call complex_from_float 2) <named компл>) (: (call i) <named компл>))
+              <named компл>))
           <named компл>))
       (= b
-        (: (struct ((re (+ (field (: (struct ((re 1) (im 0))) <named компл>) re)
-                (field
-                  (: (struct ((re (- (* (field (: (struct ((re 3) (im 0))) <named компл>) re)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) re))
-                          (* (field (: (struct ((re 3) (im 0))) <named компл>) im)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) im))))
-                        (im (+ (* (field (: (struct ((re 3) (im 0))) <named компл>) re)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) im))
-                          (* (field (: (struct ((re 3) (im 0))) <named компл>) im)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) re))))))
-                    <named компл>)
-                  re)))
-              (im (+ (field (: (struct ((re 1) (im 0))) <named компл>) im)
-                (field
-                  (: (struct ((re (- (* (field (: (struct ((re 3) (im 0))) <named компл>) re)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) re))
-                          (* (field (: (struct ((re 3) (im 0))) <named компл>) im)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) im))))
-                        (im (+ (* (field (: (struct ((re 3) (im 0))) <named компл>) re)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) im))
-                          (* (field (: (struct ((re 3) (im 0))) <named компл>) im)
-                            (field (: (struct ((re 0) (im 1))) <named компл>) re))))))
-                    <named компл>)
-                  im)))))
+        (: (call
+            complex_add
+            (: (call complex_from_float 1) <named компл>)
+            (: (call complex_mul (: (call complex_from_float 3) <named компл>) (: (call i) <named компл>))
+              <named компл>))
           <named компл>))
       (block
         (call output_string "eq_same=")
-        (call
-          output_bool
-          (&& (== (field (: a <named компл>) re) (field (: a <named компл>) re))
-            (== (field (: a <named компл>) im) (field (: a <named компл>) im))))
+        (call output_bool (call complex_eq (: a <named компл>) (: a <named компл>)))
         (call output_string "\n"))
       (block
         (call output_string "eq_other=")
-        (call
-          output_bool
-          (&& (== (field (: a <named компл>) re) (field (: b <named компл>) re))
-            (== (field (: a <named компл>) im) (field (: b <named компл>) im))))
+        (call output_bool (call complex_eq (: a <named компл>) (: b <named компл>)))
         (call output_string "\n"))
       (block
         (call output_string "ne_other=")
-        (call
-          output_bool
-          (|| (!= (field (: a <named компл>) re) (field (: b <named компл>) re))
-            (!= (field (: a <named компл>) im) (field (: b <named компл>) im))))
+        (call output_bool (call complex_ne (: a <named компл>) (: b <named компл>)))
         (call output_string "\n"))
       (cleanup-exit (return)))))

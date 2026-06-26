@@ -4,25 +4,19 @@
     (block
       (var z <named компл>)
       (= z
-        (: (struct ((re (+ (field (: (struct ((re 3) (im 0))) <named компл>) re)
-                (field (: (struct ((re 0) (im 4))) <named компл>) re)))
-              (im (+ (field (: (struct ((re 3) (im 0))) <named компл>) im)
-                (field (: (struct ((re 0) (im 4))) <named компл>) im)))))
+        (: (call complex_add (: (call complex_from_float 3) <named компл>) (: (call __imag 4) <named компл>))
           <named компл>))
       (block
-        (call __unop_print_Named::компл (: z <named компл>))
+        (call complex_print (: z <named компл>))
         (call output_string "\n"))
       (= z
-        (: (struct ((re (- (field (: (struct ((re 3) (im 0))) <named компл>) re)
-                (field (: (struct ((re 0) (im 4))) <named компл>) re)))
-              (im (- (field (: (struct ((re 3) (im 0))) <named компл>) im)
-                (field (: (struct ((re 0) (im 4))) <named компл>) im)))))
+        (: (call complex_sub (: (call complex_from_float 3) <named компл>) (: (call __imag 4) <named компл>))
           <named компл>))
       (block
-        (call __unop_print_Named::компл (: z <named компл>))
+        (call complex_print (: z <named компл>))
         (call output_string "\n"))
-      (= z (: (struct ((re 0) (im 2))) <named компл>))
+      (= z (: (call __imag 2) <named компл>))
       (block
-        (call __unop_print_Named::компл (: z <named компл>))
+        (call complex_print (: z <named компл>))
         (call output_string "\n"))
       (cleanup-exit (return)))))

@@ -55,7 +55,7 @@ function <main> () { ; void
     + tmp(34,ptr to i64) = tmp(33,ptr to i64) imm(0,i64) 
     ste tmp(34,ptr to i64) imm(40,i64) 
     + tmp(35,ptr to i64) = tmp(32,ptr to i64) imm(0,i64) 
-    copy tmp(35,ptr to i64) tmp(33,ptr to i64) sin 
+    copy tmp(35,ptr to i64) tmp(33,ptr to i64) imm(8) 
     + tmp(36,ptr to i64) = tmp(32,ptr to i64) imm(8,i64) 
     ste tmp(36,ptr to i64) imm(2,i64) 
     arg tmp(32,ptr to i64) 

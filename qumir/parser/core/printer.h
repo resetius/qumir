@@ -42,6 +42,7 @@ struct TPrintOptions {
     size_t LineWidth = 120;
     std::set<std::string> ShortNamedTypes;
     TPrintExprFactory NodePrinters;
+    bool HideResolvedOrigins = true;
 };
 
 class TPrinter {

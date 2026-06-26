@@ -3,6 +3,7 @@
 #include <qumir/frontend/compose.h>
 #include <qumir/parser/core/lexer.h>
 #include <qumir/parser/core/parser.h>
+#include <qumir/parser/core/printer.h>
 #include <qumir/parser/type.h>
 
 #include <memory>
@@ -57,7 +58,7 @@ std::vector<std::string> Layout(const TExprPtr& root) {
     return result;
 }
 
-TEST(ComposeTest, OrderingAndSourceUseDropped) {
+TEST(ComposeTest, OrderingAndSourceUseResolved) {
     auto m = Module("m", "(block (type t i64) (fun helper () (block)))");
     auto main = Parse("(block (use m) (use System) (var g i64) (fun aux () (block)) (fun <main> () (block)))");
 
@@ -65,13 +66,24 @@ TEST(ComposeTest, OrderingAndSourceUseDropped) {
     ASSERT_TRUE(res) << res.error().ToString();
 
     EXPECT_EQ(Layout(res->Ast), (std::vector<std::string>{
-        "Use:System",   // runtime use kept; source use `m` dropped
+        "Use:m",        // source use kept for printing, but marked resolved
+        "Use:System",   // runtime use kept unresolved
         "Type:t",       // module type before main
         "Var",          // main global before functions
         "Fun:aux",      // main functions first (Kumir entry must stay first)
         "Fun:<main>",
         "Fun:helper",   // module functions after main
     }));
+    auto block = TMaybeNode<TBlockExpr>(res->Ast).Cast();
+    ASSERT_TRUE(TMaybeNode<TUseExpr>(block->Stmts[0]).Cast()->Resolved);
+    EXPECT_EQ(NCore::PrintAst(res->Ast), R"((block
+  (use "m")
+  (use "System")
+  (var g i64)
+  (fun aux ()
+    (block))
+  (fun <main> ()
+    (block))))");
 }
 
 TEST(ComposeTest, ConflictFunctionRedeclared) {

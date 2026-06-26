@@ -11,6 +11,7 @@
 #include <cassert>
 #include <functional>
 #include <algorithm>
+#include <unordered_set>
 
 namespace NQumir {
 namespace NIR {
@@ -1577,6 +1578,11 @@ void TAstLowerer::ImportExternalFunction(int symbolId, const NAst::TFunDecl& fun
 TExpectedTask<int, TError, TLocation> TAstLowerer::GlobalSymbolId(const std::string& name) {
     auto sidOpt = Context.Lookup(name, NSemantics::TScopeId{0});
     if (sidOpt) {
+        auto funDecl = NAst::TMaybeNode<NAst::TFunDecl>(
+            Context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id}));
+        if (funDecl && funDecl.Cast()->IsExternal()) {
+            ImportExternalFunction(sidOpt->Id, *funDecl.Cast());
+        }
         co_return sidOpt->Id;
     }
     co_return TError({}, TErrorString::Get<EErrorId::UNDEFINED_GLOBAL_SYMBOL>(name));
@@ -1593,7 +1599,6 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
     if (auto validation = validator.Validate(expr); !validation) {
         return std::unexpected(validation.error());
     }
-    ImportExternalFunctions();
     auto maybeBlock = NAst::TMaybeNode<NAst::TBlockExpr>(expr);
     if (!maybeBlock) {
         return std::unexpected(TError(expr->Location, TErrorString::Get<EErrorId::ROOT_EXPR_MUST_BE_BLOCK>()));
@@ -1605,6 +1610,76 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
         .Id = NSemantics::TScopeId{0}
     };
     block->Scope = scope.Id.Id;
+
+    std::unordered_set<int32_t> reachableFunctions;
+    std::function<void(const NAst::TExprPtr&, NSemantics::TScopeId)> collectReferencedFunctions;
+    std::function<void(int32_t)> markFunctionReachable;
+
+    markFunctionReachable = [&](int32_t symbolId) {
+        if (!reachableFunctions.insert(symbolId).second) {
+            return;
+        }
+        auto fun = NAst::TMaybeNode<NAst::TFunDecl>(
+            Context.GetSymbolNode(NSemantics::TSymbolId{symbolId}));
+        if (!fun || fun.Cast()->IsExternal()) {
+            return;
+        }
+        if (fun.Cast()->Body) {
+            collectReferencedFunctions(fun.Cast()->Body, NSemantics::TScopeId{fun.Cast()->Body->Scope});
+        }
+        if (fun.Cast()->LastAssert) {
+            collectReferencedFunctions(fun.Cast()->LastAssert, NSemantics::TScopeId{fun.Cast()->Body->Scope});
+        }
+    };
+
+    collectReferencedFunctions = [&](const NAst::TExprPtr& node, NSemantics::TScopeId currentScope) {
+        if (!node) {
+            return;
+        }
+        if (auto block = NAst::TMaybeNode<NAst::TBlockExpr>(node)) {
+            currentScope = NSemantics::TScopeId{block.Cast()->Scope};
+        } else if (auto fun = NAst::TMaybeNode<NAst::TFunDecl>(node)) {
+            if (fun.Cast()->Body) {
+                collectReferencedFunctions(fun.Cast()->Body, NSemantics::TScopeId{fun.Cast()->Body->Scope});
+            }
+            if (fun.Cast()->LastAssert) {
+                collectReferencedFunctions(fun.Cast()->LastAssert, NSemantics::TScopeId{fun.Cast()->Body->Scope});
+            }
+            return;
+        } else if (auto call = NAst::TMaybeNode<NAst::TCallExpr>(node)) {
+            if (auto ident = NAst::TMaybeNode<NAst::TIdentExpr>(call.Cast()->Callee)) {
+                if (auto symbol = Context.Lookup(ident.Cast()->Name, currentScope)) {
+                    if (NAst::TMaybeNode<NAst::TFunDecl>(
+                            Context.GetSymbolNode(NSemantics::TSymbolId{symbol->Id})))
+                    {
+                        markFunctionReachable(symbol->Id);
+                    }
+                }
+            }
+        }
+        for (const auto& child : node->Children()) {
+            collectReferencedFunctions(child, currentScope);
+        }
+    };
+
+    std::function<void(const std::shared_ptr<NAst::TBlockExpr>&, NSemantics::TScopeId)> collectTopLevelRoots =
+        [&](const std::shared_ptr<NAst::TBlockExpr>& block, NSemantics::TScopeId currentScope)
+    {
+        for (const auto& stmt : block->Stmts) {
+            if (auto fun = NAst::TMaybeNode<NAst::TFunDecl>(stmt)) {
+                if (!stmt->Origin) {
+                    if (auto symbol = Context.Lookup(fun.Cast()->Name, currentScope)) {
+                        markFunctionReachable(symbol->Id);
+                    }
+                }
+            } else if (auto nestedBlock = NAst::TMaybeNode<NAst::TBlockExpr>(stmt)) {
+                collectTopLevelRoots(nestedBlock.Cast(), currentScope);
+            } else {
+                collectReferencedFunctions(stmt, currentScope);
+            }
+        }
+    };
+    collectTopLevelRoots(block, scope.Id);
 
     bool functionSeen = false;
     int constructorFunctionId = -1;
@@ -1625,6 +1700,11 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
     {
         for (auto& s : block->Stmts) {
             if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(s)) {
+                if (auto symbol = Context.Lookup(maybeFun.Cast()->Name, scope.Id)) {
+                    if (s->Origin && !reachableFunctions.contains(symbol->Id)) {
+                        continue;
+                    }
+                }
                 auto res = Lower(s, scope).result();
                 if (!res) {
                     return std::unexpected(res.error());

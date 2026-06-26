@@ -672,6 +672,9 @@ void TNameResolver::ImportUseStmts(const NAst::TExprPtr& root) {
     for (const auto& stmt : block.Cast()->Stmts) {
         auto use = TMaybeNode<TUseExpr>(stmt);
         if (!use) continue;
+        if (use.Cast()->Resolved) {
+            continue;
+        }
         ImportModule(use.Cast()->ModuleName);
     }
 }

@@ -47,6 +47,7 @@ struct IVisitor;
 struct TExpr {
     TLocation Location;
     TTypePtr Type = nullptr;
+    std::optional<std::string> Origin;
 
     TExpr() = default;
     TExpr(TLocation loc)
@@ -1000,6 +1001,7 @@ class TUseExpr : public TExpr {
 public:
     static constexpr const char* NodeId = "Use";
     std::string ModuleName;
+    bool Resolved = false;
 
     explicit TUseExpr(TLocation loc, std::string moduleName)
         : TExpr(std::move(loc))

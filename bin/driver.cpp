@@ -22,7 +22,6 @@
 #include <qumir/modules/robot/robot.h>
 #include <qumir/modules/drawer/drawer.h>
 #include <qumir/modules/painter/painter.h>
-#include <qumir/modules/complex/complex.h>
 #include <qumir/modules/colors/colors.h>
 #include <qumir/modules/keyboard/keyboard.h>
 #include <sstream>
@@ -113,7 +112,6 @@ std::vector<std::shared_ptr<NRegistry::IModule>> SetupModules(
         std::make_shared<NRegistry::RobotModule>(),
         std::make_shared<NRegistry::DrawerModule>(),
         std::make_shared<NRegistry::PainterModule>(),
-        std::make_shared<NRegistry::ComplexModule>(),
         std::make_shared<NRegistry::ColorsModule>(),
         std::make_shared<NRegistry::KeyboardModule>(),
     };

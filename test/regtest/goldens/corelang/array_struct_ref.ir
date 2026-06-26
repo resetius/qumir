@@ -26,7 +26,7 @@ function <main> () { ; void
     ste tmp(14,ptr to i64) imm(10000,i32) 
     + tmp(15,ptr to i64) = tmp(11,ptr to i64) imm(8,i64) 
     ste tmp(15,ptr to i64) imm(1000000,i64) 
-    copy tmp(10,ptr to struct { i8; i16; i32; i64}) tmp(11,ptr to i64) lg 
+    copy tmp(10,ptr to struct { i8; i16; i32; i64}) tmp(11,ptr to i64) imm(16) 
     load tmp(16,ptr to struct { i8; i16; i32; i64}) = local(0,ptr to struct { i8; i16; i32; i64}) 
     load tmp(17,i64) = local(1,i64) 
     - tmp(18,i64) = imm(1,i64) tmp(17,i64) 
@@ -41,7 +41,7 @@ function <main> () { ; void
     ste tmp(24,ptr to i64) imm(20000,i32) 
     + tmp(25,ptr to i64) = tmp(21,ptr to i64) imm(8,i64) 
     ste tmp(25,ptr to i64) imm(2000000,i64) 
-    copy tmp(20,ptr to struct { i8; i16; i32; i64}) tmp(21,ptr to i64) lg 
+    copy tmp(20,ptr to struct { i8; i16; i32; i64}) tmp(21,ptr to i64) imm(16) 
     arg imm(1,ptr to i8) 
     call output_string 
     load tmp(26,ptr to struct { i8; i16; i32; i64}) = local(0,ptr to struct { i8; i16; i32; i64}) 
@@ -194,7 +194,7 @@ function bump_rec (local(0)) { ; void
     + tmp(20,ptr to i64) = tmp(0,ptr to i64) imm(8,i64) 
     ste tmp(20,ptr to i64) tmp(19,i64) 
     load tmp(21,ptr to struct { i8; i16; i32; i64}) = local(0,ptr to struct { i8; i16; i32; i64}) 
-    copy tmp(21,ptr to struct { i8; i16; i32; i64}) tmp(0,ptr to i64) lg 
+    copy tmp(21,ptr to struct { i8; i16; i32; i64}) tmp(0,ptr to i64) imm(16) 
     jmp label(1) 
   }
   block {

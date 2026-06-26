@@ -39,110 +39,78 @@ function <main> () { ; void
     - tmp(17,i64) = tmp(15,i64) tmp(16,i64) 
     * tmp(18,i64) = tmp(17,i64) imm(16,i64) 
     + tmp(19,ptr to struct { f64; f64}) = tmp(14,ptr to struct { f64; f64}) tmp(18,i64) 
-    salloc tmp(20,ptr to i64) = imm(16,i64) 
-    salloc tmp(21,ptr to i64) = imm(16,i64) 
-    load tmp(22,i64) = local(1,i64) 
-    i2f tmp(23,f64) = tmp(22,i64) 
-    + tmp(24,ptr to i64) = tmp(21,ptr to i64) imm(0,i64) 
-    ste tmp(24,ptr to i64) tmp(23,f64) 
-    + tmp(25,ptr to i64) = tmp(21,ptr to i64) imm(8,i64) 
-    ste tmp(25,ptr to i64) imm(0,f64) 
-    + tmp(26,ptr to i8) = tmp(21,ptr to i64) imm(0,i64) 
-    lde tmp(27,f64) = tmp(26,ptr to i8) 
-    salloc tmp(28,ptr to i64) = imm(16,i64) 
-    + tmp(29,ptr to i64) = tmp(28,ptr to i64) imm(0,i64) 
-    ste tmp(29,ptr to i64) imm(0,f64) 
-    + tmp(30,ptr to i64) = tmp(28,ptr to i64) imm(8,i64) 
-    ste tmp(30,ptr to i64) imm(4607182418800017408,f64) 
-    + tmp(31,ptr to i8) = tmp(28,ptr to i64) imm(0,i64) 
-    lde tmp(32,f64) = tmp(31,ptr to i8) 
-    + tmp(33,f64) = tmp(27,f64) tmp(32,f64) 
-    + tmp(34,ptr to i64) = tmp(20,ptr to i64) imm(0,i64) 
-    ste tmp(34,ptr to i64) tmp(33,f64) 
-    salloc tmp(35,ptr to i64) = imm(16,i64) 
-    load tmp(36,i64) = local(1,i64) 
-    i2f tmp(37,f64) = tmp(36,i64) 
-    + tmp(38,ptr to i64) = tmp(35,ptr to i64) imm(0,i64) 
-    ste tmp(38,ptr to i64) tmp(37,f64) 
-    + tmp(39,ptr to i64) = tmp(35,ptr to i64) imm(8,i64) 
-    ste tmp(39,ptr to i64) imm(0,f64) 
-    + tmp(40,ptr to i8) = tmp(35,ptr to i64) imm(8,i64) 
-    lde tmp(41,f64) = tmp(40,ptr to i8) 
-    salloc tmp(42,ptr to i64) = imm(16,i64) 
-    + tmp(43,ptr to i64) = tmp(42,ptr to i64) imm(0,i64) 
-    ste tmp(43,ptr to i64) imm(0,f64) 
-    + tmp(44,ptr to i64) = tmp(42,ptr to i64) imm(8,i64) 
-    ste tmp(44,ptr to i64) imm(4607182418800017408,f64) 
-    + tmp(45,ptr to i8) = tmp(42,ptr to i64) imm(8,i64) 
-    lde tmp(46,f64) = tmp(45,ptr to i8) 
-    + tmp(47,f64) = tmp(41,f64) tmp(46,f64) 
-    + tmp(48,ptr to i64) = tmp(20,ptr to i64) imm(8,i64) 
-    ste tmp(48,ptr to i64) tmp(47,f64) 
-    copy tmp(19,ptr to struct { f64; f64}) tmp(20,ptr to i64) lg 
+    load tmp(20,i64) = local(1,i64) 
+    arg tmp(20,i64) 
+    call tmp(21,struct { f64; f64}) = complex_from_int 
+    call tmp(22,struct { f64; f64}) = i 
+    arg tmp(21,struct { f64; f64}) 
+    arg tmp(22,struct { f64; f64}) 
+    call tmp(23,struct { f64; f64}) = complex_add 
+    copy tmp(19,ptr to struct { f64; f64}) tmp(23,struct { f64; f64}) imm(16) 
     jmp label(4) 
   }
   block {
     label: label(4)
-    load tmp(49,i64) = local(7,i64) 
-    load tmp(50,i64) = local(6,i64) 
-    + tmp(51,i64) = tmp(49,i64) tmp(50,i64) 
-    stre local(7,i64) tmp(51,i64) 
+    load tmp(24,i64) = local(7,i64) 
+    load tmp(25,i64) = local(6,i64) 
+    + tmp(26,i64) = tmp(24,i64) tmp(25,i64) 
+    stre local(7,i64) tmp(26,i64) 
     jmp label(2) 
   }
   block {
     label: label(5)
     stre local(1,i64) imm(0,i64) 
     stre local(9,i64) imm(1,i64) 
-    load tmp(52,i64) = local(1,i64) 
-    stre local(10,i64) tmp(52,i64) 
+    load tmp(27,i64) = local(1,i64) 
+    stre local(10,i64) tmp(27,i64) 
     stre local(8,i64) imm(2,i64) 
     jmp label(6) 
   }
   block {
     label: label(6)
-    load tmp(53,i64) = local(8,i64) 
-    load tmp(54,i64) = local(10,i64) 
-    load tmp(55,i64) = local(9,i64) 
-    - tmp(56,i64) = tmp(53,i64) tmp(54,i64) 
-    * tmp(57,i64) = tmp(56,i64) tmp(55,i64) 
-    >= tmp(58,i1) = tmp(57,i64) imm(0,i64) 
-    cmp tmp(58,i1) label(7) label(9) 
+    load tmp(28,i64) = local(8,i64) 
+    load tmp(29,i64) = local(10,i64) 
+    load tmp(30,i64) = local(9,i64) 
+    - tmp(31,i64) = tmp(28,i64) tmp(29,i64) 
+    * tmp(32,i64) = tmp(31,i64) tmp(30,i64) 
+    >= tmp(33,i1) = tmp(32,i64) imm(0,i64) 
+    cmp tmp(33,i1) label(7) label(9) 
   }
   block {
     label: label(7)
-    load tmp(59,i64) = local(10,i64) 
-    stre local(1,i64) tmp(59,i64) 
+    load tmp(34,i64) = local(10,i64) 
+    stre local(1,i64) tmp(34,i64) 
     arg imm(1,ptr to i8) 
     call output_string 
-    load tmp(60,i64) = local(1,i64) 
-    arg tmp(60,i64) 
+    load tmp(35,i64) = local(1,i64) 
+    arg tmp(35,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(61,i64) = local(1,i64) 
-    load tmp(62,ptr to struct { f64; f64}) = local(0,ptr to struct { f64; f64}) 
-    load tmp(63,i64) = local(2,i64) 
-    - tmp(64,i64) = tmp(61,i64) tmp(63,i64) 
-    * tmp(65,i64) = tmp(64,i64) imm(16,i64) 
-    + tmp(66,ptr to struct { f64; f64}) = tmp(62,ptr to struct { f64; f64}) tmp(65,i64) 
-    + tmp(67,ptr to i8) = tmp(66,ptr to struct { f64; f64}) imm(0,i64) 
-    lde tmp(68,f64) = tmp(67,ptr to i8) 
-    arg tmp(68,f64) 
+    load tmp(36,i64) = local(1,i64) 
+    load tmp(37,ptr to struct { f64; f64}) = local(0,ptr to struct { f64; f64}) 
+    load tmp(38,i64) = local(2,i64) 
+    - tmp(39,i64) = tmp(36,i64) tmp(38,i64) 
+    * tmp(40,i64) = tmp(39,i64) imm(16,i64) 
+    + tmp(41,ptr to i8) = tmp(37,ptr to struct { f64; f64}) tmp(40,i64) 
+    arg tmp(41,ptr to i8) 
+    call tmp(42,f64) = Re 
+    arg tmp(42,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
     arg imm(3,ptr to i8) 
     call output_string 
-    load tmp(69,i64) = local(1,i64) 
-    load tmp(70,ptr to struct { f64; f64}) = local(0,ptr to struct { f64; f64}) 
-    load tmp(71,i64) = local(2,i64) 
-    - tmp(72,i64) = tmp(69,i64) tmp(71,i64) 
-    * tmp(73,i64) = tmp(72,i64) imm(16,i64) 
-    + tmp(74,ptr to struct { f64; f64}) = tmp(70,ptr to struct { f64; f64}) tmp(73,i64) 
-    + tmp(75,ptr to i8) = tmp(74,ptr to struct { f64; f64}) imm(8,i64) 
-    lde tmp(76,f64) = tmp(75,ptr to i8) 
-    arg tmp(76,f64) 
+    load tmp(43,i64) = local(1,i64) 
+    load tmp(44,ptr to struct { f64; f64}) = local(0,ptr to struct { f64; f64}) 
+    load tmp(45,i64) = local(2,i64) 
+    - tmp(46,i64) = tmp(43,i64) tmp(45,i64) 
+    * tmp(47,i64) = tmp(46,i64) imm(16,i64) 
+    + tmp(48,ptr to i8) = tmp(44,ptr to struct { f64; f64}) tmp(47,i64) 
+    arg tmp(48,ptr to i8) 
+    call tmp(49,f64) = Im 
+    arg tmp(49,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
@@ -152,21 +120,118 @@ function <main> () { ; void
   }
   block {
     label: label(8)
-    load tmp(77,i64) = local(10,i64) 
-    load tmp(78,i64) = local(9,i64) 
-    + tmp(79,i64) = tmp(77,i64) tmp(78,i64) 
-    stre local(10,i64) tmp(79,i64) 
+    load tmp(50,i64) = local(10,i64) 
+    load tmp(51,i64) = local(9,i64) 
+    + tmp(52,i64) = tmp(50,i64) tmp(51,i64) 
+    stre local(10,i64) tmp(52,i64) 
     jmp label(6) 
   }
   block {
     label: label(9)
-    load tmp(80,ptr to struct { f64; f64}) = local(0,ptr to struct { f64; f64}) 
-    arg tmp(80,ptr to struct { f64; f64}) 
+    load tmp(53,ptr to struct { f64; f64}) = local(0,ptr to struct { f64; f64}) 
+    arg tmp(53,ptr to struct { f64; f64}) 
     call array_destroy 
     jmp label(1) 
   }
   block {
     label: label(1)
     ret 
+  }
+}
+function i () { ; struct { f64; f64}
+  block {
+    label: label(0)
+    salloc tmp(0,ptr to i64) = imm(16,i64) 
+    + tmp(1,ptr to i64) = tmp(0,ptr to i64) imm(0,i64) 
+    ste tmp(1,ptr to i64) imm(0,f64) 
+    + tmp(2,ptr to i64) = tmp(0,ptr to i64) imm(8,i64) 
+    ste tmp(2,ptr to i64) imm(4607182418800017408,f64) 
+    stre local(0,struct { f64; f64}) tmp(0,ptr to i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(3,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    ret tmp(3,struct { f64; f64}) 
+  }
+}
+function Re (local(0)) { ; f64
+  block {
+    label: label(0)
+    lea tmp(0,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    + tmp(1,ptr to i8) = tmp(0,struct { f64; f64}) imm(0,i64) 
+    lde tmp(2,f64) = tmp(1,ptr to i8) 
+    stre local(1,f64) tmp(2,f64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(3,f64) = local(1,f64) 
+    ret tmp(3,f64) 
+  }
+}
+function Im (local(0)) { ; f64
+  block {
+    label: label(0)
+    lea tmp(0,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    + tmp(1,ptr to i8) = tmp(0,struct { f64; f64}) imm(8,i64) 
+    lde tmp(2,f64) = tmp(1,ptr to i8) 
+    stre local(1,f64) tmp(2,f64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(3,f64) = local(1,f64) 
+    ret tmp(3,f64) 
+  }
+}
+function complex_add (local(0), local(1)) { ; struct { f64; f64}
+  block {
+    label: label(0)
+    salloc tmp(0,ptr to i64) = imm(16,i64) 
+    lea tmp(1,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    + tmp(2,ptr to i8) = tmp(1,struct { f64; f64}) imm(0,i64) 
+    lde tmp(3,f64) = tmp(2,ptr to i8) 
+    lea tmp(4,struct { f64; f64}) = local(1,struct { f64; f64}) 
+    + tmp(5,ptr to i8) = tmp(4,struct { f64; f64}) imm(0,i64) 
+    lde tmp(6,f64) = tmp(5,ptr to i8) 
+    + tmp(7,f64) = tmp(3,f64) tmp(6,f64) 
+    + tmp(8,ptr to i64) = tmp(0,ptr to i64) imm(0,i64) 
+    ste tmp(8,ptr to i64) tmp(7,f64) 
+    lea tmp(9,struct { f64; f64}) = local(0,struct { f64; f64}) 
+    + tmp(10,ptr to i8) = tmp(9,struct { f64; f64}) imm(8,i64) 
+    lde tmp(11,f64) = tmp(10,ptr to i8) 
+    lea tmp(12,struct { f64; f64}) = local(1,struct { f64; f64}) 
+    + tmp(13,ptr to i8) = tmp(12,struct { f64; f64}) imm(8,i64) 
+    lde tmp(14,f64) = tmp(13,ptr to i8) 
+    + tmp(15,f64) = tmp(11,f64) tmp(14,f64) 
+    + tmp(16,ptr to i64) = tmp(0,ptr to i64) imm(8,i64) 
+    ste tmp(16,ptr to i64) tmp(15,f64) 
+    stre local(2,struct { f64; f64}) tmp(0,ptr to i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(17,struct { f64; f64}) = local(2,struct { f64; f64}) 
+    ret tmp(17,struct { f64; f64}) 
+  }
+}
+function complex_from_int (local(0)) { ; struct { f64; f64}
+  block {
+    label: label(0)
+    salloc tmp(0,ptr to i64) = imm(16,i64) 
+    load tmp(1,i64) = local(0,i64) 
+    i2f tmp(2,f64) = tmp(1,i64) 
+    + tmp(3,ptr to i64) = tmp(0,ptr to i64) imm(0,i64) 
+    ste tmp(3,ptr to i64) tmp(2,f64) 
+    + tmp(4,ptr to i64) = tmp(0,ptr to i64) imm(8,i64) 
+    ste tmp(4,ptr to i64) imm(0,f64) 
+    stre local(1,struct { f64; f64}) tmp(0,ptr to i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(5,struct { f64; f64}) = local(1,struct { f64; f64}) 
+    ret tmp(5,struct { f64; f64}) 
   }
 }

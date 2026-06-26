@@ -5,6 +5,7 @@
 #include <map>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace NQumir {
 namespace NAst {
@@ -350,14 +351,42 @@ void TPrinter::PrintFun(TFunDecl& node, int level) {
         Space();
         PrintType(node.RetType, level);
     }
-    if (node.LastAssert) {
+    const bool hasAttrs = node.LastAssert
+        || node.OperatorName
+        || node.LiteralSuffix
+        || node.IsExternal();
+    if (hasAttrs) {
         Space();
         *Out << "(attrs";
-        Separator(level + 2);
-        *Out << "(expect_after";
-        Space();
-        PrintExpr(node.LastAssert, true, level + 2);
-        *Out << ')';
+        if (node.LastAssert) {
+            Separator(level + 2);
+            *Out << "(expect_after";
+            Space();
+            PrintExpr(node.LastAssert, true, level + 2);
+            *Out << ')';
+        }
+        if (node.OperatorName) {
+            Separator(level + 2);
+            if (*node.OperatorName == "print") {
+                *Out << "print";
+            } else {
+                *Out << "(operator ";
+                PrintString(*node.OperatorName, '"');
+                *Out << ')';
+            }
+        }
+        if (node.LiteralSuffix) {
+            Separator(level + 2);
+            *Out << "(literal ";
+            PrintString(*node.LiteralSuffix, '"');
+            *Out << ')';
+        }
+        if (node.IsExternal()) {
+            Separator(level + 2);
+            *Out << "(extern ";
+            PrintIdentifier(node.MangledName);
+            *Out << ')';
+        }
         *Out << ')';
     }
     Separator(level + 1);
@@ -578,9 +607,45 @@ struct TPrintExpr : public IVisitor {
     }
 
     void Visit(TBlockExpr& node) override {
-        if (Frame.Level == 0) {
+        auto hasResolvedUse = [&]() {
+            for (const auto& stmt : node.Stmts) {
+                if (auto use = TMaybeNode<TUseExpr>(stmt); use && use.Cast()->Resolved) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        if (Frame.Level == 0 || hasResolvedUse()) {
+            const int childLevel = Frame.Level + 1;
+            std::unordered_set<std::string> resolvedUses;
+            for (const auto& stmt : node.Stmts) {
+                if (auto use = TMaybeNode<TUseExpr>(stmt); use && use.Cast()->Resolved) {
+                    resolvedUses.insert(use.Cast()->ModuleName);
+                }
+            }
+            auto visibleTopLevel = [&](const TExprPtr& stmt) {
+                if (!Printer.Options.HideResolvedOrigins) {
+                    return true;
+                }
+                return !stmt->Origin || !resolvedUses.contains(*stmt->Origin);
+            };
+
+            std::unordered_set<std::string> hiddenTypeNames;
+            for (const auto& stmt : node.Stmts) {
+                if (visibleTopLevel(stmt)) {
+                    continue;
+                }
+                if (auto type = TMaybeNode<TTypeDeclStmt>(stmt)) {
+                    auto named = TMaybeType<TNamedType>(type.Cast()->Type);
+                    hiddenTypeNames.insert(named.Cast()->Name);
+                }
+            }
+
             TNamedTypeMap collected;
             for (const auto& stmt : node.Stmts) {
+                if (!visibleTopLevel(stmt)) {
+                    continue;
+                }
                 CollectTypesFromExpr(stmt, collected);
             }
             for (const auto& [name, _] : collected) {
@@ -589,26 +654,45 @@ struct TPrintExpr : public IVisitor {
             *Out << "(block";
             // Pass 1: use statements
             for (const auto& stmt : node.Stmts) {
-                if (!TMaybeNode<TUseExpr>(stmt)) continue;
-                Printer.Separator(1);
-                Printer.PrintExpr(stmt, true, 1);
+                if (!visibleTopLevel(stmt)) {
+                    continue;
+                }
+                auto use = TMaybeNode<TUseExpr>(stmt);
+                if (!use) {
+                    continue;
+                }
+                if (!Printer.Options.HideResolvedOrigins && use.Cast()->Resolved) {
+                    continue;
+                }
+                Printer.Separator(childLevel);
+                Printer.PrintExpr(stmt, true, childLevel);
             }
             // Pass 2: locally declared types (not imported from modules)
             for (const auto& [name, namedType] : collected) {
+                if (hiddenTypeNames.contains(name)) {
+                    continue;
+                }
                 if (namedType->Reference.has_value()) continue;
-                Printer.Separator(1);
+                Printer.Separator(childLevel);
                 *Out << "(type ";
                 Printer.PrintIdentifier(name);
                 Printer.Space();
-                Printer.PrintType(namedType->UnderlyingType, 1);
+                Printer.PrintType(namedType->UnderlyingType, childLevel);
                 *Out << ')';
             }
             // Pass 3: everything else
             for (const auto& stmt : node.Stmts) {
-                if (TMaybeNode<TTypeDeclStmt>(stmt)) continue;
-                if (TMaybeNode<TUseExpr>(stmt)) continue;
-                Printer.Separator(1);
-                Printer.PrintExpr(stmt, true, 1);
+                if (!visibleTopLevel(stmt)) {
+                    continue;
+                }
+                if (TMaybeNode<TTypeDeclStmt>(stmt)) {
+                    continue;
+                }
+                if (TMaybeNode<TUseExpr>(stmt)) {
+                    continue;
+                }
+                Printer.Separator(childLevel);
+                Printer.PrintExpr(stmt, true, childLevel);
             }
             *Out << ')';
         } else {

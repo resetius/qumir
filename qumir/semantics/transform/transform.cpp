@@ -86,6 +86,9 @@ std::expected<bool, TError> ImportPendingCoreUses(NAst::TExprPtr& expr, NSemanti
     TransformAst(expr, expr,
         [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
             if (auto maybeUse = NAst::TMaybeNode<NAst::TUseExpr>(node)) {
+                if (maybeUse.Cast()->Resolved) {
+                    return node;
+                }
                 auto result = context.ImportModule(maybeUse.Cast()->ModuleName);
                 if (!result) {
                     errors.push_back(TError(node->Location, result.error()));
