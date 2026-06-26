@@ -66,6 +66,19 @@ TEST_F(SourceModuleLoaderTest, SingleModuleNoDeps) {
     EXPECT_EQ((*m)->ExportedTypes(), (std::vector<std::string>{"t"}));
 }
 
+TEST_F(SourceModuleLoaderTest, AliasFromModaliasFile) {
+    Write("local_complex", "(block (fun foo () -> i64 (block (return (: 7 i64)))))");
+    std::ofstream(Dir / "modalias") << "Тестовый модуль = local_complex\n";
+
+    TSourceModuleLoader loader;
+    loader.AddSearchPath(Dir);
+
+    EXPECT_TRUE(loader.Resolvable("Тестовый модуль"));
+    auto m = loader.Load("Тестовый модуль");
+    ASSERT_TRUE(m) << m.error().ToString();
+    EXPECT_EQ((*m)->ExportedFunctions(), (std::vector<std::string>{"foo"}));
+}
+
 TEST_F(SourceModuleLoaderTest, TransitiveChain) {
     Write("a", "(block (use b) (fun fa () (block)))");
     Write("b", "(block (use c) (fun fb () (block)))");

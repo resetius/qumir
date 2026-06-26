@@ -20,7 +20,6 @@
 #include <qumir/modules/robot/robot.h>
 #include <qumir/modules/drawer/drawer.h>
 #include <qumir/modules/painter/painter.h>
-#include <qumir/modules/complex/complex.h>
 #include <qumir/modules/colors/colors.h>
 #include <qumir/modules/keyboard/keyboard.h>
 #include <qumir/ir/lowering/lower_ast.h>
@@ -150,7 +149,6 @@ struct TModuleSet {
     NRegistry::RobotModule robot;
     NRegistry::DrawerModule drawer;
     NRegistry::PainterModule painter;
-    NRegistry::ComplexModule complex;
     NRegistry::ColorsModule colors;
     NRegistry::KeyboardModule keyboard;
 };
@@ -161,7 +159,6 @@ void RegisterRuntimeModules(NSemantics::TNameResolver& resolver, TModuleSet& mod
     resolver.RegisterModule(&mods.robot);
     resolver.RegisterModule(&mods.drawer);
     resolver.RegisterModule(&mods.painter);
-    resolver.RegisterModule(&mods.complex);
     resolver.RegisterModule(&mods.colors);
     resolver.RegisterModule(&mods.keyboard);
     resolver.ImportModule(mods.system.Name());
@@ -290,7 +287,10 @@ std::string BuildCoreSource(NAst::TTokenStream& ts, const fs::path& moduleDir = 
         return error.error().ToString() + "\n";
     }
 
-    return NAst::NCore::PrintAst(expr, {.TypeMode = NAst::NCore::ETypePrintMode::All});
+    return NAst::NCore::PrintAst(expr, {
+        .TypeMode = NAst::NCore::ETypePrintMode::All,
+        .HideResolvedOrigins = false,
+    });
 }
 
 std::string BuildIR(std::istream& input, bool coreInput = false, const fs::path& moduleDir = {}) {

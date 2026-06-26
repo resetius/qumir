@@ -6,7 +6,14 @@
 
 #include <algorithm>
 #include <fstream>
+#include <optional>
 #include <system_error>
+
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#elif defined(__linux__)
+#include <unistd.h>
+#endif
 
 namespace NQumir {
 namespace NFrontend {
@@ -15,6 +22,27 @@ namespace fs = std::filesystem;
 using namespace NAst;
 
 namespace {
+
+std::optional<fs::path> ExecutableDir() {
+#if defined(__APPLE__)
+    uint32_t size = 0;
+    _NSGetExecutablePath(nullptr, &size);
+    std::string buf(size, '\0');
+    if (_NSGetExecutablePath(buf.data(), &size) != 0) {
+        return std::nullopt;
+    }
+#elif defined(__linux__)
+    std::string buf = "/proc/self/exe";
+#else
+    return std::nullopt;
+#endif
+    std::error_code ec;
+    auto path = fs::canonical(buf, ec);
+    if (ec) {
+        return std::nullopt;
+    }
+    return path.parent_path();
+}
 
 TError Diag(const fs::path& path, const TLocation& loc, const std::string& msg) {
     return TError(loc, path.string() + ":" + std::to_string(loc.Line) + ":"
@@ -70,8 +98,38 @@ std::optional<TError> CollectInterface(const fs::path& path, TSourceModule& modu
 
 } // namespace
 
+TSourceModuleLoader::TSourceModuleLoader() {
+    if (auto dir = ExecutableDir()) {
+        // Built-in module dirs: install (../share/qumir/modules) and build tree (../../qumir/modules).
+        AddSearchPath(*dir / ".." / "share" / "qumir" / "modules");
+        AddSearchPath(*dir / ".." / ".." / "qumir" / "modules");
+    }
+}
+
 void TSourceModuleLoader::AddSearchPath(fs::path dir) {
+    // A `modalias` file (lines `display = module`) lets a `.oz` be imported under a display name.
+    std::ifstream in(dir / "modalias");
+    auto trim = [](std::string s) {
+        auto a = s.find_first_not_of(" \t\r");
+        auto b = s.find_last_not_of(" \t\r");
+        return a == std::string::npos ? std::string{} : s.substr(a, b - a + 1);
+    };
+    for (std::string line; std::getline(in, line); ) {
+        auto eq = line.find('=');
+        if (eq == std::string::npos) {
+            continue;
+        }
+        auto alias = trim(line.substr(0, eq));
+        auto target = trim(line.substr(eq + 1));
+        if (!alias.empty() && !target.empty() && alias[0] != '#') {
+            AddAlias(std::move(alias), std::move(target));
+        }
+    }
     SearchPaths.push_back(std::move(dir));
+}
+
+void TSourceModuleLoader::AddAlias(std::string alias, std::string moduleName) {
+    Aliases.insert_or_assign(std::move(alias), std::move(moduleName));
 }
 
 std::expected<std::monostate, TError> TSourceModuleLoader::RegisterSourceModule(fs::path file) {
@@ -90,11 +148,13 @@ std::expected<std::monostate, TError> TSourceModuleLoader::RegisterSourceModule(
 }
 
 std::optional<fs::path> TSourceModuleLoader::ResolvePath(const std::string& name) const {
-    if (auto it = ExplicitModules.find(name); it != ExplicitModules.end()) {
+    auto aliasIt = Aliases.find(name);
+    const std::string& resolved = aliasIt != Aliases.end() ? aliasIt->second : name;
+    if (auto it = ExplicitModules.find(resolved); it != ExplicitModules.end()) {
         return it->second;
     }
     for (const auto& dir : SearchPaths) {
-        auto candidate = dir / (name + ".oz");
+        auto candidate = dir / (resolved + ".oz");
         std::error_code ec;
         if (fs::is_regular_file(candidate, ec)) {
             auto canonical = fs::canonical(candidate, ec);

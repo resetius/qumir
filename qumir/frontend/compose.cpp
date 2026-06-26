@@ -16,6 +16,7 @@ namespace {
 struct TUnit {
     const std::vector<TExprPtr>* Stmts;
     std::string Label;
+    std::string Origin;
     bool IsMain;
 };
 
@@ -131,9 +132,9 @@ std::expected<TComposeResult, TError> Compose(
 
     std::vector<TUnit> units;
     for (const auto* m : modules) {
-        units.push_back({&TMaybeNode<TBlockExpr>(m->Ast).Cast()->Stmts, m->Path.string(), false});
+        units.push_back({&TMaybeNode<TBlockExpr>(m->Ast).Cast()->Stmts, m->Path.string(), m->Name, false});
     }
-    units.push_back({&mainBlock.Cast()->Stmts, mainLabel, true});
+    units.push_back({&mainBlock.Cast()->Stmts, mainLabel, {}, true});
 
     auto pragmas = MergePragmas(modules, mainPragmas, mainLabel);
     if (!pragmas) {
@@ -157,10 +158,14 @@ std::expected<TComposeResult, TError> Compose(
     std::unordered_set<std::string> seenUses;
     for (const auto& unit : units) {
         for (const auto& stmt : *unit.Stmts) {
+            if (!unit.IsMain) {
+                stmt->Origin = unit.Origin;
+            }
             if (auto use = TMaybeNode<TUseExpr>(stmt)) {
-                const auto& name = use.Cast()->ModuleName;
+                auto useNode = use.Cast();
+                const auto& name = useNode->ModuleName;
                 if (moduleNames.contains(name)) {
-                    continue;
+                    useNode->Resolved = true;
                 }
                 if (seenUses.insert(name).second) {
                     uses.push_back(stmt);

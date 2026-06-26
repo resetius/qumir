@@ -6,7 +6,8 @@
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
-#include <qumir/modules/complex/complex.h>
+#include <qumir/frontend/compose.h>
+#include <qumir/frontend/source_module_loader.h>
 #include <qumir/runtime/io.h>
 #include <qumir/ir/builder.h>
 #include <qumir/ir/lowering/lower_ast.h>
@@ -33,18 +34,28 @@ TRunResult RunWithInjection(
     std::vector<TExprPtr> injected)
 {
     NSemantics::TNameResolver resolver;
-    auto complexMod = std::make_shared<NRegistry::ComplexModule>();
     auto sysMod = std::make_shared<NRegistry::SystemModule>();
     resolver.RegisterModule(sysMod.get());
     resolver.ImportModule(sysMod->Name());
-    resolver.RegisterModule(complexMod.get());
 
     std::istringstream in(src);
     TTokenStream ts(in);
     TParser p;
-    auto parsed = p.parse(ts, &resolver);
-    if (!parsed) return {{}, parsed.error().ToString()};
+    NFrontend::TSourceModuleLoader loader;
+    auto parsed = p.parse(ts, &resolver, &loader);
+    if (!parsed) {
+        return {{}, parsed.error().ToString()};
+    }
     auto ast = std::move(parsed.value());
+    auto mainPragmas = ts.GetContext()->GetPragmas();
+    resolver.ApplyPragmas(mainPragmas);
+
+    auto composed = NFrontend::LoadAndCompose(loader, ast, mainPragmas);
+    if (!composed) {
+        return {{}, composed.error().ToString()};
+    }
+    ast = std::move(composed->Ast);
+    resolver.ApplyPragmas(composed->Pragmas);
 
     auto* topBlock = dynamic_cast<TBlockExpr*>(ast.get());
     if (!topBlock) return {{}, "expected TBlockExpr at top level"};

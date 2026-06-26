@@ -23,7 +23,14 @@ namespace NFrontend {
 // resolution, lowering or codegen.
 class TSourceModuleLoader {
 public:
+    // Seeds search paths with the built-in module dirs relative to the binary.
+    TSourceModuleLoader();
+
     void AddSearchPath(std::filesystem::path dir);
+
+    // Maps an import name to a module name, so a `.oz` file (e.g. complex.oz)
+    // can be imported under a display name (e.g. "Комплексные числа").
+    void AddAlias(std::string alias, std::string moduleName);
 
     std::expected<std::monostate, TError> RegisterSourceModule(std::filesystem::path file);
 
@@ -49,6 +56,7 @@ private:
 
     std::vector<std::filesystem::path> SearchPaths;
     std::map<std::string, std::filesystem::path> ExplicitModules;
+    std::map<std::string, std::string> Aliases;
 
     std::map<std::string, TCacheEntry> Cache;
     std::vector<std::string> LoadStack;

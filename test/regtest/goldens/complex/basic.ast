@@ -3,11 +3,11 @@
   (fun <main> ()
     (block
       (var z <named компл>)
-      (= z (: (struct ((re 0) (im 1))) <named компл>))
+      (= z (: (call i) <named компл>))
       (block
         (call output_string "i Re=")
-        (call output_double (field (: z <named компл>) re) 0 -1)
+        (call output_double (call Re (: z <named компл>)) 0 -1)
         (call output_string " Im=")
-        (call output_double (field (: z <named компл>) im) 0 -1)
+        (call output_double (call Im (: z <named компл>)) 0 -1)
         (call output_string "\n"))
       (cleanup-exit (return)))))
