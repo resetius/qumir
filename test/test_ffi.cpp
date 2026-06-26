@@ -117,6 +117,41 @@ int64_t fat_sum(TFat* p) {
     return p->a + p->b + p->c;
 }
 
+// Returns a struct larger than two eightbytes by value (sret).
+TFat fat_make(int64_t a, int64_t b, int64_t c) {
+    return TFat{a * 2, b * 2, c * 2};
+}
+
+int64_t sum_10i(int64_t a, int64_t b, int64_t c, int64_t d, int64_t e,
+                int64_t f, int64_t g, int64_t h, int64_t i, int64_t j) {
+    return a + b + c + d + e + f + g + h + i + j;
+}
+
+double sum_10d(double a, double b, double c, double d, double e,
+               double f, double g, double h, double i, double j) {
+    return a + b + c + d + e + f + g + h + i + j;
+}
+
+double many_mixed(int64_t a, int64_t b, int64_t c, int64_t d, int64_t e,
+                  int64_t f, int64_t g, int64_t h, int64_t i,
+                  double p, double q, double r, double s, double t,
+                  double u, double v, double w, double x) {
+    return static_cast<double>(a + b + c + d + e + f + g + h + i)
+        + (p + q + r + s + t + u + v + w + x);
+}
+
+// A by-value struct argument arriving when the GP file is nearly full forces
+// the whole struct onto the stack on AArch64 (all-or-nothing register use).
+int64_t seven_then_point(int64_t a, int64_t b, int64_t c, int64_t d,
+                         int64_t e, int64_t f, int64_t g, TPoint p) {
+    return a + b + c + d + e + f + g + p.x + p.y;
+}
+
+double seven_d_then_dpoint(double a, double b, double c, double d,
+                           double e, double f, double g, TDPoint p) {
+    return a + b + c + d + e + f + g + p.x + p.y;
+}
+
 } // namespace
 
 TEST(FFI, Basic) {
@@ -287,10 +322,99 @@ TEST(FFI, StructReturnSseInt) {
     EXPECT_EQ(out.b, 7);
 }
 
-TEST(FFI, StructReturnFatUnsupported) {
-    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(point_double),
-        EKind::Struct, EStructKind::Memory, sizeof(TFat), {EKind::I64}, {EStructKind::None}));
-    EXPECT_EQ(func, nullptr);
+TEST(FFI, StructReturnMemory) {
+    TFat out{};
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(fat_make),
+        EKind::Struct, EStructKind::Memory, sizeof(TFat),
+        {EKind::I64, EKind::I64, EKind::I64},
+        {EStructKind::None, EStructKind::None, EStructKind::None}));
+    ASSERT_NE(func, nullptr);
+    std::vector<uint64_t> args = {reinterpret_cast<uint64_t>(&out), 1, 2, 3};
+    (*func)(args.data(), args.size());
+    EXPECT_EQ(out.a, 2);
+    EXPECT_EQ(out.b, 4);
+    EXPECT_EQ(out.c, 6);
+}
+
+TEST(FFI, ManyIntArgsStackSpill) {
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(sum_10i),
+        EKind::I64, EStructKind::None, 0,
+        std::vector<EKind>(10, EKind::I64),
+        std::vector<EStructKind>(10, EStructKind::None)));
+    ASSERT_NE(func, nullptr);
+    std::vector<uint64_t> args = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    EXPECT_EQ(LoadArg<int64_t>((*func)(args.data(), args.size())), 55);
+}
+
+TEST(FFI, ManyDoubleArgsStackSpill) {
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(sum_10d),
+        EKind::F64, EStructKind::None, 0,
+        std::vector<EKind>(10, EKind::F64),
+        std::vector<EStructKind>(10, EStructKind::None)));
+    ASSERT_NE(func, nullptr);
+    std::vector<uint64_t> args;
+    double expected = 0;
+    for (int n = 1; n <= 10; ++n) {
+        double v = n + 0.5;
+        expected += v;
+        args.push_back(std::bit_cast<uint64_t>(v));
+    }
+    EXPECT_DOUBLE_EQ(LoadArg<double>((*func)(args.data(), args.size())), expected);
+}
+
+TEST(FFI, ManyMixedArgsStackSpill) {
+    std::vector<EKind> kinds(9, EKind::I64);
+    kinds.insert(kinds.end(), 9, EKind::F64);
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(many_mixed),
+        EKind::F64, EStructKind::None, 0,
+        kinds, std::vector<EStructKind>(18, EStructKind::None)));
+    ASSERT_NE(func, nullptr);
+    std::vector<uint64_t> args;
+    double expected = 0;
+    for (int n = 1; n <= 9; ++n) {
+        args.push_back(static_cast<uint64_t>(n));
+        expected += n;
+    }
+    for (int n = 0; n < 9; ++n) {
+        double v = 1.5 + n;
+        args.push_back(std::bit_cast<uint64_t>(v));
+        expected += v;
+    }
+    EXPECT_DOUBLE_EQ(LoadArg<double>((*func)(args.data(), args.size())), expected);
+}
+
+TEST(FFI, StructArgUnderGprPressure) {
+    TPoint p{100, 200};
+    std::vector<EKind> kinds(7, EKind::I64);
+    kinds.push_back(EKind::Struct);
+    std::vector<EStructKind> structs(7, EStructKind::None);
+    structs.push_back(EStructKind::IntInt);
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(seven_then_point),
+        EKind::I64, EStructKind::None, 0, kinds, structs));
+    ASSERT_NE(func, nullptr);
+    std::vector<uint64_t> args = {1, 2, 3, 4, 5, 6, 7, reinterpret_cast<uint64_t>(&p)};
+    EXPECT_EQ(LoadArg<int64_t>((*func)(args.data(), args.size())), 28 + 300);
+}
+
+TEST(FFI, HfaArgUnderFpPressure) {
+    TDPoint p{1.25, 2.75};
+    std::vector<EKind> kinds(7, EKind::F64);
+    kinds.push_back(EKind::Struct);
+    std::vector<EStructKind> structs(7, EStructKind::None);
+    structs.push_back(EStructKind::SseSse);
+    auto func = std::unique_ptr<IFunction>(BuildFFI(reinterpret_cast<void*>(seven_d_then_dpoint),
+        EKind::F64, EStructKind::None, 0, kinds, structs));
+    ASSERT_NE(func, nullptr);
+    std::vector<uint64_t> args;
+    double expected = 0;
+    for (int n = 1; n <= 7; ++n) {
+        double v = n;
+        args.push_back(std::bit_cast<uint64_t>(v));
+        expected += v;
+    }
+    args.push_back(reinterpret_cast<uint64_t>(&p));
+    expected += p.x + p.y;
+    EXPECT_DOUBLE_EQ(LoadArg<double>((*func)(args.data(), args.size())), expected);
 }
 
 int main(int argc, char** argv) {
