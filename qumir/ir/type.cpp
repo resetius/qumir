@@ -1,5 +1,6 @@
 #include "type.h"
 #include "qumir/parser/type.h"
+#include "qumir/align.h"
 
 #include <iostream>
 #include <sstream>
@@ -382,14 +383,12 @@ int TTypeTable::SizeInBytes(int typeId) const {
         for (int f : Structs[Types[typeId].Aux].FieldTypes) {
             int fieldSize = SizeInBytes(f);
             int fieldAlign = std::min(fieldSize, 8);
-            if (fieldAlign > 1) {
-                offset = (offset + fieldAlign - 1) & ~(fieldAlign - 1);
-            }
+            offset = AlignUp(offset, fieldAlign);
             maxAlign = std::max(maxAlign, fieldAlign);
             offset += fieldSize;
         }
         int structAlign = std::min(maxAlign, 8);
-        return (offset + structAlign - 1) & ~(structAlign - 1);
+        return AlignUp(offset, structAlign);
     }
     }
     return 8;
@@ -401,9 +400,7 @@ int TTypeTable::FieldOffset(int structTypeId, int fieldIndex) const {
     for (int i = 0; i <= fieldIndex && i < (int)fields.size(); ++i) {
         int fieldSize = SizeInBytes(fields[i]);
         int fieldAlign = std::min(fieldSize, 8);
-        if (fieldAlign > 1) {
-            offset = (offset + fieldAlign - 1) & ~(fieldAlign - 1);
-        }
+        offset = AlignUp(offset, fieldAlign);
         if (i == fieldIndex) {
             return offset;
         }

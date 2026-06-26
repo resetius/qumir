@@ -1,4 +1,5 @@
 #include "vmcompiler.h"
+#include <qumir/align.h>
 #include <qumir/ir/type.h>
 #include <qumir/ir/vminstr.h>
 #include <qumir/ir/passes/transforms/pipeline.h>
@@ -162,11 +163,8 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
     std::vector<int> localByteOffsets;
     {
         int offset = 0;
-        auto alignTo8 = [](int value) {
-            return (value + 7) & ~7;
-        };
         for (int typeId : function.LocalTypes) {
-            offset = alignTo8(offset);
+            offset = AlignUp(offset, 8);
             localByteOffsets.push_back(offset);
             offset += Module.Types.SizeInBytes(typeId);
         }
@@ -175,7 +173,7 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
         for (int tmpIdx = 0; tmpIdx < (int)function.TmpTypes.size(); ++tmpIdx) {
             const int typeId = function.TmpTypes[tmpIdx];
             if (typeId >= 0 && Module.Types.GetKind(typeId) == EKind::Struct) {
-                offset = alignTo8(offset);
+                offset = AlignUp(offset, 8);
                 funcOut.TmpFrameOffsets[tmpIdx] = offset;
                 offset += Module.Types.SizeInBytes(typeId);
             }
@@ -186,7 +184,7 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 if (instr.Op != "salloc"_op || instr.Dest.Idx < 0 || instr.OperandCount != 1) {
                     continue;
                 }
-                offset = alignTo8(offset);
+                offset = AlignUp(offset, 8);
                 if (instr.Dest.Idx >= (int)funcOut.TmpFrameOffsets.size()) {
                     funcOut.TmpFrameOffsets.resize(instr.Dest.Idx + 1, -1);
                 }
@@ -195,7 +193,7 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             }
         }
 
-        funcOut.NumLocals = alignTo8(offset); // frame size in bytes
+        funcOut.NumLocals = AlignUp(offset, 8); // frame size in bytes
     }
 
     // Populate ArgByteOffsets and ArgTypeIds for eval

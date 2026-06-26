@@ -2,6 +2,7 @@
 #include "llvm_codegen_impl.h"
 
 #include <qumir/ir/builder.h>
+#include <qumir/align.h>
 
 #include <memory>
 #include <string>
@@ -76,6 +77,227 @@ llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx
         default:
             throw std::runtime_error("unsupported primitive type");
     }
+}
+
+// Calls into native code must follow the platform C ABI for by-value structs;
+// only x86-64 and AArch64 are coerced (other targets, e.g. wasm, keep the
+// declared types — no struct crosses their import boundary by value).
+enum class EAbiArch { X86_64, AArch64, Other };
+
+EAbiArch AbiArchOf(const llvm::Triple& triple) {
+    switch (triple.getArch()) {
+        case llvm::Triple::x86_64: return EAbiArch::X86_64;
+        case llvm::Triple::aarch64: return EAbiArch::AArch64;
+        default: return EAbiArch::Other;
+    }
+}
+
+EAbiArch ModuleAbiArch(const llvm::Module& module) {
+#if LLVM_VERSION_MAJOR <= 20
+    return AbiArchOf(llvm::Triple(module.getTargetTriple()));
+#else
+    return AbiArchOf(module.getTargetTriple());
+#endif
+}
+
+llvm::Type* AbiIntType(llvm::LLVMContext& ctx, int bytes) {
+    int width = bytes <= 1 ? 1 : bytes <= 2 ? 2 : bytes <= 4 ? 4 : 8;
+    return llvm::Type::getIntNTy(ctx, width * 8);
+}
+
+llvm::Type* AbiFpType(llvm::LLVMContext& ctx, int bytes) {
+    return bytes <= 4 ? llvm::Type::getFloatTy(ctx) : llvm::Type::getDoubleTy(ctx);
+}
+
+struct TStructAbi {
+    bool Memory = false;             // passed by pointer (byval / copy), returned via sret
+    std::vector<llvm::Type*> Pieces;
+    std::vector<int> Offsets;        // byte offset of each piece in the struct
+};
+
+// Classifies a by-value struct into the registers the C ABI uses:
+//   >16 bytes           -> Memory.
+//   AArch64 all-float   -> one FP register per field (homogeneous float aggregate).
+//   AArch64 otherwise   -> one integer register per eightbyte (general registers).
+//   x86-64 SysV         -> per eightbyte, an FP register if every overlapping field
+//                          is floating point, otherwise an integer register.
+TStructAbi ClassifyStructAbi(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx, EAbiArch arch) {
+    TStructAbi abi;
+    int size = tt.SizeInBytes(typeId);
+    if (size == 0 || size > 16) {
+        abi.Memory = true;
+        return abi;
+    }
+    const std::vector<int>& fields = tt.GetStructFields(typeId);
+
+    bool allFloat = !fields.empty();
+    for (int f : fields) {
+        allFloat = allFloat && tt.IsFloat(f);
+    }
+    if (arch == EAbiArch::AArch64 && allFloat) {
+        int offset = 0;
+        for (int f : fields) {
+            int fieldSize = tt.SizeInBytes(f);
+            offset = AlignUp(offset, std::min(fieldSize, 8));
+            abi.Pieces.push_back(AbiFpType(ctx, fieldSize));
+            abi.Offsets.push_back(offset);
+            offset += fieldSize;
+        }
+        return abi;
+    }
+
+    bool sse[2] = {arch == EAbiArch::X86_64, arch == EAbiArch::X86_64};
+    int offset = 0;
+    for (int f : fields) {
+        int fieldSize = tt.SizeInBytes(f);
+        offset = AlignUp(offset, std::min(fieldSize, 8));
+        if (!tt.IsFloat(f)) {
+            for (int eb = offset / 8; eb <= (offset + fieldSize - 1) / 8 && eb < 2; ++eb) {
+                sse[eb] = false;
+            }
+        }
+        offset += fieldSize;
+    }
+    for (int eb = 0; eb * 8 < size; ++eb) {
+        int bytes = std::min(size - eb * 8, 8);
+        abi.Pieces.push_back(sse[eb] ? AbiFpType(ctx, bytes) : AbiIntType(ctx, bytes));
+        abi.Offsets.push_back(eb * 8);
+    }
+    return abi;
+}
+
+// Spills an aggregate value to the stack so its bytes can be read as ABI pieces.
+llvm::Value* AbiAsPointer(llvm::IRBuilder<>& irb, llvm::Value* v, llvm::Type* structTy) {
+    if (v->getType()->isPointerTy()) {
+        return v;
+    }
+    auto* slot = irb.CreateAlloca(structTy, nullptr, "argspill");
+    irb.CreateStore(v, slot);
+    return slot;
+}
+
+// The Memory class is passed by pointer differently per ABI: x86-64 SysV places
+// the bytes in the stack argument area (byval), AArch64 passes a pointer to a
+// caller-made copy.
+void AbiGatherArg(llvm::IRBuilder<>& irb, llvm::Value* structPtr, llvm::Type* structTy,
+    const TStructAbi& abi, EAbiArch arch, std::vector<llvm::Type*>& paramTys,
+    std::vector<llvm::Value*>& args, std::vector<std::pair<unsigned, llvm::Type*>>& byval)
+{
+    if (abi.Memory) {
+        paramTys.push_back(structPtr->getType());
+        if (arch == EAbiArch::X86_64) {
+            byval.push_back({(unsigned)args.size(), structTy});
+            args.push_back(structPtr);
+        } else {
+            auto& dl = irb.GetInsertBlock()->getModule()->getDataLayout();
+            auto align = dl.getABITypeAlign(structTy);
+            auto* copy = irb.CreateAlloca(structTy, nullptr, "abi.copy");
+            irb.CreateMemCpy(copy, align, structPtr, align, dl.getTypeAllocSize(structTy));
+            args.push_back(copy);
+        }
+        return;
+    }
+    auto* i8 = llvm::Type::getInt8Ty(irb.getContext());
+    for (size_t i = 0; i < abi.Pieces.size(); ++i) {
+        auto* gep = irb.CreateGEP(i8, structPtr, irb.getInt64(abi.Offsets[i]), "abi.field");
+        paramTys.push_back(abi.Pieces[i]);
+        args.push_back(irb.CreateLoad(abi.Pieces[i], gep, "abi.arg"));
+    }
+}
+
+void AbiScatterReturn(llvm::IRBuilder<>& irb, llvm::Value* call, llvm::Value* buf, const TStructAbi& abi) {
+    auto* i8 = llvm::Type::getInt8Ty(irb.getContext());
+    for (size_t i = 0; i < abi.Pieces.size(); ++i) {
+        llvm::Value* piece = abi.Pieces.size() == 1 ? call : irb.CreateExtractValue(call, {(unsigned)i}, "abi.piece");
+        auto* gep = irb.CreateGEP(i8, buf, irb.getInt64(abi.Offsets[i]), "abi.field");
+        irb.CreateStore(piece, gep);
+    }
+}
+
+llvm::Type* AbiReturnType(const TStructAbi& abi, llvm::LLVMContext& ctx) {
+    if (abi.Memory) {
+        return llvm::Type::getVoidTy(ctx);
+    }
+    return abi.Pieces.size() == 1 ? abi.Pieces[0] : llvm::StructType::get(ctx, abi.Pieces);
+}
+
+void AbiApplyAttrs(llvm::CallInst* ci, llvm::FunctionCallee fc,
+    const std::vector<std::pair<unsigned, llvm::Type*>>& byval, llvm::Type* sretTy)
+{
+    auto& ctx = ci->getContext();
+    auto* fn = llvm::dyn_cast<llvm::Function>(fc.getCallee());
+    auto apply = [&](unsigned idx, llvm::Attribute attr) {
+        ci->addParamAttr(idx, attr);
+        if (fn) {
+            fn->addParamAttr(idx, attr);
+        }
+    };
+    if (sretTy) {
+        apply(0, llvm::Attribute::getWithStructRetType(ctx, sretTy));
+    }
+    for (const auto& [idx, sty] : byval) {
+        apply(idx, llvm::Attribute::getWithByValType(ctx, sty));
+    }
+}
+
+// Coerces by-value struct arguments/return per the platform C ABI. Consumes the
+// pending argument values; returns the call result (nullptr for void); `cast`
+// adapts a scalar argument to its parameter type.
+template<class TCast>
+llvm::Value* EmitCoercedExternalCall(llvm::IRBuilder<>& irb, llvm::Module& lmodule,
+    const TTypeTable& types, const TExternalFunction& extFun, EAbiArch arch,
+    std::vector<llvm::Value*>& pendingArgs, TCast&& cast)
+{
+    auto& ctx = irb.getContext();
+    std::vector<llvm::Type*> paramTys;
+    std::vector<llvm::Value*> args;
+    std::vector<std::pair<unsigned, llvm::Type*>> byval;
+
+    int retId = extFun.ReturnTypeId;
+    bool retIsStruct = retId >= 0 && types.GetKind(retId) == EKind::Struct;
+    auto* declaredRetTy = GetTypeById(retId, types, ctx);
+    llvm::Type* retType = declaredRetTy;
+    TStructAbi retAbi;
+    llvm::Value* sret = nullptr;
+    if (retIsStruct) {
+        retAbi = ClassifyStructAbi(retId, types, ctx, arch);
+        retType = AbiReturnType(retAbi, ctx);
+        if (retAbi.Memory) {
+            sret = irb.CreateAlloca(declaredRetTy, nullptr, "sret");
+            paramTys.push_back(sret->getType());
+            args.push_back(sret);
+        }
+    }
+
+    if (pendingArgs.size() != extFun.ArgTypes.size()) {
+        throw std::runtime_error("wrong argument count for external call: " + extFun.Name);
+    }
+    for (size_t i = 0; i < extFun.ArgTypes.size(); ++i) {
+        int tid = extFun.ArgTypes[i];
+        if (tid >= 0 && types.GetKind(tid) == EKind::Struct) {
+            auto* structTy = GetTypeById(tid, types, ctx);
+            auto* ptr = AbiAsPointer(irb, pendingArgs[i], structTy);
+            AbiGatherArg(irb, ptr, structTy, ClassifyStructAbi(tid, types, ctx, arch), arch, paramTys, args, byval);
+        } else {
+            auto* pty = GetTypeById(tid, types, ctx);
+            paramTys.push_back(pty);
+            args.push_back(cast(pendingArgs[i], pty));
+        }
+    }
+    pendingArgs.clear();
+
+    auto fc = lmodule.getOrInsertFunction(extFun.MangledName, llvm::FunctionType::get(retType, paramTys, false));
+    auto* ci = irb.CreateCall(fc, args);
+    AbiApplyAttrs(ci, fc, byval, sret ? declaredRetTy : nullptr);
+
+    if (!retIsStruct) {
+        return retType->isVoidTy() ? nullptr : ci;
+    }
+    llvm::Value* buf = sret ? sret : irb.CreateAlloca(declaredRetTy, nullptr, "retbuf");
+    if (!sret) {
+        AbiScatterReturn(irb, ci, buf, retAbi);
+    }
+    return irb.CreateLoad(declaredRetTy, buf, "retstruct");
 }
 
 std::pair<std::string, std::string> GetNativeCpuAndFeatures() {
@@ -1458,15 +1680,19 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             if (!callee) {
                 auto jt = module.SymIdToExtFuncIdx.find(calleeSymId);
                 if (jt != module.SymIdToExtFuncIdx.end()) {
-                    // external function
                     auto& extFun = module.ExternalFunctions[jt->second];
-
-                    auto* retType = GetTypeById(extFun.ReturnTypeId, module.Types, ctx);
+                    EAbiArch arch = ModuleAbiArch(*LModule);
+                    if (arch != EAbiArch::Other) {
+                        auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
+                        return storeTmp(EmitCoercedExternalCall(
+                            *irb, *LModule, module.Types, extFun, arch, CurFun->PendingArgs, cast));
+                    }
                     std::vector<llvm::Type*> paramTys;
-                    for (const auto& pid : extFun.ArgTypes) {
+                    for (int pid : extFun.ArgTypes) {
                         paramTys.push_back(GetTypeById(pid, module.Types, ctx));
                     }
-                    auto* fty   = llvm::FunctionType::get(retType, paramTys, /*isVarArg=*/false);
+                    auto* fty = llvm::FunctionType::get(
+                        GetTypeById(extFun.ReturnTypeId, module.Types, ctx), paramTys, /*isVarArg=*/false);
                     callee = LModule->getOrInsertFunction(extFun.MangledName, fty);
                 }
             }

@@ -52,6 +52,86 @@ TQumirTwoChar qumir_two_char_swap(TQumirTwoChar p) {
     return TQumirTwoChar{p.b, p.a};
 }
 
+// One struct per ABI class to exercise every coercion path at the LLVM->C
+// boundary, as an argument (reduce to scalar) and as a return value (rebuild).
+struct TQumirSse {
+    double a;
+};
+
+struct TQumirSseSse {
+    double a;
+    double b;
+};
+
+struct TQumirIntInt {
+    int64_t a;
+    int64_t b;
+};
+
+struct TQumirIntSse {
+    int64_t a;
+    double b;
+};
+
+struct TQumirSseInt {
+    double a;
+    int64_t b;
+};
+
+struct TQumirWide {
+    int64_t a;
+    int64_t b;
+    int64_t c;
+};
+
+double qumir_sse_scale(TQumirSse p) {
+    return p.a * 10;
+}
+
+TQumirSse qumir_sse_make(double a) {
+    return TQumirSse{a};
+}
+
+double qumir_ss_combine(TQumirSseSse p) {
+    return p.a + p.b * 100;
+}
+
+TQumirSseSse qumir_ss_swap(TQumirSseSse p) {
+    return TQumirSseSse{p.b, p.a};
+}
+
+int64_t qumir_ii_combine(TQumirIntInt p) {
+    return p.a + p.b * 100;
+}
+
+TQumirIntInt qumir_ii_swap(TQumirIntInt p) {
+    return TQumirIntInt{p.b, p.a};
+}
+
+double qumir_is_combine(TQumirIntSse p) {
+    return p.a + p.b * 100;
+}
+
+TQumirIntSse qumir_is_make(int64_t a, double b) {
+    return TQumirIntSse{a, b};
+}
+
+double qumir_si_combine(TQumirSseInt p) {
+    return p.a + p.b * 100;
+}
+
+TQumirSseInt qumir_si_make(double a, int64_t b) {
+    return TQumirSseInt{a, b};
+}
+
+int64_t qumir_wide_sum(TQumirWide p) {
+    return p.a + p.b * 100 + p.c * 10000;
+}
+
+TQumirWide qumir_wide_make(int64_t a, int64_t b, int64_t c) {
+    return TQumirWide{a, b, c};
+}
+
 } // extern "C"
 
 namespace {
