@@ -69,6 +69,9 @@ public:
     const std::vector<int>& GetStructFields(int typeId) const;
     // Size of the type payload in bytes. Stack frames may add their own alignment.
     int SizeInBytes(int typeId) const;
+    // Byte offset of a struct field under the same C-compatible alignment as
+    // SizeInBytes, so IR, VM and LLVM agree on field placement.
+    int FieldOffset(int structTypeId, int fieldIndex) const;
 
 private:
     std::vector<TType> Types;

@@ -395,6 +395,23 @@ int TTypeTable::SizeInBytes(int typeId) const {
     return 8;
 }
 
+int TTypeTable::FieldOffset(int structTypeId, int fieldIndex) const {
+    const std::vector<int>& fields = GetStructFields(structTypeId);
+    int offset = 0;
+    for (int i = 0; i <= fieldIndex && i < (int)fields.size(); ++i) {
+        int fieldSize = SizeInBytes(fields[i]);
+        int fieldAlign = std::min(fieldSize, 8);
+        if (fieldAlign > 1) {
+            offset = (offset + fieldAlign - 1) & ~(fieldAlign - 1);
+        }
+        if (i == fieldIndex) {
+            return offset;
+        }
+        offset += fieldSize;
+    }
+    return offset;
+}
+
 const std::vector<int>& TTypeTable::GetStructFields(int typeId) const {
     auto& type = Types[typeId];
     if (type.Kind != EKind::Struct) {

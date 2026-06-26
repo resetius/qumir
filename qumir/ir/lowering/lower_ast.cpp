@@ -515,11 +515,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         auto objAstType = NAst::UnwrapReferenceType(NAst::UnwrapNamedType(object->Type));
         int structTypeId = FromAstType(objAstType, Module.Types);
-        const auto& fieldTypes = Module.Types.GetStructFields(structTypeId);
-        int64_t fieldByteOffset = 0;
-        for (int i = 0; i < field->FieldIndex; ++i) {
-            fieldByteOffset += Module.Types.SizeInBytes(fieldTypes[i]);
-        }
+        int64_t fieldByteOffset = Module.Types.FieldOffset(structTypeId, field->FieldIndex);
 
         auto i64 = Module.Types.I(EKind::I64);
         int ptrTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
@@ -1109,12 +1105,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         Builder.SetType(ptr, ptrTypeId);
 
         const auto& fieldTypes = Module.Types.GetStructFields(structTypeId);
-        int64_t offset = 0;
         for (size_t i = 0; i < sc->Fields.size(); ++i) {
             auto fieldVal = co_await Lower(sc->Fields[i], scope);
             if (!fieldVal.Value) {
                 co_return TError(sc->Fields[i]->Location, "Не удалось вычислить поле при конструировании структуры.");
             }
+            int64_t offset = Module.Types.FieldOffset(structTypeId, (int)i);
             auto fieldPtr = Builder.Emit1("+"_op, {ptr, TImm{offset, i64}});
             Builder.SetType(fieldPtr, ptrTypeId);
             int fieldTypeId = i < fieldTypes.size() ? fieldTypes[i] : -1;
@@ -1124,7 +1120,6 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             } else {
                 Builder.Emit0("ste"_op, {fieldPtr, *fieldVal.Value});
             }
-            offset += Module.Types.SizeInBytes(fieldTypeId >= 0 ? fieldTypeId : 8);
         }
         co_return TValueWithBlock{ ptr, Builder.CurrentBlockLabel() };
     } else if (NAst::TMaybeNode<NAst::TFieldAccessExpr>(expr) || NAst::TMaybeNode<NAst::TFieldAssignExpr>(expr)) {
@@ -1157,14 +1152,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             objAddr = *res.Value;
         }
 
-        // Compute byte offset into the struct
         auto objAstType = NAst::UnwrapReferenceType(NAst::UnwrapNamedType(object->Type));
         int structTypeId = FromAstType(objAstType, Module.Types);
-        const auto& fieldTypes = Module.Types.GetStructFields(structTypeId);
-        int64_t fieldByteOffset = 0;
-        for (int i = 0; i < fieldIndex; ++i) {
-            fieldByteOffset += Module.Types.SizeInBytes(fieldTypes[i]);
-        }
+        int64_t fieldByteOffset = Module.Types.FieldOffset(structTypeId, fieldIndex);
 
         auto i64      = Module.Types.I(EKind::I64);
         int  ptrTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
