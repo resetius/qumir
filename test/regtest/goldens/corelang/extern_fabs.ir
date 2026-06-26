@@ -1,0 +1,18 @@
+function <main> () { ; void
+  block {
+    label: label(0)
+    arg imm(-4608308318706860032,f64) 
+    call tmp(0,f64) = fabs 
+    arg tmp(0,f64) 
+    arg imm(0,i64) 
+    arg imm(-1,i64) 
+    call output_double 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

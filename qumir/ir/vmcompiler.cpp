@@ -6,11 +6,114 @@
 #include <cassert>
 #include <iostream>
 #include <iomanip>
+#include <dlfcn.h>
 
 namespace NQumir {
 namespace NIR {
 
 using namespace NLiterals;
+
+namespace {
+
+struct TPackedFunction : public NFFI::IFunction {
+    using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
+
+    explicit TPackedFunction(TPacked packed)
+        : Packed(packed)
+    { }
+
+    uint64_t operator() (const uint64_t* args, size_t argCount) override {
+        return Packed(args, argCount);
+    }
+
+    TPacked Packed;
+};
+
+// SysV register class of a struct (interpreted per target ABI inside the FFI):
+// >16 bytes is Memory; otherwise each eightbyte is SSE only when every field
+// overlapping it is floating point.
+NFFI::EStructKind ClassifyStruct(int typeId, const TTypeTable& tt, size_t size) {
+    if (size == 0 || size > 16) {
+        return NFFI::EStructKind::Memory;
+    }
+    bool sse[2] = {true, true};
+    size_t offset = 0;
+    for (int fieldType : tt.GetStructFields(typeId)) {
+        size_t fieldSize = static_cast<size_t>(tt.SizeInBytes(fieldType));
+        if (fieldSize == 0) {
+            continue;
+        }
+        offset = (offset + fieldSize - 1) / fieldSize * fieldSize; // natural alignment
+        bool isFloat = tt.IsFloat(fieldType);
+        for (size_t eb = offset / 8; eb <= (offset + fieldSize - 1) / 8 && eb < 2; ++eb) {
+            if (!isFloat) {
+                sse[eb] = false;
+            }
+        }
+        offset += fieldSize;
+    }
+    if (size <= 8) {
+        return sse[0] ? NFFI::EStructKind::Sse : NFFI::EStructKind::Int;
+    }
+    if (sse[0] && sse[1]) {
+        return NFFI::EStructKind::SseSse;
+    }
+    if (sse[0]) {
+        return NFFI::EStructKind::SseInt;
+    }
+    if (sse[1]) {
+        return NFFI::EStructKind::IntSse;
+    }
+    return NFFI::EStructKind::IntInt;
+}
+
+EKind ClassifyKind(int typeId, const TTypeTable& tt, NFFI::EStructKind& structKind) {
+    EKind kind = tt.GetKind(typeId);
+    structKind = (kind == EKind::Struct)
+        ? ClassifyStruct(typeId, tt, static_cast<size_t>(tt.SizeInBytes(typeId)))
+        : NFFI::EStructKind::None;
+    return kind;
+}
+
+} // namespace
+
+NFFI::IFunction* TVMCompiler::GetOrCreateExternalThunk(int externIdx) {
+    if (auto it = ExternalThunkCache.find(externIdx); it != ExternalThunkCache.end()) {
+        return it->second;
+    }
+
+    const TExternalFunction& ext = Module.ExternalFunctions[externIdx];
+    std::unique_ptr<NFFI::IFunction> thunk;
+    if (ext.Packed) {
+        thunk = std::make_unique<TPackedFunction>(ext.Packed);
+    } else {
+        void* symbol = dlsym(RTLD_DEFAULT, ext.MangledName.c_str());
+        if (!symbol) {
+            return nullptr;
+        }
+        NFFI::EStructKind retStruct = NFFI::EStructKind::None;
+        EKind retKind = ClassifyKind(ext.ReturnTypeId, Module.Types, retStruct);
+        size_t retSize = static_cast<size_t>(Module.Types.SizeInBytes(ext.ReturnTypeId));
+        std::vector<EKind> argKinds;
+        std::vector<NFFI::EStructKind> argStructs;
+        argKinds.reserve(ext.ArgTypes.size());
+        argStructs.reserve(ext.ArgTypes.size());
+        for (int argType : ext.ArgTypes) {
+            NFFI::EStructKind argStruct = NFFI::EStructKind::None;
+            argKinds.push_back(ClassifyKind(argType, Module.Types, argStruct));
+            argStructs.push_back(argStruct);
+        }
+        thunk.reset(NFFI::BuildFFI(symbol, retKind, retStruct, retSize, argKinds, argStructs));
+        if (!thunk) {
+            return nullptr;
+        }
+    }
+
+    NFFI::IFunction* raw = thunk.get();
+    ExternalThunks.push_back(std::move(thunk));
+    ExternalThunkCache[externIdx] = raw;
+    return raw;
+}
 
 TExecFunc& TVMCompiler::Compile(TFunction& function, bool printByteCode) {
     auto it = CodeCache.find(function.SymId);
@@ -478,8 +581,13 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 } else if (Module.SymIdToExtFuncIdx.contains(calleeId)) {
                     const int64_t calleeIdx = Module.SymIdToExtFuncIdx.at(calleeId);
                     assert(calleeIdx >=0 && calleeIdx < Module.ExternalFunctions.size() && "Invalid callee idx");
-                    void* addr = reinterpret_cast<void*>(Module.ExternalFunctions[calleeIdx].Packed);
-                    out.Operands[1] = TImm{(int64_t)addr};
+                    NFFI::IFunction* thunk = GetOrCreateExternalThunk(static_cast<int>(calleeIdx));
+                    if (!thunk) {
+                        throw std::runtime_error(
+                            "cannot resolve external function `"
+                            + Module.ExternalFunctions[calleeIdx].MangledName + "'");
+                    }
+                    out.Operands[1] = TImm{reinterpret_cast<int64_t>(thunk)};
                     out.Op = EVMOp::ECall;
                 } else {
                     throw std::runtime_error("Unknown callee id in call: " + std::to_string(calleeId));

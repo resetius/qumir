@@ -350,6 +350,11 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
         funcScope->RetType = funDecl->RetType;
     }
 
+    if (funDecl->IsExternal()) {
+        // External functions have no body to type-check; the body is ignored.
+        co_return funDecl;
+    }
+
     if (HasTemplateParams(*funDecl)) {
         // Generic (template-parameterized) function: its body refers to
         // placeholder types and cannot be type-checked on its own — only

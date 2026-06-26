@@ -761,6 +761,7 @@ TListHandlerMap MakeDefaultHandlers() {
             // optional (attrs ...) block
             TFunAttrs attrs;
             std::optional<std::string> operatorName;
+            std::optional<std::string> externSymbol;
             tok = ctx.Stream.Next();
             if (IsOp(tok, '(')) {
                 auto peek = ctx.Stream.Next();
@@ -782,13 +783,26 @@ TListHandlerMap MakeDefaultHandlers() {
                                     co_return Error(attrTok, "expected string value for (operator ...) attribute");
                                 }
                                 operatorName = str.Cast()->Value;
+                            } else if (attrName == "extern") {
+                                // (extern <symbol>): external function bound to <symbol>.
+                                if (auto id = TMaybeNode<TIdentExpr>(attrExpr)) {
+                                    externSymbol = id.Cast()->Name;
+                                } else if (auto str = TMaybeNode<TStringLiteralExpr>(attrExpr)) {
+                                    externSymbol = str.Cast()->Value;
+                                } else {
+                                    co_return Error(attrTok, "expected symbol name in (extern ...) attribute");
+                                }
                             }
                         } else if (attrTok.Type == TToken::Identifier) {
                             // `print`: the function is its argument type's printer
                             // (a unary "print" operator, dispatched by `вывод`).
+                            // `extern`: external function bound to its own name.
                             // Other simple attrs (inline etc.) — ignored for now.
                             if (attrTok.Name == "print") {
                                 operatorName = "print";
+                            } else if (attrTok.Name == "extern") {
+                                // bare extern: symbol is the function's own name
+                                externSymbol = name;
                             }
                         } else {
                             co_return Error(attrTok, "expected function attribute");
@@ -811,6 +825,9 @@ TListHandlerMap MakeDefaultHandlers() {
             auto funDecl = std::make_shared<TFunDecl>(loc, std::move(name), std::move(params), std::move(body), std::move(returnType));
             funDecl->LastAssert = std::move(attrs.After);
             funDecl->OperatorName = std::move(operatorName);
+            if (externSymbol) {
+                funDecl->MangledName = std::move(*externSymbol);
+            }
             std::vector<TTypePtr> paramTypes;
             for (const auto& param : funDecl->Params) {
                 paramTypes.push_back(param->Type);

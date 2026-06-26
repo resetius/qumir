@@ -1325,6 +1325,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(expr)) {
         auto fun = maybeFun.Cast();
+        // External functions have no body to lower; call sites import them.
+        if (fun->IsExternal()) {
+            co_return TValueWithBlock{ std::nullopt, TLabel{} };
+        }
         auto name = fun->Name;
         if (scope.Id.Id != 0) {
             co_return TError(fun->Location, TErrorString::Get<EErrorId::NESTED_FUNCTIONS_NOT_SUPPORTED>());

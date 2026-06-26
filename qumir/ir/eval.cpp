@@ -526,9 +526,7 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
             break;
         }
         case EVMOp::ECall: {// external call
-            using TPacked = uint64_t(*)(const uint64_t* args, size_t argCount);
-            void* addr = reinterpret_cast<void*>(instr.Operands[1].Imm.Value);
-            TPacked func = reinterpret_cast<TPacked>(addr);
+            auto* func = reinterpret_cast<NFFI::IFunction*>(instr.Operands[1].Imm.Value);
             const int32_t dstTmp = instr.Operands[0].Tmp.Idx;
             auto structDst = materializeStructTmp(frame, dstTmp, nullptr);
             if (structDst) {
@@ -536,10 +534,10 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
             }
 
             if (dstTmp >= 0) {
-                auto ret = func(reinterpret_cast<const uint64_t*>(Runtime.Args.data()), Runtime.Args.size());
+                auto ret = (*func)(reinterpret_cast<const uint64_t*>(Runtime.Args.data()), Runtime.Args.size());
                 Runtime.Regs[dstTmp] = structDst.value_or(static_cast<int64_t>(ret));
             } else {
-                func(reinterpret_cast<const uint64_t*>(Runtime.Args.data()), Runtime.Args.size());
+                (*func)(reinterpret_cast<const uint64_t*>(Runtime.Args.data()), Runtime.Args.size());
             }
             Runtime.Args.clear();
 

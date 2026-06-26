@@ -2,6 +2,9 @@
 
 #include <qumir/ir/builder.h>
 #include <qumir/ir/vminstr.h>
+#include <qumir/ir/ffi.h>
+
+#include <memory>
 
 namespace NQumir {
 namespace NIR {
@@ -29,8 +32,13 @@ public:
 private:
     void CompileUltraLow(const TFunction& function, TExecFunc& out);
 
+    // nullptr if the symbol is missing or the signature is unsupported.
+    NFFI::IFunction* GetOrCreateExternalThunk(int externIdx);
+
     TModule& Module;
     std::unordered_map<int, TExecFunc> CodeCache;
+    std::vector<std::unique_ptr<NFFI::IFunction>> ExternalThunks;
+    std::unordered_map<int, NFFI::IFunction*> ExternalThunkCache;
 };
 
 } // namespace NIR
