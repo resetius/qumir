@@ -61,6 +61,9 @@ struct IFunction {
 // pointer; a struct return is materialized through args[0]. argSizes (per arg,
 // in bytes) is required only for Memory-class arguments on x86-64, where the
 // struct is copied by value onto the stack.
+// `symbol` must point to a function with the standard C ABI (an extern "C"
+// symbol); a function with internal linkage may use a non-standard calling
+// convention under optimization, which this thunk does not follow.
 IFunction* BuildFFI(
     void* symbol,
     EKind retKind,
