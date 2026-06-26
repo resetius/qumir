@@ -58,8 +58,7 @@ struct IFunction {
 
 // Builds a thunk for the VM convention: structs arrive by pointer but the
 // native call takes register-class structs by value and Memory-class structs by
-// pointer; a register-class struct return is materialized through args[0].
-// Memory-class struct returns are not supported.
+// pointer; a struct return is materialized through args[0].
 IFunction* BuildFFI(
     void* symbol,
     EKind retKind,
