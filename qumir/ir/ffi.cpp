@@ -136,17 +136,17 @@ namespace {
 static_assert(sizeof(void*) == sizeof(int64_t));
 
 #if defined(__aarch64__) || defined(_M_ARM64)
-constexpr bool kIsArm = true;
-constexpr int kNGpr = 8;
-constexpr int kNFp = 8;
+constexpr bool IsArm = true;
+constexpr int NGpr = 8;
+constexpr int NFp = 8;
 #else
-constexpr bool kIsArm = false;
-constexpr int kNGpr = 6;
-constexpr int kNFp = 8;
+constexpr bool IsArm = false;
+constexpr int NGpr = 6;
+constexpr int NFp = 8;
 #endif
 
-constexpr size_t kMaxStack = 64;
-static_assert(kMaxStack <= 255);
+constexpr size_t MaxStack = 64;
+static_assert(MaxStack <= 255);
 
 struct TFrame {
     double Fp[8];
@@ -229,7 +229,7 @@ struct TDynamicFunction : public IFunction {
 
     uint64_t operator() (const uint64_t* args, size_t) override {
         TFrame frame = {};
-        uint64_t stackBuf[kMaxStack];
+        uint64_t stackBuf[MaxStack];
 
         if (HasSret) {
             if (SretInGpr) {
@@ -312,11 +312,11 @@ bool StructEightbytes(EStructKind sk, EFile (&files)[2], uint8_t& count) {
         case EStructKind::IntSse:
             count = 2;
             files[0] = EFile::Gpr;
-            files[1] = kIsArm ? EFile::Gpr : EFile::Fp;
+            files[1] = IsArm ? EFile::Gpr : EFile::Fp;
             return true;
         case EStructKind::SseInt:
             count = 2;
-            files[0] = kIsArm ? EFile::Gpr : EFile::Fp;
+            files[0] = IsArm ? EFile::Gpr : EFile::Fp;
             files[1] = EFile::Gpr;
             return true;
         default:
@@ -332,7 +332,8 @@ IFunction* BuildFFI(
     EStructKind retStruct,
     size_t retSize,
     const std::vector<EKind>& argKinds,
-    const std::vector<EStructKind>& argStructs) noexcept
+    const std::vector<EStructKind>& argStructs,
+    const std::vector<size_t>& argSizes) noexcept
 {
     if (argKinds.size() != argStructs.size()) {
         return nullptr;
@@ -346,28 +347,28 @@ IFunction* BuildFFI(
     size_t nstack = 0;
     std::vector<TMove> moves;
 
-    if (isMemRet && !kIsArm) {
+    if (isMemRet && !IsArm) {
         ngrp = 1;
     }
 
     auto placeGpr = [&](uint8_t src, bool deref, uint8_t off) {
-        if (ngrp < kNGpr) {
+        if (ngrp < NGpr) {
             moves.push_back({src, deref, off, EFile::Gpr, static_cast<uint8_t>(ngrp++)});
         } else {
             moves.push_back({src, deref, off, EFile::Stack, static_cast<uint8_t>(nstack++)});
-            if (kIsArm) {
-                ngrp = kNGpr;
+            if (IsArm) {
+                ngrp = NGpr;
             }
         }
     };
 
     auto placeFp = [&](uint8_t src, bool deref, uint8_t off) {
-        if (nfp < kNFp) {
+        if (nfp < NFp) {
             moves.push_back({src, deref, off, EFile::Fp, static_cast<uint8_t>(nfp++)});
         } else {
             moves.push_back({src, deref, off, EFile::Stack, static_cast<uint8_t>(nstack++)});
-            if (kIsArm) {
-                nfp = kNFp;
+            if (IsArm) {
+                nfp = NFp;
             }
         }
     };
@@ -383,7 +384,7 @@ IFunction* BuildFFI(
         for (uint8_t e = 0; e < neb; ++e) {
             (files[e] == EFile::Gpr ? gNeed : fNeed)++;
         }
-        const bool fits = (ngrp + gNeed <= kNGpr) && (nfp + fNeed <= kNFp);
+        const bool fits = (ngrp + gNeed <= NGpr) && (nfp + fNeed <= NFp);
         if (fits) {
             for (uint8_t e = 0; e < neb; ++e) {
                 if (files[e] == EFile::Gpr) {
@@ -396,12 +397,12 @@ IFunction* BuildFFI(
             for (uint8_t e = 0; e < neb; ++e) {
                 moves.push_back({src, true, static_cast<uint8_t>(e * 8), EFile::Stack, static_cast<uint8_t>(nstack++)});
             }
-            if (kIsArm) {
+            if (IsArm) {
                 if (gNeed > 0) {
-                    ngrp = kNGpr;
+                    ngrp = NGpr;
                 }
                 if (fNeed > 0) {
-                    nfp = kNFp;
+                    nfp = NFp;
                 }
             }
         }
@@ -414,7 +415,19 @@ IFunction* BuildFFI(
         const EKind k = argKinds[i];
         if (k == EKind::Struct) {
             if (argStructs[i] == EStructKind::Memory) {
-                placeGpr(src, false, 0);
+                if (IsArm) {
+                    // AAPCS: a pointer to a caller-owned copy in a GP register.
+                    placeGpr(src, false, 0);
+                } else {
+                    // SysV: the struct is copied by value onto the stack.
+                    const size_t sz = i < argSizes.size() ? argSizes[i] : 0;
+                    if (sz == 0) {
+                        return nullptr;
+                    }
+                    for (size_t off = 0; off < sz; off += 8) {
+                        moves.push_back({src, true, static_cast<uint8_t>(off), EFile::Stack, static_cast<uint8_t>(nstack++)});
+                    }
+                }
             } else if (!placeStruct(src, argStructs[i])) {
                 return nullptr;
             }
@@ -427,7 +440,7 @@ IFunction* BuildFFI(
         }
     }
 
-    if (nstack > kMaxStack) {
+    if (nstack > MaxStack) {
         return nullptr;
     }
 
@@ -436,7 +449,7 @@ IFunction* BuildFFI(
     fn->Moves = std::move(moves);
     fn->StackCount = static_cast<uint64_t>(nstack);
     fn->HasSret = isMemRet;
-    fn->SretInGpr = !kIsArm;
+    fn->SretInGpr = !IsArm;
 
     if (retKind == EKind::Void) {
         fn->RetMode = ERet::Void;
@@ -474,12 +487,12 @@ IFunction* BuildFFI(
                 case EStructKind::IntSse:
                     fn->RetEbCount = 2;
                     fn->RetSrc[0] = EResSrc::Rax;
-                    fn->RetSrc[1] = kIsArm ? EResSrc::Rdx : EResSrc::Xmm0;
+                    fn->RetSrc[1] = IsArm ? EResSrc::Rdx : EResSrc::Xmm0;
                     break;
                 case EStructKind::SseInt:
                     fn->RetEbCount = 2;
-                    fn->RetSrc[0] = kIsArm ? EResSrc::Rax : EResSrc::Xmm0;
-                    fn->RetSrc[1] = kIsArm ? EResSrc::Rdx : EResSrc::Rax;
+                    fn->RetSrc[0] = IsArm ? EResSrc::Rax : EResSrc::Xmm0;
+                    fn->RetSrc[1] = IsArm ? EResSrc::Rdx : EResSrc::Rax;
                     break;
                 default:
                     return nullptr;

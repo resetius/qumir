@@ -97,14 +97,17 @@ NFFI::IFunction* TVMCompiler::GetOrCreateExternalThunk(int externIdx) {
         size_t retSize = static_cast<size_t>(Module.Types.SizeInBytes(ext.ReturnTypeId));
         std::vector<EKind> argKinds;
         std::vector<NFFI::EStructKind> argStructs;
+        std::vector<size_t> argSizes;
         argKinds.reserve(ext.ArgTypes.size());
         argStructs.reserve(ext.ArgTypes.size());
+        argSizes.reserve(ext.ArgTypes.size());
         for (int argType : ext.ArgTypes) {
             NFFI::EStructKind argStruct = NFFI::EStructKind::None;
             argKinds.push_back(ClassifyKind(argType, Module.Types, argStruct));
             argStructs.push_back(argStruct);
+            argSizes.push_back(static_cast<size_t>(Module.Types.SizeInBytes(argType)));
         }
-        thunk.reset(NFFI::BuildFFI(symbol, retKind, retStruct, retSize, argKinds, argStructs));
+        thunk.reset(NFFI::BuildFFI(symbol, retKind, retStruct, retSize, argKinds, argStructs, argSizes));
         if (!thunk) {
             return nullptr;
         }

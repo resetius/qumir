@@ -58,14 +58,17 @@ struct IFunction {
 
 // Builds a thunk for the VM convention: structs arrive by pointer but the
 // native call takes register-class structs by value and Memory-class structs by
-// pointer; a struct return is materialized through args[0].
+// pointer; a struct return is materialized through args[0]. argSizes (per arg,
+// in bytes) is required only for Memory-class arguments on x86-64, where the
+// struct is copied by value onto the stack.
 IFunction* BuildFFI(
     void* symbol,
     EKind retKind,
     EStructKind retStruct,
     size_t retSize,
     const std::vector<EKind>& argKinds,
-    const std::vector<EStructKind>& argStructs) noexcept;
+    const std::vector<EStructKind>& argStructs,
+    const std::vector<size_t>& argSizes = {}) noexcept;
 
 } // namespace NFFI
 } // namespace NIR
