@@ -28,6 +28,16 @@ NAst::TTypePtr PhysicalCallResultType(NAst::TTypePtr type)
     return type;
 }
 
+bool IsRawArraySymbol(const NAst::TExprPtr& node)
+{
+    auto var = NAst::TMaybeNode<NAst::TVarStmt>(node);
+    if (!var) {
+        return false;
+    }
+    auto type = NAst::UnwrapReferenceType(NAst::UnwrapNamedType(var.Cast()->Type));
+    return NAst::TMaybeType<NAst::TArrayType>(type) && var.Cast()->Bounds.empty();
+}
+
 } // namespace
 
 TOperand TAstLowerer::AllocLayoutStorage(NSemantics::TSymbolInfo symbol, int typeId)
@@ -432,6 +442,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!arraySymbol) {
             co_return TError(index->Collection->Location, TErrorString::Get<EErrorId::UNDEFINED_NAME>());
         }
+        auto symbolNode = Context.GetSymbolNode(NSemantics::TSymbolId{arraySymbol->Id});
 
         auto value = co_await Lower(index->Collection, scope);
         if (!value.Value) {
@@ -449,7 +460,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         TOperand byteOffset;
         auto collectionType = NAst::UnwrapReferenceType(NAst::UnwrapNamedType(index->Collection->Type));
-        if (NAst::TMaybeType<NAst::TPointerType>(collectionType)) {
+        if (NAst::TMaybeType<NAst::TPointerType>(collectionType) || IsRawArraySymbol(symbolNode)) {
             auto offset = Builder.Emit1("*"_op, {*indexValue.Value, TImm{elemByteSize, i64}});
             Builder.SetType(offset, i64);
             byteOffset = offset;
@@ -721,6 +732,13 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto operand = co_await Lower(cast->Operand, scope);
         if (!operand.Value) co_return TError(cast->Operand->Location, TErrorString::Get<EErrorId::OPERAND_OF_CAST_NOT_VALUE>());
         std::optional<TOperand> tmp;
+        auto sourceArrayForPtrCast = NAst::TMaybeType<NAst::TArrayType>(
+            NAst::UnwrapNamedType(cast->Operand->Type));
+        auto targetPtrForArrayCast = NAst::TMaybeType<NAst::TPointerType>(
+            NAst::UnwrapNamedType(expr->Type));
+        bool arrayToPtrCast = sourceArrayForPtrCast && targetPtrForArrayCast
+            && FromAstType(NAst::UnwrapNamedType(sourceArrayForPtrCast.Cast()->ElementType), Module.Types)
+                == FromAstType(NAst::UnwrapNamedType(targetPtrForArrayCast.Cast()->PointeeType), Module.Types);
         if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TBoolType>(cast->Operand->Type)) {
             // bool to int cast
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
@@ -744,6 +762,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TIntegerType>(NAst::UnwrapNamedType(expr->Type))
             && NAst::TMaybeType<NAst::TIntegerType>(NAst::UnwrapNamedType(cast->Operand->Type))) {
+            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+        } else if (arrayToPtrCast) {
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
         } else if (FromAstType(NAst::UnwrapNamedType(expr->Type), Module.Types)
             == FromAstType(NAst::UnwrapNamedType(cast->Operand->Type), Module.Types)) {
@@ -996,7 +1016,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         TOperand totalIndex;
         auto symbolNode = Context.GetSymbolNode(NSemantics::TSymbolId{arraySymbol->Id});
         auto symbolType = symbolNode ? NAst::UnwrapReferenceType(NAst::UnwrapNamedType(symbolNode->Type)) : nullptr;
-        if (NAst::TMaybeType<NAst::TPointerType>(symbolType)) {
+        if (NAst::TMaybeType<NAst::TPointerType>(symbolType) || IsRawArraySymbol(symbolNode)) {
             if (asg->Indices.size() != 1) {
                 co_return TError(asg->Location, TErrorString::Get<EErrorId::FAILED_LOWER_ARRAY_INDICES>());
             }
@@ -1053,7 +1073,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         auto symbolNode = Context.GetSymbolNode(NSemantics::TSymbolId{indexSymbol->Id});
         auto symbolType = symbolNode ? NAst::UnwrapReferenceType(NAst::UnwrapNamedType(symbolNode->Type)) : nullptr;
-        if (NAst::TMaybeType<NAst::TPointerType>(symbolType)) {
+        if (NAst::TMaybeType<NAst::TPointerType>(symbolType) || IsRawArraySymbol(symbolNode)) {
             auto arrayType = Builder.GetType(arrayPtr.Tmp);
             int elemTypeId = FromAstType(expr->Type, Module.Types);
             int elemByteSize = Module.Types.SizeInBytes(elemTypeId);

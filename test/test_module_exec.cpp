@@ -116,6 +116,23 @@ TEST_F(ModuleExecTest, MainCallsImportedFunction) {
         "5\n");
 }
 
+TEST_F(ModuleExecTest, GenericModuleFunctionIndexesArrayParameterWithoutBounds) {
+    WriteModule("arrays",
+        "(block"
+        " (fun bump_first ((var values <array <named Value (template)> 1>) (var delta i64)) -> i64"
+        "   (block"
+        "     (var item = (index values (: 0 i64)))"
+        "     (= values [(: 0 i64)] (+ item delta))"
+        "     (return (index values (: 0 i64))))))");
+
+    ExpectAll(
+        "(block (use arrays) (fun <main> () (block"
+        "   (var a <array i64 1> [0 1])"
+        "   (= a [0] (: 5 i64))"
+        "   (output (call bump_first a (: 7 i64)) \" \" (index a (: 0 i64)) \"\\n\"))))",
+        "12 12\n");
+}
+
 TEST_F(ModuleExecTest, TransitiveImport) {
     WriteModule("low", "(block (fun base () -> i64 (block (return (: 40 i64)))))");
     WriteModule("mid",
