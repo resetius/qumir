@@ -85,6 +85,20 @@ std::vector<std::string> SplitFeatures(const std::string& features) {
     return out;
 }
 
+/*
+perf record -k 1 -g --call-graph dwarf ./your_qdb_command
+perf inject --jit -i perf.data -o perf.jit.data
+perf report -i perf.jit.data
+*/
+std::unique_ptr<llvm::JITEventListener> CreatePerfJitEventListener() {
+#if defined(__linux__) && defined(QUMIR_HAS_LLVM_PERF_JIT_EVENTS)
+    return std::unique_ptr<llvm::JITEventListener>(
+        llvm::JITEventListener::createPerfJITEventListener());
+#else
+    return nullptr;
+#endif
+}
+
 } // namespace
 
 #ifdef __APPLE__
@@ -168,7 +182,7 @@ std::optional<std::string> TLlvmRunner::Run(
         return std::nullopt;
     }
     if (Options_.EnablePerfJitEventListener) {
-        perfListener.reset(llvm::JITEventListener::createPerfJITEventListener());
+        perfListener = CreatePerfJitEventListener();
         if (perfListener) {
             ee->RegisterJITEventListener(perfListener.get());
         }
@@ -340,7 +354,7 @@ void* TLlvmRunner::Lookup(
     }
     std::unique_ptr<llvm::JITEventListener> perfListener;
     if (Options_.EnablePerfJitEventListener) {
-        perfListener.reset(llvm::JITEventListener::createPerfJITEventListener());
+        perfListener = CreatePerfJitEventListener();
         if (perfListener) {
             ee->RegisterJITEventListener(perfListener.get());
         }
