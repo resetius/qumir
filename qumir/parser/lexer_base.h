@@ -20,6 +20,43 @@ char Unescape(char ch);
 bool IsUtf8ContinuationByte(char ch);
 void AdvanceLocation(TLocation& location, char ch);
 
+struct TLookAheadStream {
+    std::istream& In;
+    std::vector<int> Buf;
+
+    TLookAheadStream(std::istream& in)
+        : In(in)
+    { }
+
+    auto get() {
+        if (!Buf.empty()) {
+            auto ch = Buf.back(); Buf.pop_back();
+            return ch;
+        }
+        return In.get();
+    }
+
+    bool get(char& ch) {
+        if (!Buf.empty()) {
+            ch = Buf.back(); Buf.pop_back();
+            return true;
+        }
+
+        return !!In.get(ch);
+    }
+
+    auto peek() {
+        if (!Buf.empty()) {
+            return Buf.back();
+        }
+        return In.peek();
+    }
+
+    void unget(int ch) {
+        Buf.push_back(ch);
+    }
+};
+
 struct TToken {
     enum EType {
         Integer,
@@ -59,7 +96,7 @@ public:
 protected:
     virtual void Read() = 0;
 
-    std::istream& In;
+    TLookAheadStream In;
     std::deque<TToken> Tokens;
     bool SeenFirstToken = false;
     TLocation CurrentLocation;

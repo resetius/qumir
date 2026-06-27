@@ -415,9 +415,10 @@ void TTokenStream::Read() {
         TLocation tokenLocation = CurrentLocation;
 
         if ((next == '<' || next == '>') && AfterOpenParen_ && [&]() {
+            // TODO: rewrite without look-ahead!
             In.get();
             auto second = In.peek();
-            In.unget();
+            In.unget(next);
             return second == '=' || second == next;
         }()) {
             // Two-char operator (>>, >=, <<, <=) only valid as operator head after '('
@@ -431,7 +432,7 @@ void TTokenStream::Read() {
         } else if (std::isdigit(next) || next == '.' || (next == '-' && [&]() {
             In.get();
             auto second = In.peek();
-            In.unget();
+            In.unget(next);
             return std::isdigit(second) || second == '.';
         }())) {
             readNumber(tokenLocation);
@@ -456,7 +457,7 @@ void TTokenStream::Read() {
         } else if (next == '-' && [&]() {
             In.get();
             auto second = In.peek();
-            In.unget();
+            In.unget(next);
             return second == '>';
         }()) {
             take(); take();
