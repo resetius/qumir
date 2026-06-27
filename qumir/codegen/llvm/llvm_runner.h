@@ -6,13 +6,19 @@
 #include <string>
 #include <optional>
 #include <functional>
+#include <memory>
+#include <vector>
 
 namespace NQumir::NCodeGen {
+
+struct TLlvmRunnerOptions {
+    bool EnablePerfJitEventListener = false;
+};
 
 // Runner: lowers code to NIR, translates to LLVM IR, returns full module IR text.
 class TLlvmRunner {
 public:
-    TLlvmRunner();
+    TLlvmRunner(TLlvmRunnerOptions options = {});
 
     // No IR generation API here; only execution of already generated module.
 
@@ -32,6 +38,7 @@ public:
         std::string* error = nullptr);
 
 private:
+    TLlvmRunnerOptions Options_;
     std::string LastError; // currently unused (kept for future diagnostics)
 
     // Keeps ExecutionEngines alive so function pointers returned by Lookup remain valid.

@@ -30,6 +30,9 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     : Options(std::move(options))
     , Builder(Module)
     , Lowerer(Module, Builder, Resolver)
+    , LlvmRunner_({
+        .EnablePerfJitEventListener = Options.EnablePerfJitEventListener,
+    })
 {
     if (Options.AllowOverloads) {
         Resolver.ApplyPragmas({NAst::TPragma{"language", {"overloads"}, {}}});
@@ -218,7 +221,9 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
     }
 
     // Run via LLVM JIT
-    NCodeGen::TLlvmRunner runner;
+    NCodeGen::TLlvmRunner runner({
+        .EnablePerfJitEventListener = Options.EnablePerfJitEventListener,
+    });
     try {
         std::string runErr;
         auto coroutineResultFormatter = [&]() -> std::function<std::optional<std::string>(const void*)> {

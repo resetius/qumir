@@ -5,6 +5,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
+#include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/DynamicLibrary.h>
@@ -117,7 +118,8 @@ extern "C" {
     return result;
 }
 
-TLlvmRunner::TLlvmRunner()
+TLlvmRunner::TLlvmRunner(TLlvmRunnerOptions options)
+    : Options_(std::move(options))
 {}
 
 std::optional<std::string> TLlvmRunner::Run(
@@ -159,10 +161,17 @@ std::optional<std::string> TLlvmRunner::Run(
             builder.setMAttrs(SplitFeatures(nativeFeatures));
         }
     }
+    std::unique_ptr<llvm::JITEventListener> perfListener;
     auto ee = std::unique_ptr<llvm::ExecutionEngine>(builder.setErrorStr(&eeErr).create());
     if (!ee) {
         if (error) *error = std::string("ExecutionEngine create failed: ") + eeErr;
         return std::nullopt;
+    }
+    if (Options_.EnablePerfJitEventListener) {
+        perfListener.reset(llvm::JITEventListener::createPerfJITEventListener());
+        if (perfListener) {
+            ee->RegisterJITEventListener(perfListener.get());
+        }
     }
 
     // Heuristic: last function in our internal Module is the newest __repl*; but
@@ -329,6 +338,13 @@ void* TLlvmRunner::Lookup(
         if (error) *error = std::string("ExecutionEngine create failed: ") + eeErr;
         return nullptr;
     }
+    std::unique_ptr<llvm::JITEventListener> perfListener;
+    if (Options_.EnablePerfJitEventListener) {
+        perfListener.reset(llvm::JITEventListener::createPerfJITEventListener());
+        if (perfListener) {
+            ee->RegisterJITEventListener(perfListener.get());
+        }
+    }
 
     ee->finalizeObject();
     auto addr = ee->getFunctionAddress(name);
@@ -342,11 +358,13 @@ void* TLlvmRunner::Lookup(
         // owns the LLVMContext used by that Module. Members are destroyed in
         // reverse declaration order, so Engine must be declared after Artifacts.
         std::unique_ptr<ILLVMModuleArtifacts> Artifacts;
+        std::unique_ptr<llvm::JITEventListener> PerfListener;
         std::unique_ptr<llvm::ExecutionEngine> Engine;
     };
 
     auto live = std::make_shared<TLiveJit>();
     live->Artifacts = std::move(iartifacts);
+    live->PerfListener = std::move(perfListener);
     live->Engine = std::move(ee);
     LiveEngines_.push_back(std::move(live));
     return reinterpret_cast<void*>(addr);
