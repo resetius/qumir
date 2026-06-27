@@ -15,6 +15,12 @@
 #include <unistd.h>
 #endif
 
+#ifdef __FreeBSD__
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <limits.h>
+#endif
+
 namespace NQumir {
 namespace NFrontend {
 
@@ -33,6 +39,17 @@ std::optional<fs::path> ExecutableDir() {
     }
 #elif defined(__linux__)
     std::string buf = "/proc/self/exe";
+#elif defined(__FreeBSD__)
+    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
+
+    char pathbuf[PATH_MAX];
+    size_t size = sizeof(pathbuf);
+
+    if (sysctl(mib, 4, pathbuf, &size, nullptr, 0) != 0) {
+        return std::nullopt;
+    }
+
+    std::string buf(pathbuf, size > 0 ? size - 1 : 0);
 #else
     return std::nullopt;
 #endif
