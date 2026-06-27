@@ -2,7 +2,7 @@ function <main> () { ; void
   block {
     label: label(0)
     arg imm(5,i64) 
-    call tmp(0,i64) = __generic_wrap$Int 
+    call tmp(0,i64) = __generic_wrap$i64 
     arg tmp(0,i64) 
     arg imm(0,i64) 
     call output_int64 
@@ -35,12 +35,12 @@ function <main> () { ; void
     ret 
   }
 }
-function __generic_wrap$Int (local(0)) { ; i64
+function __generic_wrap$i64 (local(0)) { ; i64
   block {
     label: label(0)
     load tmp(0,i64) = local(0,i64) 
     arg tmp(0,i64) 
-    call tmp(1,i64) = __generic_identity$Int 
+    call tmp(1,i64) = __generic_identity$i64 
     stre local(1,i64) tmp(1,i64) 
     jmp label(1) 
   }
@@ -50,7 +50,7 @@ function __generic_wrap$Int (local(0)) { ; i64
     ret tmp(2,i64) 
   }
 }
-function __generic_identity$Int (local(0)) { ; i64
+function __generic_identity$i64 (local(0)) { ; i64
   block {
     label: label(0)
     load tmp(0,i64) = local(0,i64) 
