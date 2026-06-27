@@ -2,7 +2,7 @@ function <main> () { ; void
   block {
     label: label(0)
     arg imm(5,i64) 
-    call tmp(0,i64) = __generic_identity$Int 
+    call tmp(0,i64) = __generic_identity$i64 
     arg tmp(0,i64) 
     arg imm(0,i64) 
     call output_int64 
@@ -37,7 +37,7 @@ function <main> () { ; void
     arg imm(1,ptr to i8) 
     call output_string 
     arg imm(7,i64) 
-    call tmp(9,i64) = __generic_identity$Int 
+    call tmp(9,i64) = __generic_identity$i64 
     arg tmp(9,i64) 
     arg imm(0,i64) 
     call output_int64 
@@ -50,7 +50,7 @@ function <main> () { ; void
     ret 
   }
 }
-function __generic_identity$Int (local(0)) { ; i64
+function __generic_identity$i64 (local(0)) { ; i64
   block {
     label: label(0)
     load tmp(0,i64) = local(0,i64) 

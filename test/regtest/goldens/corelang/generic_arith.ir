@@ -2,7 +2,7 @@ function <main> () { ; void
   block {
     label: label(0)
     arg imm(3,i64) 
-    call tmp(0,i64) = __generic_compute$Int 
+    call tmp(0,i64) = __generic_compute$i64 
     arg tmp(0,i64) 
     arg imm(0,i64) 
     call output_int64 
@@ -23,7 +23,7 @@ function <main> () { ; void
     ret 
   }
 }
-function __generic_compute$Int (local(0)) { ; i64
+function __generic_compute$i64 (local(0)) { ; i64
   block {
     label: label(0)
     load tmp(0,i64) = local(0,i64) 

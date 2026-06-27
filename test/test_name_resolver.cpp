@@ -330,7 +330,7 @@ TEST(TypeAnnotation, GenericExternalModuleFunctionInstantiatesPerCallSite) {
         return TMaybeNode<TFunDecl>(resolver.GetSymbolNode(NSemantics::TSymbolId{sym->Id})).Cast();
     };
 
-    auto intClone = lookupFunDecl("__generic_extId$Int");
+    auto intClone = lookupFunDecl("__generic_extId$i64");
     auto stringClone = lookupFunDecl("__generic_extId$String");
     ASSERT_TRUE(intClone) << "expected a monomorphized clone for extId(i64)";
     ASSERT_TRUE(stringClone) << "expected a monomorphized clone for extId(string)";

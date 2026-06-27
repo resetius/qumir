@@ -1,0 +1,162 @@
+function __overload_tag_0 (local(0)) { ; i64
+  block {
+    label: label(0)
+    stre local(1,i64) imm(8,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(0,i64) = local(1,i64) 
+    ret tmp(0,i64) 
+  }
+}
+function __overload_tag_1 (local(0)) { ; i64
+  block {
+    label: label(0)
+    stre local(1,i64) imm(108,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(0,i64) = local(1,i64) 
+    ret tmp(0,i64) 
+  }
+}
+function __overload_tag_2 (local(0)) { ; i64
+  block {
+    label: label(0)
+    stre local(1,i64) imm(16,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(0,i64) = local(1,i64) 
+    ret tmp(0,i64) 
+  }
+}
+function __overload_tag_3 (local(0)) { ; i64
+  block {
+    label: label(0)
+    stre local(1,i64) imm(116,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(0,i64) = local(1,i64) 
+    ret tmp(0,i64) 
+  }
+}
+function __overload_tag_4 (local(0)) { ; i64
+  block {
+    label: label(0)
+    stre local(1,i64) imm(32,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(0,i64) = local(1,i64) 
+    ret tmp(0,i64) 
+  }
+}
+function __overload_tag_5 (local(0)) { ; i64
+  block {
+    label: label(0)
+    stre local(1,i64) imm(132,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(0,i64) = local(1,i64) 
+    ret tmp(0,i64) 
+  }
+}
+function __overload_tag_6 (local(0)) { ; i64
+  block {
+    label: label(0)
+    stre local(1,i64) imm(64,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(0,i64) = local(1,i64) 
+    ret tmp(0,i64) 
+  }
+}
+function __overload_tag_7 (local(0)) { ; i64
+  block {
+    label: label(0)
+    stre local(1,i64) imm(164,i64) 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    load tmp(0,i64) = local(1,i64) 
+    ret tmp(0,i64) 
+  }
+}
+function <main> () { ; void
+  block {
+    label: label(0)
+    arg imm(-1,i8) 
+    call tmp(0,i64) = __overload_tag_0 
+    arg tmp(0,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(1,u8) 
+    call tmp(1,i64) = __overload_tag_1 
+    arg tmp(1,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(-1,i16) 
+    call tmp(2,i64) = __overload_tag_2 
+    arg tmp(2,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(1,u16) 
+    call tmp(3,i64) = __overload_tag_3 
+    arg tmp(3,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(-1,i32) 
+    call tmp(4,i64) = __overload_tag_4 
+    arg tmp(4,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(1,u32) 
+    call tmp(5,i64) = __overload_tag_5 
+    arg tmp(5,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(-1,i64) 
+    call tmp(6,i64) = __overload_tag_6 
+    arg tmp(6,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(1,u64) 
+    call tmp(7,i64) = __overload_tag_7 
+    arg tmp(7,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

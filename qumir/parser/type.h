@@ -350,8 +350,32 @@ inline TTypePtr WrapFutureType(TTypePtr type) {
 // Named types include their name to distinguish компл from цвет.
 inline std::string TypeKey(const TTypePtr& t) {
     if (!t) return "unknown";
+    if (auto integer = TMaybeType<TIntegerType>(t)) return integer.Cast()->ToString();
     if (auto named = TMaybeType<TNamedType>(t)) return std::string("Named::") + named.Cast()->Name;
     if (auto future = TMaybeType<TFutureType>(t)) return std::string("Future::") + TypeKey(future.Cast()->ResultType);
+    if (auto array = TMaybeType<TArrayType>(t)) {
+        return "Array::" + std::to_string(array.Cast()->Arity) + "::" + TypeKey(array.Cast()->ElementType);
+    }
+    if (auto pointer = TMaybeType<TPointerType>(t)) return std::string("Ptr::") + TypeKey(pointer.Cast()->PointeeType);
+    if (auto reference = TMaybeType<TReferenceType>(t)) return std::string("Ref::") + TypeKey(reference.Cast()->ReferencedType);
+    if (auto function = TMaybeType<TFunctionType>(t)) {
+        std::string key = "Fun::(";
+        for (size_t i = 0; i < function.Cast()->ParamTypes.size(); ++i) {
+            if (i > 0) key += ",";
+            key += TypeKey(function.Cast()->ParamTypes[i]);
+        }
+        key += ")->";
+        key += TypeKey(function.Cast()->ReturnType);
+        return key;
+    }
+    if (auto structure = TMaybeType<TStructType>(t)) {
+        std::string key = "Struct::{";
+        for (const auto& [name, type] : structure.Cast()->Fields) {
+            key += name + ":" + TypeKey(type) + ";";
+        }
+        key += "}";
+        return key;
+    }
     return std::string(t->TypeName());
 }
 
