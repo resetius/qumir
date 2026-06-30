@@ -90,10 +90,9 @@ perf record -k 1 -g --call-graph dwarf ./your_qdb_command
 perf inject --jit -i perf.data -o perf.jit.data
 perf report -i perf.jit.data
 */
-std::unique_ptr<llvm::JITEventListener> CreatePerfJitEventListener() {
+llvm::JITEventListener* CreatePerfJitEventListener() {
 #if defined(__linux__) && defined(QUMIR_HAS_LLVM_PERF_JIT_EVENTS)
-    return std::unique_ptr<llvm::JITEventListener>(
-        llvm::JITEventListener::createPerfJITEventListener());
+    return llvm::JITEventListener::createPerfJITEventListener();
 #else
     return nullptr;
 #endif
@@ -175,7 +174,7 @@ std::optional<std::string> TLlvmRunner::Run(
             builder.setMAttrs(SplitFeatures(nativeFeatures));
         }
     }
-    std::unique_ptr<llvm::JITEventListener> perfListener;
+    llvm::JITEventListener* perfListener = nullptr;
     auto ee = std::unique_ptr<llvm::ExecutionEngine>(builder.setErrorStr(&eeErr).create());
     if (!ee) {
         if (error) *error = std::string("ExecutionEngine create failed: ") + eeErr;
@@ -184,7 +183,7 @@ std::optional<std::string> TLlvmRunner::Run(
     if (Options_.EnablePerfJitEventListener) {
         perfListener = CreatePerfJitEventListener();
         if (perfListener) {
-            ee->RegisterJITEventListener(perfListener.get());
+            ee->RegisterJITEventListener(perfListener);
         }
     }
 
@@ -352,11 +351,11 @@ void* TLlvmRunner::Lookup(
         if (error) *error = std::string("ExecutionEngine create failed: ") + eeErr;
         return nullptr;
     }
-    std::unique_ptr<llvm::JITEventListener> perfListener;
+    llvm::JITEventListener* perfListener = nullptr;
     if (Options_.EnablePerfJitEventListener) {
         perfListener = CreatePerfJitEventListener();
         if (perfListener) {
-            ee->RegisterJITEventListener(perfListener.get());
+            ee->RegisterJITEventListener(perfListener);
         }
     }
 
@@ -372,13 +371,13 @@ void* TLlvmRunner::Lookup(
         // owns the LLVMContext used by that Module. Members are destroyed in
         // reverse declaration order, so Engine must be declared after Artifacts.
         std::unique_ptr<ILLVMModuleArtifacts> Artifacts;
-        std::unique_ptr<llvm::JITEventListener> PerfListener;
+        llvm::JITEventListener* PerfListener = nullptr;
         std::unique_ptr<llvm::ExecutionEngine> Engine;
     };
 
     auto live = std::make_shared<TLiveJit>();
     live->Artifacts = std::move(iartifacts);
-    live->PerfListener = std::move(perfListener);
+    live->PerfListener = perfListener;
     live->Engine = std::move(ee);
     LiveEngines_.push_back(std::move(live));
     return reinterpret_cast<void*>(addr);
