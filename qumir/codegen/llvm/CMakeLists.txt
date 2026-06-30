@@ -76,8 +76,16 @@ set(LLVM_COMPONENTS
     WebAssemblyDisassembler
 )
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    list(APPEND LLVM_COMPONENTS PerfJITEvents)
+endif()
+
 llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
 target_link_libraries(qumir_codegen_llvm PRIVATE ${LLVM_LIBS})
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_compile_definitions(qumir_codegen_llvm PRIVATE QUMIR_HAS_LLVM_PERF_JIT_EVENTS=1)
+endif()
 if(UNIX AND NOT APPLE)
     target_link_options(qumir_codegen_llvm PUBLIC -rdynamic)
 endif()

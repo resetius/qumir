@@ -262,6 +262,35 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
 void* TLLVMRunner::CompileKernelAst(
     NAst::TExprPtr ast, const std::string& entryName, std::string* error)
 {
+    std::vector<NAst::TPragma> mainPragmas;
+    if (Options.AllowOverloads) {
+        mainPragmas.push_back(NAst::TPragma{"language", {"overloads"}, {}});
+    }
+
+    NFrontend::TSourceModuleLoader loader;
+    for (const auto& dir : Options.ModuleSearchPaths) {
+        loader.AddSearchPath(dir);
+    }
+    for (const auto& file : Options.ModuleFiles) {
+        if (auto reg = loader.RegisterSourceModule(file); !reg) {
+            if (error) {
+                *error = reg.error().ToString();
+            }
+            return nullptr;
+        }
+    }
+    {
+        auto composed = NFrontend::LoadAndCompose(loader, ast, mainPragmas);
+        if (!composed) {
+            if (error) {
+                *error = composed.error().ToString();
+            }
+            return nullptr;
+        }
+        ast = std::move(composed->Ast);
+        Resolver.ApplyPragmas(composed->Pragmas);
+    }
+
     auto scope = Resolver.GetOrCreateRootScope();
     // scope->AllowsRedeclare = true;
     scope->RootLevel = false;
@@ -350,6 +379,24 @@ void* TLLVMRunner::CompileKernelAst(
 }
 
 void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) {
+    std::vector<NAst::TPragma> mainPragmas;
+    if (Options.AllowOverloads) {
+        mainPragmas.push_back(NAst::TPragma{"language", {"overloads"}, {}});
+    }
+
+    NFrontend::TSourceModuleLoader loader;
+    for (const auto& dir : Options.ModuleSearchPaths) {
+        loader.AddSearchPath(dir);
+    }
+    for (const auto& file : Options.ModuleFiles) {
+        if (auto reg = loader.RegisterSourceModule(file); !reg) {
+            if (error) {
+                *error = reg.error().ToString();
+            }
+            return nullptr;
+        }
+    }
+
     std::istringstream input(source);
 
     NAst::NCore::TTokenStream ts(input);
@@ -360,6 +407,34 @@ void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) 
             *error = parsed.error().ToString();
         }
         return nullptr;
+    }
+    mainPragmas.insert(mainPragmas.end(), p.Pragmas.begin(), p.Pragmas.end());
+
+    std::string funcName;
+    if (auto block = NAst::TMaybeNode<NAst::TBlockExpr>(*parsed)) {
+        for (const auto& stmt : block.Cast()->Stmts) {
+            if (auto fun = NAst::TMaybeNode<NAst::TFunDecl>(stmt)) {
+                funcName = fun.Cast()->Name;
+            }
+        }
+    }
+    if (funcName.empty()) {
+        if (error) {
+            *error = "no functions in source";
+        }
+        return nullptr;
+    }
+
+    {
+        auto composed = NFrontend::LoadAndCompose(loader, *parsed, mainPragmas);
+        if (!composed) {
+            if (error) {
+                *error = composed.error().ToString();
+            }
+            return nullptr;
+        }
+        *parsed = std::move(composed->Ast);
+        Resolver.ApplyPragmas(composed->Pragmas);
     }
 
     auto scope = Resolver.GetOrCreateRootScope();
@@ -395,8 +470,6 @@ void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) 
         }
         return nullptr;
     }
-    const std::string funcName = Module.Functions.back().Name;
-
     NCodeGen::TLLVMCodeGen cg({ .NativeCode = Options.NativeCode });
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> artifacts;
     try {
