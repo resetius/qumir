@@ -15,6 +15,7 @@
 #include <istream>
 #include <optional>
 #include <unordered_set>
+#include <unordered_map>
 
 namespace NQumir {
 
@@ -57,6 +58,10 @@ public:
     // stable when generic specializations are appended during type annotation.
     void* CompileKernelAst(
         NAst::TExprPtr ast, const std::string& entryName, std::string* error);
+    std::unordered_map<std::string, void*> CompileKernelAst(
+        NAst::TExprPtr ast,
+        const std::vector<std::string>& entryNames,
+        std::string* error);
 
 private:
     TLLVMRunnerOptions Options;

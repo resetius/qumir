@@ -318,10 +318,20 @@ void* TLlvmRunner::Lookup(
     const std::string& name,
     std::string* error)
 {
+    auto entries = LookupMany(std::move(iartifacts), {name}, error);
+    auto it = entries.find(name);
+    return it == entries.end() ? nullptr : it->second;
+}
+
+std::unordered_map<std::string, void*> TLlvmRunner::LookupMany(
+    std::unique_ptr<ILLVMModuleArtifacts> iartifacts,
+    const std::vector<std::string>& names,
+    std::string* error)
+{
     auto* artifacts = static_cast<TLLVMModuleArtifacts*>(iartifacts.get());
     if (!artifacts || !artifacts->Module) {
         if (error) *error = "null artifacts";
-        return nullptr;
+        return {};
     }
 
     static bool inited = false;
@@ -349,7 +359,7 @@ void* TLlvmRunner::Lookup(
     auto ee = std::unique_ptr<llvm::ExecutionEngine>(builder.setErrorStr(&eeErr).create());
     if (!ee) {
         if (error) *error = std::string("ExecutionEngine create failed: ") + eeErr;
-        return nullptr;
+        return {};
     }
     llvm::JITEventListener* perfListener = nullptr;
     if (Options_.EnablePerfJitEventListener) {
@@ -360,10 +370,15 @@ void* TLlvmRunner::Lookup(
     }
 
     ee->finalizeObject();
-    auto addr = ee->getFunctionAddress(name);
-    if (!addr) {
-        if (error) *error = "function not found: " + name;
-        return nullptr;
+    std::unordered_map<std::string, void*> entries;
+    entries.reserve(names.size());
+    for (const auto& name : names) {
+        auto addr = ee->getFunctionAddress(name);
+        if (!addr) {
+            if (error) *error = "function not found: " + name;
+            return {};
+        }
+        entries.emplace(name, reinterpret_cast<void*>(addr));
     }
 
     struct TLiveJit {
@@ -380,7 +395,7 @@ void* TLlvmRunner::Lookup(
     live->PerfListener = perfListener;
     live->Engine = std::move(ee);
     LiveEngines_.push_back(std::move(live));
-    return reinterpret_cast<void*>(addr);
+    return entries;
 }
 
 } // namespace NQumir::NCodeGen

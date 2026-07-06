@@ -19,6 +19,10 @@
 - **Local variables**: camelCase — `integerType`, `colorType`, `lowIntTypeId`
 - **Lambdas**: camelCase — `colorConst`, `intLiteral`, `binary`, `cast`, `binOp`
 - **Function parameters**: camelCase
+- **Constants**: a local `constexpr`/`const` follows local-variable casing —
+  camelCase (`acquireSpin`, `maxRetries`); a namespace-scope or class
+  `static constexpr` constant follows field/method casing — PascalCase
+  (`AcquireSpin`, `DefaultCapacity`).
 
 ### Special cases
 
