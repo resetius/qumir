@@ -262,6 +262,16 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
 void* TLLVMRunner::CompileKernelAst(
     NAst::TExprPtr ast, const std::string& entryName, std::string* error)
 {
+    auto entries = CompileKernelAst(std::move(ast), std::vector<std::string>{entryName}, error);
+    auto it = entries.find(entryName);
+    return it == entries.end() ? nullptr : it->second;
+}
+
+std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
+    NAst::TExprPtr ast,
+    const std::vector<std::string>& entryNames,
+    std::string* error)
+{
     std::vector<NAst::TPragma> mainPragmas;
     if (Options.AllowOverloads) {
         mainPragmas.push_back(NAst::TPragma{"language", {"overloads"}, {}});
@@ -276,7 +286,7 @@ void* TLLVMRunner::CompileKernelAst(
             if (error) {
                 *error = reg.error().ToString();
             }
-            return nullptr;
+            return {};
         }
     }
     {
@@ -285,7 +295,7 @@ void* TLLVMRunner::CompileKernelAst(
             if (error) {
                 *error = composed.error().ToString();
             }
-            return nullptr;
+            return {};
         }
         ast = std::move(composed->Ast);
         Resolver.ApplyPragmas(composed->Pragmas);
@@ -299,7 +309,7 @@ void* TLLVMRunner::CompileKernelAst(
         if (error) {
             *error = err->ToString();
         }
-        return nullptr;
+        return {};
     }
 
     auto transformResult = NTransform::Pipeline(ast, Resolver, {});
@@ -307,7 +317,7 @@ void* TLLVMRunner::CompileKernelAst(
         if (error) {
             *error = transformResult.error().ToString();
         }
-        return nullptr;
+        return {};
     }
 
     auto lowerRes = Lowerer.LowerTop(ast);
@@ -315,7 +325,7 @@ void* TLLVMRunner::CompileKernelAst(
         if (error) {
             *error = lowerRes.error().ToString();
         }
-        return nullptr;
+        return {};
     }
 
     if (Options.PrintIr) {
@@ -334,18 +344,19 @@ void* TLLVMRunner::CompileKernelAst(
         if (error) {
             *error = "no functions after lowering";
         }
-        return nullptr;
+        return {};
     }
-    auto entry = std::find_if(
-        Module.Functions.begin(), Module.Functions.end(),
-        [&](const auto& function) { return function.Name == entryName; });
-    if (entry == Module.Functions.end()) {
-        if (error) {
-            *error = "entry function not found: " + entryName;
+    for (const auto& entryName : entryNames) {
+        auto entry = std::find_if(
+            Module.Functions.begin(), Module.Functions.end(),
+            [&](const auto& function) { return function.Name == entryName; });
+        if (entry == Module.Functions.end()) {
+            if (error) {
+                *error = "entry function not found: " + entryName;
+            }
+            return {};
         }
-        return nullptr;
     }
-    const std::string& funcName = entry->Name;
 
     NCodeGen::TLLVMCodeGen cg({ .NativeCode = Options.NativeCode });
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> artifacts;
@@ -355,7 +366,7 @@ void* TLLVMRunner::CompileKernelAst(
         if (error) {
             *error = std::string("llvm codegen error: ") + e.what();
         }
-        return nullptr;
+        return {};
     }
 
     if (Options.PrintLlvm) {
@@ -368,14 +379,14 @@ void* TLLVMRunner::CompileKernelAst(
     }
 
     std::string runErr;
-    void* fnPtr = LlvmRunner_.Lookup(std::move(artifacts), funcName, &runErr);
-    if (!fnPtr) {
+    auto entries = LlvmRunner_.LookupMany(std::move(artifacts), entryNames, &runErr);
+    if (entries.empty()) {
         if (error) {
-            *error = runErr.empty() ? "function not found: " + funcName : runErr;
+            *error = runErr.empty() ? "function lookup failed" : runErr;
         }
-        return nullptr;
+        return {};
     }
-    return fnPtr;
+    return entries;
 }
 
 void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) {

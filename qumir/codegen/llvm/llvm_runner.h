@@ -7,6 +7,7 @@
 #include <optional>
 #include <functional>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 namespace NQumir::NCodeGen {
@@ -35,6 +36,11 @@ public:
     void* Lookup(
         std::unique_ptr<ILLVMModuleArtifacts> artifacts,
         const std::string& name,
+        std::string* error = nullptr);
+
+    std::unordered_map<std::string, void*> LookupMany(
+        std::unique_ptr<ILLVMModuleArtifacts> artifacts,
+        const std::vector<std::string>& names,
         std::string* error = nullptr);
 
 private:
