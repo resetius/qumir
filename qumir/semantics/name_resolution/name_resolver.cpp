@@ -90,6 +90,10 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
             if (it == ImportedTypes.end()) {
                 return TError(loc, "Неизвестный тип: " + named->Name);
             }
+            if (auto n = TMaybeType<TNamedType>(it->second); n && n.Cast()->Name == named->Name) {
+                throw std::runtime_error("resolveTypeRef: ImportedTypes['" + named->Name
+                    + "'] is a TNamedType with the same name — double wrap would result");
+            }
             named->UnderlyingType = it->second;
             auto modIt = ImportedModuleSymbols.find(named->Name);
             if (modIt != ImportedModuleSymbols.end()) {
@@ -619,6 +623,10 @@ NAst::TTypePtr TNameResolver::LookupType(const std::string& name) const {
 }
 
 void TNameResolver::RegisterType(const std::string& name, NAst::TTypePtr underlying) {
+    if (auto n = NAst::TMaybeType<NAst::TNamedType>(underlying); n && n.Cast()->Name == name) {
+        throw std::runtime_error("RegisterType: underlying is a TNamedType with the same name '"
+            + name + "' — see TExternalType::Type contract (must be unwrapped, not named)");
+    }
     ImportedTypes[name] = std::move(underlying);
 }
 
@@ -823,6 +831,10 @@ std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& 
         }
     }
     for (const auto& type : module->ExternalTypes()) {
+        if (auto n = NAst::TMaybeType<NAst::TNamedType>(type.Type); n && n.Cast()->Name == type.Name) {
+            throw std::runtime_error("ImportModule('" + name + "'): TExternalType{'" + type.Name
+                + "'}.Type is a TNamedType with the same name — contract violation (must be unwrapped)");
+        }
         ImportedModuleSymbols[type.Name] = name;
         ImportedTypes[type.Name] = type.Type;
     }
