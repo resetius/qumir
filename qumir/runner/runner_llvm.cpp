@@ -190,7 +190,10 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
         std::cerr << "============================\n\n";
     }
 
-    NCodeGen::TLLVMCodeGen cg({ .NativeCode = Options.NativeCode });
+    NCodeGen::TLLVMCodeGen cg({
+        .NativeCode = Options.NativeCode,
+        .TargetTriple = Options.TargetTriple,
+    });
     std::string err;
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> artifacts;
     try {
@@ -267,7 +270,7 @@ void* TLLVMRunner::CompileKernelAst(
     return it == entries.end() ? nullptr : it->second;
 }
 
-std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
+std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts(
     NAst::TExprPtr ast,
     const std::vector<std::string>& entryNames,
     std::string* error)
@@ -286,7 +289,7 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
             if (error) {
                 *error = reg.error().ToString();
             }
-            return {};
+            return nullptr;
         }
     }
     {
@@ -295,7 +298,7 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
             if (error) {
                 *error = composed.error().ToString();
             }
-            return {};
+            return nullptr;
         }
         ast = std::move(composed->Ast);
         Resolver.ApplyPragmas(composed->Pragmas);
@@ -309,7 +312,7 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
         if (error) {
             *error = err->ToString();
         }
-        return {};
+        return nullptr;
     }
 
     auto transformResult = NTransform::Pipeline(ast, Resolver, {});
@@ -317,7 +320,7 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
         if (error) {
             *error = transformResult.error().ToString();
         }
-        return {};
+        return nullptr;
     }
 
     auto lowerRes = Lowerer.LowerTop(ast);
@@ -325,7 +328,7 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
         if (error) {
             *error = lowerRes.error().ToString();
         }
-        return {};
+        return nullptr;
     }
 
     if (Options.PrintIr) {
@@ -344,7 +347,7 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
         if (error) {
             *error = "no functions after lowering";
         }
-        return {};
+        return nullptr;
     }
     for (const auto& entryName : entryNames) {
         auto entry = std::find_if(
@@ -354,11 +357,14 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
             if (error) {
                 *error = "entry function not found: " + entryName;
             }
-            return {};
+            return nullptr;
         }
     }
 
-    NCodeGen::TLLVMCodeGen cg({ .NativeCode = Options.NativeCode });
+    NCodeGen::TLLVMCodeGen cg({
+        .NativeCode = Options.NativeCode,
+        .TargetTriple = Options.TargetTriple,
+    });
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> artifacts;
     try {
         artifacts = cg.Emit(Module, Options.OptLevel);
@@ -366,7 +372,7 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
         if (error) {
             *error = std::string("llvm codegen error: ") + e.what();
         }
-        return {};
+        return nullptr;
     }
 
     if (Options.PrintLlvm) {
@@ -378,6 +384,19 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
         std::cerr << "============================\n\n";
     }
 
+    return artifacts;
+}
+
+std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
+    NAst::TExprPtr ast,
+    const std::vector<std::string>& entryNames,
+    std::string* error)
+{
+    auto artifacts = EmitKernelArtifacts(std::move(ast), entryNames, error);
+    if (!artifacts) {
+        return {};
+    }
+
     std::string runErr;
     auto entries = LlvmRunner_.LookupMany(std::move(artifacts), entryNames, &runErr);
     if (entries.empty()) {
@@ -387,6 +406,21 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
         return {};
     }
     return entries;
+}
+
+std::optional<std::string> TLLVMRunner::CompileKernelAstToObject(
+    NAst::TExprPtr ast,
+    const std::vector<std::string>& entryNames,
+    std::string* error)
+{
+    auto artifacts = EmitKernelArtifacts(std::move(ast), entryNames, error);
+    if (!artifacts) {
+        return std::nullopt;
+    }
+
+    std::ostringstream obj(std::ios::binary);
+    artifacts->Generate(obj, /*generateAsm=*/false, /*generateObj=*/true);
+    return obj.str();
 }
 
 void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) {
@@ -481,7 +515,10 @@ void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) 
         }
         return nullptr;
     }
-    NCodeGen::TLLVMCodeGen cg({ .NativeCode = Options.NativeCode });
+    NCodeGen::TLLVMCodeGen cg({
+        .NativeCode = Options.NativeCode,
+        .TargetTriple = Options.TargetTriple,
+    });
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> artifacts;
     try {
         artifacts = cg.Emit(Module, 0);

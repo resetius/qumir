@@ -39,6 +39,8 @@ struct TLLVMRunnerOptions {
     std::vector<std::string> ModuleSearchPaths;
     // Explicitly registered `.oz` module files (bound by file stem).
     std::vector<std::string> ModuleFiles;
+    // Target triple override (e.g. "wasm32-unknown-unknown"). Empty means the host default.
+    std::string TargetTriple;
 };
 
 class TLLVMRunner {
@@ -63,7 +65,21 @@ public:
         const std::vector<std::string>& entryNames,
         std::string* error);
 
+    // Same pipeline as CompileKernelAst, but emits a target object file (per
+    // Options.TargetTriple) instead of JIT-compiling. Returns object bytes.
+    std::optional<std::string> CompileKernelAstToObject(
+        NAst::TExprPtr ast,
+        const std::vector<std::string>& entryNames,
+        std::string* error);
+
 private:
+    // Shared frontend for both CompileKernelAst overloads: compose, resolve,
+    // transform, lower and emit LLVM artifacts. Returns nullptr on error.
+    std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> EmitKernelArtifacts(
+        NAst::TExprPtr ast,
+        const std::vector<std::string>& entryNames,
+        std::string* error);
+
     TLLVMRunnerOptions Options;
     // Persistent compiler state across Run() calls (REPL-style session)
     NIR::TModule Module;
