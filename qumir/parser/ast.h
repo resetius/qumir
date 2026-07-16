@@ -628,6 +628,8 @@ struct TFunDecl : TExpr {
     // (literal "X") attribute: this function is the constructor for the numeric
     // literal suffix "X" (e.g. `2i` lowers to a call of this function).
     std::optional<std::string> LiteralSuffix;
+    // `used` attribute: keep this function even when no explicit reference makes
+    bool Used = false;
     TFunDecl(TLocation loc, std::string name, std::vector<TParam> args, std::shared_ptr<TBlockExpr> body, NAst::TTypePtr type)
         : TExpr(std::move(loc))
         , Name(std::move(name))

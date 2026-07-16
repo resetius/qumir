@@ -246,20 +246,20 @@ overloaded-by-type behavior that built-in runtime modules do — without enablin
 `language overloads`.
 
 ```core
-; binary operator: a + b for пара dispatches here
-(fun add ((var a пара) (var b пара)) -> пара (attrs (operator "+"))
+; binary operator: a + b for tuple dispatches here
+(fun add ((var a tuple) (var b tuple)) -> tuple (attrs (operator "+"))
   (block ...))
 
 ; unary operator (e.g. "neg" for unary minus)
-(fun negate ((var a пара)) -> пара (attrs (operator "neg"))
+(fun negate ((var a tuple)) -> tuple (attrs (operator "neg"))
   (block ...))
 
-; cast: implicit coercion from i64 to пара (the magic name is "cast")
-(fun from_int ((var n i64)) -> пара (attrs (operator "cast"))
+; cast: implicit coercion from i64 to tuple (the magic name is "cast")
+(fun from_int ((var n i64)) -> tuple (attrs (operator "cast"))
   (block ...))
 
-; printer: outputting a пара value via (output ...) dispatches here
-(fun show ((var p пара)) (attrs print)
+; printer: outputting a tuple value via (output ...) dispatches here
+(fun show ((var p tuple)) (attrs print)
   (block (output "(" (field p a) ";" (field p b) ")")))
 ```
 
@@ -270,6 +270,8 @@ overloaded-by-type behavior that built-in runtime modules do — without enablin
 - `print` (a bare attribute) — the function is its single parameter type's
   printer; `(output value ...)` of that type dispatches to it. Equivalent to a
   unary operator under the internal key `"print"`.
+- `used` (a bare attribute) - keep this function even when no explicit reference makes
+  it reachable.
 
 These functions are resolved **by operand/result types**, in the resolver's
 dispatch tables (`ImportedBinaryOps` / `ImportedUnaryOps` / `ImportedCasts`) —

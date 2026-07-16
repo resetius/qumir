@@ -763,6 +763,7 @@ TListHandlerMap MakeDefaultHandlers() {
             std::optional<std::string> operatorName;
             std::optional<std::string> externSymbol;
             std::optional<std::string> literalSuffix;
+            bool used = false;
             tok = ctx.Stream.Next();
             if (IsOp(tok, '(')) {
                 auto peek = ctx.Stream.Next();
@@ -810,6 +811,8 @@ TListHandlerMap MakeDefaultHandlers() {
                             } else if (attrTok.Name == "extern") {
                                 // bare extern: symbol is the function's own name
                                 externSymbol = name;
+                            } else if (attrTok.Name == "used") {
+                                used = true;
                             }
                         } else {
                             co_return Error(attrTok, "expected function attribute");
@@ -833,6 +836,7 @@ TListHandlerMap MakeDefaultHandlers() {
             funDecl->LastAssert = std::move(attrs.After);
             funDecl->OperatorName = std::move(operatorName);
             funDecl->LiteralSuffix = std::move(literalSuffix);
+            funDecl->Used = used;
             if (externSymbol) {
                 funDecl->MangledName = std::move(*externSymbol);
             }

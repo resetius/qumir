@@ -276,6 +276,22 @@ TExprPtr AnnotateNumber(std::shared_ptr<TNumberExpr> num) {
     return num;
 }
 
+TTask AnnotateCast(std::shared_ptr<TCastExpr> cast, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    cast->Operand = co_await DoAnnotate(cast->Operand, context, scopeId);
+    if (cast->Operand->Type) {
+        if (auto synthName = context.GetCast(cast->Operand->Type, cast->Type)) {
+            auto callee = std::make_shared<TIdentExpr>(cast->Location, *synthName);
+            callee->Type = std::make_shared<TFunctionType>(
+                std::vector<TTypePtr>{cast->Operand->Type}, cast->Type);
+            auto call = std::make_shared<TCallExpr>(cast->Location, callee,
+                std::vector<TExprPtr>{cast->Operand});
+            call->Type = cast->Type;
+            co_return call;
+        }
+    }
+    co_return cast;
+}
+
 TTask AnnotateUnary(std::shared_ptr<TUnaryExpr> unary, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     unary->Operand = co_await DoAnnotate(unary->Operand, context, scopeId);
     unary->Type = unary->Operand->Type;
@@ -2060,6 +2076,8 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         co_return AnnotateNumber(maybeNum.Cast());
     } else if (auto maybeUnary = TMaybeNode<TUnaryExpr>(expr)) {
         co_return co_await AnnotateUnary(maybeUnary.Cast(), context, scopeId);
+    } else if (auto maybeCast = TMaybeNode<TCastExpr>(expr)) {
+        co_return co_await AnnotateCast(maybeCast.Cast(), context, scopeId);
     } else if (auto maybeBlock = TMaybeNode<TBlockExpr>(expr)) {
         co_return co_await AnnotateBlock(maybeBlock.Cast(), context, scopeId);
     } else if (auto maybeIdent = TMaybeNode<TIdentExpr>(expr)) {
