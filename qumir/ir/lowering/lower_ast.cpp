@@ -1721,7 +1721,8 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
         for (auto& s : block->Stmts) {
             if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(s)) {
                 if (auto symbol = Context.Lookup(maybeFun.Cast()->Name, scope.Id)) {
-                    if (s->Origin && !reachableFunctions.contains(symbol->Id)) {
+                    if (s->Origin && !reachableFunctions.contains(symbol->Id)
+                        && !maybeFun.Cast()->Used) {
                         continue;
                     }
                 }
