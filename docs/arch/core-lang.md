@@ -25,7 +25,7 @@ Delimiters and structural operators:
 |-------|---------|
 | `(` `)` | expression forms and nested lists |
 | `<` `>` | composite type forms |
-| `[` `]` | array bounds, index vectors, and slices |
+| `[` `]` | array bounds, index vectors, slices, and generic parameter lists |
 | `:` | type annotation form head |
 
 Core source is UTF-8 text. Simple identifiers start with a letter, `_`, `$`, or
@@ -218,11 +218,19 @@ Functions:
 (fun name (param1 ... paramN) body)
 (fun name (param1 ... paramN) -> return_type body)
 (fun name (param1 ... paramN) -> return_type (attrs (expect_after expr) (expect_before expr) ...) body)
+(fun name [generic_param1 ... generic_paramN] (param1 ... paramN) -> return_type body)
 ```
 
 Each parameter is a `(var ...)` form; `(param1 ... paramN)` is required even
 when empty (`()`). The body must be a `block`. The return type defaults to
 `void` when `-> return_type` is omitted.
+
+`[generic_param1 ...]` is an optional generic parameter list placed immediately
+after the function name. A bare generic parameter name declares a type
+parameter, for example `[T]` or `[K V]`. Value generic parameters may be parsed
+as `(const Name type)` (or `(Name type)`, which prints canonically with
+`const`), but they are reserved for future use and are not semantically
+supported yet.
 
 `(attrs ...)` is an optional attribute list, placed after the return type (if
 any) and before the body. Recognized attributes:
@@ -230,13 +238,49 @@ any) and before the body. Recognized attributes:
 ```core
 (expect_after expr)
 (expect_before expr)
+(extern native_symbol)
+(extern "native_symbol")
 (operator "OP")
+extern
 print
+used
 ```
 
 The parser stores `expect_after` on `TFunDecl::LastAssert`. `expect_before` is
-parsed for forward compatibility. Bare-identifier attributes other than `print`
-(e.g. `inline`) are accepted and silently ignored for forward compatibility.
+parsed for forward compatibility. Bare-identifier attributes other than the
+recognized ones above (e.g. `inline`) are accepted and silently ignored for
+forward compatibility.
+
+### External function attributes
+
+`extern` marks a function declaration as implemented by a native symbol instead
+of a core-lang body. The function still has a syntactic body, usually an empty
+`(block)`, but semantic analysis and lowering ignore it.
+
+```core
+; native symbol name is the same as the core function name: llabs
+(fun llabs ((var x i64)) -> i64 (attrs extern)
+  (block))
+
+; core function name is my_abs, native symbol name is llabs
+(fun my_abs ((var x i64)) -> i64 (attrs (extern llabs))
+  (block))
+
+; explicit symbol may also be written as a string
+(fun my_abs2 ((var x i64)) -> i64 (attrs (extern "llabs"))
+  (block))
+```
+
+- `extern` — bind the function to the native symbol with the same name as the
+  core function.
+- `(extern native_symbol)` — bind the function to an explicit native symbol
+  written as an identifier.
+- `(extern "native_symbol")` — same as above, but the symbol is written as a
+  string literal.
+
+The selected native symbol is stored in `TFunDecl::MangledName`. The core
+printer emits external functions canonically as `(extern native_symbol)`, even
+when the source used bare `extern`.
 
 ### Operator, cast and print attributes
 
@@ -389,32 +433,54 @@ the call is rejected as ambiguous.
 Generic functions:
 
 ```core
-(fun identity ((var x <named K (template)>)) -> <named K (template)>
-  (block
-    (return x)))
+(block
+  (pragma language overloads)
+
+  (fun identity [K] ((var x K)) -> K
+    (block
+      (return x)))
+
+  (fun pairFirst [K V] ((var a K) (var b V)) -> K
+    (block
+      (return a))))
 ```
 
-A `TNamedType` marked `template` is a type placeholder, not a real declared
-type — it makes the enclosing `fun` generic. At each call site the concrete
-types bound to placeholders are inferred from argument types by unification,
-and a monomorphized clone of the function is generated for that binding,
-registered under a synthetic name `__generic_<name>$<TypeKey1>$<TypeKey2>...`
-(`__generic_identity$Int`, `__generic_identity$String`, ...) and substituted
-for the call. Repeat calls with the same concrete types reuse the cached
-clone — exactly one definition exists per (function, type-binding) pair,
-regardless of how many call sites use it.
+Generic functions use a function-level parameter list after the function name.
+Bare names in that list are type parameters. They are introduced into the
+function's type scope, so they can be used anywhere a type is expected inside
+the signature and body:
 
-Placeholders may appear nested inside composite types (`<array <named K
-(template)> 1>`, `<ref <named K (template)>>`, ...) and a function may have
-several independent placeholder names; each gets its own binding inferred
-independently. A call is a typing error when a placeholder's binding can't be
-inferred from the arguments, or when the same placeholder name would have to
-bind to two structurally different concrete types.
+```core
+(fun first [T] ((var values <array T 1>)) -> T
+  (block
+    (return (index values 0))))
+```
+
+Generic functions are enabled by the same `(pragma language overloads)` pragma
+as overload sets. At each call site the concrete types bound to type parameters
+are inferred from argument types by unification, and a monomorphized clone of
+the function is generated for that binding. The clone is registered under a
+synthetic name `__generic_<name>$<TypeKey1>$<TypeKey2>...`
+(`__generic_identity$i64`, `__generic_identity$String`, ...) and substituted
+for the call. Repeat calls with the same concrete types reuse the cached clone
+— exactly one definition exists per (function, type-binding) pair, regardless
+of how many call sites use it.
+
+Type parameters may appear nested inside composite types (`<array K 1>`,
+`<ref K>`, `<fun K (K)>`, ...), and a function may have several independent
+type parameter names. A call is a typing error when a type parameter's binding
+cannot be inferred from the arguments, or when the same type parameter name
+would have to bind to two structurally different concrete types.
 
 When an overload set mixes concrete and generic `fun` forms for the same name,
 overload resolution prefers a concrete match over instantiating the generic
-fallback — see `(fun f ((var x i64)) -> i64 ...)` vs. `(fun f ((var x <named K
-(template)>)) -> i64 ...)`.
+fallback — see `(fun f ((var x i64)) -> i64 ...)` vs.
+`(fun f [K] ((var x K)) -> i64 ...)`.
+
+Generic functions must be implemented in core-lang; external generic functions
+are not supported. Parsed value generic parameters, such as
+`[(const Scale i32)]`, are reserved syntax and currently fail if the function
+is instantiated.
 
 Casts, indexing, and slicing:
 
@@ -577,11 +643,6 @@ exclusive. `mutable` explicitly selects the default readable and mutable state,
 which the printer omits in canonical output. The fully immutable, unreadable
 state cannot be spelled — there is no attribute for it.
 
-`template` is an additional attribute accepted only on named types
-(`<named K (template)>`). It does not change access flags and marks the type as
-a generic placeholder rather than a real declared type — see
-"Generic functions" above.
-
 ## Printer Conventions
 
 The core printer is the canonical form used by tests and AST goldens.
@@ -593,6 +654,8 @@ The core printer is the canonical form used by tests and AST goldens.
 - Function attributes currently print only `expect_after`; `operator`/`print`
   attributes are consumed at resolution and are not yet re-emitted by the
   printer.
+- Function generic parameters are printed immediately after the function name
+  in `[...]`; value generic parameters print canonically as `(const Name type)`.
 - Type annotations are printed depending on `TPrintOptions::TypeMode`.
 - Scalar types are printed bare unless they need non-default attributes.
 - Named types may be printed short when listed in `ShortNamedTypes`; otherwise

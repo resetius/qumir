@@ -119,7 +119,7 @@ TEST_F(ModuleExecTest, MainCallsImportedFunction) {
 TEST_F(ModuleExecTest, GenericModuleFunctionIndexesArrayParameterWithoutBounds) {
     WriteModule("arrays",
         "(block"
-        " (fun bump_first ((var values <array <named Value (template)> 1>) (var delta i64)) -> i64"
+        " (fun bump_first [Value] ((var values <array Value 1>) (var delta i64)) -> i64"
         "   (block"
         "     (var item = (index values (: 0 i64)))"
         "     (= values [(: 0 i64)] (+ item delta))"
@@ -208,7 +208,7 @@ TEST_F(ModuleExecTest, ModulePrintOperator) {
 TEST_F(ModuleExecTest, GenericFunctionInModule) {
     WriteModule("gen",
         "(block (pragma language overloads)"
-        " (fun id ((var x <named T (template)>)) -> <named T (template)> (block (return x))))");
+        " (fun id [T] ((var x T)) -> T (block (return x))))");
 
     ExpectAll(
         "(block (pragma language overloads) (use gen)"

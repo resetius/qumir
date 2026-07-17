@@ -24,6 +24,7 @@ using TTypeListTask = TExpectedTask<std::vector<TTypePtr>, TError, TLocation>;
 using TOutputArgTask = TExpectedTask<TOutputArg, TError, TLocation>;
 using TOutputArgListTask = TExpectedTask<std::vector<TOutputArg>, TError, TLocation>;
 using TParamListTask = TExpectedTask<std::vector<TParam>, TError, TLocation>;
+using TGenericParamListTask = TExpectedTask<std::vector<TGenericParam>, TError, TLocation>;
 using TBoundsTask = TExpectedTask<std::vector<std::pair<TExprPtr, TExprPtr>>, TError, TLocation>;
 
 struct TParserContext;
@@ -198,6 +199,50 @@ TParamListTask ParseParams(TParserContext& context) {
         }
         result.push_back(var.Cast());
     }
+    co_return result;
+}
+
+TGenericParamListTask ParseGenericParams(TParserContext& context) {
+    std::vector<TGenericParam> result;
+    auto tok = context.Stream.Next();
+    if (!IsOp(tok, '[')) {
+        context.Stream.Unget(tok);
+        co_return result;
+    }
+
+    while (true) {
+        auto token = context.Stream.Next();
+        if (IsOp(token, ']')) {
+            co_return result;
+        }
+        if (IsEof(token)) {
+            co_return Error(token, "expected ']' in generic parameter list");
+        }
+        if (IsOp(token, '(')) {
+            auto head = co_await ParseName(context);
+            std::string name;
+            if (head == "const") {
+                name = co_await ParseName(context);
+            } else {
+                name = std::move(head);
+            }
+            auto type = co_await ParseType(context);
+            co_await Expect(context, ')');
+
+            result.emplace_back(TGenericParam {
+                .Name = std::move(name),
+                .Kind = TGenericParam::EKind::Value,
+                .ValueType = std::move(type),
+            });
+        } else {
+            context.Stream.Unget(token);
+            auto name = co_await ParseName(context);
+            result.emplace_back(TGenericParam {
+                .Name = std::move(name),
+                .Kind = TGenericParam::EKind::Type,
+            });
+        }
+    }
 }
 
 TOutputArgTask ParseOutputArg(TParserContext& context) {
@@ -359,7 +404,7 @@ TAstTask ParseExpr(TParserContext& context) {
 
 // Reads an optional "(...)" attribute list and applies the modifiers to type.
 // Access modifiers (mutable/readonly/writeonly) are mutually exclusive; the
-// independent 'template' marks a generic placeholder on named types.
+// Access modifiers (mutable/readonly/writeonly) are mutually exclusive.
 TExpectedTask<std::monostate, TError, TLocation> ParseTypeAttrs(TParserContext& context, TType& type) {
     auto token = context.Stream.Next();
     if (!IsOp(token, '(')) {
@@ -367,7 +412,6 @@ TExpectedTask<std::monostate, TError, TLocation> ParseTypeAttrs(TParserContext& 
         co_return std::monostate{};
     }
     bool accessSeen = false;
-    bool templateSeen = false;
     while (true) {
         token = context.Stream.Next();
         if (IsOp(token, ')')) {
@@ -383,15 +427,6 @@ TExpectedTask<std::monostate, TError, TLocation> ParseTypeAttrs(TParserContext& 
             accessSeen = true;
             type.Readable = token.Name != "writeonly";
             type.Mutable = token.Name != "readonly";
-        } else if (token.Name == "template") {
-            if (templateSeen) {
-                co_return Error(token, "duplicate type attribute: template");
-            }
-            if (type.TypeName() != std::string_view(TNamedType::TypeId)) {
-                co_return Error(token, "'template' attribute is only allowed on named types");
-            }
-            templateSeen = true;
-            type.Template = true;
         } else {
             co_return Error(token, "unknown type attribute: " + token.Name);
         }
@@ -470,8 +505,7 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
         if (IsOp(tok, '>')) {
             co_return type;
         }
-        // "<named Name (attrs)>" — a placeholder reference with no underlying
-        // type yet (e.g. a generic type parameter: "<named K (template)>"),
+        // "<named Name (attrs)>" — a reference with no inline underlying type,
         // as opposed to "<named Name UnderlyingType (attrs)>".
         if (IsOp(tok, '(')) {
             context.Stream.Unget(tok);
@@ -745,8 +779,9 @@ TListHandlerMap MakeDefaultHandlers() {
             co_return std::make_shared<TVarStmt>(loc, std::move(name), std::move(type), std::move(bounds));
         }},
         {"fun", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            // (fun Name [optional generic params] ((var a) (var b)) -> return type (block body))
             auto name = co_await ParseName(ctx);
-            // params immediately follow name: name(params...)
+            auto genericParams = co_await ParseGenericParams(ctx);
             auto params = co_await ParseParams(ctx);
 
             // optional return type introduced by '->'
@@ -832,7 +867,7 @@ TListHandlerMap MakeDefaultHandlers() {
             if (!body) {
                 co_return TError(bodyExpr ? bodyExpr->Location : loc, "function body must be block");
             }
-            auto funDecl = std::make_shared<TFunDecl>(loc, std::move(name), std::move(params), std::move(body), std::move(returnType));
+            auto funDecl = std::make_shared<TFunDecl>(loc, std::move(name), std::move(genericParams), std::move(params), std::move(body), std::move(returnType));
             funDecl->LastAssert = std::move(attrs.After);
             funDecl->OperatorName = std::move(operatorName);
             funDecl->LiteralSuffix = std::move(literalSuffix);

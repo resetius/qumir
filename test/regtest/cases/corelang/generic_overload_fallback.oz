@@ -10,6 +10,6 @@
     (block
       (return 100)))
 
-  (fun f ((var x <named K (template)>)) -> i64
+  (fun f [K] ((var x K)) -> i64
     (block
       (return 200))))

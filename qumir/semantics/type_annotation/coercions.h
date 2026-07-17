@@ -3,6 +3,7 @@
 #include <qumir/parser/type.h>
 
 #include <optional>
+#include <unordered_set>
 
 namespace NQumir {
 
@@ -18,7 +19,8 @@ namespace NTypeAnnotation {
 std::optional<int> ArgCost(
     const NAst::TTypePtr& from,
     const NAst::TTypePtr& to,
-    NSemantics::TNameResolver* ctx);
+    NSemantics::TNameResolver* ctx,
+    const std::unordered_set<std::string>* genericTypeParams = nullptr);
 
 } // namespace NTypeAnnotation
 } // namespace NQumir

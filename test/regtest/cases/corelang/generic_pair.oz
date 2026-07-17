@@ -16,12 +16,12 @@
     (block
       (return (+ a b))))
 
-  (fun pairFirst ((var a <named K (template)>)
-        (var b <named V (template)>)) -> <named K (template)>
+  (fun pairFirst [K V] ((var a K)
+        (var b V)) -> K
     (block
       (return (call plus a a))))
 
-  (fun pairSecond ((var a <named K (template)>)
-        (var b <named V (template)>)) -> <named V (template)>
+  (fun pairSecond [K V] ((var a K)
+        (var b V)) -> V
     (block
       (return (call plus b b)))))

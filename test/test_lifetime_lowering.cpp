@@ -48,6 +48,7 @@ std::shared_ptr<TFunDecl> Function(
     return std::make_shared<TFunDecl>(
         TLocation{},
         "main",
+        std::vector<TGenericParam>{},
         std::move(parameters),
         std::make_shared<TBlockExpr>(TLocation{}, std::move(statements)),
         std::make_shared<TVoidType>());

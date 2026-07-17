@@ -215,24 +215,12 @@ TEST(CoreTypeAttrs, ParseAndPrintCanonicalAccessModes) {
     }
 }
 
-TEST(CoreTypeAttrs, TemplatePreservesDefaultAccess) {
-    auto type = ParseVarType("<named K (template)>");
-
-    ASSERT_NE(type, nullptr);
-    EXPECT_TRUE(type->Readable);
-    EXPECT_TRUE(type->Mutable);
-    EXPECT_TRUE(type->Template);
-    EXPECT_EQ(PrintType(type), "<named K (template)>");
-}
-
 TEST(CoreTypeAttrs, RejectsDuplicateAndConflictingAttributes) {
     const std::vector<std::string> types = {
         "<i64 (mutable mutable)>",
         "<i64 (readonly mutable)>",
         "<i64 (readonly writeonly)>",
         "<i64 (readable)>",
-        "<named K (template template)>",
-        "<i64 (template)>",
     };
 
     for (const auto& type : types) {
