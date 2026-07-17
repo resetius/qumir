@@ -2,7 +2,7 @@ function __overload_double_0 (local(0)) { ; i32
   block {
     label: label(0)
     load tmp(0,i32) = local(0,i32) 
-    * tmp(1,i32) = tmp(0,i32) imm(2,i64) 
+    * tmp(1,i32) = tmp(0,i32) imm(2,i32) 
     stre local(1,i32) tmp(1,i32) 
     jmp label(1) 
   }
