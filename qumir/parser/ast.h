@@ -606,11 +606,23 @@ struct TVarsBlockExpr : TExpr {
 
 using TParam = std::shared_ptr<TVarStmt>;
 
+struct TGenericParam {
+    enum class EKind {
+        Type,
+        Value,
+    };
+
+    std::string Name;
+    EKind Kind;
+    TTypePtr ValueType = nullptr; // optional, for value params only
+};
+
 struct TFunDecl : TExpr {
     static constexpr const char* NodeId = "FunDecl";
 
     std::string Name;
     std::string MangledName;
+    std::vector<TGenericParam> GenericParams;
     std::vector<TParam> Params;
     std::shared_ptr<TBlockExpr> Body;
     std::shared_ptr<TExpr> LastAssert = nullptr; // last assert in function body, executed before return
@@ -630,9 +642,10 @@ struct TFunDecl : TExpr {
     std::optional<std::string> LiteralSuffix;
     // `used` attribute: keep this function even when no explicit reference makes
     bool Used = false;
-    TFunDecl(TLocation loc, std::string name, std::vector<TParam> args, std::shared_ptr<TBlockExpr> body, NAst::TTypePtr type)
+    TFunDecl(TLocation loc, std::string name, std::vector<TGenericParam> genericParams, std::vector<TParam> args, std::shared_ptr<TBlockExpr> body, NAst::TTypePtr type)
         : TExpr(std::move(loc))
         , Name(std::move(name))
+        , GenericParams(std::move(genericParams))
         , Params(std::move(args))
         , Body(std::move(body))
         , RetType(std::move(type))

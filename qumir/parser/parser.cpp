@@ -607,7 +607,7 @@ TAstTask fun_decl(TParserContext& context) {
         }
 
         auto funDecl = std::make_shared<TFunDecl>(next.Location,
-            name, std::move(args),
+            name, std::vector<TGenericParam>{}, std::move(args),
             std::move(maybeBlock.Cast()),
             returnType);
 

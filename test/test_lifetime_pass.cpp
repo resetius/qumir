@@ -50,6 +50,7 @@ std::shared_ptr<TFunDecl> Function(
     return std::make_shared<TFunDecl>(
         TLocation{},
         std::move(name),
+        std::vector<TGenericParam>{},
         std::move(parameters),
         std::move(body),
         std::move(returnType));

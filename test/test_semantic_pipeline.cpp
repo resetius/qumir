@@ -62,6 +62,7 @@ std::shared_ptr<TFunDecl> MakeVoidFunction(
     return std::make_shared<TFunDecl>(
         TLocation{},
         std::move(name),
+        std::vector<TGenericParam>{},
         std::vector<TParam>{},
         body,
         std::make_shared<TVoidType>());
@@ -344,6 +345,7 @@ TEST(ReturnNormalization, MakesFallthroughReturnsExplicit) {
     auto valueFunction = std::make_shared<TFunDecl>(
         TLocation{},
         "value",
+        std::vector<TGenericParam>{},
         std::vector<TParam>{},
         valueBody,
         std::make_shared<TIntegerType>());
@@ -367,6 +369,7 @@ TEST(ReturnNormalization, PreservesDirectAndFullyTerminatingBranchReturns) {
     auto directFunction = std::make_shared<TFunDecl>(
         TLocation{},
         "direct",
+        std::vector<TGenericParam>{},
         std::vector<TParam>{},
         directBody,
         std::make_shared<TIntegerType>());
@@ -400,6 +403,7 @@ TEST(ReturnNormalization, PreservesDirectAndFullyTerminatingBranchReturns) {
     auto branchFunction = std::make_shared<TFunDecl>(
         TLocation{},
         "branch",
+        std::vector<TGenericParam>{},
         std::vector<TParam>{},
         branchBody,
         std::make_shared<TIntegerType>());

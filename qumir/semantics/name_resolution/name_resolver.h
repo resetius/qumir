@@ -86,6 +86,7 @@ struct TScope {
     std::unordered_map<std::string, TSymbolId> NameToSymbolId;
     // Functions with multiple overloads: canonical name -> list of symbol IDs (each under a synthName).
     std::unordered_map<std::string, std::vector<TSymbolId>> OverloadSets;
+    std::unordered_set<std::string> GenericTypeParams;
     bool AllowsRedeclare{false};
     bool RootLevel{false};
     // Set on the function-level scope (the one created for the function's
@@ -155,7 +156,7 @@ public:
     // mangled) name, creates a fresh function scope, declares its params and
     // resolves its body — mirroring what ResolveTopFuncDecl +
     // Resolve(TFunDecl) do for ordinary top-level functions. Cloned function
-    // bodies cannot reuse the template's scopes: Symbols bind scope entries
+    // bodies cannot reuse the generic declaration's scopes: Symbols bind scope entries
     // to specific AST node identities, so a shared scope would make lookups
     // resolve to the template's (wrongly-typed) nodes.
     std::expected<TSymbolId, TError> ResolveInstantiatedFunDecl(std::shared_ptr<NAst::TFunDecl> fdecl);

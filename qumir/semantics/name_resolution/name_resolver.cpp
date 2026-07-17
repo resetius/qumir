@@ -45,6 +45,11 @@ TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TSco
             co_await Declare(fdecl->Name, node, scope, nullptr);
             auto newScope = NewScope(scope, nullptr);
             fdecl->Scope = newScope->Id.Id;
+            for (const auto& param : fdecl->GenericParams) {
+                if (param.Kind == TGenericParam::EKind::Type) {
+                    newScope->GenericTypeParams.insert(param.Name);
+                }
+            }
             for (auto& param : fdecl->Params) {
                 co_await Declare(param->Name, param, newScope, newScope);
             }
@@ -74,16 +79,21 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
 
     // Resolve TNamedType: fill in UnderlyingType from imported module types.
     // Also recurses into TReferenceType and TPointerType wrappers.
-    auto resolveTypeRef = [&](auto& self, NAst::TTypePtr& type, const TLocation& loc) -> std::optional<TError> {
+    auto isGenericTypeParam = [](const std::string& name, TScopePtr typeScope) {
+        while (typeScope) {
+            if (typeScope->GenericTypeParams.contains(name)) {
+                return true;
+            }
+            typeScope = typeScope->Parent;
+        }
+        return false;
+    };
+
+    auto resolveTypeRef = [&](auto& self, NAst::TTypePtr& type, const TLocation& loc, TScopePtr typeScope) -> std::optional<TError> {
         if (!type) return {};
         if (auto maybeNamed = TMaybeType<TNamedType>(type)) {
             auto named = maybeNamed.Cast();
-            if (named->Template) {
-                // Generic type parameter placeholder ("<named K (template)>"):
-                // intentionally left unresolved here — the concrete type is
-                // bound per call site and the function gets instantiated for
-                // it. Treating it as an unknown type would make it impossible
-                // to declare generic functions at all.
+            if (isGenericTypeParam(named->Name, typeScope)) {
                 return {};
             }
             auto it = ImportedTypes.find(named->Name);
@@ -99,42 +109,42 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
             if (modIt != ImportedModuleSymbols.end()) {
                 named->Reference = modIt->second; // marks type as imported from this module
             }
-            return self(self, named->UnderlyingType, loc);
+            return self(self, named->UnderlyingType, loc, typeScope);
         } else if (auto maybeRef = TMaybeType<TReferenceType>(type)) {
-            return self(self, maybeRef.Cast()->ReferencedType, loc);
+            return self(self, maybeRef.Cast()->ReferencedType, loc, typeScope);
         } else if (auto maybePtr = TMaybeType<TPointerType>(type)) {
-            return self(self, maybePtr.Cast()->PointeeType, loc);
+            return self(self, maybePtr.Cast()->PointeeType, loc, typeScope);
         } else if (auto maybeArray = TMaybeType<TArrayType>(type)) {
-            return self(self, maybeArray.Cast()->ElementType, loc);
+            return self(self, maybeArray.Cast()->ElementType, loc, typeScope);
         } else if (auto maybeFun = TMaybeType<TFunctionType>(type)) {
             auto fun = maybeFun.Cast();
-            if (auto err = self(self, fun->ReturnType, loc)) {
+            if (auto err = self(self, fun->ReturnType, loc, typeScope)) {
                 return err;
             }
             for (auto& param : fun->ParamTypes) {
-                if (auto err = self(self, param, loc)) {
+                if (auto err = self(self, param, loc, typeScope)) {
                     return err;
                 }
             }
         } else if (auto maybeFuture = TMaybeType<TFutureType>(type)) {
-            return self(self, maybeFuture.Cast()->ResultType, loc);
+            return self(self, maybeFuture.Cast()->ResultType, loc, typeScope);
         } else if (auto maybeStruct = TMaybeType<TStructType>(type)) {
             for (auto& [_, fieldType] : maybeStruct.Cast()->Fields) {
-                if (auto err = self(self, fieldType, loc)) {
+                if (auto err = self(self, fieldType, loc, typeScope)) {
                     return err;
                 }
             }
         }
         return {};
     };
-    auto resolveTypeRefOuter = [&](NAst::TTypePtr& type, const TLocation& loc) -> std::optional<TError> {
-        return resolveTypeRef(resolveTypeRef, type, loc);
+    auto resolveTypeRefOuter = [&](NAst::TTypePtr& type, const TLocation& loc, TScopePtr typeScope) -> std::optional<TError> {
+        return resolveTypeRef(resolveTypeRef, type, loc, typeScope);
     };
 
     // TODO: resolveTypeRefOuter on every node is O(n*depth); consider resolving types
     // only at declaration sites (TVarStmt, TFunDecl params) rather than all nodes.
-    if (node->Type) {
-        if (auto err = resolveTypeRefOuter(node->Type, node->Location)) {
+    if (node->Type && !TMaybeNode<TFunDecl>(node)) {
+        if (auto err = resolveTypeRefOuter(node->Type, node->Location, scope)) {
             co_return *err;
         }
     }
@@ -145,15 +155,18 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         if (scopeId.Id < 0 || static_cast<size_t>(scopeId.Id) >= Scopes.size())  {
             co_return TError(fdecl->Location, "function has invalid scope id: " + std::to_string(scopeId.Id));
         }
-        if (auto err = resolveTypeRefOuter(fdecl->RetType, fdecl->Location)) {
+        auto newScope = Scopes[scopeId.Id];
+        if (auto err = resolveTypeRefOuter(fdecl->Type, fdecl->Location, newScope)) {
+            co_return *err;
+        }
+        if (auto err = resolveTypeRefOuter(fdecl->RetType, fdecl->Location, newScope)) {
             co_return *err;
         }
         for (auto& param : fdecl->Params) {
-            if (auto err = resolveTypeRefOuter(param->Type, param->Location)) {
+            if (auto err = resolveTypeRefOuter(param->Type, param->Location, newScope)) {
                 co_return *err;
             }
         }
-        auto newScope = Scopes[scopeId.Id];
         co_await Resolve(fdecl->Body, newScope, newScope);
         if (fdecl->LastAssert) {
             auto bodyScope = Scopes[fdecl->Body->Scope];
@@ -199,7 +212,7 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         }
     } else if (auto maybeVarStmt = TMaybeNode<TVarStmt>(node)) {
         auto varStmt = maybeVarStmt.Cast();
-        if (auto err = resolveTypeRefOuter(varStmt->Type, varStmt->Location)) {
+        if (auto err = resolveTypeRefOuter(varStmt->Type, varStmt->Location, scope)) {
             co_return *err;
         }
         auto existing = scope->NameToSymbolId.find(varStmt->Name);
@@ -654,7 +667,7 @@ void TNameResolver::RegisterOperatorDecls(const NAst::TExprPtr& root) {
         auto fd = TMaybeNode<TFunDecl>(stmt);
         if (!fd) continue;
         auto fun = fd.Cast();
-        if (!fun->OperatorName) continue;
+        if (!fun->OperatorName || !fun->GenericParams.empty()) continue;
         const std::string& op = *fun->OperatorName;
         std::vector<NAst::TTypePtr> argTypes;
         for (const auto& p : fun->Params) {
@@ -800,7 +813,7 @@ std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& 
         for (size_t i = 0; i < fn.ArgTypes.size(); ++i) {
             params.push_back(std::make_shared<NAst::TVarStmt>(TLocation{}, "arg" + std::to_string(i), fn.ArgTypes[i]));
         }
-        auto funDecl = std::make_shared<NAst::TFunDecl>(TLocation{}, fn.Name, params, nullptr, fn.ReturnType);
+        auto funDecl = std::make_shared<NAst::TFunDecl>(TLocation{}, fn.Name, std::vector<TGenericParam>{}, params, nullptr, fn.ReturnType);
         funDecl->MangledName = fn.MangledName;
         funDecl->Type = funType;
         funDecl->Packed = fn.Packed;

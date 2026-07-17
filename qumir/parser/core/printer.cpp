@@ -98,7 +98,7 @@ bool TPrinter::IsNonDefaultIntegerLiteral(const TExprPtr& expr) const {
 }
 
 bool TPrinter::HasPrintableTypeAttrs(TTypePtr type) const {
-    return type && (type->Template || !type->Readable || !type->Mutable);
+    return type && (!type->Readable || !type->Mutable);
 }
 
 void TPrinter::PrintTypeAttrs(TTypePtr type) {
@@ -114,9 +114,6 @@ void TPrinter::PrintTypeAttrs(TTypePtr type) {
         *Out << attribute;
         hasPrevious = true;
     };
-    if (type->Template) {
-        printAttribute("template");
-    }
     if (type->Readable && !type->Mutable) {
         printAttribute("readonly");
     } else if (!type->Readable && type->Mutable) {
@@ -338,6 +335,24 @@ void TPrinter::PrintVar(TVarStmt& node, int level) {
 void TPrinter::PrintFun(TFunDecl& node, int level) {
     *Out << "(fun ";
     PrintIdentifier(node.Name);
+    if (node.GenericParams.size() > 0) {
+        *Out << " [";
+        for (size_t i = 0; i < node.GenericParams.size(); ++i) {
+            if (i != 0) {
+                Space();
+            }
+            if (node.GenericParams[i].Kind == TGenericParam::EKind::Type) {
+                PrintIdentifier(node.GenericParams[i].Name);
+            } else if (node.GenericParams[i].Kind == TGenericParam::EKind::Value) {
+                *Out << "(const ";
+                PrintIdentifier(node.GenericParams[i].Name);
+                Space();
+                PrintType(node.GenericParams[i].ValueType, level);
+                *Out << ")";
+            }
+        }
+        *Out << ']';
+    }
     *Out << " (";
     for (size_t i = 0; i < node.Params.size(); ++i) {
         if (i != 0) {
