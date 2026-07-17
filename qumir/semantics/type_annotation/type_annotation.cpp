@@ -12,6 +12,7 @@
 #include <iostream>
 #include <sstream>
 #include <cassert>
+#include <limits>
 
 namespace NQumir {
 namespace NTypeAnnotation {
@@ -60,6 +61,54 @@ bool WideningIntOK(TTypePtr typeSrc, TTypePtr typeDst) {
     }
 
     return false;
+}
+
+bool IntegerLiteralFits(int64_t value, const TIntegerType& type) {
+    if (!type.IsSigned() && value < 0) {
+        return false;
+    }
+
+    switch (type.Kind) {
+        case TIntegerType::I8:
+            return value >= std::numeric_limits<int8_t>::min()
+                && value <= std::numeric_limits<int8_t>::max();
+        case TIntegerType::I16:
+            return value >= std::numeric_limits<int16_t>::min()
+                && value <= std::numeric_limits<int16_t>::max();
+        case TIntegerType::I32:
+            return value >= std::numeric_limits<int32_t>::min()
+                && value <= std::numeric_limits<int32_t>::max();
+        case TIntegerType::I64:
+            return true;
+        case TIntegerType::U8:
+            return static_cast<uint64_t>(value) <= std::numeric_limits<uint8_t>::max();
+        case TIntegerType::U16:
+            return static_cast<uint64_t>(value) <= std::numeric_limits<uint16_t>::max();
+        case TIntegerType::U32:
+            return static_cast<uint64_t>(value) <= std::numeric_limits<uint32_t>::max();
+        case TIntegerType::U64:
+            return true;
+    }
+    return false;
+}
+
+bool RetypeIntegerLiteralIfFits(TExprPtr expr, TTypePtr toType) {
+    auto maybeNumber = TMaybeNode<TNumberExpr>(expr);
+    auto maybeInteger = TMaybeType<TIntegerType>(toType);
+    if (!maybeNumber || !maybeInteger) {
+        return false;
+    }
+
+    auto number = maybeNumber.Cast();
+    if (number->IsFloat()) {
+        return false;
+    }
+    if (!IntegerLiteralFits(number->IntValue, *maybeInteger.Cast())) {
+        return false;
+    }
+
+    number->Type = std::move(toType);
+    return true;
 }
 
 bool EqualTypes(TTypePtr a, TTypePtr b) {
@@ -239,7 +288,13 @@ TTypePtr CommonNumericType(TTypePtr a, TTypePtr b) {
         return b;
     }
     if (TMaybeType<TIntegerType>(a) && TMaybeType<TIntegerType>(b)) {
-        return a;
+        if (WideningIntOK(a, b)) {
+            return b;
+        }
+        if (WideningIntOK(b, a)) {
+            return a;
+        }
+        return {};
     }
     return {};
 }
@@ -593,6 +648,20 @@ TExprPtr TryModuleBinaryOp(TExprPtr left, TExprPtr right,
     return nullptr;
 }
 
+void RetypeIntegerLiteralOperands(TExprPtr& leftExpr, TExprPtr& rightExpr, TTypePtr& leftType, TTypePtr& rightType) {
+    if (!TMaybeType<TIntegerType>(leftType) || !TMaybeType<TIntegerType>(rightType)) {
+        return;
+    }
+
+    if (RetypeIntegerLiteralIfFits(rightExpr, leftType)) {
+        rightType = UnwrapReferenceType(rightExpr->Type);
+        return;
+    }
+    if (RetypeIntegerLiteralIfFits(leftExpr, rightType)) {
+        leftType = UnwrapReferenceType(leftExpr->Type);
+    }
+}
+
 TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     auto explicitType = binary->Type;
     binary->Left = co_await DoAnnotate(binary->Left, context, scopeId);
@@ -643,6 +712,7 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 }
             }
 
+            RetypeIntegerLiteralOperands(binary->Left, binary->Right, left, right);
             auto common = CommonNumericType(left, right);
             if (!common) {
                 if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
@@ -702,6 +772,7 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
         case TOperator("!="):
             if ((TMaybeType<TFloatType>(left) || TMaybeType<TIntegerType>(left)) &&
                 (TMaybeType<TFloatType>(right) || TMaybeType<TIntegerType>(right))) {
+                RetypeIntegerLiteralOperands(binary->Left, binary->Right, left, right);
                 auto common = CommonNumericType(left, right);
                 if (!common) {
                     co_return TError(binary->Location, "Операции сравнения применимы только к числам");
