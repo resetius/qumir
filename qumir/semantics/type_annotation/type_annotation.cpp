@@ -42,7 +42,8 @@ TFunDeclTask InstantiateGenericFunction(
     std::shared_ptr<TFunDecl> genericDecl,
     const std::vector<TExprPtr>& args,
     NSemantics::TNameResolver& context,
-    TLocation callLoc);
+    TLocation callLoc,
+    TTypePtr expectedReturnType = nullptr);
 TRegisteredOpTask InstantiateGenericOperator(
     const std::string& op,
     const std::vector<TExprPtr>& args,
@@ -513,16 +514,13 @@ TTask AnnotateCast(std::shared_ptr<TCastExpr> cast, NSemantics::TNameResolver& c
     bool contextualStructConstruct = ApplyStructConstructContext(cast->Operand, cast->Type);
     cast->Operand = co_await DoAnnotate(cast->Operand, context, scopeId);
     if (cast->Operand->Type) {
-        auto sourceStructType = UnwrapNamedType(UnwrapReferenceType(cast->Operand->Type));
-        auto targetStructType = UnwrapNamedType(UnwrapReferenceType(cast->Type));
-        if (!contextualStructConstruct
-            && TMaybeType<TStructType>(sourceStructType)
-            && TMaybeType<TStructType>(targetStructType)
-            && TypeKey(sourceStructType) != TypeKey(targetStructType))
-        {
-            co_return TError(cast->Location,
-                "Нельзя привести структуру к целевому типу: поля структуры не совпадают.");
+        auto sourceType = UnwrapReferenceType(cast->Operand->Type);
+        auto targetType = UnwrapReferenceType(cast->Type);
+        if (TypeKey(sourceType) == TypeKey(targetType)) {
+            co_return cast;
         }
+        auto sourceStructType = UnwrapNamedType(sourceType);
+        auto targetStructType = UnwrapNamedType(targetType);
         if (auto synthName = context.GetCast(cast->Operand->Type, cast->Type)) {
             auto callee = std::make_shared<TIdentExpr>(cast->Location, *synthName);
             callee->Type = std::make_shared<TFunctionType>(
@@ -534,6 +532,14 @@ TTask AnnotateCast(std::shared_ptr<TCastExpr> cast, NSemantics::TNameResolver& c
         }
         if (auto op = co_await InstantiateGenericOperator("cast", {cast->Operand}, cast->Type, context, cast->Location)) {
             co_return MakeModuleOpCall(op->SynthName, {cast->Operand}, op->ReturnType, cast->Location, context);
+        }
+        if (!contextualStructConstruct
+            && TMaybeType<TStructType>(sourceStructType)
+            && TMaybeType<TStructType>(targetStructType)
+            && TypeKey(sourceStructType) != TypeKey(targetStructType))
+        {
+            co_return TError(cast->Location,
+                "Нельзя привести структуру к целевому типу: поля структуры не совпадают.");
         }
     }
     co_return cast;
@@ -1655,7 +1661,8 @@ std::optional<std::string> InferGenericBindings(
     const std::unordered_set<std::string>& genericTypeParams,
     const std::vector<std::string>& paramNames,
     std::map<std::string, TTypePtr>& bindings,
-    bool retypeIntegerLiterals)
+    bool retypeIntegerLiterals,
+    TTypePtr expectedReturnType = nullptr)
 {
     const size_t count = std::min(decl.Params.size(), args.size());
     auto unifyArg = [&](size_t i) -> std::optional<std::string> {
@@ -1680,6 +1687,18 @@ std::optional<std::string> InferGenericBindings(
             if (auto err = unifyArg(i)) {
                 return err;
             }
+        }
+    }
+    if (expectedReturnType) {
+        if (auto err = UnifyGenericType(
+                decl.RetType,
+                UnwrapReferenceType(expectedReturnType),
+                genericTypeParams,
+                bindings,
+                nullptr,
+                retypeIntegerLiterals))
+        {
+            return err;
         }
     }
     for (size_t i = 0; i < count; ++i) {
@@ -1850,7 +1869,8 @@ TFunDeclTask InstantiateGenericFunction(
     std::shared_ptr<TFunDecl> genericDecl,
     const std::vector<TExprPtr>& args,
     NSemantics::TNameResolver& context,
-    TLocation callLoc)
+    TLocation callLoc,
+    TTypePtr expectedReturnType)
 {
     if (!genericDecl->Body) {
         co_return TError(callLoc, "External generic functions are not supported: " + genericDecl->Name);
@@ -1870,7 +1890,8 @@ TFunDeclTask InstantiateGenericFunction(
             genericTypeParams,
             paramNames,
             bindings,
-            true))
+            true,
+            expectedReturnType))
     {
         co_return TError(callLoc, "Не удалось вывести типы обобщённых параметров функции '" + genericDecl->Name + "': " + *err);
     }
@@ -1957,6 +1978,7 @@ std::optional<TTypePtr> SubstituteGenericOperatorReturnType(
     const std::shared_ptr<TFunDecl>& decl,
     const std::vector<TExprPtr>& args,
     const std::unordered_set<std::string>& genericTypeParams,
+    TTypePtr expectedReturnType,
     TLocation loc,
     TError& error)
 {
@@ -1968,7 +1990,8 @@ std::optional<TTypePtr> SubstituteGenericOperatorReturnType(
             genericTypeParams,
             paramNames,
             bindings,
-            false))
+            false,
+            expectedReturnType))
     {
         error = TError(loc, "Не удалось вывести типы обобщённых параметров оператора '" + *decl->OperatorName + "': " + *err);
         return std::nullopt;
@@ -2012,6 +2035,7 @@ TRegisteredOpTask InstantiateGenericOperator(
             candidate,
             args,
             genericTypeParams,
+            expectedReturnType,
             callLoc,
             error);
         if (!retType) {
@@ -2040,7 +2064,7 @@ TRegisteredOpTask InstantiateGenericOperator(
         co_return TError(callLoc, "ambiguous generic operator overload for '" + op + "'");
     }
 
-    auto instantiated = co_await InstantiateGenericFunction(bestDecl, args, context, callLoc);
+    auto instantiated = co_await InstantiateGenericFunction(bestDecl, args, context, callLoc, expectedReturnType);
     if (expectedReturnType && !EqualTypes(instantiated->RetType, expectedReturnType)) {
         co_return std::optional<NSemantics::TNameResolver::TRegisteredOp>{};
     }
