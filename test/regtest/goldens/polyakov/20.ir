@@ -228,11 +228,11 @@ function Сортировка строк () { ; void
     lde tmp(128,ptr to i8) = tmp(127,ptr to ptr to i8) 
     arg tmp(128,ptr to i8) 
     call str_retain 
-    lea tmp(129,ptr to i8) = local(4,ptr to i8) 
-    lde tmp(130,ptr to i8) = tmp(129,ptr to i8) 
+    lea tmp(129,ptr to ptr to i8) = local(4,ptr to i8) 
+    lde tmp(130,ptr to i8) = tmp(129,ptr to ptr to i8) 
     arg tmp(130,ptr to i8) 
     call str_release 
-    ste tmp(129,ptr to i8) tmp(128,ptr to i8) 
+    ste tmp(129,ptr to ptr to i8) tmp(128,ptr to i8) 
     load tmp(131,i64) = local(1,i64) 
     + tmp(132,i64) = tmp(131,i64) imm(1,i64) 
     load tmp(133,ptr to ptr to i8) = local(3,ptr to ptr to i8) 

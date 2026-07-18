@@ -6,11 +6,11 @@ function ф () { ; ptr to i8
     mov tmp(1,i32) = imm(1090,i64) 
     arg tmp(1,i32) 
     call tmp(2,ptr to i8) = str_from_unicode 
-    lea tmp(3,ptr to i8) = local(0,ptr to i8) 
-    lde tmp(4,ptr to i8) = tmp(3,ptr to i8) 
+    lea tmp(3,ptr to ptr to i8) = local(0,ptr to i8) 
+    lde tmp(4,ptr to i8) = tmp(3,ptr to ptr to i8) 
     arg tmp(4,ptr to i8) 
     call str_release 
-    ste tmp(3,ptr to i8) tmp(2,ptr to i8) 
+    ste tmp(3,ptr to ptr to i8) tmp(2,ptr to i8) 
     load tmp(5,ptr to i8) = local(0,ptr to i8) 
     arg tmp(5,ptr to i8) 
     call str_retain 

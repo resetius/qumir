@@ -7,22 +7,22 @@ function f () { ; ptr to i8
     stre local(1,ptr to i8) tmp(1,ptr to i8) 
     arg imm(1,ptr to i8) 
     call tmp(2,ptr to i8) = str_from_lit 
-    lea tmp(3,ptr to i8) = local(1,ptr to i8) 
-    lde tmp(4,ptr to i8) = tmp(3,ptr to i8) 
+    lea tmp(3,ptr to ptr to i8) = local(1,ptr to i8) 
+    lde tmp(4,ptr to i8) = tmp(3,ptr to ptr to i8) 
     arg tmp(4,ptr to i8) 
     call str_release 
-    ste tmp(3,ptr to i8) tmp(2,ptr to i8) 
+    ste tmp(3,ptr to ptr to i8) tmp(2,ptr to i8) 
     lea tmp(5,ptr to ptr to i8) = local(1,ptr to i8) 
     arg tmp(5,ptr to ptr to i8) 
     call g 
     load tmp(6,ptr to i8) = local(1,ptr to i8) 
     arg tmp(6,ptr to i8) 
     call str_retain 
-    lea tmp(7,ptr to i8) = local(0,ptr to i8) 
-    lde tmp(8,ptr to i8) = tmp(7,ptr to i8) 
+    lea tmp(7,ptr to ptr to i8) = local(0,ptr to i8) 
+    lde tmp(8,ptr to i8) = tmp(7,ptr to ptr to i8) 
     arg tmp(8,ptr to i8) 
     call str_release 
-    ste tmp(7,ptr to i8) tmp(6,ptr to i8) 
+    ste tmp(7,ptr to ptr to i8) tmp(6,ptr to i8) 
     load tmp(9,ptr to i8) = local(0,ptr to i8) 
     arg tmp(9,ptr to i8) 
     call str_retain 

@@ -63,6 +63,26 @@ void ConstFold(TFunction& function, TModule& module) {
         }
     };
 
+    auto operandTypeId = [&](const TOperand& op) -> int {
+        switch (op.Type) {
+            case TOperand::EType::Tmp:
+                return function.GetType(op.Tmp);
+            case TOperand::EType::Imm:
+                return op.Imm.TypeId;
+            case TOperand::EType::Slot:
+                return module.GlobalTypes[static_cast<size_t>(op.Slot.Idx)];
+            case TOperand::EType::Local:
+                return function.LocalTypes[static_cast<size_t>(op.Local.Idx)];
+            case TOperand::EType::Label:
+                return -1;
+        }
+        return -1;
+    };
+
+    auto canReplaceWithOp = [&](TTmp tmp, const TOperand& op) {
+        return function.GetType(tmp) == operandTypeId(op);
+    };
+
     auto applyBinOp = [&](TOp op, auto v1, auto v2) -> std::optional<decltype(v1)> {
         if (op == "+"_op) return v1 + v2;
         if (op == "-"_op) return v1 - v2;
@@ -152,7 +172,7 @@ void ConstFold(TFunction& function, TModule& module) {
         {
             if (instr.Operands[1].Imm.Value == 0) {
                 // x + 0 = x, x - 0 = x, x * 0 = 0, x / 0 = undef
-                if (op == "+"_op || op == "-"_op) {
+                if ((op == "+"_op || op == "-"_op) && canReplaceWithOp(instr.Dest, instr.Operands[0])) {
                     replaceTmpWithOp(instr.Dest, instr.Operands[0]);
                     instr.Clear();
                     return true;
@@ -165,7 +185,7 @@ void ConstFold(TFunction& function, TModule& module) {
             }
             if ((module.Types.IsInteger(instr.Operands[1].Imm.Value) || module.Types.IsPointer(instr.Operands[1].Imm.Value)) && instr.Operands[1].Imm.Value == 1) {
                 // x * 1 = x, x / 1 = x
-                if (op == "*"_op || op == "/"_op) {
+                if ((op == "*"_op || op == "/"_op) && canReplaceWithOp(instr.Dest, instr.Operands[0])) {
                     replaceTmpWithOp(instr.Dest, instr.Operands[0]);
                     instr.Clear();
                     return true;
@@ -177,7 +197,7 @@ void ConstFold(TFunction& function, TModule& module) {
         {
             if (instr.Operands[0].Imm.Value == 0) {
                 // 0 + x = x, 0 - x = -x, 0 * x = 0, 0 / x = 0
-                if (op == "+"_op) {
+                if (op == "+"_op && canReplaceWithOp(instr.Dest, instr.Operands[1])) {
                     replaceTmpWithOp(instr.Dest, instr.Operands[1]);
                     instr.Clear();
                     return true;
@@ -195,7 +215,7 @@ void ConstFold(TFunction& function, TModule& module) {
             }
             if ((module.Types.IsInteger(instr.Operands[0].Imm.Value) || module.Types.IsPointer(instr.Operands[0].Imm.Value)) && instr.Operands[0].Imm.Value == 1) {
                 // 1 * x = x
-                if (op == "*"_op) {
+                if (op == "*"_op && canReplaceWithOp(instr.Dest, instr.Operands[1])) {
                     replaceTmpWithOp(instr.Dest, instr.Operands[1]);
                     instr.Clear();
                     return true;

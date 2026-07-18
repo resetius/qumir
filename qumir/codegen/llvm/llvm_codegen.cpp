@@ -1492,7 +1492,14 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             // *ptr = tmp
             auto ptr = GetOp(instr.Operands[0], module);
             auto value = GetOp(instr.Operands[1], module);
-            irb->CreateStore(value, ptr);
+            llvm::Type* storeType = value->getType();
+            const int ptrTypeId = operandTypeId(instr.Operands[0]);
+            if (module.Types.IsPointer(ptrTypeId)) {
+                storeType = GetTypeById(module.Types.UnderlyingType(ptrTypeId), module.Types, ctx);
+            }
+            const int sourceTypeId = operandTypeId(instr.Operands[1]);
+            const bool sourceSigned = sourceTypeId < 0 || IsSignedIntegerType(module.Types, sourceTypeId);
+            irb->CreateStore(cast(value, storeType, sourceSigned), ptr);
             return nullptr;
             break;
         }

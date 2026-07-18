@@ -368,11 +368,11 @@ TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& n
         ? TOperand{ TLocal{ var->FunctionLevelIdx } }
         : TOperand{ TSlot{ var->Id } };
 
-    auto nodeType = NAst::UnwrapNamedType(node->Type);
     // "load" returns a value; "lea" returns an address for ref arguments.
     TOp opcode = takeRefOfNotRef ? "lea"_op : "load"_op;
     auto tmp = Builder.Emit1(opcode, { op });
-    Builder.SetType(tmp, FromAstType(node->Type, Module.Types));
+    int valueTypeId = FromAstType(node->Type, Module.Types);
+    Builder.SetType(tmp, takeRefOfNotRef ? Module.Types.Ptr(valueTypeId) : valueTypeId);
     co_return tmp;
 }
 
@@ -1133,7 +1133,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto objAstType = NAst::UnwrapReferenceType(NAst::UnwrapNamedType(sc->Type));
         int structTypeId = FromAstType(objAstType, Module.Types);
         int64_t totalSize = Module.Types.SizeInBytes(structTypeId);
-        int ptrTypeId = Module.Types.Ptr(Module.Types.I(EKind::I64));
+        int ptrTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
         auto i64 = Module.Types.I(EKind::I64);
 
         auto ptr = Builder.Emit1("salloc"_op, {TImm{totalSize, i64}});
@@ -1163,9 +1163,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 }
             }
             int64_t offset = Module.Types.FieldOffset(structTypeId, fieldIndex);
-            auto fieldPtr = Builder.Emit1("+"_op, {ptr, TImm{offset, i64}});
-            Builder.SetType(fieldPtr, ptrTypeId);
             int fieldTypeId = fieldIndex < static_cast<int>(fieldTypes.size()) ? fieldTypes[fieldIndex] : -1;
+            auto fieldPtr = Builder.Emit1("+"_op, {ptr, TImm{offset, i64}});
+            Builder.SetType(fieldPtr, Module.Types.Ptr(fieldTypeId));
             if (Module.Types.GetKind(fieldTypeId) == EKind::Struct) {
                 int fieldSize = Module.Types.SizeInBytes(fieldTypeId);
                 Builder.Emit0("copy"_op, {fieldPtr, *fieldVal.Value, TImm{(int64_t)fieldSize}});
@@ -1208,14 +1208,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         int structTypeId = FromAstType(objAstType, Module.Types);
         int64_t fieldByteOffset = Module.Types.FieldOffset(structTypeId, fieldIndex);
 
-        auto i64      = Module.Types.I(EKind::I64);
-        int  ptrTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
-        auto fieldPtr  = Builder.Emit1("+"_op, {objAddr, TImm{fieldByteOffset, i64}});
-        Builder.SetType(fieldPtr, ptrTypeId);
-
         // Dispatch: read or write
         NAst::TTypePtr fieldAstType = maybeRead ? expr->Type : maybeWrite.Cast()->Value->Type;
         int fieldTypeId = FromAstType(fieldAstType, Module.Types);
+
+        auto i64      = Module.Types.I(EKind::I64);
+        auto fieldPtr  = Builder.Emit1("+"_op, {objAddr, TImm{fieldByteOffset, i64}});
+        Builder.SetType(fieldPtr, Module.Types.Ptr(fieldTypeId));
+
         if (maybeRead) {
             if (Module.Types.GetKind(fieldTypeId) == EKind::Struct) {
                 co_return TValueWithBlock{ fieldPtr, Builder.CurrentBlockLabel() };

@@ -13,9 +13,9 @@ function <main> () { ; void
     arg tmp(3,struct { i64}) 
     call tmp(4,struct { i64}) = __generic_box_add$i64 
     stre local(2,struct { i64}) tmp(4,struct { i64}) 
-    lea tmp(5,struct { i64}) = local(2,struct { i64}) 
-    + tmp(6,ptr to i8) = tmp(5,struct { i64}) imm(0,i64) 
-    lde tmp(7,i64) = tmp(6,ptr to i8) 
+    lea tmp(5,ptr to struct { i64}) = local(2,struct { i64}) 
+    + tmp(6,ptr to i64) = tmp(5,ptr to struct { i64}) imm(0,i64) 
+    lde tmp(7,i64) = tmp(6,ptr to i64) 
     arg tmp(7,i64) 
     arg imm(0,i64) 
     call output_int64 
@@ -31,11 +31,11 @@ function <main> () { ; void
 function __generic_box_from$i64 (local(0)) { ; struct { i64}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i64) = imm(8,i64) 
+    salloc tmp(0,ptr to i8) = imm(8,i64) 
     load tmp(1,i64) = local(0,i64) 
-    + tmp(2,ptr to i64) = tmp(0,ptr to i64) imm(0,i64) 
+    + tmp(2,ptr to i64) = tmp(0,ptr to i8) imm(0,i64) 
     ste tmp(2,ptr to i64) tmp(1,i64) 
-    stre local(1,struct { i64}) tmp(0,ptr to i64) 
+    stre local(1,struct { i64}) tmp(0,ptr to i8) 
     jmp label(1) 
   }
   block {
@@ -47,17 +47,17 @@ function __generic_box_from$i64 (local(0)) { ; struct { i64}
 function __generic_box_add$i64 (local(0), local(1)) { ; struct { i64}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i64) = imm(8,i64) 
-    lea tmp(1,struct { i64}) = local(0,struct { i64}) 
-    + tmp(2,ptr to i8) = tmp(1,struct { i64}) imm(0,i64) 
-    lde tmp(3,i64) = tmp(2,ptr to i8) 
-    lea tmp(4,struct { i64}) = local(1,struct { i64}) 
-    + tmp(5,ptr to i8) = tmp(4,struct { i64}) imm(0,i64) 
-    lde tmp(6,i64) = tmp(5,ptr to i8) 
+    salloc tmp(0,ptr to i8) = imm(8,i64) 
+    lea tmp(1,ptr to struct { i64}) = local(0,struct { i64}) 
+    + tmp(2,ptr to i64) = tmp(1,ptr to struct { i64}) imm(0,i64) 
+    lde tmp(3,i64) = tmp(2,ptr to i64) 
+    lea tmp(4,ptr to struct { i64}) = local(1,struct { i64}) 
+    + tmp(5,ptr to i64) = tmp(4,ptr to struct { i64}) imm(0,i64) 
+    lde tmp(6,i64) = tmp(5,ptr to i64) 
     + tmp(7,i64) = tmp(3,i64) tmp(6,i64) 
-    + tmp(8,ptr to i64) = tmp(0,ptr to i64) imm(0,i64) 
+    + tmp(8,ptr to i64) = tmp(0,ptr to i8) imm(0,i64) 
     ste tmp(8,ptr to i64) tmp(7,i64) 
-    stre local(2,struct { i64}) tmp(0,ptr to i64) 
+    stre local(2,struct { i64}) tmp(0,ptr to i8) 
     jmp label(1) 
   }
   block {

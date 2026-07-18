@@ -1,12 +1,12 @@
 function <main> () { ; void
   block {
     label: label(0)
-    salloc tmp(0,ptr to i64) = imm(16,i64) 
-    + tmp(1,ptr to i64) = tmp(0,ptr to i64) imm(0,i64) 
-    ste tmp(1,ptr to i64) imm(4613937818241073152,f64) 
-    + tmp(2,ptr to i64) = tmp(0,ptr to i64) imm(8,i64) 
-    ste tmp(2,ptr to i64) imm(4616189618054758400,f64) 
-    stre local(0,struct { f64; f64}) tmp(0,ptr to i64) 
+    salloc tmp(0,ptr to i8) = imm(16,i64) 
+    + tmp(1,ptr to f64) = tmp(0,ptr to i8) imm(0,i64) 
+    ste tmp(1,ptr to f64) imm(4613937818241073152,f64) 
+    + tmp(2,ptr to f64) = tmp(0,ptr to i8) imm(8,i64) 
+    ste tmp(2,ptr to f64) imm(4616189618054758400,f64) 
+    stre local(0,struct { f64; f64}) tmp(0,ptr to i8) 
     load tmp(3,struct { f64; f64}) = local(0,struct { f64; f64}) 
     arg tmp(3,struct { f64; f64}) 
     call tmp(4,f64) = cabs 

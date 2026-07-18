@@ -9,11 +9,11 @@ function ФИО () { ; void
     stre local(2,ptr to i8) tmp(2,ptr to i8) 
     arg imm(1,ptr to i8) 
     call tmp(3,ptr to i8) = str_from_lit 
-    lea tmp(4,ptr to i8) = local(0,ptr to i8) 
-    lde tmp(5,ptr to i8) = tmp(4,ptr to i8) 
+    lea tmp(4,ptr to ptr to i8) = local(0,ptr to i8) 
+    lde tmp(5,ptr to i8) = tmp(4,ptr to ptr to i8) 
     arg tmp(5,ptr to i8) 
     call str_release 
-    ste tmp(4,ptr to i8) tmp(3,ptr to i8) 
+    ste tmp(4,ptr to ptr to i8) tmp(3,ptr to i8) 
     mov tmp(6,i32) = imm(32,i64) 
     arg tmp(6,i32) 
     call tmp(7,ptr to i8) = str_from_unicode 
@@ -36,11 +36,11 @@ function ФИО () { ; void
     arg imm(1,i64) 
     arg tmp(15,i64) 
     call tmp(16,ptr to i8) = str_slice 
-    lea tmp(17,ptr to i8) = local(1,ptr to i8) 
-    lde tmp(18,ptr to i8) = tmp(17,ptr to i8) 
+    lea tmp(17,ptr to ptr to i8) = local(1,ptr to i8) 
+    lde tmp(18,ptr to i8) = tmp(17,ptr to ptr to i8) 
     arg tmp(18,ptr to i8) 
     call str_release 
-    ste tmp(17,ptr to i8) tmp(16,ptr to i8) 
+    ste tmp(17,ptr to ptr to i8) tmp(16,ptr to i8) 
     lea tmp(19,ptr to ptr to i8) = local(0,ptr to i8) 
     load tmp(20,i64) = local(3,i64) 
     arg tmp(19,ptr to ptr to i8) 
@@ -69,11 +69,11 @@ function ФИО () { ; void
     arg imm(1,i64) 
     arg tmp(30,i64) 
     call tmp(31,ptr to i8) = str_slice 
-    lea tmp(32,ptr to i8) = local(2,ptr to i8) 
-    lde tmp(33,ptr to i8) = tmp(32,ptr to i8) 
+    lea tmp(32,ptr to ptr to i8) = local(2,ptr to i8) 
+    lde tmp(33,ptr to i8) = tmp(32,ptr to ptr to i8) 
     arg tmp(33,ptr to i8) 
     call str_release 
-    ste tmp(32,ptr to i8) tmp(31,ptr to i8) 
+    ste tmp(32,ptr to ptr to i8) tmp(31,ptr to i8) 
     lea tmp(34,ptr to ptr to i8) = local(0,ptr to i8) 
     load tmp(35,i64) = local(3,i64) 
     arg tmp(34,ptr to ptr to i8) 
@@ -164,11 +164,11 @@ function ФИО () { ; void
     arg tmp(71,ptr to i8) 
     call str_release 
     load tmp(72,ptr to i8) = local(20,ptr to i8) 
-    lea tmp(73,ptr to i8) = local(0,ptr to i8) 
-    lde tmp(74,ptr to i8) = tmp(73,ptr to i8) 
+    lea tmp(73,ptr to ptr to i8) = local(0,ptr to i8) 
+    lde tmp(74,ptr to i8) = tmp(73,ptr to ptr to i8) 
     arg tmp(74,ptr to i8) 
     call str_release 
-    ste tmp(73,ptr to i8) tmp(72,ptr to i8) 
+    ste tmp(73,ptr to ptr to i8) tmp(72,ptr to i8) 
     load tmp(75,ptr to i8) = local(0,ptr to i8) 
     arg tmp(75,ptr to i8) 
     call output_string 

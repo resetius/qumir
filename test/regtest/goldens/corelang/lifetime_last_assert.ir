@@ -36,11 +36,11 @@ function checked_string () { ; ptr to i8
     stre local(0,ptr to i8) tmp(0,ptr to i8) 
     arg imm(3,ptr to i8) 
     call tmp(1,ptr to i8) = str_from_lit 
-    lea tmp(2,ptr to i8) = local(0,ptr to i8) 
-    lde tmp(3,ptr to i8) = tmp(2,ptr to i8) 
+    lea tmp(2,ptr to ptr to i8) = local(0,ptr to i8) 
+    lde tmp(3,ptr to i8) = tmp(2,ptr to ptr to i8) 
     arg tmp(3,ptr to i8) 
     call str_release 
-    ste tmp(2,ptr to i8) tmp(1,ptr to i8) 
+    ste tmp(2,ptr to ptr to i8) tmp(1,ptr to i8) 
     load tmp(4,ptr to i8) = local(0,ptr to i8) 
     arg tmp(4,ptr to i8) 
     call str_retain 
@@ -82,11 +82,11 @@ function checked_string_early (local(0)) { ; ptr to i8
     stre local(1,ptr to i8) tmp(0,ptr to i8) 
     arg imm(3,ptr to i8) 
     call tmp(1,ptr to i8) = str_from_lit 
-    lea tmp(2,ptr to i8) = local(1,ptr to i8) 
-    lde tmp(3,ptr to i8) = tmp(2,ptr to i8) 
+    lea tmp(2,ptr to ptr to i8) = local(1,ptr to i8) 
+    lde tmp(3,ptr to i8) = tmp(2,ptr to ptr to i8) 
     arg tmp(3,ptr to i8) 
     call str_release 
-    ste tmp(2,ptr to i8) tmp(1,ptr to i8) 
+    ste tmp(2,ptr to ptr to i8) tmp(1,ptr to i8) 
     load tmp(4,i1) = local(0,i1) 
     cmp tmp(4,i1) label(2) label(3) 
   }
