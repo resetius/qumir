@@ -228,7 +228,12 @@ void TPrinter::PrintType(TTypePtr type, int level) {
                 if (i != 0) {
                     Space();
                 }
-                PrintType(t.Cast()->TypeArgs[i], level);
+                const auto& arg = t.Cast()->TypeArgs[i];
+                if (arg.Kind == TGenericArg::EKind::Type) {
+                    PrintType(arg.Type, level);
+                } else {
+                    *Out << arg.Value;
+                }
             }
             *Out << ']';
         }
@@ -569,7 +574,9 @@ void CollectFromType(const TTypePtr& type, TNamedTypeMap& out) {
     if (auto t = TMaybeType<TNamedType>(type)) {
         auto named = t.Cast();
         for (const auto& arg : named->TypeArgs) {
-            CollectFromType(arg, out);
+            if (arg.Kind == TGenericArg::EKind::Type) {
+                CollectFromType(arg.Type, out);
+            }
         }
         if (named->UnderlyingType && !out.contains(named->Name)) {
             out[named->Name] = named;

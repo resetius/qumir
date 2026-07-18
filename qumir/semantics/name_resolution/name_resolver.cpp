@@ -94,7 +94,10 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         if (auto maybeNamed = TMaybeType<TNamedType>(type)) {
             auto named = maybeNamed.Cast();
             for (auto& arg : named->TypeArgs) {
-                if (auto err = self(self, arg, loc, typeScope)) {
+                if (arg.Kind != TGenericArg::EKind::Type) {
+                    continue;
+                }
+                if (auto err = self(self, arg.Type, loc, typeScope)) {
                     return err;
                 }
             }

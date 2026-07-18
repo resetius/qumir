@@ -21,6 +21,7 @@ using TAstTask = TExpectedTask<TExprPtr, TError, TLocation>;
 using TTypeTask = TExpectedTask<TTypePtr, TError, TLocation>;
 using TExprListTask = TExpectedTask<std::vector<TExprPtr>, TError, TLocation>;
 using TTypeListTask = TExpectedTask<std::vector<TTypePtr>, TError, TLocation>;
+using TGenericArgListTask = TExpectedTask<std::vector<TGenericArg>, TError, TLocation>;
 using TOutputArgTask = TExpectedTask<TOutputArg, TError, TLocation>;
 using TOutputArgListTask = TExpectedTask<std::vector<TOutputArg>, TError, TLocation>;
 using TParamListTask = TExpectedTask<std::vector<TParam>, TError, TLocation>;
@@ -163,8 +164,8 @@ TTypeListTask ParseTypeList(TParserContext& context) {
     }
 }
 
-TTypeListTask ParseGenericTypeArgs(TParserContext& context) {
-    std::vector<TTypePtr> result;
+TGenericArgListTask ParseGenericTypeArgs(TParserContext& context) {
+    std::vector<TGenericArg> result;
     auto tok = context.Stream.Next();
     if (!IsOp(tok, '[')) {
         context.Stream.Unget(tok);
@@ -179,8 +180,17 @@ TTypeListTask ParseGenericTypeArgs(TParserContext& context) {
         if (IsEof(token)) {
             co_return Error(token, "expected ']' in generic type argument list");
         }
+        if (IsOp(token, '(')
+            || token.Type == TToken::Integer
+            || token.Type == TToken::Float
+            || token.Type == TToken::Boolean
+            || token.Type == TToken::Char
+            || token.Type == TToken::String)
+        {
+            co_return Error(token, "value generic arguments are not supported yet");
+        }
         context.Stream.Unget(token);
-        result.push_back(co_await ParseType(context));
+        result.push_back(TGenericArg::TypeArg(co_await ParseType(context)));
     }
 }
 

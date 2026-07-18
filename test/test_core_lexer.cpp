@@ -19,6 +19,7 @@ using NQumir::NAst::TBlockExpr;
 using NQumir::NAst::TCallExpr;
 using NQumir::NAst::TFunDecl;
 using NQumir::NAst::TFutureType;
+using NQumir::NAst::TGenericArg;
 using NQumir::NAst::TGenericParam;
 using NQumir::NAst::TIntegerType;
 using NQumir::NAst::TNamedType;
@@ -176,13 +177,36 @@ TEST(CoreTypeTest, ParametricNamedTypeArgsPrintAndParse) {
     auto named = TMaybeType<TNamedType>(type).Cast();
     ASSERT_TRUE(named);
     ASSERT_EQ(named->TypeArgs.size(), 1u);
+    EXPECT_EQ(named->TypeArgs[0].Kind, TGenericArg::EKind::Type);
 
-    auto arg = TMaybeType<TNamedType>(named->TypeArgs[0]).Cast();
+    auto arg = TMaybeType<TNamedType>(named->TypeArgs[0].Type).Cast();
     ASSERT_TRUE(arg);
     EXPECT_EQ(arg->Name, "T");
 
     EXPECT_EQ(TypeKey(type), "Named::Nullable[Named::T]");
     EXPECT_EQ(PrintType(type, TPrintOptions{.ShortNamedTypes = {"T"}}), "<named Nullable [T]>");
+}
+
+TEST(CoreTypeTest, ParametricNamedTypeConcreteArgsPrintAndParse) {
+    auto type = ParseVarType("<named Nullable [i64]>");
+    auto named = TMaybeType<TNamedType>(type).Cast();
+    ASSERT_TRUE(named);
+    ASSERT_EQ(named->TypeArgs.size(), 1u);
+    EXPECT_EQ(named->TypeArgs[0].Kind, TGenericArg::EKind::Type);
+    EXPECT_TRUE(TMaybeType<TIntegerType>(named->TypeArgs[0].Type));
+
+    EXPECT_EQ(TypeKey(type), "Named::Nullable[i64]");
+    EXPECT_EQ(PrintType(type), "<named Nullable [i64]>");
+}
+
+TEST(CoreTypeTest, ParametricNamedTypeRejectsValueArgsForNow) {
+    std::istringstream input("(var value <named Decimal [42]>)");
+    TTokenStream tokens(input);
+    TParser parser;
+
+    auto parsed = parser.Parse(tokens);
+    ASSERT_FALSE(parsed.has_value());
+    EXPECT_NE(parsed.error().ToString().find("value generic arguments are not supported yet"), std::string::npos);
 }
 
 TEST(CoreTypeTest, ParametricTypeDeclPrintsAndParses) {

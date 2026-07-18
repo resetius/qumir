@@ -19,6 +19,38 @@ struct TType {
 
 using TTypePtr = std::shared_ptr<TType>;
 
+struct TGenericArg {
+    enum class EKind {
+        Type,
+        Value,
+    };
+
+    EKind Kind = EKind::Type;
+    TTypePtr Type;
+    std::string Value;
+
+    static TGenericArg TypeArg(TTypePtr type) {
+        return TGenericArg{
+            .Kind = EKind::Type,
+            .Type = std::move(type),
+        };
+    }
+
+    static TGenericArg ValueArg(std::string value) {
+        return TGenericArg{
+            .Kind = EKind::Value,
+            .Value = std::move(value),
+        };
+    }
+
+    std::string ToString() const {
+        if (Kind == EKind::Type) {
+            return Type ? Type->ToString() : "unknown";
+        }
+        return Value;
+    }
+};
+
 template<typename T>
 struct TMaybeType {
     TMaybeType(TTypePtr node)
@@ -265,14 +297,14 @@ struct TReferenceType : TType {
 struct TNamedType : TType {
     static constexpr const char* TypeId = "Named";
     std::string Name;
-    std::vector<TTypePtr> TypeArgs;
+    std::vector<TGenericArg> TypeArgs;
     TTypePtr UnderlyingType; // Resolved on name resolution phase, exported by modules
     std::optional<std::string> Reference; // Set = imported from this module; not printed in AST
 
     explicit TNamedType(
         std::string name,
         TTypePtr underlying,
-        std::vector<TTypePtr> typeArgs = {})
+        std::vector<TGenericArg> typeArgs = {})
         : Name(std::move(name))
         , TypeArgs(std::move(typeArgs))
         , UnderlyingType(std::move(underlying))
@@ -286,7 +318,7 @@ struct TNamedType : TType {
                 if (i != 0) {
                     result += ", ";
                 }
-                result += TypeArgs[i] ? TypeArgs[i]->ToString() : "unknown";
+                result += TypeArgs[i].ToString();
             }
             result += "]";
         }
@@ -371,7 +403,10 @@ inline std::string TypeKey(const TTypePtr& t) {
                 if (i != 0) {
                     value += ",";
                 }
-                value += TypeKey(named.Cast()->TypeArgs[i]);
+                const auto& arg = named.Cast()->TypeArgs[i];
+                value += arg.Kind == TGenericArg::EKind::Type
+                    ? TypeKey(arg.Type)
+                    : "Value::" + arg.Value;
             }
             value += "]";
         }
