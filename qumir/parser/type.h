@@ -265,19 +265,35 @@ struct TReferenceType : TType {
 struct TNamedType : TType {
     static constexpr const char* TypeId = "Named";
     std::string Name;
+    std::vector<TTypePtr> TypeArgs;
     TTypePtr UnderlyingType; // Resolved on name resolution phase, exported by modules
     std::optional<std::string> Reference; // Set = imported from this module; not printed in AST
 
-    explicit TNamedType(std::string name, TTypePtr underlying)
+    explicit TNamedType(
+        std::string name,
+        TTypePtr underlying,
+        std::vector<TTypePtr> typeArgs = {})
         : Name(std::move(name))
+        , TypeArgs(std::move(typeArgs))
         , UnderlyingType(std::move(underlying))
     {}
 
     std::string ToString() const override {
-        if (UnderlyingType) {
-            return Name + " (" + UnderlyingType->ToString() + ")";
+        std::string result = Name;
+        if (!TypeArgs.empty()) {
+            result += "[";
+            for (size_t i = 0; i < TypeArgs.size(); ++i) {
+                if (i != 0) {
+                    result += ", ";
+                }
+                result += TypeArgs[i] ? TypeArgs[i]->ToString() : "unknown";
+            }
+            result += "]";
         }
-        return Name;
+        if (UnderlyingType) {
+            return result + " (" + UnderlyingType->ToString() + ")";
+        }
+        return result;
     }
 
     const std::string_view TypeName() const override {
@@ -347,7 +363,20 @@ inline TTypePtr WrapFutureType(TTypePtr type) {
 inline std::string TypeKey(const TTypePtr& t) {
     if (!t) return "unknown";
     if (auto integer = TMaybeType<TIntegerType>(t)) return integer.Cast()->ToString();
-    if (auto named = TMaybeType<TNamedType>(t)) return std::string("Named::") + named.Cast()->Name;
+    if (auto named = TMaybeType<TNamedType>(t)) {
+        auto value = std::string("Named::") + named.Cast()->Name;
+        if (!named.Cast()->TypeArgs.empty()) {
+            value += "[";
+            for (size_t i = 0; i < named.Cast()->TypeArgs.size(); ++i) {
+                if (i != 0) {
+                    value += ",";
+                }
+                value += TypeKey(named.Cast()->TypeArgs[i]);
+            }
+            value += "]";
+        }
+        return value;
+    }
     if (auto future = TMaybeType<TFutureType>(t)) return std::string("Future::") + TypeKey(future.Cast()->ResultType);
     if (auto array = TMaybeType<TArrayType>(t)) {
         return "Array::" + std::to_string(array.Cast()->Arity) + "::" + TypeKey(array.Cast()->ElementType);

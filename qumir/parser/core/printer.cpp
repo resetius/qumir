@@ -70,6 +70,9 @@ bool TPrinter::ShouldWrapType(const TExprPtr& expr) const {
     if (TMaybeNode<TVarStmt>(expr)) {
         return false;
     }
+    if (TMaybeNode<TTypeDeclStmt>(expr)) {
+        return false;
+    }
     if (Options.TypeMode == ETypePrintMode::All) {
         if (
             TMaybeNode<TFunDecl>(expr) ||
@@ -134,6 +137,44 @@ void TPrinter::PrintScalarType(std::string_view name, TTypePtr type) {
     }
 }
 
+void TPrinter::PrintGenericParams(const std::vector<TGenericParam>& params, int level) {
+    if (params.empty()) {
+        return;
+    }
+    *Out << " [";
+    for (size_t i = 0; i < params.size(); ++i) {
+        if (i != 0) {
+            Space();
+        }
+        if (params[i].Kind == TGenericParam::EKind::Type) {
+            PrintIdentifier(params[i].Name);
+        } else if (params[i].Kind == TGenericParam::EKind::Value) {
+            *Out << "(const ";
+            PrintIdentifier(params[i].Name);
+            Space();
+            PrintType(params[i].ValueType, level);
+            *Out << ")";
+        }
+    }
+    *Out << ']';
+}
+
+std::vector<std::string> TPrinter::PushGenericTypeParamShortNames(const std::vector<TGenericParam>& params) {
+    std::vector<std::string> inserted;
+    for (const auto& param : params) {
+        if (param.Kind == TGenericParam::EKind::Type && Options.ShortNamedTypes.insert(param.Name).second) {
+            inserted.push_back(param.Name);
+        }
+    }
+    return inserted;
+}
+
+void TPrinter::PopShortNamedTypes(const std::vector<std::string>& names) {
+    for (const auto& name : names) {
+        Options.ShortNamedTypes.erase(name);
+    }
+}
+
 void TPrinter::PrintType(TTypePtr type, int level) {
     if (!type) {
         *Out << "nil";
@@ -171,8 +212,26 @@ void TPrinter::PrintType(TTypePtr type, int level) {
         PrintTypeAttrs(type);
         *Out << '>';
     } else if (auto t = TMaybeType<TNamedType>(type)) {
+        if (Options.ShortNamedTypes.contains(t.Cast()->Name)
+            && t.Cast()->TypeArgs.empty()
+            && !t.Cast()->UnderlyingType
+            && !HasPrintableTypeAttrs(type))
+        {
+            PrintIdentifier(t.Cast()->Name);
+            return;
+        }
         *Out << "<named ";
         PrintIdentifier(t.Cast()->Name);
+        if (!t.Cast()->TypeArgs.empty()) {
+            *Out << " [";
+            for (size_t i = 0; i < t.Cast()->TypeArgs.size(); ++i) {
+                if (i != 0) {
+                    Space();
+                }
+                PrintType(t.Cast()->TypeArgs[i], level);
+            }
+            *Out << ']';
+        }
         if (!Options.ShortNamedTypes.contains(t.Cast()->Name) && t.Cast()->UnderlyingType) {
             *Out << ' ';
             PrintType(t.Cast()->UnderlyingType, level);
@@ -335,24 +394,8 @@ void TPrinter::PrintVar(TVarStmt& node, int level) {
 void TPrinter::PrintFun(TFunDecl& node, int level) {
     *Out << "(fun ";
     PrintIdentifier(node.Name);
-    if (node.GenericParams.size() > 0) {
-        *Out << " [";
-        for (size_t i = 0; i < node.GenericParams.size(); ++i) {
-            if (i != 0) {
-                Space();
-            }
-            if (node.GenericParams[i].Kind == TGenericParam::EKind::Type) {
-                PrintIdentifier(node.GenericParams[i].Name);
-            } else if (node.GenericParams[i].Kind == TGenericParam::EKind::Value) {
-                *Out << "(const ";
-                PrintIdentifier(node.GenericParams[i].Name);
-                Space();
-                PrintType(node.GenericParams[i].ValueType, level);
-                *Out << ")";
-            }
-        }
-        *Out << ']';
-    }
+    auto shortNames = PushGenericTypeParamShortNames(node.GenericParams);
+    PrintGenericParams(node.GenericParams, level);
     *Out << " (";
     for (size_t i = 0; i < node.Params.size(); ++i) {
         if (i != 0) {
@@ -407,6 +450,7 @@ void TPrinter::PrintFun(TFunDecl& node, int level) {
     Separator(level + 1);
     PrintExpr(node.Body, true, level + 1);
     *Out << ')';
+    PopShortNamedTypes(shortNames);
 }
 
 void TPrinter::PrintCall(TCallExpr& node, int level) {
@@ -524,6 +568,9 @@ void CollectFromType(const TTypePtr& type, TNamedTypeMap& out) {
     if (!type) return;
     if (auto t = TMaybeType<TNamedType>(type)) {
         auto named = t.Cast();
+        for (const auto& arg : named->TypeArgs) {
+            CollectFromType(arg, out);
+        }
         if (named->UnderlyingType && !out.contains(named->Name)) {
             out[named->Name] = named;
             CollectFromType(named->UnderlyingType, out);
@@ -682,9 +729,26 @@ struct TPrintExpr : public IVisitor {
                 Printer.Separator(childLevel);
                 Printer.PrintExpr(stmt, true, childLevel);
             }
-            // Pass 2: locally declared types (not imported from modules)
+            std::unordered_set<std::string> explicitTypeNames;
+            // Pass 2: explicit local type declarations, preserving their generic params.
+            for (const auto& stmt : node.Stmts) {
+                if (!visibleTopLevel(stmt)) {
+                    continue;
+                }
+                auto type = TMaybeNode<TTypeDeclStmt>(stmt);
+                if (!type) {
+                    continue;
+                }
+                auto named = TMaybeType<TNamedType>(type.Cast()->Type);
+                if (named) {
+                    explicitTypeNames.insert(named.Cast()->Name);
+                }
+                Printer.Separator(childLevel);
+                Printer.PrintExpr(stmt, true, childLevel);
+            }
+            // Pass 2b: type declarations inferred from resolved named types.
             for (const auto& [name, namedType] : collected) {
-                if (hiddenTypeNames.contains(name)) {
+                if (hiddenTypeNames.contains(name) || explicitTypeNames.contains(name)) {
                     continue;
                 }
                 if (namedType->Reference.has_value()) continue;
@@ -719,9 +783,12 @@ struct TPrintExpr : public IVisitor {
         auto named = TMaybeType<TNamedType>(node.Type);
         *Out << "(type ";
         Printer.PrintIdentifier(named.Cast()->Name);
+        auto shortNames = Printer.PushGenericTypeParamShortNames(node.GenericParams);
+        Printer.PrintGenericParams(node.GenericParams, Frame.Level + 1);
         Printer.Space();
         Printer.PrintType(named.Cast()->UnderlyingType, Frame.Level + 1);
         *Out << ')';
+        Printer.PopShortNamedTypes(shortNames);
     }
 
     void Visit(TIfExpr& node) override {

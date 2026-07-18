@@ -19,7 +19,7 @@ bool SameKind(const TTypePtr& a, const TTypePtr& b) {
     }
     if (auto an = TMaybeType<TNamedType>(a)) {
         auto bn = TMaybeType<TNamedType>(b);
-        return bn && an.Cast()->Name == bn.Cast()->Name;
+        return bn && TypeKey(a) == TypeKey(b);
     }
     return true;
 }

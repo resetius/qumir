@@ -15,11 +15,15 @@ using NQumir::NAst::TToken;
 using NQumir::NAst::TMaybeNode;
 using NQumir::NAst::TMaybeType;
 using NQumir::NAst::TAwaitExpr;
+using NQumir::NAst::TBlockExpr;
 using NQumir::NAst::TCallExpr;
 using NQumir::NAst::TFunDecl;
 using NQumir::NAst::TFutureType;
+using NQumir::NAst::TGenericParam;
 using NQumir::NAst::TIntegerType;
 using NQumir::NAst::TNamedType;
+using NQumir::NAst::TStructType;
+using NQumir::NAst::TTypeDeclStmt;
 using NQumir::NAst::TTypePtr;
 using NQumir::NAst::TVarStmt;
 using NQumir::NAst::TVoidType;
@@ -165,6 +169,82 @@ TEST(CoreTypeTest, FutureTypesPrintAndParse) {
     auto future = TMaybeType<TFutureType>(fun->RetType).Cast();
     ASSERT_TRUE(future);
     EXPECT_TRUE(TMaybeType<TIntegerType>(future->ResultType));
+}
+
+TEST(CoreTypeTest, ParametricNamedTypeArgsPrintAndParse) {
+    auto type = ParseVarType("<named Nullable [T]>");
+    auto named = TMaybeType<TNamedType>(type).Cast();
+    ASSERT_TRUE(named);
+    ASSERT_EQ(named->TypeArgs.size(), 1u);
+
+    auto arg = TMaybeType<TNamedType>(named->TypeArgs[0]).Cast();
+    ASSERT_TRUE(arg);
+    EXPECT_EQ(arg->Name, "T");
+
+    EXPECT_EQ(TypeKey(type), "Named::Nullable[Named::T]");
+    EXPECT_EQ(PrintType(type, TPrintOptions{.ShortNamedTypes = {"T"}}), "<named Nullable [T]>");
+}
+
+TEST(CoreTypeTest, ParametricTypeDeclPrintsAndParses) {
+    std::istringstream input("(block (type Nullable [T] <struct (Value T) (Valid i8)>))");
+    TTokenStream tokens(input);
+    TParser parser;
+
+    auto parsed = parser.Parse(tokens);
+    ASSERT_TRUE(parsed.has_value()) << parsed.error().ToString();
+
+    auto block = TMaybeNode<TBlockExpr>(*parsed).Cast();
+    ASSERT_TRUE(block);
+    ASSERT_EQ(block->Stmts.size(), 1u);
+
+    auto typeDecl = TMaybeNode<TTypeDeclStmt>(block->Stmts[0]).Cast();
+    ASSERT_TRUE(typeDecl);
+    ASSERT_EQ(typeDecl->GenericParams.size(), 1u);
+    EXPECT_EQ(typeDecl->GenericParams[0].Name, "T");
+    EXPECT_EQ(typeDecl->GenericParams[0].Kind, TGenericParam::EKind::Type);
+
+    auto named = TMaybeType<TNamedType>(typeDecl->Type).Cast();
+    ASSERT_TRUE(named);
+    EXPECT_EQ(named->Name, "Nullable");
+
+    auto structure = TMaybeType<TStructType>(named->UnderlyingType).Cast();
+    ASSERT_TRUE(structure);
+    ASSERT_EQ(structure->Fields.size(), 2u);
+
+    auto value = TMaybeType<TNamedType>(structure->Fields[0].second).Cast();
+    ASSERT_TRUE(value);
+    EXPECT_EQ(value->Name, "T");
+
+    const auto expected = std::string("(type Nullable [T] <struct (Value T) (Valid i8)>)");
+    EXPECT_EQ(PrintAst(typeDecl, TPrintOptions{.Pretty = false}), expected);
+    EXPECT_EQ(PrintAst(*parsed, TPrintOptions{.Pretty = false}), "(block " + expected + ")");
+}
+
+TEST(CoreTypeTest, ParametricTypeDeclConstParamsPrintAndParse) {
+    std::istringstream input("(block (type Decimal [(const Scale i32) (const Precision i32)] <struct (Lo i64) (Hi i64)>))");
+    TTokenStream tokens(input);
+    TParser parser;
+
+    auto parsed = parser.Parse(tokens);
+    ASSERT_TRUE(parsed.has_value()) << parsed.error().ToString();
+
+    auto block = TMaybeNode<TBlockExpr>(*parsed).Cast();
+    ASSERT_TRUE(block);
+    ASSERT_EQ(block->Stmts.size(), 1u);
+
+    auto typeDecl = TMaybeNode<TTypeDeclStmt>(block->Stmts[0]).Cast();
+    ASSERT_TRUE(typeDecl);
+    ASSERT_EQ(typeDecl->GenericParams.size(), 2u);
+    EXPECT_EQ(typeDecl->GenericParams[0].Name, "Scale");
+    EXPECT_EQ(typeDecl->GenericParams[0].Kind, TGenericParam::EKind::Value);
+    EXPECT_TRUE(TMaybeType<TIntegerType>(typeDecl->GenericParams[0].ValueType));
+    EXPECT_EQ(typeDecl->GenericParams[1].Name, "Precision");
+    EXPECT_EQ(typeDecl->GenericParams[1].Kind, TGenericParam::EKind::Value);
+    EXPECT_TRUE(TMaybeType<TIntegerType>(typeDecl->GenericParams[1].ValueType));
+
+    const auto expected = std::string("(type Decimal [(const Scale i32) (const Precision i32)] <struct (Lo i64) (Hi i64)>)");
+    EXPECT_EQ(PrintAst(typeDecl, TPrintOptions{.Pretty = false}), expected);
+    EXPECT_EQ(PrintAst(*parsed, TPrintOptions{.Pretty = false}), "(block " + expected + ")");
 }
 
 TEST(CoreTypeTest, IntegerWidthsPrintAndParse) {
