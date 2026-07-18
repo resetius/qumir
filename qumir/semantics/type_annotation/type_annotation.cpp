@@ -1158,7 +1158,8 @@ TTypePtr SubstituteGenericType(
             return result;
         }
 
-        bool changed = false;
+        auto underlying = SubstituteGenericType(placeholder->UnderlyingType, genericTypeParams, bindings);
+        bool changed = underlying != placeholder->UnderlyingType;
         std::vector<TGenericArg> typeArgs;
         typeArgs.reserve(placeholder->TypeArgs.size());
         for (const auto& arg : placeholder->TypeArgs) {
@@ -1173,7 +1174,7 @@ TTypePtr SubstituteGenericType(
         if (!changed) {
             return type;
         }
-        auto result = std::make_shared<TNamedType>(placeholder->Name, placeholder->UnderlyingType, std::move(typeArgs));
+        auto result = std::make_shared<TNamedType>(placeholder->Name, std::move(underlying), std::move(typeArgs));
         result->Reference = placeholder->Reference;
         static_cast<TType&>(*result) = static_cast<const TType&>(*placeholder);
         return result;

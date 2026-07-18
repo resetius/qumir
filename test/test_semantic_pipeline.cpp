@@ -103,6 +103,25 @@ std::shared_ptr<TFieldAccessExpr> FindFieldAccess(const TExprPtr& expr, const st
     return nullptr;
 }
 
+std::shared_ptr<TCallExpr> FindCallWithCalleePrefix(const TExprPtr& expr, const std::string& prefix) {
+    if (!expr) {
+        return nullptr;
+    }
+    if (auto call = TMaybeNode<TCallExpr>(expr).Cast()) {
+        if (auto callee = TMaybeNode<TIdentExpr>(call->Callee).Cast();
+            callee && callee->Name.rfind(prefix, 0) == 0)
+        {
+            return call;
+        }
+    }
+    for (const auto& child : expr->Children()) {
+        if (auto found = FindCallWithCalleePrefix(child, prefix)) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
 } // namespace
 
 TEST(SyntheticNameGenerator, AvoidsSourceAndImportedNamesPerPass) {
@@ -521,6 +540,37 @@ TEST(ParametricTypes, ConcreteNamedTypeInstantiationResolvesUnderlyingFields) {
     auto field = FindFieldAccess(function, "Value");
     ASSERT_TRUE(field);
     EXPECT_TRUE(TMaybeType<TIntegerType>(field->Type));
+}
+
+TEST(ParametricTypes, GenericFunctionInstantiatesParametricNamedType) {
+    auto root = ParseCore(R"__(
+(block
+  (type Box [T] <struct (Value T)>)
+  (fun unwrap ((var text string)) -> i64
+    (block
+      (return (: 0 i64))))
+  (fun unwrap [T] ((var box <named Box [T]>)) -> T
+    (block
+      (return (field box Value))))
+  (fun run () -> i64
+    (block
+      (var boxed <named Box [i64]>)
+      (= boxed (cast (struct ((Value (: 42 i64)))) <named Box [i64]>))
+      (return (call unwrap boxed)))))
+)__");
+    ASSERT_NE(root, nullptr);
+
+    TNameResolver resolver({.AllowOverloads = true});
+    auto nameResult = NTransform::FinalNameResolution(root, resolver);
+    ASSERT_TRUE(nameResult.has_value()) << nameResult.error().ToString();
+    auto typeResult = NTransform::FinalTypeAnnotation(root, resolver);
+    ASSERT_TRUE(typeResult.has_value()) << typeResult.error().ToString();
+
+    auto instantiatedCall = FindCallWithCalleePrefix(root, "__generic_");
+    ASSERT_TRUE(instantiatedCall);
+    auto callType = TMaybeType<TIntegerType>(instantiatedCall->Type).Cast();
+    ASSERT_TRUE(callType);
+    EXPECT_EQ(callType->Kind, TIntegerType::I64);
 }
 
 TEST(FinalSemanticPipeline, DoesNotRerunSourceTransforms) {
