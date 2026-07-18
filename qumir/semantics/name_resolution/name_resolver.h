@@ -159,7 +159,9 @@ public:
     // bodies cannot reuse the generic declaration's scopes: Symbols bind scope entries
     // to specific AST node identities, so a shared scope would make lookups
     // resolve to the template's (wrongly-typed) nodes.
-    std::expected<TSymbolId, TError> ResolveInstantiatedFunDecl(std::shared_ptr<NAst::TFunDecl> fdecl);
+    std::expected<TSymbolId, TError> ResolveInstantiatedFunDecl(
+        std::shared_ptr<NAst::TFunDecl> fdecl,
+        bool publish = true);
 
     // All generic-function clones registered via ResolveInstantiatedFunDecl
     // since the last TakeGenericInstantiations() call, in creation order

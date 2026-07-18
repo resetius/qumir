@@ -751,15 +751,24 @@ TSymbolId TNameResolver::DeclareFunction(const std::string& name, TExprPtr node)
     return res.value();
 }
 
-std::expected<TSymbolId, TError> TNameResolver::ResolveInstantiatedFunDecl(std::shared_ptr<TFunDecl> fdecl) {
+std::expected<TSymbolId, TError> TNameResolver::ResolveInstantiatedFunDecl(std::shared_ptr<TFunDecl> fdecl, bool publish) {
     auto rootScope = GetOrCreateRootScope();
-    auto declRes = Declare(fdecl->Name, fdecl, rootScope, nullptr);
-    if (!declRes) {
-        return std::unexpected(declRes.error());
+    std::optional<TSymbolId> publishedSymId;
+    if (publish) {
+        auto declRes = Declare(fdecl->Name, fdecl, rootScope, nullptr);
+        if (!declRes) {
+            return std::unexpected(declRes.error());
+        }
+        publishedSymId = declRes.value();
     }
 
     auto funcScope = NewScope(rootScope, nullptr);
     fdecl->Scope = funcScope->Id.Id;
+    for (const auto& param : fdecl->GenericParams) {
+        if (param.Kind == TGenericParam::EKind::Type) {
+            funcScope->GenericTypeParams.insert(param.Name);
+        }
+    }
     if (auto err = ResolveTypeRef(fdecl->Type, fdecl->Location, funcScope)) {
         return std::unexpected(*err);
     }
@@ -781,9 +790,11 @@ std::expected<TSymbolId, TError> TNameResolver::ResolveInstantiatedFunDecl(std::
         return std::unexpected(bodyRes.error());
     }
 
-    GenericInstantiations.push_back(fdecl);
+    if (publish) {
+        GenericInstantiations.push_back(fdecl);
+    }
 
-    return declRes.value();
+    return publishedSymId.value_or(TSymbolId{-1});
 }
 
 std::vector<std::pair<int, std::shared_ptr<NAst::TFunDecl>>> TNameResolver::GetExternalFunctions() {
