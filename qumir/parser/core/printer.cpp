@@ -519,7 +519,9 @@ void TPrinter::PrintStructConstruct(TStructConstructExpr& node, int level) {
             Separator(level + 2);
         }
         *Out << '(';
-        if (structType && i < structType->Fields.size()) {
+        if (i < node.FieldNames.size()) {
+            PrintIdentifier(node.FieldNames[i]);
+        } else if (structType && i < structType->Fields.size()) {
             PrintIdentifier(structType->Fields[i].first);
         } else {
             PrintIdentifier("_" + std::to_string(i));

@@ -1117,10 +1117,12 @@ class TStructConstructExpr : public TExpr {
 public:
     static constexpr const char* NodeId = "StructConstruct";
     std::vector<TExprPtr> Fields;
+    std::vector<std::string> FieldNames;
 
-    TStructConstructExpr(TLocation loc, TTypePtr structType, std::vector<TExprPtr> fields)
+    TStructConstructExpr(TLocation loc, TTypePtr structType, std::vector<TExprPtr> fields, std::vector<std::string> fieldNames = {})
         : TExpr(std::move(loc))
         , Fields(std::move(fields))
+        , FieldNames(std::move(fieldNames))
     {
         Type = std::move(structType);
     }

@@ -1004,17 +1004,23 @@ TListHandlerMap MakeDefaultHandlers() {
             co_await Expect(ctx, '(');
             std::vector<std::pair<std::string, TTypePtr>> fieldTypes;
             std::vector<TExprPtr> fields;
+            std::vector<std::string> fieldNames;
             while (true) {
                 auto token = ctx.Stream.Next();
                 if (IsOp(token, ')')) break;
                 if (!IsOp(token, '(')) co_return Error(token, "expected struct field");
                 auto name = co_await ParseName(ctx);
+                fieldNames.push_back(name);
                 fields.push_back(co_await ParseExpr(ctx));
                 fieldTypes.emplace_back(std::move(name), nullptr);
                 co_await Expect(ctx, ')');
             }
             co_await Expect(ctx, ')');
-            co_return std::make_shared<TStructConstructExpr>(loc, std::make_shared<TStructType>(std::move(fieldTypes)), std::move(fields));
+            co_return std::make_shared<TStructConstructExpr>(
+                loc,
+                std::make_shared<TStructType>(std::move(fieldTypes)),
+                std::move(fields),
+                std::move(fieldNames));
         }},
         {"field_assign", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto object = co_await ParseExpr(ctx);

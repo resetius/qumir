@@ -13,6 +13,7 @@
 #include <sstream>
 #include <cassert>
 #include <limits>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace NQumir {
@@ -32,6 +33,10 @@ TTask AnnotateIdent(
     NSemantics::TNameResolver& context,
     NSemantics::TScopeId scopeId,
     bool pathThrough);
+TTask AnnotateStructConstruct(
+    std::shared_ptr<TStructConstructExpr> structure,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId);
 TFunDeclTask InstantiateGenericFunction(
     std::shared_ptr<TFunDecl> genericDecl,
     const std::vector<TExprPtr>& args,
@@ -355,14 +360,130 @@ TExprPtr AnnotateNumber(std::shared_ptr<TNumberExpr> num) {
     return num;
 }
 
-TTask AnnotateCast(std::shared_ptr<TCastExpr> cast, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
-    if (auto structure = TMaybeNode<TStructConstructExpr>(cast->Operand);
-        structure && TMaybeType<TStructType>(UnwrapNamedType(cast->Type)))
-    {
-        structure.Cast()->Type = cast->Type;
+std::string AvailableStructFields(const TStructType& structure) {
+    std::string available;
+    for (const auto& [name, _] : structure.Fields) {
+        if (!available.empty()) {
+            available += ", ";
+        }
+        available += name;
     }
+    return available;
+}
+
+bool HasConcreteStructFieldTypes(const TStructType& structure) {
+    for (const auto& [_, fieldType] : structure.Fields) {
+        if (!fieldType) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ApplyStructConstructContext(TExprPtr expr, TTypePtr targetType) {
+    if (!TMaybeType<TStructType>(UnwrapNamedType(targetType))) {
+        return false;
+    }
+    if (auto structure = TMaybeNode<TStructConstructExpr>(expr)) {
+        structure.Cast()->Type = targetType;
+        return true;
+    }
+    if (auto ifExpr = TMaybeNode<TIfExpr>(expr)) {
+        bool applied = false;
+        if (ifExpr.Cast()->Then) {
+            applied = ApplyStructConstructContext(ifExpr.Cast()->Then, targetType) || applied;
+        }
+        if (ifExpr.Cast()->Else) {
+            applied = ApplyStructConstructContext(ifExpr.Cast()->Else, targetType) || applied;
+        }
+        return applied;
+    }
+    return false;
+}
+
+void BackfillStructFieldTypes(const std::shared_ptr<TStructConstructExpr>& structure) {
+    auto structType = TMaybeType<TStructType>(UnwrapNamedType(structure->Type)).Cast();
+    if (!structType) {
+        return;
+    }
+    for (size_t i = 0; i < structure->Fields.size() && i < structType->Fields.size(); ++i) {
+        structType->Fields[i].second = structure->Fields[i]->Type;
+    }
+}
+
+TTask AnnotateStructConstruct(std::shared_ptr<TStructConstructExpr> structure, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    auto targetStruct = TMaybeType<TStructType>(UnwrapNamedType(UnwrapReferenceType(structure->Type))).Cast();
+    if (!targetStruct || !HasConcreteStructFieldTypes(*targetStruct)) {
+        for (auto& field : structure->Fields) {
+            field = co_await DoAnnotate(field, context, scopeId);
+        }
+        BackfillStructFieldTypes(structure);
+        co_return structure;
+    }
+
+    std::unordered_map<std::string, size_t> fieldByName;
+    fieldByName.reserve(targetStruct->Fields.size());
+    for (size_t i = 0; i < targetStruct->Fields.size(); ++i) {
+        fieldByName.emplace(targetStruct->Fields[i].first, i);
+    }
+
+    std::unordered_set<std::string> seen;
+    for (size_t i = 0; i < structure->Fields.size(); ++i) {
+        std::string fieldName;
+        if (i < structure->FieldNames.size()) {
+            fieldName = structure->FieldNames[i];
+        } else if (i < targetStruct->Fields.size()) {
+            fieldName = targetStruct->Fields[i].first;
+        } else {
+            co_return TError(structure->Location, "Слишком много полей при конструировании структуры.");
+        }
+
+        auto targetIt = fieldByName.find(fieldName);
+        if (targetIt == fieldByName.end()) {
+            co_return TError(structure->Location,
+                "Поле '" + fieldName + "' не найдено в структуре. Доступные поля: " + AvailableStructFields(*targetStruct) + ".");
+        }
+        if (!seen.insert(fieldName).second) {
+            co_return TError(structure->Location,
+                "Поле '" + fieldName + "' указано несколько раз при конструировании структуры.");
+        }
+
+        auto fieldType = targetStruct->Fields[targetIt->second].second;
+        auto& field = structure->Fields[i];
+        field = co_await DoAnnotate(field, context, scopeId);
+        if (!field->Type) {
+            co_return TError(field->Location,
+                "Не удалось определить тип поля '" + fieldName + "' при конструировании структуры.");
+        }
+
+        auto valueType = UnwrapReferenceType(field->Type);
+        if (!EqualTypes(valueType, fieldType)) {
+            if (!CanImplicit(valueType, fieldType, &context)) {
+                co_return TError(field->Location,
+                    "Нельзя неявно преобразовать тип '" + std::string(valueType->TypeName()) +
+                    "' к типу поля '" + fieldName + "' (" + std::string(fieldType->TypeName()) + ").");
+            }
+            field = InsertImplicitCastIfNeeded(field, fieldType, &context);
+        }
+    }
+
+    co_return structure;
+}
+
+TTask AnnotateCast(std::shared_ptr<TCastExpr> cast, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    bool contextualStructConstruct = ApplyStructConstructContext(cast->Operand, cast->Type);
     cast->Operand = co_await DoAnnotate(cast->Operand, context, scopeId);
     if (cast->Operand->Type) {
+        auto sourceStructType = UnwrapNamedType(UnwrapReferenceType(cast->Operand->Type));
+        auto targetStructType = UnwrapNamedType(UnwrapReferenceType(cast->Type));
+        if (!contextualStructConstruct
+            && TMaybeType<TStructType>(sourceStructType)
+            && TMaybeType<TStructType>(targetStructType)
+            && TypeKey(sourceStructType) != TypeKey(targetStructType))
+        {
+            co_return TError(cast->Location,
+                "Нельзя привести структуру к целевому типу: поля структуры не совпадают.");
+        }
         if (auto synthName = context.GetCast(cast->Operand->Type, cast->Type)) {
             auto callee = std::make_shared<TIdentExpr>(cast->Location, *synthName);
             callee->Type = std::make_shared<TFunctionType>(
@@ -2272,6 +2393,8 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         co_return co_await AnnotateUnary(maybeUnary.Cast(), context, scopeId);
     } else if (auto maybeCast = TMaybeNode<TCastExpr>(expr)) {
         co_return co_await AnnotateCast(maybeCast.Cast(), context, scopeId);
+    } else if (auto maybeStruct = TMaybeNode<TStructConstructExpr>(expr)) {
+        co_return co_await AnnotateStructConstruct(maybeStruct.Cast(), context, scopeId);
     } else if (auto maybeBlock = TMaybeNode<TBlockExpr>(expr)) {
         co_return co_await AnnotateBlock(maybeBlock.Cast(), context, scopeId);
     } else if (auto maybeIdent = TMaybeNode<TIdentExpr>(expr)) {
