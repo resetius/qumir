@@ -1154,12 +1154,16 @@ TTypePtr SubstituteGenericType(
         }
 
         bool changed = false;
-        std::vector<TTypePtr> typeArgs;
+        std::vector<TGenericArg> typeArgs;
         typeArgs.reserve(placeholder->TypeArgs.size());
         for (const auto& arg : placeholder->TypeArgs) {
-            auto substituted = SubstituteGenericType(arg, genericTypeParams, bindings);
-            changed = changed || substituted != arg;
-            typeArgs.push_back(std::move(substituted));
+            if (arg.Kind != TGenericArg::EKind::Type) {
+                typeArgs.push_back(arg);
+                continue;
+            }
+            auto substituted = SubstituteGenericType(arg.Type, genericTypeParams, bindings);
+            changed = changed || substituted != arg.Type;
+            typeArgs.push_back(TGenericArg::TypeArg(std::move(substituted)));
         }
         if (!changed) {
             return type;
@@ -1266,7 +1270,12 @@ std::optional<std::string> UnifyGenericType(
             && placeholder->TypeArgs.size() == argNamed.Cast()->TypeArgs.size())
         {
             for (size_t i = 0; i < placeholder->TypeArgs.size(); ++i) {
-                if (auto err = UnifyGenericType(placeholder->TypeArgs[i], argNamed.Cast()->TypeArgs[i], genericTypeParams, bindings)) {
+                const auto& placeholderArg = placeholder->TypeArgs[i];
+                const auto& arg = argNamed.Cast()->TypeArgs[i];
+                if (placeholderArg.Kind != TGenericArg::EKind::Type || arg.Kind != TGenericArg::EKind::Type) {
+                    continue;
+                }
+                if (auto err = UnifyGenericType(placeholderArg.Type, arg.Type, genericTypeParams, bindings)) {
                     return err;
                 }
             }
