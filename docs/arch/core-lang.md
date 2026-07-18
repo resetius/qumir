@@ -367,24 +367,46 @@ Type declarations:
 
 ```core
 (type name underlying_type)
+(type name [generic_param1 ... generic_paramN] underlying_type)
 ```
 
 Declares a named type alias. `name` becomes available as a bare type identifier
 in the surrounding block scope. Named types are transparent to the IR — the IR
-type is the same as the underlying type. In type position the long form is
-`<named name>` or `<named name underlying_type>`:
+type is the same as the underlying type.
+
+`[generic_param1 ...]` is an optional generic parameter list placed immediately
+after the type name. It uses the same syntax as function generic parameters: a
+bare name declares a type parameter, while `(const Name type)` is reserved
+syntax for a future value parameter. Type parameters are introduced into the
+type declaration's type scope, so they can be used anywhere a type is expected
+inside the underlying type:
 
 ```core
 (block
   (type имя <struct (val i64)>)
+  (type Box [T] <struct (Value T)>)
+  (type Nullable [T] <struct (Value T) (Valid bool)>)
   (fun make_name ((var v i64)) -> <named имя>
     (block
       (return (: (struct ((val v))) <named имя>))))
+  (fun unwrap_box ((var b <named Box [i64]>)) -> i64
+    (block
+      (return (field b Value))))
   (fun <main> ()
     (block
       (var n <named имя>)
       (= n (call make_name 42)))))
 ```
+
+In type position the long form is `<named name>` or
+`<named name [type_arg1 ... type_argN]>`. An optional inline underlying type may
+still be written after the name/arguments as `<named name underlying_type>` or
+`<named name [type_arg1 ...] underlying_type>`, but normal source should prefer
+declaring the alias once with `(type ...)` and referring to it by name.
+
+Only type arguments are semantically supported today. Value generic parameters
+can be parsed in declarations, but instantiating a type that uses them fails
+during name resolution.
 
 Calls and I/O:
 
@@ -501,17 +523,108 @@ Single-index access creates `TIndexExpr`; vector index access creates
 `TMultiIndexExpr`. `(slice collection [start])` with a single bound is a
 single-element slice, equivalent to `(slice collection [start start])`.
 
-When a function parameter has type `<ref T>`, the argument must be an lvalue.
-Identifiers, field accesses, and array element accesses can be passed by
-reference. Indexed array arguments use the same syntax as normal reads:
+### Pointers
+
+`<ptr T>` is a raw machine pointer to `T`. Core lang does not attach ownership,
+lifetime, nullability, alignment, or bounds metadata to pointer values. It is
+mainly used by runtime/source modules and QumirDB kernels to describe ABI
+objects and manually managed buffers:
+
+```core
+(fun qdb_alloc ((var size i64)) -> <ptr i8> (attrs extern) (block))
+(fun qdb_free ((var ptr <ptr i8>)) -> void (attrs extern) (block))
+```
+
+The usual low-level idioms are explicit casts:
+
+```core
+; null pointer
+(cast (: 0 i64) <ptr i8>)
+
+; null check
+(== (cast ptr i64) (: 0 i64))
+
+; reinterpret byte storage as typed storage
+(var words = (cast bytes <ptr i64>))
+
+; pointer arithmetic by bytes
+(var tail = (cast (+ (cast bytes i64) byte_offset) <ptr u8>))
+```
+
+Explicit `cast` currently supports pointer-to-pointer, pointer-to-integer, and
+integer-to-pointer conversions. `T* -> void*` may be implicit; `void* -> T*`
+requires an explicit cast. These casts are representation-level operations and
+do not validate the pointed-to storage.
+
+`(index ptr i)` reads one element from a pointer. If `ptr` has type `<ptr T>`,
+the expression has type `T` and lowers as a load from:
+
+```core
+ptr + i * sizeof(T)
+```
+
+Pointer indices are zero-based and have no array lower-bound adjustment. The
+index must be an integer or implicitly castable to `i64`. Pointer indexing has
+only the single-index form; multi-indexing is for arrays. Slices are only for
+strings, not pointers. A pointer to a single object is dereferenced as
+`(index ptr 0)`.
+
+Indexed assignment stores through a pointer:
+
+```core
+(= words [i] (: 42 i64))
+(= bytes [b] (index other_bytes b))
+```
+
+This lowers as a store to `ptr + i * sizeof(T)`. For struct element types,
+assignment copies the whole struct value.
+
+Current lowering has an important restriction: pointer indexing and indexed
+assignment expect the collection to be a named local/global symbol. If the
+pointer is produced by a field access, cast, or arithmetic expression, bind it
+to a variable before indexing:
+
+```core
+(var data = (cast (field col Data) <ptr u8>))
+(var byte = (index data row))
+
+(var pair_work = (cast (+ (cast pairs i64) (* n (: 16 i64))) <ptr u64>))
+(= pair_work [i] (index pairs i))
+```
+
+One-dimensional arrays can be explicitly cast to a pointer to their element
+type. This is the current way to pass core array storage to lower-level helper
+functions:
+
+```core
+(var counts <array u32 1> [0 255])
+(call sort_count_pass (cast counts <ptr u32>))
+```
+
+The resulting pointer is a zero-based view of the array storage; the array's
+declared lower bound is not carried with the pointer.
+
+There is no first-class address-of expression for arbitrary values. When code
+needs the address of an existing object rather than a raw pointer value, spell
+the callee parameter as `<ref T>` and pass an addressable lvalue. During
+lowering the call passes the lvalue address:
 
 ```core
 (fun bump ((var x <ref i64>))
-  (block (= x (+ x (: 1 i64)))))
+  (block
+    (= x (+ x (: 1 i64)))))
+
+(var value i64)
+(call bump value)
 
 (var a <array i64 1> [0 2])
 (call bump (index a 1))
 ```
+
+Addressable reference arguments include identifiers, field accesses, and array
+element accesses. This is distinct from `<ptr T>`: `<ref T>` is a source-level
+by-reference parameter convention, while `<ptr T>` is a first-class raw pointer
+value.
 
 During IR lowering the indexed expression is converted to the element address,
 not loaded as a value.
@@ -586,7 +699,6 @@ Primitive types:
 | `bool` | `TBoolType` |
 | `string` | `TStringType` |
 | `char` | `TSymbolType` |
-| `file` | `TFileType` |
 | `void` | `TVoidType` |
 
 Composite types:
@@ -597,6 +709,8 @@ Composite types:
 <ptr pointee_type>
 <ref referenced_type>
 <named name underlying_type>
+<named name [type_arg1 ... type_argN]>
+<named name [type_arg1 ... type_argN] underlying_type>
 <struct (field_name1 field_type1) ... (field_nameN field_typeN)>
 <future result_type>
 ```
@@ -613,6 +727,8 @@ i64
 <ptr <struct (x f64) (y f64)>>
 <ref string>
 <named color i64>
+<named Nullable [i64]>
+<ptr <named Nullable [f64]>>
 <struct (x i64) (values <array f64 1>)>
 <fun bool (i64 f64)>
 <future i64>
@@ -624,7 +740,23 @@ Unknown bare type identifiers are parsed as short named types:
 color
 ```
 
-which is equivalent to a `TNamedType` without an underlying type attached.
+which is equivalent to a `TNamedType` without an underlying type attached. Name
+resolution later decides whether the name is a generic type parameter currently
+in scope or a declared/imported named type.
+
+Named type arguments use the same `[...]` delimiter as declarations, but in the
+canonical order `<named Name [Args]>`: the keyword `named` must immediately
+follow `<`, then the type name, then the optional argument list. Bare scalar
+types and generic type parameters may be used directly as arguments:
+
+```core
+<named Box [i64]>
+<named Pair [string T]>
+<array <named Nullable [f64]> 1>
+```
+
+Value generic arguments are reserved and currently rejected, so forms such as
+`<named Decimal [42]>` are syntax/semantic errors for now.
 
 ## Type Attributes
 
@@ -651,15 +783,19 @@ The core printer is the canonical form used by tests and AST goldens.
 - String and character literals are escaped with `\n`, `\t`, `\\`, `\"`, and
   `\'`.
 - `nil` is printed for null expressions and null types.
-- Function attributes currently print only `expect_after`; `operator`/`print`
-  attributes are consumed at resolution and are not yet re-emitted by the
-  printer.
+- Function attributes print `expect_after`, `operator`/`print`, `literal`, and
+  `extern`. `expect_before` and `used` are parsed/consumed but are not emitted
+  by the printer.
 - Function generic parameters are printed immediately after the function name
   in `[...]`; value generic parameters print canonically as `(const Name type)`.
+- Type generic parameters are printed immediately after the type name in
+  `[...]`, with the same canonical spelling as function generic parameters.
 - Type annotations are printed depending on `TPrintOptions::TypeMode`.
 - Scalar types are printed bare unless they need non-default attributes.
-- Named types may be printed short when listed in `ShortNamedTypes`; otherwise
-  they print as `<named name underlying_type>`.
+- Named types may be printed short when listed in `ShortNamedTypes`, but only
+  when they have no type arguments, no inline underlying type, and no
+  non-default attributes. Otherwise they print as `<named name>`,
+  `<named name [args]>`, or with the inline underlying type when one is present.
 
 ## Example
 
