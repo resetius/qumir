@@ -540,12 +540,24 @@ TTask AnnotateUnary(std::shared_ptr<TUnaryExpr> unary, NSemantics::TNameResolver
             unary->Type = std::make_shared<TBoolType>();
             co_return unary;
         }
+        if (auto m = context.GetUnaryOp("!", UnwrapReferenceType(unary->Type))) {
+            co_return co_await AnnotateIfNeeded(MakeModuleOpCall(m->SynthName, {unary->Operand}, m->ReturnType, unary->Location, context), context, scopeId);
+        }
+        if (auto result = co_await TryGenericUnaryOp("!", unary->Operand, context, unary->Location)) {
+            co_return co_await AnnotateIfNeeded(result, context, scopeId);
+        }
         co_return TError(unary->Location, "Оператор отрицания (не) применяется только к логическим выражениям");
     }
     if (unary->Operator == TOperator("~")) {
         if (TMaybeType<TIntegerType>(unary->Type)) {
             unary->Type = std::make_shared<TIntegerType>();
             co_return unary;
+        }
+        if (auto m = context.GetUnaryOp("~", UnwrapReferenceType(unary->Type))) {
+            co_return co_await AnnotateIfNeeded(MakeModuleOpCall(m->SynthName, {unary->Operand}, m->ReturnType, unary->Location, context), context, scopeId);
+        }
+        if (auto result = co_await TryGenericUnaryOp("~", unary->Operand, context, unary->Location)) {
+            co_return co_await AnnotateIfNeeded(result, context, scopeId);
         }
         co_return TError(unary->Location, "Битовое отрицание применяется только к целым числам");
     }
@@ -894,6 +906,12 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
             if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
                 type = std::make_shared<TIntegerType>();
             } else {
+                if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
+                }
+                if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
+                }
                 co_return TError(binary->Location, "binary expression operands must be both integer types");
             }
             break;
@@ -919,6 +937,12 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 // arithmetic vs logical right shift from the result type.
                 type = left;
             } else {
+                if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
+                }
+                if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
+                }
                 co_return TError(binary->Location, "Битовые операции применимы только к целым числам");
             }
             break;
@@ -950,9 +974,22 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
             break;
         case TOperator("&&"):
         case TOperator("||"):
-            binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  std::make_shared<TBoolType>(), &context);
-            binary->Right = InsertImplicitCastIfNeeded(binary->Right, std::make_shared<TBoolType>(), &context);
-            type = std::make_shared<TBoolType>();
+            {
+                auto boolType = std::make_shared<TBoolType>();
+                if (CanImplicit(left, boolType, &context) && CanImplicit(right, boolType, &context)) {
+                    binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  boolType, &context);
+                    binary->Right = InsertImplicitCastIfNeeded(binary->Right, boolType, &context);
+                    type = boolType;
+                    break;
+                }
+                if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
+                }
+                if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
+                }
+                co_return TError(binary->Location, "Логические операции применимы только к логическим выражениям");
+            }
             break;
         default:
             if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
