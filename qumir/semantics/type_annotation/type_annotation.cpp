@@ -333,6 +333,11 @@ TExprPtr AnnotateNumber(std::shared_ptr<TNumberExpr> num) {
 }
 
 TTask AnnotateCast(std::shared_ptr<TCastExpr> cast, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    if (auto structure = TMaybeNode<TStructConstructExpr>(cast->Operand);
+        structure && TMaybeType<TStructType>(UnwrapNamedType(cast->Type)))
+    {
+        structure.Cast()->Type = cast->Type;
+    }
     cast->Operand = co_await DoAnnotate(cast->Operand, context, scopeId);
     if (cast->Operand->Type) {
         if (auto synthName = context.GetCast(cast->Operand->Type, cast->Type)) {
