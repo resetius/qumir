@@ -656,6 +656,40 @@ TEST(ParametricTypes, PrefersParametricGenericOverBareGenericOverload) {
     EXPECT_EQ(callType->Kind, TIntegerType::I64);
 }
 
+TEST(ParametricTypes, RetypesIntegerLiteralToExistingFloatGenericBinding) {
+    auto root = ParseCore(R"__(
+(block
+  (pragma language overloads)
+  (type Nullable [T] <struct (Value T) (Valid bool)>)
+  (fun nullable_from_value [T] ((var value T)) -> <named Nullable [T]> (attrs (operator "cast"))
+    (block
+      (return (cast (struct ((Value value) (Valid #t))) <named Nullable [T]>))))
+  (fun nullable_add [T] ((var a <named Nullable [T]>) (var b <named Nullable [T]>)) -> <named Nullable [T]> (attrs (operator "+"))
+    (block
+      (return a)))
+  (fun nullable_add_rhs [T] ((var a <named Nullable [T]>) (var b T)) -> <named Nullable [T]> (attrs (operator "+"))
+    (block
+      (return (+ a (cast b <named Nullable [T]>)))))
+  (fun run ((var a <named Nullable [f64]>)) -> <named Nullable [f64]>
+    (block
+      (return (+ a (: 1 i64))))))
+)__");
+    ASSERT_NE(root, nullptr);
+
+    TNameResolver resolver({.AllowOverloads = true});
+    auto nameResult = NTransform::FinalNameResolution(root, resolver);
+    ASSERT_TRUE(nameResult.has_value()) << nameResult.error().ToString();
+    auto typeResult = NTransform::FinalTypeAnnotation(root, resolver);
+    ASSERT_TRUE(typeResult.has_value()) << typeResult.error().ToString();
+
+    auto instantiatedCall = FindCallWithCalleePrefix(root, "__generic_nullable_add_rhs$Float");
+    ASSERT_TRUE(instantiatedCall);
+    auto nullable = TMaybeType<TNamedType>(instantiatedCall->Type).Cast();
+    ASSERT_TRUE(nullable);
+    ASSERT_EQ(nullable->TypeArgs.size(), 1u);
+    EXPECT_TRUE(TMaybeType<TFloatType>(nullable->TypeArgs[0].Type));
+}
+
 TEST(FinalSemanticPipeline, DoesNotRerunSourceTransforms) {
     auto condition = std::make_shared<TNumberExpr>(TLocation{}, true);
     auto assertNode = std::make_shared<TAssertStmt>(TLocation{}, condition);
