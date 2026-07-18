@@ -254,6 +254,7 @@ private:
     using TTask = TExpectedTask<std::monostate, TError, TLocation>;
     TTask Resolve(NAst::TExprPtr node, TScopePtr parentScope, TScopePtr funcScope);
     TTask ResolveTopFuncDecl(NAst::TExprPtr node, TScopePtr scope);
+    std::optional<TError> ResolveTypeRef(NAst::TTypePtr& type, const TLocation& loc, TScopePtr typeScope);
     std::optional<TError> RegisterTypeDecls(const NAst::TExprPtr& root);
     // Registers top-level functions carrying an (operator "X") attribute into
     // the type-keyed op/cast dispatch tables, with the function's own name as

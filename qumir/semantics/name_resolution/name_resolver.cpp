@@ -106,7 +106,7 @@ TTypePtr CloneTypeWithGenericBindings(
         if (src->TypeArgs.empty() && genericTypeParams.contains(src->Name)) {
             auto it = bindings.find(src->Name);
             if (it != bindings.end()) {
-                return CopyTypeAttrs(CloneTypeWithGenericBindings(it->second, genericTypeParams, bindings), type);
+                return CopyTypeAttrs(CloneTypeWithGenericBindings(it->second, {}, {}), type);
             }
         }
         auto result = std::make_shared<TNamedType>(
@@ -125,6 +125,16 @@ TTypePtr CloneTypeWithGenericBindings(
         return CopyTypeAttrs(std::make_shared<TStructType>(std::move(fields)), type);
     }
     return type;
+}
+
+bool IsGenericTypeParam(const std::string& name, TScopePtr typeScope) {
+    while (typeScope) {
+        if (typeScope->GenericTypeParams.contains(name)) {
+            return true;
+        }
+        typeScope = typeScope->Parent;
+    }
+    return false;
 }
 
 } // namespace
@@ -188,26 +198,7 @@ TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TSco
     co_return {};
 }
 
-TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TScopePtr funcScope) {
-    std::list<TError> errors;
-
-    auto suggestionMessage = [&](const std::string& name, int scopeId, bool includeFunctions) {
-        auto suggestion = Suggest(name, TScopeId{scopeId}, includeFunctions);
-        return suggestion ? suggestion->ToString() : "";
-    };
-
-    // Resolve TNamedType: fill in UnderlyingType from imported module and source type declarations.
-    // Also recurses into TReferenceType and TPointerType wrappers.
-    auto isGenericTypeParam = [](const std::string& name, TScopePtr typeScope) {
-        while (typeScope) {
-            if (typeScope->GenericTypeParams.contains(name)) {
-                return true;
-            }
-            typeScope = typeScope->Parent;
-        }
-        return false;
-    };
-
+std::optional<TError> TNameResolver::ResolveTypeRef(TTypePtr& type, const TLocation& loc, TScopePtr typeScope) {
     auto resolveTypeRef = [&](auto& self, NAst::TTypePtr& type, const TLocation& loc, TScopePtr typeScope) -> std::optional<TError> {
         if (!type) return {};
         if (auto maybeNamed = TMaybeType<TNamedType>(type)) {
@@ -220,7 +211,7 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
                     return err;
                 }
             }
-            if (isGenericTypeParam(named->Name, typeScope)) {
+            if (IsGenericTypeParam(named->Name, typeScope)) {
                 return {};
             }
             auto it = RegisteredTypes.find(named->Name);
@@ -294,14 +285,21 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         }
         return {};
     };
-    auto resolveTypeRefOuter = [&](NAst::TTypePtr& type, const TLocation& loc, TScopePtr typeScope) -> std::optional<TError> {
-        return resolveTypeRef(resolveTypeRef, type, loc, typeScope);
+    return resolveTypeRef(resolveTypeRef, type, loc, typeScope);
+}
+
+TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TScopePtr funcScope) {
+    std::list<TError> errors;
+
+    auto suggestionMessage = [&](const std::string& name, int scopeId, bool includeFunctions) {
+        auto suggestion = Suggest(name, TScopeId{scopeId}, includeFunctions);
+        return suggestion ? suggestion->ToString() : "";
     };
 
-    // TODO: resolveTypeRefOuter on every node is O(n*depth); consider resolving types
+    // TODO: ResolveTypeRef on every node is O(n*depth); consider resolving types
     // only at declaration sites (TVarStmt, TFunDecl params) rather than all nodes.
     if (node->Type && !TMaybeNode<TFunDecl>(node) && !TMaybeNode<TTypeDeclStmt>(node)) {
-        if (auto err = resolveTypeRefOuter(node->Type, node->Location, scope)) {
+        if (auto err = ResolveTypeRef(node->Type, node->Location, scope)) {
             co_return *err;
         }
     }
@@ -313,14 +311,14 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
             co_return TError(fdecl->Location, "function has invalid scope id: " + std::to_string(scopeId.Id));
         }
         auto newScope = Scopes[scopeId.Id];
-        if (auto err = resolveTypeRefOuter(fdecl->Type, fdecl->Location, newScope)) {
+        if (auto err = ResolveTypeRef(fdecl->Type, fdecl->Location, newScope)) {
             co_return *err;
         }
-        if (auto err = resolveTypeRefOuter(fdecl->RetType, fdecl->Location, newScope)) {
+        if (auto err = ResolveTypeRef(fdecl->RetType, fdecl->Location, newScope)) {
             co_return *err;
         }
         for (auto& param : fdecl->Params) {
-            if (auto err = resolveTypeRefOuter(param->Type, param->Location, newScope)) {
+            if (auto err = ResolveTypeRef(param->Type, param->Location, newScope)) {
                 co_return *err;
             }
         }
@@ -369,7 +367,7 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         }
     } else if (auto maybeVarStmt = TMaybeNode<TVarStmt>(node)) {
         auto varStmt = maybeVarStmt.Cast();
-        if (auto err = resolveTypeRefOuter(varStmt->Type, varStmt->Location, scope)) {
+        if (auto err = ResolveTypeRef(varStmt->Type, varStmt->Location, scope)) {
             co_return *err;
         }
         auto existing = scope->NameToSymbolId.find(varStmt->Name);
@@ -404,7 +402,7 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
                     }
                 }
             }
-            if (auto err = resolveTypeRefOuter(named->UnderlyingType, typeDecl->Location, typeScope)) {
+            if (auto err = ResolveTypeRef(named->UnderlyingType, typeDecl->Location, typeScope)) {
                 co_return *err;
             }
         }
@@ -664,7 +662,16 @@ std::expected<TSymbolId, TError> TNameResolver::ResolveInstantiatedFunDecl(std::
 
     auto funcScope = NewScope(rootScope, nullptr);
     fdecl->Scope = funcScope->Id.Id;
+    if (auto err = ResolveTypeRef(fdecl->Type, fdecl->Location, funcScope)) {
+        return std::unexpected(*err);
+    }
+    if (auto err = ResolveTypeRef(fdecl->RetType, fdecl->Location, funcScope)) {
+        return std::unexpected(*err);
+    }
     for (auto& param : fdecl->Params) {
+        if (auto err = ResolveTypeRef(param->Type, param->Location, funcScope)) {
+            return std::unexpected(*err);
+        }
         auto paramRes = Declare(param->Name, param, funcScope, funcScope);
         if (!paramRes) {
             return std::unexpected(paramRes.error());

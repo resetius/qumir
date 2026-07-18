@@ -36,6 +36,130 @@ bool IsGenericTypeParam(const TTypePtr& type, const std::unordered_set<std::stri
     return genericTypeParams && named && genericTypeParams->contains(named.Cast()->Name);
 }
 
+std::optional<int> GenericParametricCost(
+    const TTypePtr& paramType,
+    const TTypePtr& argType,
+    const std::unordered_set<std::string>* genericTypeParams);
+
+std::optional<int> CombineGenericCost(
+    const TTypePtr& paramType,
+    const TTypePtr& argType,
+    const std::unordered_set<std::string>* genericTypeParams,
+    bool& matched)
+{
+    if (auto cost = GenericParametricCost(paramType, argType, genericTypeParams)) {
+        matched = true;
+        return cost;
+    }
+    if (TypeKey(paramType) == TypeKey(argType)) {
+        return 0;
+    }
+    return std::nullopt;
+}
+
+std::optional<int> GenericParametricCost(
+    const TTypePtr& paramType,
+    const TTypePtr& argType,
+    const std::unordered_set<std::string>* genericTypeParams)
+{
+    if (!genericTypeParams || genericTypeParams->empty() || !paramType || !argType) {
+        return std::nullopt;
+    }
+    if (IsGenericTypeParam(paramType, genericTypeParams)) {
+        return GenericParamCost;
+    }
+    bool matched = false;
+    int total = 0;
+    if (auto paramNamed = TMaybeType<TNamedType>(paramType)) {
+        auto argNamed = TMaybeType<TNamedType>(argType);
+        if (!argNamed || paramNamed.Cast()->Name != argNamed.Cast()->Name
+            || paramNamed.Cast()->TypeArgs.size() != argNamed.Cast()->TypeArgs.size())
+        {
+            return std::nullopt;
+        }
+        for (size_t i = 0; i < paramNamed.Cast()->TypeArgs.size(); ++i) {
+            const auto& paramArg = paramNamed.Cast()->TypeArgs[i];
+            const auto& arg = argNamed.Cast()->TypeArgs[i];
+            if (paramArg.Kind != TGenericArg::EKind::Type || arg.Kind != TGenericArg::EKind::Type) {
+                return std::nullopt;
+            }
+            auto cost = CombineGenericCost(paramArg.Type, arg.Type, genericTypeParams, matched);
+            if (!cost) {
+                return std::nullopt;
+            }
+            total += *cost;
+        }
+        return matched ? std::optional<int>{total} : std::nullopt;
+    }
+    if (auto paramArray = TMaybeType<TArrayType>(paramType)) {
+        auto argArray = TMaybeType<TArrayType>(argType);
+        if (!argArray || paramArray.Cast()->Arity != argArray.Cast()->Arity) {
+            return std::nullopt;
+        }
+        auto cost = CombineGenericCost(paramArray.Cast()->ElementType, argArray.Cast()->ElementType, genericTypeParams, matched);
+        return cost && matched ? cost : std::nullopt;
+    }
+    if (auto paramPtr = TMaybeType<TPointerType>(paramType)) {
+        auto argPtr = TMaybeType<TPointerType>(argType);
+        if (!argPtr) {
+            return std::nullopt;
+        }
+        auto cost = CombineGenericCost(paramPtr.Cast()->PointeeType, argPtr.Cast()->PointeeType, genericTypeParams, matched);
+        return cost && matched ? cost : std::nullopt;
+    }
+    if (auto paramRef = TMaybeType<TReferenceType>(paramType)) {
+        auto argRef = TMaybeType<TReferenceType>(argType);
+        auto argInner = argRef ? argRef.Cast()->ReferencedType : argType;
+        auto cost = CombineGenericCost(paramRef.Cast()->ReferencedType, argInner, genericTypeParams, matched);
+        return cost && matched ? cost : std::nullopt;
+    }
+    if (auto paramFuture = TMaybeType<TFutureType>(paramType)) {
+        auto argFuture = TMaybeType<TFutureType>(argType);
+        if (!argFuture) {
+            return std::nullopt;
+        }
+        auto cost = CombineGenericCost(paramFuture.Cast()->ResultType, argFuture.Cast()->ResultType, genericTypeParams, matched);
+        return cost && matched ? cost : std::nullopt;
+    }
+    if (auto paramFun = TMaybeType<TFunctionType>(paramType)) {
+        auto argFun = TMaybeType<TFunctionType>(argType);
+        if (!argFun || paramFun.Cast()->ParamTypes.size() != argFun.Cast()->ParamTypes.size()) {
+            return std::nullopt;
+        }
+        for (size_t i = 0; i < paramFun.Cast()->ParamTypes.size(); ++i) {
+            auto cost = CombineGenericCost(paramFun.Cast()->ParamTypes[i], argFun.Cast()->ParamTypes[i], genericTypeParams, matched);
+            if (!cost) {
+                return std::nullopt;
+            }
+            total += *cost;
+        }
+        auto retCost = CombineGenericCost(paramFun.Cast()->ReturnType, argFun.Cast()->ReturnType, genericTypeParams, matched);
+        if (!retCost) {
+            return std::nullopt;
+        }
+        total += *retCost;
+        return matched ? std::optional<int>{total} : std::nullopt;
+    }
+    if (auto paramStruct = TMaybeType<TStructType>(paramType)) {
+        auto argStruct = TMaybeType<TStructType>(argType);
+        if (!argStruct || paramStruct.Cast()->Fields.size() != argStruct.Cast()->Fields.size()) {
+            return std::nullopt;
+        }
+        for (size_t i = 0; i < paramStruct.Cast()->Fields.size(); ++i) {
+            if (paramStruct.Cast()->Fields[i].first != argStruct.Cast()->Fields[i].first) {
+                return std::nullopt;
+            }
+            auto cost = CombineGenericCost(paramStruct.Cast()->Fields[i].second, argStruct.Cast()->Fields[i].second, genericTypeParams, matched);
+            if (!cost) {
+                return std::nullopt;
+            }
+            total += *cost;
+        }
+        return matched ? std::optional<int>{total} : std::nullopt;
+    }
+    return std::nullopt;
+}
+
 bool WideningInt(const TTypePtr& from, const TTypePtr& to) {
     auto s = TMaybeType<TIntegerType>(from).Cast();
     auto d = TMaybeType<TIntegerType>(to).Cast();
@@ -71,6 +195,9 @@ std::optional<int> ArgCost(
     // determined once this overload is chosen as the best match.
     if (IsGenericTypeParam(to, genericTypeParams)) {
         return GenericParamCost;
+    }
+    if (auto cost = GenericParametricCost(to, from, genericTypeParams)) {
+        return cost;
     }
 
     if (SameKind(from, to)) {
