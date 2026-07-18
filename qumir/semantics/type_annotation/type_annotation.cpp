@@ -9,6 +9,7 @@
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/semantics/return_analysis.h>
 
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <cassert>
@@ -122,6 +123,9 @@ bool IntegerLiteralFits(int64_t value, const TIntegerType& type) {
 }
 
 bool RetypeIntegerLiteralIfFits(TExprPtr expr, TTypePtr toType) {
+    if (!expr || !toType) {
+        return false;
+    }
     auto maybeNumber = TMaybeNode<TNumberExpr>(expr);
     auto maybeInteger = TMaybeType<TIntegerType>(toType);
     if (!maybeNumber || !maybeInteger) {
@@ -138,6 +142,23 @@ bool RetypeIntegerLiteralIfFits(TExprPtr expr, TTypePtr toType) {
 
     number->Type = std::move(toType);
     return true;
+}
+
+bool IsIntegerLiteral(TExprPtr expr) {
+    auto maybeNumber = TMaybeNode<TNumberExpr>(expr);
+    return maybeNumber && !maybeNumber.Cast()->IsFloat();
+}
+
+bool IntegerLiteralCanUseType(TExprPtr expr, TTypePtr toType) {
+    if (!expr || !toType) {
+        return false;
+    }
+    auto maybeNumber = TMaybeNode<TNumberExpr>(expr);
+    auto maybeInteger = TMaybeType<TIntegerType>(toType);
+    return maybeNumber
+        && maybeInteger
+        && !maybeNumber.Cast()->IsFloat()
+        && IntegerLiteralFits(maybeNumber.Cast()->IntValue, *maybeInteger.Cast());
 }
 
 bool EqualTypes(TTypePtr a, TTypePtr b) {
@@ -1450,7 +1471,9 @@ std::optional<std::string> UnifyGenericType(
     const TTypePtr& paramType,
     const TTypePtr& argType,
     const std::unordered_set<std::string>& genericTypeParams,
-    std::map<std::string, TTypePtr>& bindings)
+    std::map<std::string, TTypePtr>& bindings,
+    TExprPtr argExpr = nullptr,
+    bool retypeIntegerLiterals = true)
 {
     if (!paramType || !argType) {
         return std::nullopt;
@@ -1461,8 +1484,16 @@ std::optional<std::string> UnifyGenericType(
             auto concrete = UnwrapReferenceType(argType);
             auto [it, inserted] = bindings.try_emplace(placeholder->Name, concrete);
             if (!inserted && TypeKey(it->second) != TypeKey(concrete)) {
+                if (IntegerLiteralCanUseType(argExpr, it->second)) {
+                    if (retypeIntegerLiterals) {
+                        RetypeIntegerLiteralIfFits(argExpr, it->second);
+                    }
+                    concrete = it->second;
+                }
+            }
+            if (!inserted && TypeKey(it->second) != TypeKey(concrete)) {
                 return "тип обобщённого параметра '" + placeholder->Name + "' определяется неоднозначно: то как '"
-                    + std::string(it->second->TypeName()) + "', то как '" + std::string(concrete->TypeName()) + "'";
+                    + it->second->ToString() + "', то как '" + concrete->ToString() + "'";
             }
             return std::nullopt;
         }
@@ -1477,7 +1508,14 @@ std::optional<std::string> UnifyGenericType(
                 if (placeholderArg.Kind != TGenericArg::EKind::Type || arg.Kind != TGenericArg::EKind::Type) {
                     continue;
                 }
-                if (auto err = UnifyGenericType(placeholderArg.Type, arg.Type, genericTypeParams, bindings)) {
+                if (auto err = UnifyGenericType(
+                        placeholderArg.Type,
+                        arg.Type,
+                        genericTypeParams,
+                        bindings,
+                        nullptr,
+                        retypeIntegerLiterals))
+                {
                     return err;
                 }
             }
@@ -1486,23 +1524,47 @@ std::optional<std::string> UnifyGenericType(
     }
     if (auto arr = TMaybeType<TArrayType>(paramType)) {
         if (auto argArr = TMaybeType<TArrayType>(argType)) {
-            return UnifyGenericType(arr.Cast()->ElementType, argArr.Cast()->ElementType, genericTypeParams, bindings);
+            return UnifyGenericType(
+                arr.Cast()->ElementType,
+                argArr.Cast()->ElementType,
+                genericTypeParams,
+                bindings,
+                nullptr,
+                retypeIntegerLiterals);
         }
         return std::nullopt;
     }
     if (auto ptr = TMaybeType<TPointerType>(paramType)) {
         if (auto argPtr = TMaybeType<TPointerType>(argType)) {
-            return UnifyGenericType(ptr.Cast()->PointeeType, argPtr.Cast()->PointeeType, genericTypeParams, bindings);
+            return UnifyGenericType(
+                ptr.Cast()->PointeeType,
+                argPtr.Cast()->PointeeType,
+                genericTypeParams,
+                bindings,
+                nullptr,
+                retypeIntegerLiterals);
         }
         return std::nullopt;
     }
     if (auto ref = TMaybeType<TReferenceType>(paramType)) {
         auto argRef = TMaybeType<TReferenceType>(argType);
-        return UnifyGenericType(ref.Cast()->ReferencedType, argRef ? argRef.Cast()->ReferencedType : argType, genericTypeParams, bindings);
+        return UnifyGenericType(
+            ref.Cast()->ReferencedType,
+            argRef ? argRef.Cast()->ReferencedType : argType,
+            genericTypeParams,
+            bindings,
+            argExpr,
+            retypeIntegerLiterals);
     }
     if (auto future = TMaybeType<TFutureType>(paramType)) {
         if (auto argFuture = TMaybeType<TFutureType>(argType)) {
-            return UnifyGenericType(future.Cast()->ResultType, argFuture.Cast()->ResultType, genericTypeParams, bindings);
+            return UnifyGenericType(
+                future.Cast()->ResultType,
+                argFuture.Cast()->ResultType,
+                genericTypeParams,
+                bindings,
+                nullptr,
+                retypeIntegerLiterals);
         }
         return std::nullopt;
     }
@@ -1517,11 +1579,24 @@ std::optional<std::string> UnifyGenericType(
             return std::nullopt;
         }
         for (size_t i = 0; i < pf->ParamTypes.size(); ++i) {
-            if (auto err = UnifyGenericType(pf->ParamTypes[i], af->ParamTypes[i], genericTypeParams, bindings)) {
+            if (auto err = UnifyGenericType(
+                    pf->ParamTypes[i],
+                    af->ParamTypes[i],
+                    genericTypeParams,
+                    bindings,
+                    nullptr,
+                    retypeIntegerLiterals))
+            {
                 return err;
             }
         }
-        return UnifyGenericType(pf->ReturnType, af->ReturnType, genericTypeParams, bindings);
+        return UnifyGenericType(
+            pf->ReturnType,
+            af->ReturnType,
+            genericTypeParams,
+            bindings,
+            nullptr,
+            retypeIntegerLiterals);
     }
     if (auto str = TMaybeType<TStructType>(paramType)) {
         auto argStr = TMaybeType<TStructType>(argType);
@@ -1534,9 +1609,72 @@ std::optional<std::string> UnifyGenericType(
             return std::nullopt;
         }
         for (size_t i = 0; i < ps->Fields.size(); ++i) {
-            if (auto err = UnifyGenericType(ps->Fields[i].second, as->Fields[i].second, genericTypeParams, bindings)) {
+            if (auto err = UnifyGenericType(
+                    ps->Fields[i].second,
+                    as->Fields[i].second,
+                    genericTypeParams,
+                    bindings,
+                    nullptr,
+                    retypeIntegerLiterals))
+            {
                 return err;
             }
+        }
+    }
+    return std::nullopt;
+}
+
+bool IsGenericTypeParamRef(const TTypePtr& type, const std::unordered_set<std::string>& genericTypeParams) {
+    auto named = TMaybeType<TNamedType>(UnwrapReferenceType(type));
+    return named
+        && named.Cast()->TypeArgs.empty()
+        && genericTypeParams.contains(named.Cast()->Name);
+}
+
+std::optional<std::string> InferGenericBindings(
+    const TFunDecl& decl,
+    const std::vector<TExprPtr>& args,
+    const std::unordered_set<std::string>& genericTypeParams,
+    const std::vector<std::string>& paramNames,
+    std::map<std::string, TTypePtr>& bindings,
+    bool retypeIntegerLiterals)
+{
+    const size_t count = std::min(decl.Params.size(), args.size());
+    auto unifyArg = [&](size_t i) -> std::optional<std::string> {
+        return UnifyGenericType(
+            decl.Params[i]->Type,
+            UnwrapReferenceType(args[i]->Type),
+            genericTypeParams,
+            bindings,
+            args[i],
+            retypeIntegerLiterals);
+    };
+
+    for (size_t i = 0; i < count; ++i) {
+        if (!IsGenericTypeParamRef(decl.Params[i]->Type, genericTypeParams)) {
+            if (auto err = unifyArg(i)) {
+                return err;
+            }
+        }
+    }
+    for (size_t i = 0; i < count; ++i) {
+        if (IsGenericTypeParamRef(decl.Params[i]->Type, genericTypeParams) && !IsIntegerLiteral(args[i])) {
+            if (auto err = unifyArg(i)) {
+                return err;
+            }
+        }
+    }
+    for (size_t i = 0; i < count; ++i) {
+        if (IsGenericTypeParamRef(decl.Params[i]->Type, genericTypeParams) && IsIntegerLiteral(args[i])) {
+            if (auto err = unifyArg(i)) {
+                return err;
+            }
+        }
+    }
+
+    for (const auto& name : paramNames) {
+        if (!bindings.contains(name)) {
+            return "не удалось определить тип обобщённого параметра '" + name + "' по аргументам вызова";
         }
     }
     return std::nullopt;
@@ -1708,17 +1846,15 @@ TFunDeclTask InstantiateGenericFunction(
     auto genericTypeParams = GenericTypeParamSet(*genericDecl);
     auto paramNames = GenericTypeParamNames(*genericDecl);
     std::map<std::string, TTypePtr> bindings;
-    for (size_t i = 0; i < genericDecl->Params.size() && i < args.size(); ++i) {
-        if (auto err = UnifyGenericType(genericDecl->Params[i]->Type, args[i]->Type, genericTypeParams, bindings)) {
-            co_return TError(callLoc, "Не удалось вывести типы обобщённых параметров функции '" + genericDecl->Name + "': " + *err);
-        }
-    }
-
-    for (auto& name : paramNames) {
-        if (!bindings.contains(name)) {
-            co_return TError(callLoc, "Не удалось определить тип обобщённого параметра '" + name +
-                "' функции '" + genericDecl->Name + "' по аргументам вызова.");
-        }
+    if (auto err = InferGenericBindings(
+            *genericDecl,
+            args,
+            genericTypeParams,
+            paramNames,
+            bindings,
+            true))
+    {
+        co_return TError(callLoc, "Не удалось вывести типы обобщённых параметров функции '" + genericDecl->Name + "': " + *err);
     }
 
     std::string mangledName = "__generic_" + genericDecl->Name;
@@ -1807,12 +1943,17 @@ std::optional<TTypePtr> SubstituteGenericOperatorReturnType(
     TError& error)
 {
     std::map<std::string, TTypePtr> bindings;
-    for (size_t i = 0; i < decl->Params.size() && i < args.size(); ++i) {
-        auto argType = UnwrapReferenceType(args[i]->Type);
-        if (auto err = UnifyGenericType(decl->Params[i]->Type, argType, genericTypeParams, bindings)) {
-            error = TError(loc, "Не удалось вывести типы обобщённых параметров оператора '" + *decl->OperatorName + "': " + *err);
-            return std::nullopt;
-        }
+    auto paramNames = GenericTypeParamNames(*decl);
+    if (auto err = InferGenericBindings(
+            *decl,
+            args,
+            genericTypeParams,
+            paramNames,
+            bindings,
+            false))
+    {
+        error = TError(loc, "Не удалось вывести типы обобщённых параметров оператора '" + *decl->OperatorName + "': " + *err);
+        return std::nullopt;
     }
     return SubstituteGenericType(decl->RetType, genericTypeParams, bindings);
 }
@@ -1848,21 +1989,19 @@ TRegisteredOpTask InstantiateGenericOperator(
         if (!viable) {
             continue;
         }
-        if (expectedReturnType) {
-            TError error(callLoc, "");
-            auto retType = SubstituteGenericOperatorReturnType(
-                candidate,
-                args,
-                genericTypeParams,
-                callLoc,
-                error);
-            if (!retType) {
-                delayedError = std::move(error);
-                continue;
-            }
-            if (!EqualTypes(*retType, expectedReturnType)) {
-                continue;
-            }
+        TError error(callLoc, "");
+        auto retType = SubstituteGenericOperatorReturnType(
+            candidate,
+            args,
+            genericTypeParams,
+            callLoc,
+            error);
+        if (!retType) {
+            delayedError = std::move(error);
+            continue;
+        }
+        if (expectedReturnType && !EqualTypes(*retType, expectedReturnType)) {
+            continue;
         }
         if (totalCost < bestCost) {
             bestCost = totalCost;
@@ -1968,6 +2107,19 @@ TTask AnnotateOverloadedCall(
         }
         if (!viable) {
             continue;
+        }
+        if (HasGenericParams(*funDecl)) {
+            std::map<std::string, TTypePtr> bindings;
+            if (InferGenericBindings(
+                    *funDecl,
+                    call->Args,
+                    genericTypeParams,
+                    GenericTypeParamNames(*funDecl),
+                    bindings,
+                    false))
+            {
+                continue;
+            }
         }
         if (totalCost < bestCost) {
             bestCost = totalCost;
@@ -2088,6 +2240,7 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
                 // no implicit cast for reference parameters
                 continue;
             }
+            RetypeIntegerLiteralIfFits(arg, paramT);
             if (!EqualTypes(arg->Type, paramT)) {
                 if (!CanImplicit(UnwrapReferenceType(arg->Type), paramT, &context)) {
                     co_return TError(arg->Location, "Аргумент #" + std::to_string(i+1) + ": нельзя неявно преобразовать тип '" + std::string(arg->Type->TypeName()) + "' к типу параметра '" + std::string(paramT->TypeName()) + "'.");
