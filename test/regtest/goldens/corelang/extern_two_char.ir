@@ -1,12 +1,12 @@
 function <main> () { ; void
   block {
     label: label(0)
-    salloc tmp(0,ptr to i64) = imm(2,i64) 
-    + tmp(1,ptr to i64) = tmp(0,ptr to i64) imm(0,i64) 
-    ste tmp(1,ptr to i64) imm(3,i8) 
-    + tmp(2,ptr to i64) = tmp(0,ptr to i64) imm(1,i64) 
-    ste tmp(2,ptr to i64) imm(4,i8) 
-    stre local(0,struct { i8; i8}) tmp(0,ptr to i64) 
+    salloc tmp(0,ptr to i8) = imm(2,i64) 
+    + tmp(1,ptr to i8) = tmp(0,ptr to i8) imm(0,i64) 
+    ste tmp(1,ptr to i8) imm(3,i8) 
+    + tmp(2,ptr to i8) = tmp(0,ptr to i8) imm(1,i64) 
+    ste tmp(2,ptr to i8) imm(4,i8) 
+    stre local(0,struct { i8; i8}) tmp(0,ptr to i8) 
     load tmp(3,struct { i8; i8}) = local(0,struct { i8; i8}) 
     arg tmp(3,struct { i8; i8}) 
     call tmp(4,i64) = qumir_two_char_sum 
@@ -19,8 +19,8 @@ function <main> () { ; void
     arg tmp(5,struct { i8; i8}) 
     call tmp(6,struct { i8; i8}) = qumir_two_char_swap 
     stre local(1,struct { i8; i8}) tmp(6,struct { i8; i8}) 
-    lea tmp(7,struct { i8; i8}) = local(1,struct { i8; i8}) 
-    + tmp(8,ptr to i8) = tmp(7,struct { i8; i8}) imm(0,i64) 
+    lea tmp(7,ptr to struct { i8; i8}) = local(1,struct { i8; i8}) 
+    + tmp(8,ptr to i8) = tmp(7,ptr to struct { i8; i8}) imm(0,i64) 
     lde tmp(9,i8) = tmp(8,ptr to i8) 
     mov tmp(10,i64) = tmp(9,i8) 
     arg tmp(10,i64) 
@@ -28,8 +28,8 @@ function <main> () { ; void
     call output_int64 
     arg imm(1,ptr to i8) 
     call output_string 
-    lea tmp(11,struct { i8; i8}) = local(1,struct { i8; i8}) 
-    + tmp(12,ptr to i8) = tmp(11,struct { i8; i8}) imm(1,i64) 
+    lea tmp(11,ptr to struct { i8; i8}) = local(1,struct { i8; i8}) 
+    + tmp(12,ptr to i8) = tmp(11,ptr to struct { i8; i8}) imm(1,i64) 
     lde tmp(13,i8) = tmp(12,ptr to i8) 
     mov tmp(14,i64) = tmp(13,i8) 
     arg tmp(14,i64) 

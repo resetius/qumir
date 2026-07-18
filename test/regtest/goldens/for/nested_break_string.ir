@@ -27,11 +27,11 @@ function функция () { ; f64
     stre local(4,ptr to i8) tmp(8,ptr to i8) 
     arg imm(1,ptr to i8) 
     call tmp(9,ptr to i8) = str_from_lit 
-    lea tmp(10,ptr to i8) = local(4,ptr to i8) 
-    lde tmp(11,ptr to i8) = tmp(10,ptr to i8) 
+    lea tmp(10,ptr to ptr to i8) = local(4,ptr to i8) 
+    lde tmp(11,ptr to i8) = tmp(10,ptr to ptr to i8) 
     arg tmp(11,ptr to i8) 
     call str_release 
-    ste tmp(10,ptr to i8) tmp(9,ptr to i8) 
+    ste tmp(10,ptr to ptr to i8) tmp(9,ptr to i8) 
     stre local(2,i64) imm(0,i64) 
     stre local(11,i64) imm(1,i64) 
     load tmp(12,i64) = local(2,i64) 
@@ -65,11 +65,11 @@ function функция () { ; f64
     stre local(5,ptr to i8) tmp(20,ptr to i8) 
     arg imm(2,ptr to i8) 
     call tmp(21,ptr to i8) = str_from_lit 
-    lea tmp(22,ptr to i8) = local(5,ptr to i8) 
-    lde tmp(23,ptr to i8) = tmp(22,ptr to i8) 
+    lea tmp(22,ptr to ptr to i8) = local(5,ptr to i8) 
+    lde tmp(23,ptr to i8) = tmp(22,ptr to ptr to i8) 
     arg tmp(23,ptr to i8) 
     call str_release 
-    ste tmp(22,ptr to i8) tmp(21,ptr to i8) 
+    ste tmp(22,ptr to ptr to i8) tmp(21,ptr to i8) 
     load tmp(24,i64) = local(2,i64) 
     > tmp(25,i1) = tmp(24,i64) imm(1,i64) 
     cmp tmp(25,i1) label(10) label(11) 

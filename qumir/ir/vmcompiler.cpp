@@ -319,7 +319,12 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case "ste"_op: {
                 require(ins, 0, 2);
                 out.Op = EVMOp::Ste;
-                out.Operands[2] = TUntypedImm{Module.Types.SizeInBytes(typeIdOp(ins.Operands[1]))};
+                int storeTypeId = typeIdOp(ins.Operands[1]);
+                const int ptrTypeId = typeIdOp(ins.Operands[0]);
+                if (Module.Types.IsPointer(ptrTypeId)) {
+                    storeTypeId = Module.Types.UnderlyingType(ptrTypeId);
+                }
+                out.Operands[2] = TUntypedImm{Module.Types.SizeInBytes(storeTypeId)};
                 break;
             }
             case "lde"_op: {

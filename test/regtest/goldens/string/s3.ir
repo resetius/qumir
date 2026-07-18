@@ -14,11 +14,11 @@ function ф () { ; ptr to i8
     call str_release 
     arg imm(2,ptr to i8) 
     call tmp(4,ptr to i8) = str_from_lit 
-    lea tmp(5,ptr to i8) = local(0,ptr to i8) 
-    lde tmp(6,ptr to i8) = tmp(5,ptr to i8) 
+    lea tmp(5,ptr to ptr to i8) = local(0,ptr to i8) 
+    lde tmp(6,ptr to i8) = tmp(5,ptr to ptr to i8) 
     arg tmp(6,ptr to i8) 
     call str_release 
-    ste tmp(5,ptr to i8) tmp(4,ptr to i8) 
+    ste tmp(5,ptr to ptr to i8) tmp(4,ptr to i8) 
     load tmp(7,ptr to i8) = local(0,ptr to i8) 
     arg tmp(7,ptr to i8) 
     call str_retain 
@@ -44,11 +44,11 @@ function g (local(0)) { ; void
     load tmp(1,ptr to i8) = local(0,ptr to i8) 
     arg tmp(1,ptr to i8) 
     call str_retain 
-    lea tmp(2,ptr to i8) = local(1,ptr to i8) 
-    lde tmp(3,ptr to i8) = tmp(2,ptr to i8) 
+    lea tmp(2,ptr to ptr to i8) = local(1,ptr to i8) 
+    lde tmp(3,ptr to i8) = tmp(2,ptr to ptr to i8) 
     arg tmp(3,ptr to i8) 
     call str_release 
-    ste tmp(2,ptr to i8) tmp(1,ptr to i8) 
+    ste tmp(2,ptr to ptr to i8) tmp(1,ptr to i8) 
     load tmp(4,ptr to i8) = local(1,ptr to i8) 
     arg tmp(4,ptr to i8) 
     call str_release 

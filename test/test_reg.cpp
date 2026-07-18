@@ -587,7 +587,7 @@ TEST_P(RegExec, ExecLLVM) {
 
 TEST_P(RegExec, ExecLLVMOPT) {
     const fs::path src = fs::path(CasesDir / GetParam().base).replace_extension(".kum");
-    CheckExecCase(src, GetParam().base, false, EExecBackend::LLVM, 1, "LLVM OPT RUN");
+    CheckExecCase(src, GetParam().base, false, EExecBackend::LLVM, 3, "LLVM OPT RUN");
 }
 
 TEST_P(RegExec, CoreExec) {
@@ -680,7 +680,7 @@ TEST_P(RegCoreLang, ExecLLVM) {
 TEST_P(RegCoreLang, ExecLLVMOPT) {
     const fs::path relBase = fs::path("corelang") / GetParam().base;
     const fs::path src = fs::path(CasesDir / relBase).replace_extension(".oz");
-    CheckExecCase(src, relBase, true, EExecBackend::LLVM, 1, "CORE LLVM OPT RUN");
+    CheckExecCase(src, relBase, true, EExecBackend::LLVM, 3, "CORE LLVM OPT RUN");
 }
 
 INSTANTIATE_TEST_SUITE_P(

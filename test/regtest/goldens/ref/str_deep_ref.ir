@@ -11,11 +11,11 @@ function f () { ; ptr to i8
     load tmp(3,ptr to i8) = local(1,ptr to i8) 
     arg tmp(3,ptr to i8) 
     call str_retain 
-    lea tmp(4,ptr to i8) = local(0,ptr to i8) 
-    lde tmp(5,ptr to i8) = tmp(4,ptr to i8) 
+    lea tmp(4,ptr to ptr to i8) = local(0,ptr to i8) 
+    lde tmp(5,ptr to i8) = tmp(4,ptr to ptr to i8) 
     arg tmp(5,ptr to i8) 
     call str_release 
-    ste tmp(4,ptr to i8) tmp(3,ptr to i8) 
+    ste tmp(4,ptr to ptr to i8) tmp(3,ptr to i8) 
     load tmp(6,ptr to i8) = local(0,ptr to i8) 
     arg tmp(6,ptr to i8) 
     call str_retain 

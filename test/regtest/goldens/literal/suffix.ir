@@ -54,13 +54,13 @@ function <main> () { ; void
 function __imag (local(0)) { ; struct { f64; f64}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i64) = imm(16,i64) 
-    + tmp(1,ptr to i64) = tmp(0,ptr to i64) imm(0,i64) 
-    ste tmp(1,ptr to i64) imm(0,f64) 
+    salloc tmp(0,ptr to i8) = imm(16,i64) 
+    + tmp(1,ptr to f64) = tmp(0,ptr to i8) imm(0,i64) 
+    ste tmp(1,ptr to f64) imm(0,f64) 
     load tmp(2,f64) = local(0,f64) 
-    + tmp(3,ptr to i64) = tmp(0,ptr to i64) imm(8,i64) 
-    ste tmp(3,ptr to i64) tmp(2,f64) 
-    stre local(1,struct { f64; f64}) tmp(0,ptr to i64) 
+    + tmp(3,ptr to f64) = tmp(0,ptr to i8) imm(8,i64) 
+    ste tmp(3,ptr to f64) tmp(2,f64) 
+    stre local(1,struct { f64; f64}) tmp(0,ptr to i8) 
     jmp label(1) 
   }
   block {
@@ -72,9 +72,9 @@ function __imag (local(0)) { ; struct { f64; f64}
 function Re (local(0)) { ; f64
   block {
     label: label(0)
-    lea tmp(0,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    + tmp(1,ptr to i8) = tmp(0,struct { f64; f64}) imm(0,i64) 
-    lde tmp(2,f64) = tmp(1,ptr to i8) 
+    lea tmp(0,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
+    + tmp(1,ptr to f64) = tmp(0,ptr to struct { f64; f64}) imm(0,i64) 
+    lde tmp(2,f64) = tmp(1,ptr to f64) 
     stre local(1,f64) tmp(2,f64) 
     jmp label(1) 
   }
@@ -87,9 +87,9 @@ function Re (local(0)) { ; f64
 function Im (local(0)) { ; f64
   block {
     label: label(0)
-    lea tmp(0,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    + tmp(1,ptr to i8) = tmp(0,struct { f64; f64}) imm(8,i64) 
-    lde tmp(2,f64) = tmp(1,ptr to i8) 
+    lea tmp(0,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
+    + tmp(1,ptr to f64) = tmp(0,ptr to struct { f64; f64}) imm(8,i64) 
+    lde tmp(2,f64) = tmp(1,ptr to f64) 
     stre local(1,f64) tmp(2,f64) 
     jmp label(1) 
   }

@@ -1,10 +1,10 @@
 function <main> () { ; void
   block {
     label: label(0)
-    salloc tmp(0,ptr to i64) = imm(8,i64) 
-    + tmp(1,ptr to i64) = tmp(0,ptr to i64) imm(0,i64) 
-    ste tmp(1,ptr to i64) imm(4609434218613702656,f64) 
-    stre local(0,struct { f64}) tmp(0,ptr to i64) 
+    salloc tmp(0,ptr to i8) = imm(8,i64) 
+    + tmp(1,ptr to f64) = tmp(0,ptr to i8) imm(0,i64) 
+    ste tmp(1,ptr to f64) imm(4609434218613702656,f64) 
+    stre local(0,struct { f64}) tmp(0,ptr to i8) 
     arg imm(4612811918334230528,f64) 
     call tmp(2,struct { f64}) = qumir_sse_make 
     stre local(1,struct { f64}) tmp(2,struct { f64}) 
@@ -19,21 +19,21 @@ function <main> () { ; void
     call output_double 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(5,struct { f64}) = local(1,struct { f64}) 
-    + tmp(6,ptr to i8) = tmp(5,struct { f64}) imm(0,i64) 
-    lde tmp(7,f64) = tmp(6,ptr to i8) 
+    lea tmp(5,ptr to struct { f64}) = local(1,struct { f64}) 
+    + tmp(6,ptr to f64) = tmp(5,ptr to struct { f64}) imm(0,i64) 
+    lde tmp(7,f64) = tmp(6,ptr to f64) 
     arg tmp(7,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
     arg imm(3,ptr to i8) 
     call output_string 
-    salloc tmp(8,ptr to i64) = imm(16,i64) 
-    + tmp(9,ptr to i64) = tmp(8,ptr to i64) imm(0,i64) 
-    ste tmp(9,ptr to i64) imm(4609434218613702656,f64) 
-    + tmp(10,ptr to i64) = tmp(8,ptr to i64) imm(8,i64) 
-    ste tmp(10,ptr to i64) imm(4612811918334230528,f64) 
-    stre local(2,struct { f64; f64}) tmp(8,ptr to i64) 
+    salloc tmp(8,ptr to i8) = imm(16,i64) 
+    + tmp(9,ptr to f64) = tmp(8,ptr to i8) imm(0,i64) 
+    ste tmp(9,ptr to f64) imm(4609434218613702656,f64) 
+    + tmp(10,ptr to f64) = tmp(8,ptr to i8) imm(8,i64) 
+    ste tmp(10,ptr to f64) imm(4612811918334230528,f64) 
+    stre local(2,struct { f64; f64}) tmp(8,ptr to i8) 
     load tmp(11,struct { f64; f64}) = local(2,struct { f64; f64}) 
     arg tmp(11,struct { f64; f64}) 
     call tmp(12,struct { f64; f64}) = qumir_ss_swap 
@@ -49,30 +49,30 @@ function <main> () { ; void
     call output_double 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(15,struct { f64; f64}) = local(3,struct { f64; f64}) 
-    + tmp(16,ptr to i8) = tmp(15,struct { f64; f64}) imm(0,i64) 
-    lde tmp(17,f64) = tmp(16,ptr to i8) 
+    lea tmp(15,ptr to struct { f64; f64}) = local(3,struct { f64; f64}) 
+    + tmp(16,ptr to f64) = tmp(15,ptr to struct { f64; f64}) imm(0,i64) 
+    lde tmp(17,f64) = tmp(16,ptr to f64) 
     arg tmp(17,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(18,struct { f64; f64}) = local(3,struct { f64; f64}) 
-    + tmp(19,ptr to i8) = tmp(18,struct { f64; f64}) imm(8,i64) 
-    lde tmp(20,f64) = tmp(19,ptr to i8) 
+    lea tmp(18,ptr to struct { f64; f64}) = local(3,struct { f64; f64}) 
+    + tmp(19,ptr to f64) = tmp(18,ptr to struct { f64; f64}) imm(8,i64) 
+    lde tmp(20,f64) = tmp(19,ptr to f64) 
     arg tmp(20,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
     arg imm(3,ptr to i8) 
     call output_string 
-    salloc tmp(21,ptr to i64) = imm(16,i64) 
-    + tmp(22,ptr to i64) = tmp(21,ptr to i64) imm(0,i64) 
+    salloc tmp(21,ptr to i8) = imm(16,i64) 
+    + tmp(22,ptr to i64) = tmp(21,ptr to i8) imm(0,i64) 
     ste tmp(22,ptr to i64) imm(3,i64) 
-    + tmp(23,ptr to i64) = tmp(21,ptr to i64) imm(8,i64) 
+    + tmp(23,ptr to i64) = tmp(21,ptr to i8) imm(8,i64) 
     ste tmp(23,ptr to i64) imm(4,i64) 
-    stre local(4,struct { i64; i64}) tmp(21,ptr to i64) 
+    stre local(4,struct { i64; i64}) tmp(21,ptr to i8) 
     load tmp(24,struct { i64; i64}) = local(4,struct { i64; i64}) 
     arg tmp(24,struct { i64; i64}) 
     call tmp(25,struct { i64; i64}) = qumir_ii_swap 
@@ -87,28 +87,28 @@ function <main> () { ; void
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(28,struct { i64; i64}) = local(5,struct { i64; i64}) 
-    + tmp(29,ptr to i8) = tmp(28,struct { i64; i64}) imm(0,i64) 
-    lde tmp(30,i64) = tmp(29,ptr to i8) 
+    lea tmp(28,ptr to struct { i64; i64}) = local(5,struct { i64; i64}) 
+    + tmp(29,ptr to i64) = tmp(28,ptr to struct { i64; i64}) imm(0,i64) 
+    lde tmp(30,i64) = tmp(29,ptr to i64) 
     arg tmp(30,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(31,struct { i64; i64}) = local(5,struct { i64; i64}) 
-    + tmp(32,ptr to i8) = tmp(31,struct { i64; i64}) imm(8,i64) 
-    lde tmp(33,i64) = tmp(32,ptr to i8) 
+    lea tmp(31,ptr to struct { i64; i64}) = local(5,struct { i64; i64}) 
+    + tmp(32,ptr to i64) = tmp(31,ptr to struct { i64; i64}) imm(8,i64) 
+    lde tmp(33,i64) = tmp(32,ptr to i64) 
     arg tmp(33,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(3,ptr to i8) 
     call output_string 
-    salloc tmp(34,ptr to i64) = imm(16,i64) 
-    + tmp(35,ptr to i64) = tmp(34,ptr to i64) imm(0,i64) 
+    salloc tmp(34,ptr to i8) = imm(16,i64) 
+    + tmp(35,ptr to i64) = tmp(34,ptr to i8) imm(0,i64) 
     ste tmp(35,ptr to i64) imm(3,i64) 
-    + tmp(36,ptr to i64) = tmp(34,ptr to i64) imm(8,i64) 
-    ste tmp(36,ptr to i64) imm(4612811918334230528,f64) 
-    stre local(6,struct { i64; f64}) tmp(34,ptr to i64) 
+    + tmp(36,ptr to f64) = tmp(34,ptr to i8) imm(8,i64) 
+    ste tmp(36,ptr to f64) imm(4612811918334230528,f64) 
+    stre local(6,struct { i64; f64}) tmp(34,ptr to i8) 
     arg imm(3,i64) 
     arg imm(4612811918334230528,f64) 
     call tmp(37,struct { i64; f64}) = qumir_is_make 
@@ -124,29 +124,29 @@ function <main> () { ; void
     call output_double 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(40,struct { i64; f64}) = local(7,struct { i64; f64}) 
-    + tmp(41,ptr to i8) = tmp(40,struct { i64; f64}) imm(0,i64) 
-    lde tmp(42,i64) = tmp(41,ptr to i8) 
+    lea tmp(40,ptr to struct { i64; f64}) = local(7,struct { i64; f64}) 
+    + tmp(41,ptr to i64) = tmp(40,ptr to struct { i64; f64}) imm(0,i64) 
+    lde tmp(42,i64) = tmp(41,ptr to i64) 
     arg tmp(42,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(43,struct { i64; f64}) = local(7,struct { i64; f64}) 
-    + tmp(44,ptr to i8) = tmp(43,struct { i64; f64}) imm(8,i64) 
-    lde tmp(45,f64) = tmp(44,ptr to i8) 
+    lea tmp(43,ptr to struct { i64; f64}) = local(7,struct { i64; f64}) 
+    + tmp(44,ptr to f64) = tmp(43,ptr to struct { i64; f64}) imm(8,i64) 
+    lde tmp(45,f64) = tmp(44,ptr to f64) 
     arg tmp(45,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
     arg imm(3,ptr to i8) 
     call output_string 
-    salloc tmp(46,ptr to i64) = imm(16,i64) 
-    + tmp(47,ptr to i64) = tmp(46,ptr to i64) imm(0,i64) 
-    ste tmp(47,ptr to i64) imm(4609434218613702656,f64) 
-    + tmp(48,ptr to i64) = tmp(46,ptr to i64) imm(8,i64) 
+    salloc tmp(46,ptr to i8) = imm(16,i64) 
+    + tmp(47,ptr to f64) = tmp(46,ptr to i8) imm(0,i64) 
+    ste tmp(47,ptr to f64) imm(4609434218613702656,f64) 
+    + tmp(48,ptr to i64) = tmp(46,ptr to i8) imm(8,i64) 
     ste tmp(48,ptr to i64) imm(4,i64) 
-    stre local(8,struct { f64; i64}) tmp(46,ptr to i64) 
+    stre local(8,struct { f64; i64}) tmp(46,ptr to i8) 
     arg imm(4609434218613702656,f64) 
     arg imm(4,i64) 
     call tmp(49,struct { f64; i64}) = qumir_si_make 
@@ -162,31 +162,31 @@ function <main> () { ; void
     call output_double 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(52,struct { f64; i64}) = local(9,struct { f64; i64}) 
-    + tmp(53,ptr to i8) = tmp(52,struct { f64; i64}) imm(0,i64) 
-    lde tmp(54,f64) = tmp(53,ptr to i8) 
+    lea tmp(52,ptr to struct { f64; i64}) = local(9,struct { f64; i64}) 
+    + tmp(53,ptr to f64) = tmp(52,ptr to struct { f64; i64}) imm(0,i64) 
+    lde tmp(54,f64) = tmp(53,ptr to f64) 
     arg tmp(54,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(55,struct { f64; i64}) = local(9,struct { f64; i64}) 
-    + tmp(56,ptr to i8) = tmp(55,struct { f64; i64}) imm(8,i64) 
-    lde tmp(57,i64) = tmp(56,ptr to i8) 
+    lea tmp(55,ptr to struct { f64; i64}) = local(9,struct { f64; i64}) 
+    + tmp(56,ptr to i64) = tmp(55,ptr to struct { f64; i64}) imm(8,i64) 
+    lde tmp(57,i64) = tmp(56,ptr to i64) 
     arg tmp(57,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(3,ptr to i8) 
     call output_string 
-    salloc tmp(58,ptr to i64) = imm(24,i64) 
-    + tmp(59,ptr to i64) = tmp(58,ptr to i64) imm(0,i64) 
+    salloc tmp(58,ptr to i8) = imm(24,i64) 
+    + tmp(59,ptr to i64) = tmp(58,ptr to i8) imm(0,i64) 
     ste tmp(59,ptr to i64) imm(1,i64) 
-    + tmp(60,ptr to i64) = tmp(58,ptr to i64) imm(8,i64) 
+    + tmp(60,ptr to i64) = tmp(58,ptr to i8) imm(8,i64) 
     ste tmp(60,ptr to i64) imm(2,i64) 
-    + tmp(61,ptr to i64) = tmp(58,ptr to i64) imm(16,i64) 
+    + tmp(61,ptr to i64) = tmp(58,ptr to i8) imm(16,i64) 
     ste tmp(61,ptr to i64) imm(3,i64) 
-    stre local(10,struct { i64; i64; i64}) tmp(58,ptr to i64) 
+    stre local(10,struct { i64; i64; i64}) tmp(58,ptr to i8) 
     arg imm(1,i64) 
     arg imm(2,i64) 
     arg imm(3,i64) 
@@ -202,25 +202,25 @@ function <main> () { ; void
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(65,struct { i64; i64; i64}) = local(11,struct { i64; i64; i64}) 
-    + tmp(66,ptr to i8) = tmp(65,struct { i64; i64; i64}) imm(0,i64) 
-    lde tmp(67,i64) = tmp(66,ptr to i8) 
+    lea tmp(65,ptr to struct { i64; i64; i64}) = local(11,struct { i64; i64; i64}) 
+    + tmp(66,ptr to i64) = tmp(65,ptr to struct { i64; i64; i64}) imm(0,i64) 
+    lde tmp(67,i64) = tmp(66,ptr to i64) 
     arg tmp(67,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(68,struct { i64; i64; i64}) = local(11,struct { i64; i64; i64}) 
-    + tmp(69,ptr to i8) = tmp(68,struct { i64; i64; i64}) imm(8,i64) 
-    lde tmp(70,i64) = tmp(69,ptr to i8) 
+    lea tmp(68,ptr to struct { i64; i64; i64}) = local(11,struct { i64; i64; i64}) 
+    + tmp(69,ptr to i64) = tmp(68,ptr to struct { i64; i64; i64}) imm(8,i64) 
+    lde tmp(70,i64) = tmp(69,ptr to i64) 
     arg tmp(70,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(2,ptr to i8) 
     call output_string 
-    lea tmp(71,struct { i64; i64; i64}) = local(11,struct { i64; i64; i64}) 
-    + tmp(72,ptr to i8) = tmp(71,struct { i64; i64; i64}) imm(16,i64) 
-    lde tmp(73,i64) = tmp(72,ptr to i8) 
+    lea tmp(71,ptr to struct { i64; i64; i64}) = local(11,struct { i64; i64; i64}) 
+    + tmp(72,ptr to i64) = tmp(71,ptr to struct { i64; i64; i64}) imm(16,i64) 
+    lde tmp(73,i64) = tmp(72,ptr to i64) 
     arg tmp(73,i64) 
     arg imm(0,i64) 
     call output_int64 
