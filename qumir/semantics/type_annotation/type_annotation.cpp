@@ -127,13 +127,24 @@ bool RetypeIntegerLiteralIfFits(TExprPtr expr, TTypePtr toType) {
         return false;
     }
     auto maybeNumber = TMaybeNode<TNumberExpr>(expr);
-    auto maybeInteger = TMaybeType<TIntegerType>(toType);
-    if (!maybeNumber || !maybeInteger) {
+    if (!maybeNumber) {
         return false;
     }
 
     auto number = maybeNumber.Cast();
     if (number->IsFloat()) {
+        return false;
+    }
+    if (!TMaybeType<TIntegerType>(number->Type)) {
+        return false;
+    }
+    if (TMaybeType<TFloatType>(toType)) {
+        number->FloatValue = static_cast<double>(number->IntValue);
+        number->Type = std::move(toType);
+        return true;
+    }
+    auto maybeInteger = TMaybeType<TIntegerType>(toType);
+    if (!maybeInteger) {
         return false;
     }
     if (!IntegerLiteralFits(number->IntValue, *maybeInteger.Cast())) {
@@ -146,7 +157,9 @@ bool RetypeIntegerLiteralIfFits(TExprPtr expr, TTypePtr toType) {
 
 bool IsIntegerLiteral(TExprPtr expr) {
     auto maybeNumber = TMaybeNode<TNumberExpr>(expr);
-    return maybeNumber && !maybeNumber.Cast()->IsFloat();
+    return maybeNumber
+        && !maybeNumber.Cast()->IsFloat()
+        && TMaybeType<TIntegerType>(maybeNumber.Cast()->Type);
 }
 
 bool IntegerLiteralCanUseType(TExprPtr expr, TTypePtr toType) {
@@ -154,10 +167,15 @@ bool IntegerLiteralCanUseType(TExprPtr expr, TTypePtr toType) {
         return false;
     }
     auto maybeNumber = TMaybeNode<TNumberExpr>(expr);
+    if (maybeNumber && TMaybeType<TFloatType>(toType)) {
+        return !maybeNumber.Cast()->IsFloat()
+            && TMaybeType<TIntegerType>(maybeNumber.Cast()->Type);
+    }
     auto maybeInteger = TMaybeType<TIntegerType>(toType);
     return maybeNumber
         && maybeInteger
         && !maybeNumber.Cast()->IsFloat()
+        && TMaybeType<TIntegerType>(maybeNumber.Cast()->Type)
         && IntegerLiteralFits(maybeNumber.Cast()->IntValue, *maybeInteger.Cast());
 }
 
