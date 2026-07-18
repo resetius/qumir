@@ -962,7 +962,18 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 Builder.Emit0("jmp"_op, {endLabel});
                 Builder.NewBlock(endLabel);
                 auto res = Builder.Emit1("phi"_op, {*thenRes.Value, thenEdgeLabel, *elseRes.Value, elseEdgeLabel});
-                Builder.SetType(res, FromAstType(expr->Type, Module.Types));
+                int resultTypeId = FromAstType(expr->Type, Module.Types);
+                if (NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(expr->Type))
+                    && thenRes.Value->Type == TOperand::EType::Tmp
+                    && elseRes.Value->Type == TOperand::EType::Tmp)
+                {
+                    int thenTypeId = Builder.GetType(thenRes.Value->Tmp);
+                    int elseTypeId = Builder.GetType(elseRes.Value->Tmp);
+                    if (thenTypeId == elseTypeId && Module.Types.GetKind(thenTypeId) == EKind::Ptr) {
+                        resultTypeId = thenTypeId;
+                    }
+                }
+                Builder.SetType(res, resultTypeId);
                 if (thenRes.Value->Type == TOperand::EType::Tmp) {
                     Builder.UnifyTypes(res, thenRes.Value->Tmp);
                 }
@@ -1129,15 +1140,32 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         Builder.SetType(ptr, ptrTypeId);
 
         const auto& fieldTypes = Module.Types.GetStructFields(structTypeId);
+        auto astStructType = NAst::TMaybeType<NAst::TStructType>(objAstType).Cast();
         for (size_t i = 0; i < sc->Fields.size(); ++i) {
             auto fieldVal = co_await Lower(sc->Fields[i], scope);
             if (!fieldVal.Value) {
                 co_return TError(sc->Fields[i]->Location, "Не удалось вычислить поле при конструировании структуры.");
             }
-            int64_t offset = Module.Types.FieldOffset(structTypeId, (int)i);
+            int fieldIndex = static_cast<int>(i);
+            if (i < sc->FieldNames.size()) {
+                fieldIndex = -1;
+                if (astStructType) {
+                    for (size_t j = 0; j < astStructType->Fields.size(); ++j) {
+                        if (astStructType->Fields[j].first == sc->FieldNames[i]) {
+                            fieldIndex = static_cast<int>(j);
+                            break;
+                        }
+                    }
+                }
+                if (fieldIndex < 0) {
+                    co_return TError(sc->Fields[i]->Location,
+                        "Поле '" + sc->FieldNames[i] + "' не найдено при конструировании структуры.");
+                }
+            }
+            int64_t offset = Module.Types.FieldOffset(structTypeId, fieldIndex);
             auto fieldPtr = Builder.Emit1("+"_op, {ptr, TImm{offset, i64}});
             Builder.SetType(fieldPtr, ptrTypeId);
-            int fieldTypeId = i < fieldTypes.size() ? fieldTypes[i] : -1;
+            int fieldTypeId = fieldIndex < static_cast<int>(fieldTypes.size()) ? fieldTypes[fieldIndex] : -1;
             if (Module.Types.GetKind(fieldTypeId) == EKind::Struct) {
                 int fieldSize = Module.Types.SizeInBytes(fieldTypeId);
                 Builder.Emit0("copy"_op, {fieldPtr, *fieldVal.Value, TImm{(int64_t)fieldSize}});
