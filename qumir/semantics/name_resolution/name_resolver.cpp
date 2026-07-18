@@ -3,6 +3,7 @@
 #include <qumir/modules/module.h>
 #include <qumir/parser/type.h>
 
+#include <algorithm>
 #include <iostream>
 
 namespace NQumir {
@@ -805,6 +806,20 @@ std::optional<TNameResolver::TRegisteredOp> TNameResolver::GetUnaryOp(
     return std::nullopt;
 }
 
+std::vector<std::shared_ptr<NAst::TFunDecl>> TNameResolver::LookupGenericOperatorDecls(
+    const std::string& op,
+    std::size_t arity) const
+{
+    std::vector<std::shared_ptr<NAst::TFunDecl>> result;
+    for (const auto& decl : GenericOperatorDecls) {
+        if (!decl->OperatorName || *decl->OperatorName != op || decl->Params.size() != arity) {
+            continue;
+        }
+        result.push_back(decl);
+    }
+    return result;
+}
+
 NAst::TTypePtr TNameResolver::LookupType(const std::string& name) const {
     auto it = ImportedTypes.find(name);
     if (it != ImportedTypes.end()) return it->second;
@@ -856,7 +871,13 @@ void TNameResolver::RegisterOperatorDecls(const NAst::TExprPtr& root) {
         auto fd = TMaybeNode<TFunDecl>(stmt);
         if (!fd) continue;
         auto fun = fd.Cast();
-        if (!fun->OperatorName || !fun->GenericParams.empty()) continue;
+        if (!fun->OperatorName) continue;
+        if (!fun->GenericParams.empty()) {
+            if (std::find(GenericOperatorDecls.begin(), GenericOperatorDecls.end(), fun) == GenericOperatorDecls.end()) {
+                GenericOperatorDecls.push_back(fun);
+            }
+            continue;
+        }
         const std::string& op = *fun->OperatorName;
         std::vector<NAst::TTypePtr> argTypes;
         for (const auto& p : fun->Params) {

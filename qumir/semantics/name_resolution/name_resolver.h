@@ -238,6 +238,9 @@ public:
         const NAst::TTypePtr& left, const NAst::TTypePtr& right) const;
     std::optional<TRegisteredOp> GetUnaryOp(const std::string& op,
         const NAst::TTypePtr& operand) const;
+    std::vector<std::shared_ptr<NAst::TFunDecl>> LookupGenericOperatorDecls(
+        const std::string& op,
+        std::size_t arity) const;
 
     NAst::TTypePtr LookupType(const std::string& name) const override;
     void RegisterType(const std::string& name, NAst::TTypePtr type);
@@ -300,6 +303,7 @@ private:
     std::unordered_map<std::string, NAst::TTypePtr> ImportedTypes; // type name -> resolved type
     std::unordered_map<std::string, TRegisteredTypeDecl> RegisteredTypes;
     std::vector<std::shared_ptr<NAst::TFunDecl>> ImportedOperators; // operator overloads (IsOp=true), may have duplicates
+    std::vector<std::shared_ptr<NAst::TFunDecl>> GenericOperatorDecls;
 
     // cast operator map: {TypeKey(from), TypeKey(to)} -> synthetic name registered via DeclareFunction
     std::map<std::pair<std::string,std::string>, std::string> ImportedCasts;

@@ -23,6 +23,8 @@ using namespace NAst;
 namespace {
 
 using TTask = TExpectedTask<TExprPtr, TError, TLocation>;
+using TFunDeclTask = TExpectedTask<std::shared_ptr<TFunDecl>, TError, TLocation>;
+using TRegisteredOpTask = TExpectedTask<std::optional<NSemantics::TNameResolver::TRegisteredOp>, TError, TLocation>;
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId);
 TTask AnnotateIdent(
@@ -30,6 +32,27 @@ TTask AnnotateIdent(
     NSemantics::TNameResolver& context,
     NSemantics::TScopeId scopeId,
     bool pathThrough);
+TFunDeclTask InstantiateGenericFunction(
+    std::shared_ptr<TFunDecl> genericDecl,
+    const std::vector<TExprPtr>& args,
+    NSemantics::TNameResolver& context,
+    TLocation callLoc);
+TRegisteredOpTask InstantiateGenericOperator(
+    const std::string& op,
+    const std::vector<TExprPtr>& args,
+    TTypePtr expectedReturnType,
+    NSemantics::TNameResolver& context,
+    TLocation callLoc);
+TTask TryGenericBinaryOp(
+    TExprPtr left,
+    TExprPtr right,
+    const TOperator& op,
+    NSemantics::TNameResolver& ctx);
+TTask TryGenericUnaryOp(
+    const std::string& op,
+    TExprPtr operand,
+    NSemantics::TNameResolver& ctx,
+    TLocation loc);
 
 // Defined further below, needed already in AnnotateFunDecl to skip
 // body-annotation for generic declarations.
@@ -349,6 +372,9 @@ TTask AnnotateCast(std::shared_ptr<TCastExpr> cast, NSemantics::TNameResolver& c
             call->Type = cast->Type;
             co_return call;
         }
+        if (auto op = co_await InstantiateGenericOperator("cast", {cast->Operand}, cast->Type, context, cast->Location)) {
+            co_return MakeModuleOpCall(op->SynthName, {cast->Operand}, op->ReturnType, cast->Location, context);
+        }
     }
     co_return cast;
 }
@@ -371,6 +397,9 @@ TTask AnnotateUnary(std::shared_ptr<TUnaryExpr> unary, NSemantics::TNameResolver
         }
         if (auto m = context.GetUnaryOp("neg", UnwrapReferenceType(unary->Type))) {
             co_return co_await AnnotateIfNeeded(MakeModuleOpCall(m->SynthName, {unary->Operand}, m->ReturnType, unary->Location, context), context, scopeId);
+        }
+        if (auto result = co_await TryGenericUnaryOp("neg", unary->Operand, context, unary->Location)) {
+            co_return co_await AnnotateIfNeeded(result, context, scopeId);
         }
         co_return TError(unary->Location, "Нельзя применять унарный минус к нечисловому типу");
     }
@@ -724,6 +753,9 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
                     co_return co_await AnnotateIfNeeded(result, context, scopeId);
                 }
+                if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
+                }
                 co_return TError(binary->Location, "+, -, *, / применимы только к числам (оператор + также работает для строк)");
             }
             if (binary->Operator == TOperator("/")) {
@@ -789,6 +821,9 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
                 if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
                     co_return co_await AnnotateIfNeeded(result, context, scopeId);
                 }
+                if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
+                }
             }
             type = std::make_shared<TBoolType>();
             break;
@@ -800,6 +835,9 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
             break;
         default:
             if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+                co_return co_await AnnotateIfNeeded(result, context, scopeId);
+            }
+            if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
                 co_return co_await AnnotateIfNeeded(result, context, scopeId);
             }
             co_return TError(binary->Location, "Неизвестный бинарный оператор: '" + binary->Operator.ToString() + "'");
@@ -1486,8 +1524,6 @@ TExprPtr CloneAndSubstituteExpr(
     return clone;
 }
 
-using TFunDeclTask = TExpectedTask<std::shared_ptr<TFunDecl>, TError, TLocation>;
-
 // Clones+substitutes a generic TFunDecl for the concrete types inferred from
 // `args`, registers the result under a synthetic mangled name and
 // (re-)resolves+annotates its body. Caching by that name (via a root-scope
@@ -1603,6 +1639,140 @@ TFunDeclTask InstantiateGenericFunction(
     }
 
     co_return cloned;
+}
+
+std::optional<TTypePtr> SubstituteGenericOperatorReturnType(
+    const std::shared_ptr<TFunDecl>& decl,
+    const std::vector<TExprPtr>& args,
+    const std::unordered_set<std::string>& genericTypeParams,
+    TLocation loc,
+    TError& error)
+{
+    std::map<std::string, TTypePtr> bindings;
+    for (size_t i = 0; i < decl->Params.size() && i < args.size(); ++i) {
+        auto argType = UnwrapReferenceType(args[i]->Type);
+        if (auto err = UnifyGenericType(decl->Params[i]->Type, argType, genericTypeParams, bindings)) {
+            error = TError(loc, "Не удалось вывести типы обобщённых параметров оператора '" + *decl->OperatorName + "': " + *err);
+            return std::nullopt;
+        }
+    }
+    return SubstituteGenericType(decl->RetType, genericTypeParams, bindings);
+}
+
+TRegisteredOpTask InstantiateGenericOperator(
+    const std::string& op,
+    const std::vector<TExprPtr>& args,
+    TTypePtr expectedReturnType,
+    NSemantics::TNameResolver& context,
+    TLocation callLoc)
+{
+    int bestCost = std::numeric_limits<int>::max();
+    std::shared_ptr<TFunDecl> bestDecl;
+    bool ambiguous = false;
+    std::optional<TError> delayedError;
+
+    for (const auto& candidate : context.LookupGenericOperatorDecls(op, args.size())) {
+        if (!candidate || !candidate->OperatorName || !HasGenericParams(*candidate)) {
+            continue;
+        }
+        int totalCost = 0;
+        bool viable = true;
+        auto genericTypeParams = GenericTypeParamSet(*candidate);
+        for (size_t i = 0; i < args.size(); ++i) {
+            auto argType = UnwrapReferenceType(args[i]->Type);
+            auto cost = ArgCost(argType, candidate->Params[i]->Type, &context, &genericTypeParams);
+            if (!cost) {
+                viable = false;
+                break;
+            }
+            totalCost += *cost;
+        }
+        if (!viable) {
+            continue;
+        }
+        if (expectedReturnType) {
+            TError error(callLoc, "");
+            auto retType = SubstituteGenericOperatorReturnType(
+                candidate,
+                args,
+                genericTypeParams,
+                callLoc,
+                error);
+            if (!retType) {
+                delayedError = std::move(error);
+                continue;
+            }
+            if (!EqualTypes(*retType, expectedReturnType)) {
+                continue;
+            }
+        }
+        if (totalCost < bestCost) {
+            bestCost = totalCost;
+            bestDecl = candidate;
+            ambiguous = false;
+        } else if (totalCost == bestCost) {
+            ambiguous = true;
+        }
+    }
+
+    if (!bestDecl) {
+        if (delayedError) {
+            co_return *delayedError;
+        }
+        co_return std::optional<NSemantics::TNameResolver::TRegisteredOp>{};
+    }
+    if (ambiguous) {
+        co_return TError(callLoc, "ambiguous generic operator overload for '" + op + "'");
+    }
+
+    auto instantiated = co_await InstantiateGenericFunction(bestDecl, args, context, callLoc);
+    if (expectedReturnType && !EqualTypes(instantiated->RetType, expectedReturnType)) {
+        co_return std::optional<NSemantics::TNameResolver::TRegisteredOp>{};
+    }
+    co_return NSemantics::TNameResolver::TRegisteredOp{
+        .SynthName = instantiated->Name,
+        .ReturnType = instantiated->RetType,
+    };
+}
+
+TTask TryGenericUnaryOp(
+    const std::string& op,
+    TExprPtr operand,
+    NSemantics::TNameResolver& ctx,
+    TLocation loc)
+{
+    if (auto m = co_await InstantiateGenericOperator(op, {operand}, nullptr, ctx, loc)) {
+        co_return MakeModuleOpCall(m->SynthName, {operand}, m->ReturnType, loc, ctx);
+    }
+    co_return TExprPtr{};
+}
+
+TTask TryGenericBinaryOp(TExprPtr left, TExprPtr right,
+    const TOperator& op, NSemantics::TNameResolver& ctx)
+{
+    const std::string opStr = op.ToString();
+    auto lt = UnwrapReferenceType(left->Type);
+    auto rt = UnwrapReferenceType(right->Type);
+
+    if (auto m = co_await InstantiateGenericOperator(opStr, {left, right}, nullptr, ctx, left->Location)) {
+        co_return MakeModuleOpCall(m->SynthName, {left, right}, m->ReturnType, left->Location, ctx);
+    }
+
+    auto castedLeft = InsertImplicitCastIfNeeded(left, rt, &ctx);
+    if (castedLeft != left) {
+        if (auto m = co_await InstantiateGenericOperator(opStr, {castedLeft, right}, nullptr, ctx, left->Location)) {
+            co_return MakeModuleOpCall(m->SynthName, {castedLeft, right}, m->ReturnType, left->Location, ctx);
+        }
+    }
+
+    auto castedRight = InsertImplicitCastIfNeeded(right, lt, &ctx);
+    if (castedRight != right) {
+        if (auto m = co_await InstantiateGenericOperator(opStr, {left, castedRight}, nullptr, ctx, left->Location)) {
+            co_return MakeModuleOpCall(m->SynthName, {left, castedRight}, m->ReturnType, left->Location, ctx);
+        }
+    }
+
+    co_return TExprPtr{};
 }
 
 TTask AnnotateOverloadedCall(
