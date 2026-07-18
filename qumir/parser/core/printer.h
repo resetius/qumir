@@ -78,6 +78,9 @@ private:
     void PrintScalarType(std::string_view name, TTypePtr type);
     void PrintFunctionType(const std::shared_ptr<TFunctionType>& type, int level);
     void PrintStructType(const std::shared_ptr<TStructType>& type, int level);
+    void PrintGenericParams(const std::vector<TGenericParam>& params, int level);
+    std::vector<std::string> PushGenericTypeParamShortNames(const std::vector<TGenericParam>& params);
+    void PopShortNamedTypes(const std::vector<std::string>& names);
     std::shared_ptr<TStructType> GetStructType(TTypePtr type);
 
     void PrintArrayAssign(TArrayAssignExpr& node, int level);

@@ -163,6 +163,27 @@ TTypeListTask ParseTypeList(TParserContext& context) {
     }
 }
 
+TTypeListTask ParseGenericTypeArgs(TParserContext& context) {
+    std::vector<TTypePtr> result;
+    auto tok = context.Stream.Next();
+    if (!IsOp(tok, '[')) {
+        context.Stream.Unget(tok);
+        co_return result;
+    }
+
+    while (true) {
+        auto token = context.Stream.Next();
+        if (IsOp(token, ']')) {
+            co_return result;
+        }
+        if (IsEof(token)) {
+            co_return Error(token, "expected ']' in generic type argument list");
+        }
+        context.Stream.Unget(token);
+        result.push_back(co_await ParseType(context));
+    }
+}
+
 TBoundsTask ParseBounds(TParserContext& context) {
     std::vector<std::pair<TExprPtr, TExprPtr>> result;
     while (true) {
@@ -500,7 +521,8 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
     }
     if (head == "named") {
         auto name = co_await ParseName(context);
-        auto type = std::make_shared<TNamedType>(std::move(name), nullptr);
+        auto typeArgs = co_await ParseGenericTypeArgs(context);
+        auto type = std::make_shared<TNamedType>(std::move(name), nullptr, std::move(typeArgs));
         auto tok = context.Stream.Next();
         if (IsOp(tok, '>')) {
             co_return type;
@@ -951,10 +973,11 @@ TListHandlerMap MakeDefaultHandlers() {
                 co_return TError(loc, "объявление типа допускается только в первом блоке");
             }
             auto name = co_await ParseName(ctx);
+            auto genericParams = co_await ParseGenericParams(ctx);
             auto underlying = co_await ParseType(ctx);
             co_await Expect(ctx, ')');
             auto namedType = std::make_shared<TNamedType>(std::move(name), std::move(underlying));
-            co_return std::make_shared<TTypeDeclStmt>(loc, std::move(namedType));
+            co_return std::make_shared<TTypeDeclStmt>(loc, std::move(namedType), std::move(genericParams));
         }},
         {"assert", [](TParserContext& ctx, TLocation loc) -> TAstTask {
             auto expr = co_await ParseExpr(ctx);

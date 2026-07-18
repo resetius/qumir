@@ -133,7 +133,7 @@ bool EqualTypes(TTypePtr a, TTypePtr b) {
     auto maybeANamed = TMaybeType<TNamedType>(a);
     auto maybeBNamed = TMaybeType<TNamedType>(b);
     if (maybeANamed && maybeBNamed) {
-        return maybeANamed.Cast()->Name == maybeBNamed.Cast()->Name;
+        return TypeKey(a) == TypeKey(b);
     }
 
     auto maybeAFuture = TMaybeType<TFutureType>(a);
@@ -1119,7 +1119,7 @@ TTypePtr CloneTypeShape(const TTypePtr& shape) {
     }
     if (auto t = TMaybeType<TNamedType>(shape)) {
         auto src = t.Cast();
-        auto result = std::make_shared<TNamedType>(src->Name, src->UnderlyingType);
+        auto result = std::make_shared<TNamedType>(src->Name, src->UnderlyingType, src->TypeArgs);
         result->Reference = src->Reference;
         return result;
     }
@@ -1143,14 +1143,29 @@ TTypePtr SubstituteGenericType(
     }
     if (auto named = TMaybeType<TNamedType>(type)) {
         auto placeholder = named.Cast();
-        if (!genericTypeParams.contains(placeholder->Name)) {
+        if (genericTypeParams.contains(placeholder->Name)) {
+            auto it = bindings.find(placeholder->Name);
+            if (it == bindings.end()) {
+                return type; // left for the caller to detect (unbound generic parameter)
+            }
+            auto result = CloneTypeShape(it->second);
+            static_cast<TType&>(*result) = static_cast<const TType&>(*placeholder);
+            return result;
+        }
+
+        bool changed = false;
+        std::vector<TTypePtr> typeArgs;
+        typeArgs.reserve(placeholder->TypeArgs.size());
+        for (const auto& arg : placeholder->TypeArgs) {
+            auto substituted = SubstituteGenericType(arg, genericTypeParams, bindings);
+            changed = changed || substituted != arg;
+            typeArgs.push_back(std::move(substituted));
+        }
+        if (!changed) {
             return type;
         }
-        auto it = bindings.find(placeholder->Name);
-        if (it == bindings.end()) {
-            return type; // left for the caller to detect (unbound generic parameter)
-        }
-        auto result = CloneTypeShape(it->second);
+        auto result = std::make_shared<TNamedType>(placeholder->Name, placeholder->UnderlyingType, std::move(typeArgs));
+        result->Reference = placeholder->Reference;
         static_cast<TType&>(*result) = static_cast<const TType&>(*placeholder);
         return result;
     }
@@ -1236,14 +1251,25 @@ std::optional<std::string> UnifyGenericType(
     }
     if (auto named = TMaybeType<TNamedType>(paramType)) {
         auto placeholder = named.Cast();
-        if (!genericTypeParams.contains(placeholder->Name)) {
+        if (genericTypeParams.contains(placeholder->Name)) {
+            auto concrete = UnwrapReferenceType(argType);
+            auto [it, inserted] = bindings.try_emplace(placeholder->Name, concrete);
+            if (!inserted && TypeKey(it->second) != TypeKey(concrete)) {
+                return "тип обобщённого параметра '" + placeholder->Name + "' определяется неоднозначно: то как '"
+                    + std::string(it->second->TypeName()) + "', то как '" + std::string(concrete->TypeName()) + "'";
+            }
             return std::nullopt;
         }
-        auto concrete = UnwrapReferenceType(argType);
-        auto [it, inserted] = bindings.try_emplace(placeholder->Name, concrete);
-        if (!inserted && TypeKey(it->second) != TypeKey(concrete)) {
-            return "тип обобщённого параметра '" + placeholder->Name + "' определяется неоднозначно: то как '"
-                + std::string(it->second->TypeName()) + "', то как '" + std::string(concrete->TypeName()) + "'";
+
+        auto argNamed = TMaybeType<TNamedType>(argType);
+        if (argNamed && placeholder->Name == argNamed.Cast()->Name
+            && placeholder->TypeArgs.size() == argNamed.Cast()->TypeArgs.size())
+        {
+            for (size_t i = 0; i < placeholder->TypeArgs.size(); ++i) {
+                if (auto err = UnifyGenericType(placeholder->TypeArgs[i], argNamed.Cast()->TypeArgs[i], genericTypeParams, bindings)) {
+                    return err;
+                }
+            }
         }
         return std::nullopt;
     }

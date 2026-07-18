@@ -1063,8 +1063,14 @@ class TTypeDeclStmt : public TExpr {
 public:
     static constexpr const char* NodeId = "TypeDecl";
 
-    explicit TTypeDeclStmt(TLocation loc, TTypePtr type)
+    std::vector<TGenericParam> GenericParams;
+
+    explicit TTypeDeclStmt(
+        TLocation loc,
+        TTypePtr type,
+        std::vector<TGenericParam> genericParams = {})
         : TExpr(std::move(loc), std::move(type))
+        , GenericParams(std::move(genericParams))
     { }
 
     const std::string_view NodeName() const override {
