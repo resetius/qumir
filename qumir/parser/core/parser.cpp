@@ -180,8 +180,11 @@ TGenericArgListTask ParseGenericTypeArgs(TParserContext& context) {
         if (IsEof(token)) {
             co_return Error(token, "expected ']' in generic type argument list");
         }
+        if (token.Type == TToken::Integer) {
+            result.push_back(TGenericArg::ValueArg(std::to_string(token.Value.i64)));
+            continue;
+        }
         if (IsOp(token, '(')
-            || token.Type == TToken::Integer
             || token.Type == TToken::Float
             || token.Type == TToken::Boolean
             || token.Type == TToken::Char

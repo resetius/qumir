@@ -25,9 +25,19 @@ using namespace NAst;
 
 namespace {
 
+struct TGenericParamSets {
+    std::unordered_set<std::string> Types;
+    std::unordered_set<std::string> Values;
+};
+
+struct TGenericBindings {
+    std::map<std::string, TTypePtr> Types;
+    std::map<std::string, std::string> Values;
+};
+
 using TTask = TExpectedTask<TExprPtr, TError, TLocation>;
 using TFunDeclTask = TExpectedTask<std::shared_ptr<TFunDecl>, TError, TLocation>;
-using TGenericBindingsTask = TExpectedTask<std::map<std::string, TTypePtr>, TError, TLocation>;
+using TGenericBindingsTask = TExpectedTask<TGenericBindings, TError, TLocation>;
 using TGenericBoolTask = TExpectedTask<bool, TError, TLocation>;
 using TRegisteredOpTask = TExpectedTask<std::optional<NSemantics::TNameResolver::TRegisteredOp>, TError, TLocation>;
 
@@ -1303,19 +1313,16 @@ TTask AnnotateIdent(std::shared_ptr<TIdentExpr> ident, NSemantics::TNameResolver
 // of the function is substituted, registered under a synthetic mangled name
 // and cached by it.
 
-std::vector<std::string> GenericTypeParamNames(const TFunDecl& decl) {
-    std::vector<std::string> names;
+TGenericParamSets GenericParamSets(const TFunDecl& decl) {
+    TGenericParamSets result;
     for (const auto& param : decl.GenericParams) {
         if (param.Kind == TGenericParam::EKind::Type) {
-            names.push_back(param.Name);
+            result.Types.insert(param.Name);
+        } else {
+            result.Values.insert(param.Name);
         }
     }
-    return names;
-}
-
-std::unordered_set<std::string> GenericTypeParamSet(const TFunDecl& decl) {
-    auto names = GenericTypeParamNames(decl);
-    return {names.begin(), names.end()};
+    return result;
 }
 
 bool HasGenericParams(const TFunDecl& decl) {
@@ -1384,17 +1391,17 @@ TTypePtr CloneTypeShape(const TTypePtr& shape) {
 // usage site by copying the base TType sub-object onto the cloned shape.
 TTypePtr SubstituteGenericType(
     const TTypePtr& type,
-    const std::unordered_set<std::string>& genericTypeParams,
-    const std::map<std::string, TTypePtr>& bindings)
+    const TGenericParamSets& genericParams,
+    const TGenericBindings& bindings)
 {
     if (!type) {
         return type;
     }
     if (auto named = TMaybeType<TNamedType>(type)) {
         auto placeholder = named.Cast();
-        if (placeholder->TypeArgs.empty() && genericTypeParams.contains(placeholder->Name)) {
-            auto it = bindings.find(placeholder->Name);
-            if (it == bindings.end()) {
+        if (placeholder->TypeArgs.empty() && genericParams.Types.contains(placeholder->Name)) {
+            auto it = bindings.Types.find(placeholder->Name);
+            if (it == bindings.Types.end()) {
                 return type; // left for the caller to detect (unbound generic parameter)
             }
             auto result = CloneTypeShape(it->second);
@@ -1402,18 +1409,24 @@ TTypePtr SubstituteGenericType(
             return result;
         }
 
-        auto underlying = SubstituteGenericType(placeholder->UnderlyingType, genericTypeParams, bindings);
+        auto underlying = SubstituteGenericType(placeholder->UnderlyingType, genericParams, bindings);
         bool changed = underlying != placeholder->UnderlyingType;
         std::vector<TGenericArg> typeArgs;
         typeArgs.reserve(placeholder->TypeArgs.size());
         for (const auto& arg : placeholder->TypeArgs) {
-            if (arg.Kind != TGenericArg::EKind::Type) {
-                typeArgs.push_back(arg);
-                continue;
+            if (arg.Kind == TGenericArg::EKind::Type) {
+                auto substituted = SubstituteGenericType(arg.Type, genericParams, bindings);
+                changed = changed || substituted != arg.Type;
+                typeArgs.push_back(TGenericArg::TypeArg(std::move(substituted)));
+            } else {
+                auto it = bindings.Values.find(arg.Value);
+                if (it != bindings.Values.end() && genericParams.Values.contains(arg.Value)) {
+                    changed = true;
+                    typeArgs.push_back(TGenericArg::ValueArg(it->second));
+                } else {
+                    typeArgs.push_back(arg);
+                }
             }
-            auto substituted = SubstituteGenericType(arg.Type, genericTypeParams, bindings);
-            changed = changed || substituted != arg.Type;
-            typeArgs.push_back(TGenericArg::TypeArg(std::move(substituted)));
         }
         if (!changed) {
             return type;
@@ -1425,7 +1438,7 @@ TTypePtr SubstituteGenericType(
     }
     if (auto arr = TMaybeType<TArrayType>(type)) {
         auto src = arr.Cast();
-        auto elem = SubstituteGenericType(src->ElementType, genericTypeParams, bindings);
+        auto elem = SubstituteGenericType(src->ElementType, genericParams, bindings);
         if (elem == src->ElementType) return type;
         auto result = std::make_shared<TArrayType>(std::move(elem), src->Arity);
         static_cast<TType&>(*result) = static_cast<const TType&>(*src);
@@ -1433,7 +1446,7 @@ TTypePtr SubstituteGenericType(
     }
     if (auto ptr = TMaybeType<TPointerType>(type)) {
         auto src = ptr.Cast();
-        auto pointee = SubstituteGenericType(src->PointeeType, genericTypeParams, bindings);
+        auto pointee = SubstituteGenericType(src->PointeeType, genericParams, bindings);
         if (pointee == src->PointeeType) return type;
         auto result = std::make_shared<TPointerType>(std::move(pointee));
         static_cast<TType&>(*result) = static_cast<const TType&>(*src);
@@ -1441,7 +1454,7 @@ TTypePtr SubstituteGenericType(
     }
     if (auto ref = TMaybeType<TReferenceType>(type)) {
         auto src = ref.Cast();
-        auto referenced = SubstituteGenericType(src->ReferencedType, genericTypeParams, bindings);
+        auto referenced = SubstituteGenericType(src->ReferencedType, genericParams, bindings);
         if (referenced == src->ReferencedType) return type;
         auto result = std::make_shared<TReferenceType>(std::move(referenced));
         static_cast<TType&>(*result) = static_cast<const TType&>(*src);
@@ -1449,7 +1462,7 @@ TTypePtr SubstituteGenericType(
     }
     if (auto future = TMaybeType<TFutureType>(type)) {
         auto src = future.Cast();
-        auto inner = SubstituteGenericType(src->ResultType, genericTypeParams, bindings);
+        auto inner = SubstituteGenericType(src->ResultType, genericParams, bindings);
         if (inner == src->ResultType) return type;
         auto result = std::make_shared<TFutureType>(std::move(inner));
         static_cast<TType&>(*result) = static_cast<const TType&>(*src);
@@ -1461,11 +1474,11 @@ TTypePtr SubstituteGenericType(
         std::vector<TTypePtr> params;
         params.reserve(src->ParamTypes.size());
         for (auto& p : src->ParamTypes) {
-            auto sp = SubstituteGenericType(p, genericTypeParams, bindings);
+            auto sp = SubstituteGenericType(p, genericParams, bindings);
             changed = changed || (sp != p);
             params.push_back(std::move(sp));
         }
-        auto ret = SubstituteGenericType(src->ReturnType, genericTypeParams, bindings);
+        auto ret = SubstituteGenericType(src->ReturnType, genericParams, bindings);
         changed = changed || (ret != src->ReturnType);
         if (!changed) return type;
         auto result = std::make_shared<TFunctionType>(std::move(params), std::move(ret));
@@ -1478,7 +1491,7 @@ TTypePtr SubstituteGenericType(
         std::vector<std::pair<std::string, TTypePtr>> fields;
         fields.reserve(src->Fields.size());
         for (auto& [name, fieldType] : src->Fields) {
-            auto sf = SubstituteGenericType(fieldType, genericTypeParams, bindings);
+            auto sf = SubstituteGenericType(fieldType, genericParams, bindings);
             changed = changed || (sf != fieldType);
             fields.emplace_back(name, std::move(sf));
         }
@@ -1497,8 +1510,8 @@ TTypePtr SubstituteGenericType(
 std::optional<std::string> UnifyGenericType(
     const TTypePtr& paramType,
     const TTypePtr& argType,
-    const std::unordered_set<std::string>& genericTypeParams,
-    std::map<std::string, TTypePtr>& bindings,
+    const TGenericParamSets& genericParams,
+    TGenericBindings& bindings,
     TExprPtr argExpr = nullptr,
     bool retypeIntegerLiterals = true)
 {
@@ -1507,9 +1520,9 @@ std::optional<std::string> UnifyGenericType(
     }
     if (auto named = TMaybeType<TNamedType>(paramType)) {
         auto placeholder = named.Cast();
-        if (placeholder->TypeArgs.empty() && genericTypeParams.contains(placeholder->Name)) {
+        if (placeholder->TypeArgs.empty() && genericParams.Types.contains(placeholder->Name)) {
             auto concrete = UnwrapReferenceType(argType);
-            auto [it, inserted] = bindings.try_emplace(placeholder->Name, concrete);
+            auto [it, inserted] = bindings.Types.try_emplace(placeholder->Name, concrete);
             if (!inserted && TypeKey(it->second) != TypeKey(concrete)) {
                 if (IntegerLiteralCanUseType(argExpr, it->second)) {
                     if (retypeIntegerLiterals) {
@@ -1532,18 +1545,32 @@ std::optional<std::string> UnifyGenericType(
             for (size_t i = 0; i < placeholder->TypeArgs.size(); ++i) {
                 const auto& placeholderArg = placeholder->TypeArgs[i];
                 const auto& arg = argNamed.Cast()->TypeArgs[i];
-                if (placeholderArg.Kind != TGenericArg::EKind::Type || arg.Kind != TGenericArg::EKind::Type) {
-                    continue;
-                }
-                if (auto err = UnifyGenericType(
-                        placeholderArg.Type,
-                        arg.Type,
-                        genericTypeParams,
-                        bindings,
-                        nullptr,
-                        retypeIntegerLiterals))
-                {
-                    return err;
+                if (placeholderArg.Kind == TGenericArg::EKind::Type && arg.Kind == TGenericArg::EKind::Type) {
+                    if (auto err = UnifyGenericType(
+                            placeholderArg.Type,
+                            arg.Type,
+                            genericParams,
+                            bindings,
+                            nullptr,
+                            retypeIntegerLiterals))
+                    {
+                        return err;
+                    }
+                } else if (placeholderArg.Kind == TGenericArg::EKind::Value && arg.Kind == TGenericArg::EKind::Value) {
+                    if (genericParams.Values.contains(placeholderArg.Value)) {
+                        auto [it, inserted] = bindings.Values.try_emplace(placeholderArg.Value, arg.Value);
+                        if (!inserted && it->second != arg.Value) {
+                            return "значение обобщённого параметра '" + placeholderArg.Value
+                                + "' определяется неоднозначно: то как '"
+                                + it->second + "', то как '" + arg.Value + "'";
+                        }
+                    } else if (placeholderArg.Value != arg.Value) {
+                        return "значение параметра типа '" + placeholder->Name
+                            + "' не совпадает: ожидается '" + placeholderArg.Value
+                            + "', получено '" + arg.Value + "'";
+                    }
+                } else {
+                    return "параметр типа '" + placeholder->Name + "' имеет несовместимый вид";
                 }
             }
         }
@@ -1554,7 +1581,7 @@ std::optional<std::string> UnifyGenericType(
             return UnifyGenericType(
                 arr.Cast()->ElementType,
                 argArr.Cast()->ElementType,
-                genericTypeParams,
+                genericParams,
                 bindings,
                 nullptr,
                 retypeIntegerLiterals);
@@ -1566,7 +1593,7 @@ std::optional<std::string> UnifyGenericType(
             return UnifyGenericType(
                 ptr.Cast()->PointeeType,
                 argPtr.Cast()->PointeeType,
-                genericTypeParams,
+                genericParams,
                 bindings,
                 nullptr,
                 retypeIntegerLiterals);
@@ -1578,7 +1605,7 @@ std::optional<std::string> UnifyGenericType(
         return UnifyGenericType(
             ref.Cast()->ReferencedType,
             argRef ? argRef.Cast()->ReferencedType : argType,
-            genericTypeParams,
+            genericParams,
             bindings,
             argExpr,
             retypeIntegerLiterals);
@@ -1588,7 +1615,7 @@ std::optional<std::string> UnifyGenericType(
             return UnifyGenericType(
                 future.Cast()->ResultType,
                 argFuture.Cast()->ResultType,
-                genericTypeParams,
+                genericParams,
                 bindings,
                 nullptr,
                 retypeIntegerLiterals);
@@ -1609,7 +1636,7 @@ std::optional<std::string> UnifyGenericType(
             if (auto err = UnifyGenericType(
                     pf->ParamTypes[i],
                     af->ParamTypes[i],
-                    genericTypeParams,
+                    genericParams,
                     bindings,
                     nullptr,
                     retypeIntegerLiterals))
@@ -1620,7 +1647,7 @@ std::optional<std::string> UnifyGenericType(
         return UnifyGenericType(
             pf->ReturnType,
             af->ReturnType,
-            genericTypeParams,
+            genericParams,
             bindings,
             nullptr,
             retypeIntegerLiterals);
@@ -1639,7 +1666,7 @@ std::optional<std::string> UnifyGenericType(
             if (auto err = UnifyGenericType(
                     ps->Fields[i].second,
                     as->Fields[i].second,
-                    genericTypeParams,
+                    genericParams,
                     bindings,
                     nullptr,
                     retypeIntegerLiterals))
@@ -1661,9 +1688,8 @@ bool IsGenericTypeParamRef(const TTypePtr& type, const std::unordered_set<std::s
 std::optional<std::string> InferGenericBindings(
     const TFunDecl& decl,
     const std::vector<TExprPtr>& args,
-    const std::unordered_set<std::string>& genericTypeParams,
-    const std::vector<std::string>& paramNames,
-    std::map<std::string, TTypePtr>& bindings,
+    const TGenericParamSets& genericParams,
+    TGenericBindings& bindings,
     bool retypeIntegerLiterals,
     TTypePtr expectedReturnType = nullptr,
     bool requireAllBindings = true)
@@ -1673,21 +1699,21 @@ std::optional<std::string> InferGenericBindings(
         return UnifyGenericType(
             decl.Params[i]->Type,
             UnwrapReferenceType(args[i]->Type),
-            genericTypeParams,
+            genericParams,
             bindings,
             args[i],
             retypeIntegerLiterals);
     };
 
     for (size_t i = 0; i < count; ++i) {
-        if (!IsGenericTypeParamRef(decl.Params[i]->Type, genericTypeParams)) {
+        if (!IsGenericTypeParamRef(decl.Params[i]->Type, genericParams.Types)) {
             if (auto err = unifyArg(i)) {
                 return err;
             }
         }
     }
     for (size_t i = 0; i < count; ++i) {
-        if (IsGenericTypeParamRef(decl.Params[i]->Type, genericTypeParams) && !IsIntegerLiteral(args[i])) {
+        if (IsGenericTypeParamRef(decl.Params[i]->Type, genericParams.Types) && !IsIntegerLiteral(args[i])) {
             if (auto err = unifyArg(i)) {
                 return err;
             }
@@ -1697,7 +1723,7 @@ std::optional<std::string> InferGenericBindings(
         if (auto err = UnifyGenericType(
                 decl.RetType,
                 UnwrapReferenceType(expectedReturnType),
-                genericTypeParams,
+                genericParams,
                 bindings,
                 nullptr,
                 retypeIntegerLiterals))
@@ -1706,7 +1732,7 @@ std::optional<std::string> InferGenericBindings(
         }
     }
     for (size_t i = 0; i < count; ++i) {
-        if (IsGenericTypeParamRef(decl.Params[i]->Type, genericTypeParams) && IsIntegerLiteral(args[i])) {
+        if (IsGenericTypeParamRef(decl.Params[i]->Type, genericParams.Types) && IsIntegerLiteral(args[i])) {
             if (auto err = unifyArg(i)) {
                 return err;
             }
@@ -1714,9 +1740,12 @@ std::optional<std::string> InferGenericBindings(
     }
 
     if (requireAllBindings) {
-        for (const auto& name : paramNames) {
-            if (!bindings.contains(name)) {
-                return "не удалось определить тип обобщённого параметра '" + name + "' по аргументам вызова";
+        for (const auto& param : decl.GenericParams) {
+            if (param.Kind == TGenericParam::EKind::Type && !bindings.Types.contains(param.Name)) {
+                return "не удалось определить тип обобщённого параметра '" + param.Name + "' по аргументам вызова";
+            }
+            if (param.Kind == TGenericParam::EKind::Value && !bindings.Values.contains(param.Name)) {
+                return "не удалось определить значение обобщённого параметра '" + param.Name + "' по аргументам вызова";
             }
         }
     }
@@ -1842,15 +1871,15 @@ TExprPtr ShallowCloneNode(const TExprPtr& node) {
 // (wrongly-typed) original nodes instead of this clone's.
 TExprPtr CloneAndSubstituteExpr(
     const TExprPtr& node,
-    const std::unordered_set<std::string>& genericTypeParams,
-    const std::map<std::string, TTypePtr>& bindings)
+    const TGenericParamSets& genericParams,
+    const TGenericBindings& bindings)
 {
     if (!node) {
         return node;
     }
     auto clone = ShallowCloneNode(node);
     if (clone->Type) {
-        clone->Type = SubstituteGenericType(clone->Type, genericTypeParams, bindings);
+        clone->Type = SubstituteGenericType(clone->Type, genericParams, bindings);
     }
     if (auto block = TMaybeNode<TBlockExpr>(clone)) {
         block.Cast()->Scope = -1;
@@ -1858,67 +1887,72 @@ TExprPtr CloneAndSubstituteExpr(
         fdecl.Cast()->Scope = -1;
     }
     for (auto* child : clone->MutableChildren()) {
-        *child = CloneAndSubstituteExpr(*child, genericTypeParams, bindings);
+        *child = CloneAndSubstituteExpr(*child, genericParams, bindings);
     }
     return clone;
 }
 
 bool AllGenericBindingsPresent(
-    const std::vector<std::string>& paramNames,
-    const std::map<std::string, TTypePtr>& bindings)
+    const std::vector<TGenericParam>& params,
+    const TGenericBindings& bindings)
 {
-    for (const auto& name : paramNames) {
-        if (!bindings.contains(name)) {
+    for (const auto& param : params) {
+        if (param.Kind == TGenericParam::EKind::Type && !bindings.Types.contains(param.Name)) {
+            return false;
+        }
+        if (param.Kind == TGenericParam::EKind::Value && !bindings.Values.contains(param.Name)) {
             return false;
         }
     }
     return true;
 }
 
-bool ContainsGenericTypeParam(
+bool ContainsGenericParam(
     const TTypePtr& type,
-    const std::unordered_set<std::string>& genericTypeParams)
+    const TGenericParamSets& genericParams)
 {
     if (!type) {
         return false;
     }
     if (auto named = TMaybeType<TNamedType>(type)) {
         auto src = named.Cast();
-        if (src->TypeArgs.empty() && genericTypeParams.contains(src->Name)) {
+        if (src->TypeArgs.empty() && genericParams.Types.contains(src->Name)) {
             return true;
         }
         for (const auto& arg : src->TypeArgs) {
-            if (arg.Kind == TGenericArg::EKind::Type
-                && ContainsGenericTypeParam(arg.Type, genericTypeParams))
-            {
+            if (arg.Kind == TGenericArg::EKind::Type) {
+                if (ContainsGenericParam(arg.Type, genericParams)) {
+                    return true;
+                }
+            } else if (genericParams.Values.contains(arg.Value)) {
                 return true;
             }
         }
-        return ContainsGenericTypeParam(src->UnderlyingType, genericTypeParams);
+        return ContainsGenericParam(src->UnderlyingType, genericParams);
     }
     if (auto arr = TMaybeType<TArrayType>(type)) {
-        return ContainsGenericTypeParam(arr.Cast()->ElementType, genericTypeParams);
+        return ContainsGenericParam(arr.Cast()->ElementType, genericParams);
     }
     if (auto ptr = TMaybeType<TPointerType>(type)) {
-        return ContainsGenericTypeParam(ptr.Cast()->PointeeType, genericTypeParams);
+        return ContainsGenericParam(ptr.Cast()->PointeeType, genericParams);
     }
     if (auto ref = TMaybeType<TReferenceType>(type)) {
-        return ContainsGenericTypeParam(ref.Cast()->ReferencedType, genericTypeParams);
+        return ContainsGenericParam(ref.Cast()->ReferencedType, genericParams);
     }
     if (auto future = TMaybeType<TFutureType>(type)) {
-        return ContainsGenericTypeParam(future.Cast()->ResultType, genericTypeParams);
+        return ContainsGenericParam(future.Cast()->ResultType, genericParams);
     }
     if (auto fun = TMaybeType<TFunctionType>(type)) {
         for (const auto& param : fun.Cast()->ParamTypes) {
-            if (ContainsGenericTypeParam(param, genericTypeParams)) {
+            if (ContainsGenericParam(param, genericParams)) {
                 return true;
             }
         }
-        return ContainsGenericTypeParam(fun.Cast()->ReturnType, genericTypeParams);
+        return ContainsGenericParam(fun.Cast()->ReturnType, genericParams);
     }
     if (auto structure = TMaybeType<TStructType>(type)) {
         for (const auto& [_, fieldType] : structure.Cast()->Fields) {
-            if (ContainsGenericTypeParam(fieldType, genericTypeParams)) {
+            if (ContainsGenericParam(fieldType, genericParams)) {
                 return true;
             }
         }
@@ -1928,11 +1962,13 @@ bool ContainsGenericTypeParam(
 
 std::vector<TGenericParam> UnboundGenericParams(
     const TFunDecl& decl,
-    const std::map<std::string, TTypePtr>& bindings)
+    const TGenericBindings& bindings)
 {
     std::vector<TGenericParam> result;
     for (const auto& param : decl.GenericParams) {
-        if (!bindings.contains(param.Name)) {
+        if (param.Kind == TGenericParam::EKind::Type && !bindings.Types.contains(param.Name)) {
+            result.push_back(param);
+        } else if (param.Kind == TGenericParam::EKind::Value && !bindings.Values.contains(param.Name)) {
             result.push_back(param);
         }
     }
@@ -1940,12 +1976,16 @@ std::vector<TGenericParam> UnboundGenericParams(
 }
 
 std::optional<std::string> RequireAllGenericBindings(
-    const std::vector<std::string>& paramNames,
-    const std::map<std::string, TTypePtr>& bindings)
+    const std::vector<TGenericParam>& params,
+    const TGenericBindings& bindings)
 {
-    for (const auto& name : paramNames) {
-        if (!bindings.contains(name)) {
-            return "не удалось определить тип обобщённого параметра '" + name
+    for (const auto& param : params) {
+        if (param.Kind == TGenericParam::EKind::Type && !bindings.Types.contains(param.Name)) {
+            return "не удалось определить тип обобщённого параметра '" + param.Name
+                + "' по аргументам вызова или телу функции";
+        }
+        if (param.Kind == TGenericParam::EKind::Value && !bindings.Values.contains(param.Name)) {
+            return "не удалось определить значение обобщённого параметра '" + param.Name
                 + "' по аргументам вызова или телу функции";
         }
     }
@@ -1955,16 +1995,16 @@ std::optional<std::string> RequireAllGenericBindings(
 TGenericBoolTask InferGenericBindingsFromReturnContext(
     TExprPtr& expr,
     TTypePtr targetType,
-    const std::unordered_set<std::string>& genericTypeParams,
-    std::map<std::string, TTypePtr>& bindings,
+    const TGenericParamSets& genericParams,
+    TGenericBindings& bindings,
     NSemantics::TNameResolver& context,
     NSemantics::TScopeId scopeId);
 
 TGenericBoolTask InferGenericBindingsFromStructConstruct(
     std::shared_ptr<TStructConstructExpr> structure,
     TTypePtr targetType,
-    const std::unordered_set<std::string>& genericTypeParams,
-    std::map<std::string, TTypePtr>& bindings,
+    const TGenericParamSets& genericParams,
+    TGenericBindings& bindings,
     NSemantics::TNameResolver& context,
     NSemantics::TScopeId scopeId)
 {
@@ -1993,7 +2033,7 @@ TGenericBoolTask InferGenericBindingsFromStructConstruct(
         }
 
         auto fieldTargetType = targetStruct->Fields[fieldIndex].second;
-        if (!ContainsGenericTypeParam(fieldTargetType, genericTypeParams)) {
+        if (!ContainsGenericParam(fieldTargetType, genericParams)) {
             continue;
         }
 
@@ -2001,7 +2041,7 @@ TGenericBoolTask InferGenericBindingsFromStructConstruct(
         inferred = (co_await InferGenericBindingsFromReturnContext(
             field,
             fieldTargetType,
-            genericTypeParams,
+            genericParams,
             bindings,
             context,
             scopeId)) || inferred;
@@ -2014,7 +2054,7 @@ TGenericBoolTask InferGenericBindingsFromStructConstruct(
         if (auto err = UnifyGenericType(
                 fieldTargetType,
                 UnwrapReferenceType(field->Type),
-                genericTypeParams,
+                genericParams,
                 bindings))
         {
             co_return TError(field->Location, *err);
@@ -2028,12 +2068,12 @@ TGenericBoolTask InferGenericBindingsFromStructConstruct(
 TGenericBoolTask InferGenericBindingsFromReturnContext(
     TExprPtr& expr,
     TTypePtr targetType,
-    const std::unordered_set<std::string>& genericTypeParams,
-    std::map<std::string, TTypePtr>& bindings,
+    const TGenericParamSets& genericParams,
+    TGenericBindings& bindings,
     NSemantics::TNameResolver& context,
     NSemantics::TScopeId scopeId)
 {
-    if (!expr || !targetType || !ContainsGenericTypeParam(targetType, genericTypeParams)) {
+    if (!expr || !targetType || !ContainsGenericParam(targetType, genericParams)) {
         co_return false;
     }
 
@@ -2041,7 +2081,7 @@ TGenericBoolTask InferGenericBindingsFromReturnContext(
         co_return co_await InferGenericBindingsFromReturnContext(
             cast.Cast()->Operand,
             cast.Cast()->Type,
-            genericTypeParams,
+            genericParams,
             bindings,
             context,
             scopeId);
@@ -2052,7 +2092,7 @@ TGenericBoolTask InferGenericBindingsFromReturnContext(
         inferred = (co_await InferGenericBindingsFromReturnContext(
             ifExpr.Cast()->Then,
             targetType,
-            genericTypeParams,
+            genericParams,
             bindings,
             context,
             scopeId)) || inferred;
@@ -2060,7 +2100,7 @@ TGenericBoolTask InferGenericBindingsFromReturnContext(
             inferred = (co_await InferGenericBindingsFromReturnContext(
                 ifExpr.Cast()->Else,
                 targetType,
-                genericTypeParams,
+                genericParams,
                 bindings,
                 context,
                 scopeId)) || inferred;
@@ -2072,7 +2112,7 @@ TGenericBoolTask InferGenericBindingsFromReturnContext(
         co_return co_await InferGenericBindingsFromStructConstruct(
             structure.Cast(),
             targetType,
-            genericTypeParams,
+            genericParams,
             bindings,
             context,
             scopeId);
@@ -2085,7 +2125,7 @@ TGenericBoolTask InferGenericBindingsFromReturnContext(
     if (auto err = UnifyGenericType(
             targetType,
             UnwrapReferenceType(expr->Type),
-            genericTypeParams,
+            genericParams,
             bindings))
     {
         co_return TError(expr->Location, *err);
@@ -2096,8 +2136,8 @@ TGenericBoolTask InferGenericBindingsFromReturnContext(
 TGenericBoolTask InferGenericBindingsFromExplicitReturns(
     TExprPtr& node,
     TTypePtr returnType,
-    const std::unordered_set<std::string>& genericTypeParams,
-    std::map<std::string, TTypePtr>& bindings,
+    const TGenericParamSets& genericParams,
+    TGenericBindings& bindings,
     NSemantics::TNameResolver& context,
     NSemantics::TScopeId scopeId)
 {
@@ -2111,7 +2151,7 @@ TGenericBoolTask InferGenericBindingsFromExplicitReturns(
         co_return co_await InferGenericBindingsFromReturnContext(
             ret.Cast()->Value,
             returnType,
-            genericTypeParams,
+            genericParams,
             bindings,
             context,
             scopeId);
@@ -2125,7 +2165,7 @@ TGenericBoolTask InferGenericBindingsFromExplicitReturns(
         inferred = (co_await InferGenericBindingsFromExplicitReturns(
             *child,
             returnType,
-            genericTypeParams,
+            genericParams,
             bindings,
             context,
             scopeId)) || inferred;
@@ -2135,13 +2175,12 @@ TGenericBoolTask InferGenericBindingsFromExplicitReturns(
 
 TGenericBoolTask InferGenericBindingsFromReturnBody(
     const std::shared_ptr<TFunDecl>& genericDecl,
-    const std::unordered_set<std::string>& genericTypeParams,
-    const std::vector<std::string>& paramNames,
-    std::map<std::string, TTypePtr>& bindings,
+    const TGenericParamSets& genericParams,
+    TGenericBindings& bindings,
     NSemantics::TNameResolver& context,
     TLocation callLoc)
 {
-    if (AllGenericBindingsPresent(paramNames, bindings)) {
+    if (AllGenericBindingsPresent(genericDecl->GenericParams, bindings)) {
         co_return false;
     }
 
@@ -2149,16 +2188,16 @@ TGenericBoolTask InferGenericBindingsFromReturnBody(
     params.reserve(genericDecl->Params.size());
     for (auto& param : genericDecl->Params) {
         auto clonedParam = std::make_shared<TVarStmt>(*param);
-        clonedParam->Type = SubstituteGenericType(param->Type, genericTypeParams, bindings);
+        clonedParam->Type = SubstituteGenericType(param->Type, genericParams, bindings);
         for (auto& bound : clonedParam->Bounds) {
-            bound.first = CloneAndSubstituteExpr(bound.first, genericTypeParams, bindings);
-            bound.second = CloneAndSubstituteExpr(bound.second, genericTypeParams, bindings);
+            bound.first = CloneAndSubstituteExpr(bound.first, genericParams, bindings);
+            bound.second = CloneAndSubstituteExpr(bound.second, genericParams, bindings);
         }
         params.push_back(std::move(clonedParam));
     }
 
-    auto retType = SubstituteGenericType(genericDecl->RetType, genericTypeParams, bindings);
-    auto body = TMaybeNode<TBlockExpr>(CloneAndSubstituteExpr(genericDecl->Body, genericTypeParams, bindings)).Cast();
+    auto retType = SubstituteGenericType(genericDecl->RetType, genericParams, bindings);
+    auto body = TMaybeNode<TBlockExpr>(CloneAndSubstituteExpr(genericDecl->Body, genericParams, bindings)).Cast();
     auto probe = std::make_shared<TFunDecl>(
         genericDecl->Location,
         genericDecl->Name + "$return_infer",
@@ -2189,7 +2228,7 @@ TGenericBoolTask InferGenericBindingsFromReturnBody(
     bool inferred = co_await InferGenericBindingsFromExplicitReturns(
         probeBody,
         returnType,
-        genericTypeParams,
+        genericParams,
         bindings,
         context,
         scopeId);
@@ -2198,7 +2237,7 @@ TGenericBoolTask InferGenericBindingsFromReturnBody(
         inferred = co_await InferGenericBindingsFromReturnContext(
             probe->Body->Stmts.back(),
             returnType,
-            genericTypeParams,
+            genericParams,
             bindings,
             context,
             scopeId);
@@ -2220,14 +2259,12 @@ TGenericBindingsTask InferCompleteGenericBindings(
     bool retypeIntegerLiterals,
     TTypePtr expectedReturnType)
 {
-    auto genericTypeParams = GenericTypeParamSet(*genericDecl);
-    auto paramNames = GenericTypeParamNames(*genericDecl);
-    std::map<std::string, TTypePtr> bindings;
+    auto genericParams = GenericParamSets(*genericDecl);
+    TGenericBindings bindings;
     if (auto err = InferGenericBindings(
             *genericDecl,
             args,
-            genericTypeParams,
-            paramNames,
+            genericParams,
             bindings,
             retypeIntegerLiterals,
             expectedReturnType,
@@ -2236,17 +2273,16 @@ TGenericBindingsTask InferCompleteGenericBindings(
         co_return TError(callLoc, *err);
     }
 
-    if (!AllGenericBindingsPresent(paramNames, bindings)) {
+    if (!AllGenericBindingsPresent(genericDecl->GenericParams, bindings)) {
         co_await InferGenericBindingsFromReturnBody(
             genericDecl,
-            genericTypeParams,
-            paramNames,
+            genericParams,
             bindings,
             context,
             callLoc);
     }
 
-    if (auto err = RequireAllGenericBindings(paramNames, bindings)) {
+    if (auto err = RequireAllGenericBindings(genericDecl->GenericParams, bindings)) {
         co_return TError(callLoc, *err);
     }
     co_return bindings;
@@ -2270,14 +2306,8 @@ TFunDeclTask InstantiateGenericFunction(
     if (!genericDecl->Body) {
         co_return TError(callLoc, "External generic functions are not supported: " + genericDecl->Name);
     }
-    for (const auto& param : genericDecl->GenericParams) {
-        if (param.Kind != TGenericParam::EKind::Type) {
-            co_return TError(callLoc, "Generic value parameters are not supported yet: " + param.Name);
-        }
-    }
 
-    auto genericTypeParams = GenericTypeParamSet(*genericDecl);
-    auto paramNames = GenericTypeParamNames(*genericDecl);
+    auto genericParams = GenericParamSets(*genericDecl);
     auto bindings = co_await InferCompleteGenericBindings(
         genericDecl,
         args,
@@ -2287,8 +2317,12 @@ TFunDeclTask InstantiateGenericFunction(
         expectedReturnType);
 
     std::string mangledName = "__generic_" + genericDecl->Name;
-    for (auto& name : paramNames) {
-        mangledName += "$" + TypeKey(bindings[name]);
+    for (const auto& param : genericDecl->GenericParams) {
+        if (param.Kind == TGenericParam::EKind::Type) {
+            mangledName += "$" + TypeKey(bindings.Types[param.Name]);
+        } else {
+            mangledName += "$" + bindings.Values[param.Name];
+        }
     }
 
     auto rootScopeId = context.GetOrCreateRootScope()->Id;
@@ -2302,19 +2336,19 @@ TFunDeclTask InstantiateGenericFunction(
     params.reserve(genericDecl->Params.size());
     for (auto& param : genericDecl->Params) {
         auto clonedParam = std::make_shared<TVarStmt>(*param);
-        clonedParam->Type = SubstituteGenericType(param->Type, genericTypeParams, bindings);
+        clonedParam->Type = SubstituteGenericType(param->Type, genericParams, bindings);
         for (auto& bound : clonedParam->Bounds) {
-            bound.first = CloneAndSubstituteExpr(bound.first, genericTypeParams, bindings);
-            bound.second = CloneAndSubstituteExpr(bound.second, genericTypeParams, bindings);
+            bound.first = CloneAndSubstituteExpr(bound.first, genericParams, bindings);
+            bound.second = CloneAndSubstituteExpr(bound.second, genericParams, bindings);
         }
         params.push_back(std::move(clonedParam));
     }
-    auto retType = SubstituteGenericType(genericDecl->RetType, genericTypeParams, bindings);
+    auto retType = SubstituteGenericType(genericDecl->RetType, genericParams, bindings);
 
-    auto body = TMaybeNode<TBlockExpr>(CloneAndSubstituteExpr(genericDecl->Body, genericTypeParams, bindings)).Cast();
+    auto body = TMaybeNode<TBlockExpr>(CloneAndSubstituteExpr(genericDecl->Body, genericParams, bindings)).Cast();
 
     auto cloned = std::make_shared<TFunDecl>(genericDecl->Location, mangledName, std::vector<TGenericParam>{}, std::move(params), body, retType);
-    cloned->LastAssert = CloneAndSubstituteExpr(genericDecl->LastAssert, genericTypeParams, bindings);
+    cloned->LastAssert = CloneAndSubstituteExpr(genericDecl->LastAssert, genericParams, bindings);
 
     std::vector<TTypePtr> paramTypes;
     paramTypes.reserve(cloned->Params.size());
@@ -2367,7 +2401,6 @@ TFunDeclTask InstantiateGenericFunction(
 std::optional<TTypePtr> SubstituteGenericOperatorReturnType(
     const std::shared_ptr<TFunDecl>& decl,
     const std::vector<TExprPtr>& args,
-    const std::unordered_set<std::string>& genericTypeParams,
     NSemantics::TNameResolver& context,
     TTypePtr expectedReturnType,
     TLocation loc,
@@ -2386,7 +2419,7 @@ std::optional<TTypePtr> SubstituteGenericOperatorReturnType(
             + *decl->OperatorName + "': " + bindingsResult.error().what());
         return std::nullopt;
     }
-    return SubstituteGenericType(decl->RetType, genericTypeParams, *bindingsResult);
+    return SubstituteGenericType(decl->RetType, GenericParamSets(*decl), *bindingsResult);
 }
 
 TRegisteredOpTask InstantiateGenericOperator(
@@ -2407,10 +2440,10 @@ TRegisteredOpTask InstantiateGenericOperator(
         }
         TArgCost totalCost;
         bool viable = true;
-        auto genericTypeParams = GenericTypeParamSet(*candidate);
+        auto genericParams = GenericParamSets(*candidate);
         for (size_t i = 0; i < args.size(); ++i) {
             auto argType = UnwrapReferenceType(args[i]->Type);
-            auto cost = ArgCost(argType, candidate->Params[i]->Type, &context, &genericTypeParams);
+            auto cost = ArgCost(argType, candidate->Params[i]->Type, &context, &genericParams.Types, &genericParams.Values);
             if (!cost) {
                 viable = false;
                 break;
@@ -2424,7 +2457,6 @@ TRegisteredOpTask InstantiateGenericOperator(
         auto retType = SubstituteGenericOperatorReturnType(
             candidate,
             args,
-            genericTypeParams,
             context,
             expectedReturnType,
             callLoc,
@@ -2529,9 +2561,9 @@ TTask AnnotateOverloadedCall(
         }
         TArgCost totalCost;
         bool viable = true;
-        auto genericTypeParams = GenericTypeParamSet(*funDecl);
+        auto genericParams = GenericParamSets(*funDecl);
         for (size_t i = 0; i < call->Args.size(); ++i) {
-            auto cost = ArgCost(call->Args[i]->Type, funDecl->Params[i]->Type, &context, &genericTypeParams);
+            auto cost = ArgCost(call->Args[i]->Type, funDecl->Params[i]->Type, &context, &genericParams.Types, &genericParams.Values);
             if (!cost) {
                 viable = false;
                 break;
@@ -2542,12 +2574,11 @@ TTask AnnotateOverloadedCall(
             continue;
         }
         if (HasGenericParams(*funDecl)) {
-            std::map<std::string, TTypePtr> bindings;
+            TGenericBindings bindings;
             if (InferGenericBindings(
                     *funDecl,
                     call->Args,
-                    genericTypeParams,
-                    GenericTypeParamNames(*funDecl),
+                    genericParams,
                     bindings,
                     false,
                     nullptr,

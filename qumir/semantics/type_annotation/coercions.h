@@ -60,7 +60,8 @@ std::optional<TArgCost> ArgCost(
     const NAst::TTypePtr& from,
     const NAst::TTypePtr& to,
     NSemantics::TNameResolver* ctx,
-    const std::unordered_set<std::string>* genericTypeParams = nullptr);
+    const std::unordered_set<std::string>* genericTypeParams = nullptr,
+    const std::unordered_set<std::string>* genericValueParams = nullptr);
 
 } // namespace NTypeAnnotation
 } // namespace NQumir

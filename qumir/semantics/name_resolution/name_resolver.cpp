@@ -23,21 +23,29 @@ TTypePtr CopyTypeAttrs(TTypePtr result, const TTypePtr& source) {
 TTypePtr CloneTypeWithGenericBindings(
     const TTypePtr& type,
     const std::unordered_set<std::string>& genericTypeParams,
-    const std::map<std::string, TTypePtr>& bindings);
+    const std::map<std::string, TTypePtr>& bindings,
+    const std::unordered_set<std::string>& genericValueParams,
+    const std::map<std::string, std::string>& valueBindings);
 
 std::vector<TGenericArg> CloneGenericArgsWithBindings(
     const std::vector<TGenericArg>& args,
     const std::unordered_set<std::string>& genericTypeParams,
-    const std::map<std::string, TTypePtr>& bindings)
+    const std::map<std::string, TTypePtr>& bindings,
+    const std::unordered_set<std::string>& genericValueParams,
+    const std::map<std::string, std::string>& valueBindings)
 {
     std::vector<TGenericArg> result;
     result.reserve(args.size());
     for (const auto& arg : args) {
         if (arg.Kind == TGenericArg::EKind::Type) {
             result.push_back(TGenericArg::TypeArg(
-                CloneTypeWithGenericBindings(arg.Type, genericTypeParams, bindings)));
+                CloneTypeWithGenericBindings(arg.Type, genericTypeParams, bindings, genericValueParams, valueBindings)));
         } else {
-            result.push_back(arg);
+            auto it = valueBindings.find(arg.Value);
+            result.push_back(TGenericArg::ValueArg(
+                it != valueBindings.end() && genericValueParams.contains(arg.Value)
+                    ? it->second
+                    : arg.Value));
         }
     }
     return result;
@@ -46,7 +54,9 @@ std::vector<TGenericArg> CloneGenericArgsWithBindings(
 TTypePtr CloneTypeWithGenericBindings(
     const TTypePtr& type,
     const std::unordered_set<std::string>& genericTypeParams,
-    const std::map<std::string, TTypePtr>& bindings)
+    const std::map<std::string, TTypePtr>& bindings,
+    const std::unordered_set<std::string>& genericValueParams,
+    const std::map<std::string, std::string>& valueBindings)
 {
     if (!type) {
         return type;
@@ -74,32 +84,32 @@ TTypePtr CloneTypeWithGenericBindings(
         std::vector<TTypePtr> params;
         params.reserve(src->ParamTypes.size());
         for (const auto& param : src->ParamTypes) {
-            params.push_back(CloneTypeWithGenericBindings(param, genericTypeParams, bindings));
+            params.push_back(CloneTypeWithGenericBindings(param, genericTypeParams, bindings, genericValueParams, valueBindings));
         }
-        auto ret = CloneTypeWithGenericBindings(src->ReturnType, genericTypeParams, bindings);
+        auto ret = CloneTypeWithGenericBindings(src->ReturnType, genericTypeParams, bindings, genericValueParams, valueBindings);
         return CopyTypeAttrs(std::make_shared<TFunctionType>(std::move(params), std::move(ret)), type);
     }
     if (auto t = TMaybeType<TFutureType>(type)) {
         return CopyTypeAttrs(
-            std::make_shared<TFutureType>(CloneTypeWithGenericBindings(t.Cast()->ResultType, genericTypeParams, bindings)),
+            std::make_shared<TFutureType>(CloneTypeWithGenericBindings(t.Cast()->ResultType, genericTypeParams, bindings, genericValueParams, valueBindings)),
             type);
     }
     if (auto t = TMaybeType<TArrayType>(type)) {
         auto src = t.Cast();
         return CopyTypeAttrs(
             std::make_shared<TArrayType>(
-                CloneTypeWithGenericBindings(src->ElementType, genericTypeParams, bindings),
+                CloneTypeWithGenericBindings(src->ElementType, genericTypeParams, bindings, genericValueParams, valueBindings),
                 src->Arity),
             type);
     }
     if (auto t = TMaybeType<TPointerType>(type)) {
         return CopyTypeAttrs(
-            std::make_shared<TPointerType>(CloneTypeWithGenericBindings(t.Cast()->PointeeType, genericTypeParams, bindings)),
+            std::make_shared<TPointerType>(CloneTypeWithGenericBindings(t.Cast()->PointeeType, genericTypeParams, bindings, genericValueParams, valueBindings)),
             type);
     }
     if (auto t = TMaybeType<TReferenceType>(type)) {
         return CopyTypeAttrs(
-            std::make_shared<TReferenceType>(CloneTypeWithGenericBindings(t.Cast()->ReferencedType, genericTypeParams, bindings)),
+            std::make_shared<TReferenceType>(CloneTypeWithGenericBindings(t.Cast()->ReferencedType, genericTypeParams, bindings, genericValueParams, valueBindings)),
             type);
     }
     if (auto t = TMaybeType<TNamedType>(type)) {
@@ -107,13 +117,13 @@ TTypePtr CloneTypeWithGenericBindings(
         if (src->TypeArgs.empty() && genericTypeParams.contains(src->Name)) {
             auto it = bindings.find(src->Name);
             if (it != bindings.end()) {
-                return CopyTypeAttrs(CloneTypeWithGenericBindings(it->second, {}, {}), type);
+                return CopyTypeAttrs(CloneTypeWithGenericBindings(it->second, {}, {}, {}, {}), type);
             }
         }
         auto result = std::make_shared<TNamedType>(
             src->Name,
-            CloneTypeWithGenericBindings(src->UnderlyingType, genericTypeParams, bindings),
-            CloneGenericArgsWithBindings(src->TypeArgs, genericTypeParams, bindings));
+            CloneTypeWithGenericBindings(src->UnderlyingType, genericTypeParams, bindings, genericValueParams, valueBindings),
+            CloneGenericArgsWithBindings(src->TypeArgs, genericTypeParams, bindings, genericValueParams, valueBindings));
         result->Reference = src->Reference;
         return CopyTypeAttrs(std::move(result), type);
     }
@@ -121,7 +131,7 @@ TTypePtr CloneTypeWithGenericBindings(
         std::vector<std::pair<std::string, TTypePtr>> fields;
         fields.reserve(t.Cast()->Fields.size());
         for (const auto& [name, fieldType] : t.Cast()->Fields) {
-            fields.emplace_back(name, CloneTypeWithGenericBindings(fieldType, genericTypeParams, bindings));
+            fields.emplace_back(name, CloneTypeWithGenericBindings(fieldType, genericTypeParams, bindings, genericValueParams, valueBindings));
         }
         return CopyTypeAttrs(std::make_shared<TStructType>(std::move(fields)), type);
     }
@@ -138,6 +148,31 @@ bool IsGenericTypeParam(const std::string& name, TScopePtr typeScope) {
     return false;
 }
 
+bool IsGenericValueParam(const std::string& name, TScopePtr typeScope) {
+    while (typeScope) {
+        if (typeScope->GenericValueParams.contains(name)) {
+            return true;
+        }
+        typeScope = typeScope->Parent;
+    }
+    return false;
+}
+
+std::optional<std::string> ValueArgFromTypeArg(const TGenericArg& arg, TScopePtr typeScope) {
+    if (arg.Kind == TGenericArg::EKind::Value) {
+        return arg.Value;
+    }
+    auto named = TMaybeType<TNamedType>(arg.Type);
+    if (named && named.Cast()->TypeArgs.empty() && IsGenericValueParam(named.Cast()->Name, typeScope)) {
+        return named.Cast()->Name;
+    }
+    return std::nullopt;
+}
+
+bool IsSupportedValueParamType(const TTypePtr& type) {
+    return static_cast<bool>(TMaybeType<TIntegerType>(type));
+}
+
 std::optional<TError> ValidateGenericParams(
     const std::vector<TGenericParam>& params,
     const TLocation& loc)
@@ -147,32 +182,52 @@ std::optional<TError> ValidateGenericParams(
         if (!names.insert(param.Name).second) {
             return TError(loc, "duplicate generic parameter: " + param.Name);
         }
+        if (param.Kind == TGenericParam::EKind::Value && !IsSupportedValueParamType(param.ValueType)) {
+            return TError(loc, "Only integer generic value parameters are supported: " + param.Name);
+        }
     }
     return std::nullopt;
 }
 
-std::unordered_map<std::string, std::string> GenericTypeParamAliases(const TFunDecl& decl) {
-    std::unordered_map<std::string, std::string> aliases;
-    int next = 0;
-    for (const auto& param : decl.GenericParams) {
-        if (param.Kind != TGenericParam::EKind::Type || aliases.contains(param.Name)) {
-            continue;
+void AddGenericParamsToScope(const std::vector<TGenericParam>& params, const TScopePtr& scope) {
+    for (const auto& param : params) {
+        if (param.Kind == TGenericParam::EKind::Type) {
+            scope->GenericTypeParams.insert(param.Name);
+        } else {
+            scope->GenericValueParams[param.Name] = param.ValueType;
         }
-        aliases[param.Name] = "T" + std::to_string(next++);
+    }
+}
+
+struct TGenericParamAliases {
+    std::unordered_map<std::string, std::string> Types;
+    std::unordered_map<std::string, std::string> Values;
+};
+
+TGenericParamAliases GenericParamAliases(const TFunDecl& decl) {
+    TGenericParamAliases aliases;
+    int nextType = 0;
+    int nextValue = 0;
+    for (const auto& param : decl.GenericParams) {
+        if (param.Kind == TGenericParam::EKind::Type && !aliases.Types.contains(param.Name)) {
+            aliases.Types[param.Name] = "T" + std::to_string(nextType++);
+        } else if (param.Kind == TGenericParam::EKind::Value && !aliases.Values.contains(param.Name)) {
+            aliases.Values[param.Name] = "V" + std::to_string(nextValue++);
+        }
     }
     return aliases;
 }
 
 std::string OverloadTypeKey(
     const TTypePtr& type,
-    const std::unordered_map<std::string, std::string>& genericTypeAliases)
+    const TGenericParamAliases& genericAliases)
 {
     if (!type) return "unknown";
     if (auto integer = TMaybeType<TIntegerType>(type)) return integer.Cast()->ToString();
     if (auto named = TMaybeType<TNamedType>(type)) {
         auto src = named.Cast();
-        auto alias = genericTypeAliases.find(src->Name);
-        std::string value = alias != genericTypeAliases.end()
+        auto alias = genericAliases.Types.find(src->Name);
+        std::string value = alias != genericAliases.Types.end()
             ? "Generic::" + alias->second
             : "Named::" + src->Name;
         if (!src->TypeArgs.empty()) {
@@ -182,41 +237,46 @@ std::string OverloadTypeKey(
                     value += ",";
                 }
                 const auto& arg = src->TypeArgs[i];
-                value += arg.Kind == TGenericArg::EKind::Type
-                    ? OverloadTypeKey(arg.Type, genericTypeAliases)
-                    : "Value::" + arg.Value;
+                if (arg.Kind == TGenericArg::EKind::Type) {
+                    value += OverloadTypeKey(arg.Type, genericAliases);
+                } else {
+                    auto valueAlias = genericAliases.Values.find(arg.Value);
+                    value += valueAlias != genericAliases.Values.end()
+                        ? "GenericValue::" + valueAlias->second
+                        : "Value::" + arg.Value;
+                }
             }
             value += "]";
         }
         return value;
     }
     if (auto future = TMaybeType<TFutureType>(type)) {
-        return std::string("Future::") + OverloadTypeKey(future.Cast()->ResultType, genericTypeAliases);
+        return std::string("Future::") + OverloadTypeKey(future.Cast()->ResultType, genericAliases);
     }
     if (auto array = TMaybeType<TArrayType>(type)) {
         return "Array::" + std::to_string(array.Cast()->Arity) + "::"
-            + OverloadTypeKey(array.Cast()->ElementType, genericTypeAliases);
+            + OverloadTypeKey(array.Cast()->ElementType, genericAliases);
     }
     if (auto pointer = TMaybeType<TPointerType>(type)) {
-        return std::string("Ptr::") + OverloadTypeKey(pointer.Cast()->PointeeType, genericTypeAliases);
+        return std::string("Ptr::") + OverloadTypeKey(pointer.Cast()->PointeeType, genericAliases);
     }
     if (auto reference = TMaybeType<TReferenceType>(type)) {
-        return std::string("Ref::") + OverloadTypeKey(reference.Cast()->ReferencedType, genericTypeAliases);
+        return std::string("Ref::") + OverloadTypeKey(reference.Cast()->ReferencedType, genericAliases);
     }
     if (auto function = TMaybeType<TFunctionType>(type)) {
         std::string key = "Fun::(";
         for (size_t i = 0; i < function.Cast()->ParamTypes.size(); ++i) {
             if (i > 0) key += ",";
-            key += OverloadTypeKey(function.Cast()->ParamTypes[i], genericTypeAliases);
+            key += OverloadTypeKey(function.Cast()->ParamTypes[i], genericAliases);
         }
         key += ")->";
-        key += OverloadTypeKey(function.Cast()->ReturnType, genericTypeAliases);
+        key += OverloadTypeKey(function.Cast()->ReturnType, genericAliases);
         return key;
     }
     if (auto structure = TMaybeType<TStructType>(type)) {
         std::string key = "Struct::{";
         for (const auto& [name, fieldType] : structure.Cast()->Fields) {
-            key += name + ":" + OverloadTypeKey(fieldType, genericTypeAliases) + ";";
+            key += name + ":" + OverloadTypeKey(fieldType, genericAliases) + ";";
         }
         key += "}";
         return key;
@@ -264,11 +324,7 @@ TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TSco
             co_await Declare(fdecl->Name, node, scope, nullptr);
             auto newScope = NewScope(scope, nullptr);
             fdecl->Scope = newScope->Id.Id;
-            for (const auto& param : fdecl->GenericParams) {
-                if (param.Kind == TGenericParam::EKind::Type) {
-                    newScope->GenericTypeParams.insert(param.Name);
-                }
-            }
+            AddGenericParamsToScope(fdecl->GenericParams, newScope);
             for (auto& param : fdecl->Params) {
                 co_await Declare(param->Name, param, newScope, newScope);
             }
@@ -293,19 +349,14 @@ std::optional<TError> TNameResolver::ResolveTypeRef(TTypePtr& type, const TLocat
         if (!type) return {};
         if (auto maybeNamed = TMaybeType<TNamedType>(type)) {
             auto named = maybeNamed.Cast();
-            for (auto& arg : named->TypeArgs) {
-                if (arg.Kind != TGenericArg::EKind::Type) {
-                    continue;
-                }
-                if (auto err = self(self, arg.Type, loc, typeScope)) {
-                    return err;
-                }
-            }
             if (IsGenericTypeParam(named->Name, typeScope)) {
                 if (!named->TypeArgs.empty()) {
                     return TError(loc, "Generic type parameter '" + named->Name + "' does not accept parameters");
                 }
                 return {};
+            }
+            if (IsGenericValueParam(named->Name, typeScope)) {
+                return TError(loc, "Generic value parameter '" + named->Name + "' cannot be used as a type");
             }
             auto it = RegisteredTypes.find(named->Name);
             if (it == RegisteredTypes.end()) {
@@ -328,23 +379,44 @@ std::optional<TError> TNameResolver::ResolveTypeRef(TTypePtr& type, const TLocat
                         + std::to_string(named->TypeArgs.size()));
                 }
                 std::unordered_set<std::string> genericTypeParams;
+                std::unordered_set<std::string> genericValueParams;
                 std::map<std::string, TTypePtr> bindings;
+                std::map<std::string, std::string> valueBindings;
+                std::vector<TGenericArg> resolvedArgs;
+                resolvedArgs.reserve(named->TypeArgs.size());
                 for (size_t i = 0; i < typeDecl.GenericParams.size(); ++i) {
                     const auto& param = typeDecl.GenericParams[i];
-                    const auto& arg = named->TypeArgs[i];
-                    if (param.Kind != TGenericParam::EKind::Type) {
-                        return TError(loc, "Generic value type parameters are not supported yet: " + param.Name);
+                    auto arg = named->TypeArgs[i];
+                    if (param.Kind == TGenericParam::EKind::Type) {
+                        if (arg.Kind != TGenericArg::EKind::Type) {
+                            return TError(loc, "Generic type parameter '" + param.Name + "' expects a type argument");
+                        }
+                        if (auto err = self(self, arg.Type, loc, typeScope)) {
+                            return err;
+                        }
+                        genericTypeParams.insert(param.Name);
+                        bindings[param.Name] = arg.Type;
+                        resolvedArgs.push_back(std::move(arg));
+                    } else {
+                        if (!IsSupportedValueParamType(param.ValueType)) {
+                            return TError(loc, "Only integer generic value parameters are supported: " + param.Name);
+                        }
+                        auto value = ValueArgFromTypeArg(arg, typeScope);
+                        if (!value) {
+                            return TError(loc, "Generic value parameter '" + param.Name + "' expects an integer value argument");
+                        }
+                        genericValueParams.insert(param.Name);
+                        valueBindings[param.Name] = *value;
+                        resolvedArgs.push_back(TGenericArg::ValueArg(std::move(*value)));
                     }
-                    if (arg.Kind != TGenericArg::EKind::Type) {
-                        return TError(loc, "value generic arguments are not supported yet");
-                    }
-                    genericTypeParams.insert(param.Name);
-                    bindings[param.Name] = arg.Type;
                 }
+                named->TypeArgs = std::move(resolvedArgs);
                 named->UnderlyingType = CloneTypeWithGenericBindings(
                     typeDecl.UnderlyingType,
                     genericTypeParams,
-                    bindings);
+                    bindings,
+                    genericValueParams,
+                    valueBindings);
             }
             auto modIt = ImportedModuleSymbols.find(named->Name);
             if (modIt != ImportedModuleSymbols.end()) {
@@ -492,11 +564,7 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
             auto typeScope = scope;
             if (!typeDecl->GenericParams.empty()) {
                 typeScope = NewScope(scope, funcScope);
-                for (const auto& param : typeDecl->GenericParams) {
-                    if (param.Kind == TGenericParam::EKind::Type) {
-                        typeScope->GenericTypeParams.insert(param.Name);
-                    }
-                }
+                AddGenericParamsToScope(typeDecl->GenericParams, typeScope);
             }
             if (auto err = ResolveTypeRef(named->UnderlyingType, typeDecl->Location, typeScope)) {
                 co_return *err;
@@ -764,11 +832,7 @@ std::expected<TSymbolId, TError> TNameResolver::ResolveInstantiatedFunDecl(std::
 
     auto funcScope = NewScope(rootScope, nullptr);
     fdecl->Scope = funcScope->Id.Id;
-    for (const auto& param : fdecl->GenericParams) {
-        if (param.Kind == TGenericParam::EKind::Type) {
-            funcScope->GenericTypeParams.insert(param.Name);
-        }
-    }
+    AddGenericParamsToScope(fdecl->GenericParams, funcScope);
     if (auto err = ResolveTypeRef(fdecl->Type, fdecl->Location, funcScope)) {
         return std::unexpected(*err);
     }
@@ -817,8 +881,8 @@ bool TNameResolver::ParamTypesSame(const NAst::TFunDecl& a, const NAst::TFunDecl
     if (a.Params.size() != b.Params.size()) {
         return false;
     }
-    auto aGenericAliases = GenericTypeParamAliases(a);
-    auto bGenericAliases = GenericTypeParamAliases(b);
+    auto aGenericAliases = GenericParamAliases(a);
+    auto bGenericAliases = GenericParamAliases(b);
     for (size_t i = 0; i < a.Params.size(); ++i) {
         if (OverloadTypeKey(a.Params[i]->Type, aGenericAliases)
             != OverloadTypeKey(b.Params[i]->Type, bGenericAliases))

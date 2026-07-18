@@ -87,6 +87,7 @@ struct TScope {
     // Functions with multiple overloads: canonical name -> list of symbol IDs (each under a synthName).
     std::unordered_map<std::string, std::vector<TSymbolId>> OverloadSets;
     std::unordered_set<std::string> GenericTypeParams;
+    std::unordered_map<std::string, NAst::TTypePtr> GenericValueParams;
     bool AllowsRedeclare{false};
     bool RootLevel{false};
     // Set on the function-level scope (the one created for the function's

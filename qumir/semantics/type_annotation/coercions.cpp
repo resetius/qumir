@@ -32,6 +32,10 @@ bool IsGenericTypeParam(const TTypePtr& type, const std::unordered_set<std::stri
         && genericTypeParams->contains(named.Cast()->Name);
 }
 
+bool IsGenericValueParam(const std::string& value, const std::unordered_set<std::string>* genericValueParams) {
+    return genericValueParams && genericValueParams->contains(value);
+}
+
 TArgCost GenericParamCost(bool topLevel) {
     return TArgCost{
         .GenericPenalty = 1,
@@ -52,15 +56,17 @@ TArgCost StructuralGenericCost(TArgCost cost) {
 std::optional<TArgCost> GenericParametricCost(
     const TTypePtr& paramType,
     const TTypePtr& argType,
-    const std::unordered_set<std::string>* genericTypeParams);
+    const std::unordered_set<std::string>* genericTypeParams,
+    const std::unordered_set<std::string>* genericValueParams);
 
 std::optional<TArgCost> CombineGenericCost(
     const TTypePtr& paramType,
     const TTypePtr& argType,
     const std::unordered_set<std::string>* genericTypeParams,
+    const std::unordered_set<std::string>* genericValueParams,
     bool& matched)
 {
-    if (auto cost = GenericParametricCost(paramType, argType, genericTypeParams)) {
+    if (auto cost = GenericParametricCost(paramType, argType, genericTypeParams, genericValueParams)) {
         matched = true;
         return cost;
     }
@@ -73,9 +79,12 @@ std::optional<TArgCost> CombineGenericCost(
 std::optional<TArgCost> GenericParametricCost(
     const TTypePtr& paramType,
     const TTypePtr& argType,
-    const std::unordered_set<std::string>* genericTypeParams)
+    const std::unordered_set<std::string>* genericTypeParams,
+    const std::unordered_set<std::string>* genericValueParams)
 {
-    if (!genericTypeParams || genericTypeParams->empty() || !paramType || !argType) {
+    const bool hasTypeParams = genericTypeParams && !genericTypeParams->empty();
+    const bool hasValueParams = genericValueParams && !genericValueParams->empty();
+    if ((!hasTypeParams && !hasValueParams) || !paramType || !argType) {
         return std::nullopt;
     }
     if (IsGenericTypeParam(paramType, genericTypeParams)) {
@@ -93,14 +102,22 @@ std::optional<TArgCost> GenericParametricCost(
         for (size_t i = 0; i < paramNamed.Cast()->TypeArgs.size(); ++i) {
             const auto& paramArg = paramNamed.Cast()->TypeArgs[i];
             const auto& arg = argNamed.Cast()->TypeArgs[i];
-            if (paramArg.Kind != TGenericArg::EKind::Type || arg.Kind != TGenericArg::EKind::Type) {
+            if (paramArg.Kind == TGenericArg::EKind::Type && arg.Kind == TGenericArg::EKind::Type) {
+                auto cost = CombineGenericCost(paramArg.Type, arg.Type, genericTypeParams, genericValueParams, matched);
+                if (!cost) {
+                    return std::nullopt;
+                }
+                total = total + *cost;
+            } else if (paramArg.Kind == TGenericArg::EKind::Value && arg.Kind == TGenericArg::EKind::Value) {
+                if (IsGenericValueParam(paramArg.Value, genericValueParams)) {
+                    matched = true;
+                    total = total + GenericParamCost(false);
+                } else if (paramArg.Value != arg.Value) {
+                    return std::nullopt;
+                }
+            } else {
                 return std::nullopt;
             }
-            auto cost = CombineGenericCost(paramArg.Type, arg.Type, genericTypeParams, matched);
-            if (!cost) {
-                return std::nullopt;
-            }
-            total = total + *cost;
         }
         return matched ? std::optional<TArgCost>{StructuralGenericCost(total)} : std::nullopt;
     }
@@ -109,7 +126,7 @@ std::optional<TArgCost> GenericParametricCost(
         if (!argArray || paramArray.Cast()->Arity != argArray.Cast()->Arity) {
             return std::nullopt;
         }
-        auto cost = CombineGenericCost(paramArray.Cast()->ElementType, argArray.Cast()->ElementType, genericTypeParams, matched);
+        auto cost = CombineGenericCost(paramArray.Cast()->ElementType, argArray.Cast()->ElementType, genericTypeParams, genericValueParams, matched);
         return cost && matched ? std::optional<TArgCost>{StructuralGenericCost(*cost)} : std::nullopt;
     }
     if (auto paramPtr = TMaybeType<TPointerType>(paramType)) {
@@ -117,13 +134,13 @@ std::optional<TArgCost> GenericParametricCost(
         if (!argPtr) {
             return std::nullopt;
         }
-        auto cost = CombineGenericCost(paramPtr.Cast()->PointeeType, argPtr.Cast()->PointeeType, genericTypeParams, matched);
+        auto cost = CombineGenericCost(paramPtr.Cast()->PointeeType, argPtr.Cast()->PointeeType, genericTypeParams, genericValueParams, matched);
         return cost && matched ? std::optional<TArgCost>{StructuralGenericCost(*cost)} : std::nullopt;
     }
     if (auto paramRef = TMaybeType<TReferenceType>(paramType)) {
         auto argRef = TMaybeType<TReferenceType>(argType);
         auto argInner = argRef ? argRef.Cast()->ReferencedType : argType;
-        auto cost = CombineGenericCost(paramRef.Cast()->ReferencedType, argInner, genericTypeParams, matched);
+        auto cost = CombineGenericCost(paramRef.Cast()->ReferencedType, argInner, genericTypeParams, genericValueParams, matched);
         return cost && matched ? std::optional<TArgCost>{StructuralGenericCost(*cost)} : std::nullopt;
     }
     if (auto paramFuture = TMaybeType<TFutureType>(paramType)) {
@@ -131,7 +148,7 @@ std::optional<TArgCost> GenericParametricCost(
         if (!argFuture) {
             return std::nullopt;
         }
-        auto cost = CombineGenericCost(paramFuture.Cast()->ResultType, argFuture.Cast()->ResultType, genericTypeParams, matched);
+        auto cost = CombineGenericCost(paramFuture.Cast()->ResultType, argFuture.Cast()->ResultType, genericTypeParams, genericValueParams, matched);
         return cost && matched ? std::optional<TArgCost>{StructuralGenericCost(*cost)} : std::nullopt;
     }
     if (auto paramFun = TMaybeType<TFunctionType>(paramType)) {
@@ -140,13 +157,13 @@ std::optional<TArgCost> GenericParametricCost(
             return std::nullopt;
         }
         for (size_t i = 0; i < paramFun.Cast()->ParamTypes.size(); ++i) {
-            auto cost = CombineGenericCost(paramFun.Cast()->ParamTypes[i], argFun.Cast()->ParamTypes[i], genericTypeParams, matched);
+            auto cost = CombineGenericCost(paramFun.Cast()->ParamTypes[i], argFun.Cast()->ParamTypes[i], genericTypeParams, genericValueParams, matched);
             if (!cost) {
                 return std::nullopt;
             }
             total = total + *cost;
         }
-        auto retCost = CombineGenericCost(paramFun.Cast()->ReturnType, argFun.Cast()->ReturnType, genericTypeParams, matched);
+        auto retCost = CombineGenericCost(paramFun.Cast()->ReturnType, argFun.Cast()->ReturnType, genericTypeParams, genericValueParams, matched);
         if (!retCost) {
             return std::nullopt;
         }
@@ -162,7 +179,7 @@ std::optional<TArgCost> GenericParametricCost(
             if (paramStruct.Cast()->Fields[i].first != argStruct.Cast()->Fields[i].first) {
                 return std::nullopt;
             }
-            auto cost = CombineGenericCost(paramStruct.Cast()->Fields[i].second, argStruct.Cast()->Fields[i].second, genericTypeParams, matched);
+            auto cost = CombineGenericCost(paramStruct.Cast()->Fields[i].second, argStruct.Cast()->Fields[i].second, genericTypeParams, genericValueParams, matched);
             if (!cost) {
                 return std::nullopt;
             }
@@ -196,7 +213,8 @@ std::optional<TArgCost> ArgCost(
     const TTypePtr& from,
     const TTypePtr& to,
     NSemantics::TNameResolver* ctx,
-    const std::unordered_set<std::string>* genericTypeParams)
+    const std::unordered_set<std::string>* genericTypeParams,
+    const std::unordered_set<std::string>* genericValueParams)
 {
     if (!from || !to) {
         return std::nullopt;
@@ -208,7 +226,7 @@ std::optional<TArgCost> ArgCost(
     if (IsGenericTypeParam(to, genericTypeParams)) {
         return GenericParamCost(true);
     }
-    if (auto cost = GenericParametricCost(to, from, genericTypeParams)) {
+    if (auto cost = GenericParametricCost(to, from, genericTypeParams, genericValueParams)) {
         return cost;
     }
 
