@@ -2,6 +2,8 @@
 
 #include <qumir/modules/module.h>
 #include <qumir/modules/system/system.h>
+#include <qumir/parser/core/lexer.h>
+#include <qumir/parser/core/parser.h>
 #include <qumir/parser/core/printer.h>
 #include <qumir/parser/lexer.h>
 #include <qumir/parser/parser.h>
@@ -72,6 +74,33 @@ std::string Print(const TExprPtr& expr) {
     NAst::NCore::TPrintOptions options;
     options.Pretty = false;
     return NAst::NCore::PrintAst(expr, options);
+}
+
+TExprPtr ParseCore(const std::string& source) {
+    std::istringstream input(source);
+    NAst::NCore::TTokenStream tokens(input);
+    NAst::NCore::TParser parser;
+    auto parsed = parser.Parse(tokens);
+    if (!parsed) {
+        ADD_FAILURE() << parsed.error().ToString();
+        return nullptr;
+    }
+    return std::move(*parsed);
+}
+
+std::shared_ptr<TFieldAccessExpr> FindFieldAccess(const TExprPtr& expr, const std::string& fieldName) {
+    if (!expr) {
+        return nullptr;
+    }
+    if (auto field = TMaybeNode<TFieldAccessExpr>(expr).Cast(); field && field->FieldName == fieldName) {
+        return field;
+    }
+    for (const auto& child : expr->Children()) {
+        if (auto found = FindFieldAccess(child, fieldName)) {
+            return found;
+        }
+    }
+    return nullptr;
 }
 
 } // namespace
@@ -461,6 +490,37 @@ TEST(FinalSemanticPipeline, ResolvesAndAnnotatesInsertedNestedBlock) {
     auto typeResult = NTransform::FinalTypeAnnotation(root, resolver);
     ASSERT_TRUE(typeResult.has_value()) << typeResult.error().ToString();
     EXPECT_TRUE(TMaybeType<TIntegerType>(syntheticUse->Type));
+}
+
+TEST(ParametricTypes, ConcreteNamedTypeInstantiationResolvesUnderlyingFields) {
+    auto root = ParseCore(R"__(
+(block
+  (type Nullable [T] <struct (Value T) (Valid i8)>)
+  (fun unwrap ((var x <named Nullable [i64]>)) -> i64
+    (block
+      (return (field x Value)))))
+)__");
+    ASSERT_NE(root, nullptr);
+
+    TNameResolver resolver;
+    auto nameResult = NTransform::FinalNameResolution(root, resolver);
+    ASSERT_TRUE(nameResult.has_value()) << nameResult.error().ToString();
+    auto typeResult = NTransform::FinalTypeAnnotation(root, resolver);
+    ASSERT_TRUE(typeResult.has_value()) << typeResult.error().ToString();
+
+    auto function = TMaybeNode<TFunDecl>(TMaybeNode<TBlockExpr>(root).Cast()->Stmts[1]).Cast();
+    ASSERT_TRUE(function);
+    auto paramType = TMaybeType<TNamedType>(function->Params[0]->Type).Cast();
+    ASSERT_TRUE(paramType);
+    auto paramStruct = TMaybeType<TStructType>(paramType->UnderlyingType).Cast();
+    ASSERT_TRUE(paramStruct);
+    ASSERT_EQ(paramStruct->Fields.size(), 2u);
+    EXPECT_EQ(paramStruct->Fields[0].first, "Value");
+    EXPECT_TRUE(TMaybeType<TIntegerType>(paramStruct->Fields[0].second));
+
+    auto field = FindFieldAccess(function, "Value");
+    ASSERT_TRUE(field);
+    EXPECT_TRUE(TMaybeType<TIntegerType>(field->Type));
 }
 
 TEST(FinalSemanticPipeline, DoesNotRerunSourceTransforms) {

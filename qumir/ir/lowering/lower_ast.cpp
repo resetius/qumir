@@ -767,6 +767,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
         } else if (FromAstType(NAst::UnwrapNamedType(expr->Type), Module.Types)
             == FromAstType(NAst::UnwrapNamedType(cast->Operand->Type), Module.Types)) {
+            if (NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(expr->Type))) {
+                co_return TValueWithBlock{operand.Value, Builder.CurrentBlockLabel()};
+            }
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TPointerType>(NAst::UnwrapNamedType(expr->Type))
             && NAst::TMaybeType<NAst::TPointerType>(NAst::UnwrapNamedType(cast->Operand->Type))) {

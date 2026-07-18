@@ -10,6 +10,125 @@ namespace NSemantics {
 
 using namespace NAst;
 
+namespace {
+
+TTypePtr CopyTypeAttrs(TTypePtr result, const TTypePtr& source) {
+    if (result && source) {
+        static_cast<TType&>(*result) = static_cast<const TType&>(*source);
+    }
+    return result;
+}
+
+TTypePtr CloneTypeWithGenericBindings(
+    const TTypePtr& type,
+    const std::unordered_set<std::string>& genericTypeParams,
+    const std::map<std::string, TTypePtr>& bindings);
+
+std::vector<TGenericArg> CloneGenericArgsWithBindings(
+    const std::vector<TGenericArg>& args,
+    const std::unordered_set<std::string>& genericTypeParams,
+    const std::map<std::string, TTypePtr>& bindings)
+{
+    std::vector<TGenericArg> result;
+    result.reserve(args.size());
+    for (const auto& arg : args) {
+        if (arg.Kind == TGenericArg::EKind::Type) {
+            result.push_back(TGenericArg::TypeArg(
+                CloneTypeWithGenericBindings(arg.Type, genericTypeParams, bindings)));
+        } else {
+            result.push_back(arg);
+        }
+    }
+    return result;
+}
+
+TTypePtr CloneTypeWithGenericBindings(
+    const TTypePtr& type,
+    const std::unordered_set<std::string>& genericTypeParams,
+    const std::map<std::string, TTypePtr>& bindings)
+{
+    if (!type) {
+        return type;
+    }
+    if (auto t = TMaybeType<TIntegerType>(type)) {
+        return CopyTypeAttrs(std::make_shared<TIntegerType>(t.Cast()->Kind), type);
+    }
+    if (TMaybeType<TFloatType>(type)) {
+        return CopyTypeAttrs(std::make_shared<TFloatType>(), type);
+    }
+    if (TMaybeType<TBoolType>(type)) {
+        return CopyTypeAttrs(std::make_shared<TBoolType>(), type);
+    }
+    if (TMaybeType<TStringType>(type)) {
+        return CopyTypeAttrs(std::make_shared<TStringType>(), type);
+    }
+    if (TMaybeType<TSymbolType>(type)) {
+        return CopyTypeAttrs(std::make_shared<TSymbolType>(), type);
+    }
+    if (TMaybeType<TVoidType>(type)) {
+        return CopyTypeAttrs(std::make_shared<TVoidType>(), type);
+    }
+    if (auto t = TMaybeType<TFunctionType>(type)) {
+        auto src = t.Cast();
+        std::vector<TTypePtr> params;
+        params.reserve(src->ParamTypes.size());
+        for (const auto& param : src->ParamTypes) {
+            params.push_back(CloneTypeWithGenericBindings(param, genericTypeParams, bindings));
+        }
+        auto ret = CloneTypeWithGenericBindings(src->ReturnType, genericTypeParams, bindings);
+        return CopyTypeAttrs(std::make_shared<TFunctionType>(std::move(params), std::move(ret)), type);
+    }
+    if (auto t = TMaybeType<TFutureType>(type)) {
+        return CopyTypeAttrs(
+            std::make_shared<TFutureType>(CloneTypeWithGenericBindings(t.Cast()->ResultType, genericTypeParams, bindings)),
+            type);
+    }
+    if (auto t = TMaybeType<TArrayType>(type)) {
+        auto src = t.Cast();
+        return CopyTypeAttrs(
+            std::make_shared<TArrayType>(
+                CloneTypeWithGenericBindings(src->ElementType, genericTypeParams, bindings),
+                src->Arity),
+            type);
+    }
+    if (auto t = TMaybeType<TPointerType>(type)) {
+        return CopyTypeAttrs(
+            std::make_shared<TPointerType>(CloneTypeWithGenericBindings(t.Cast()->PointeeType, genericTypeParams, bindings)),
+            type);
+    }
+    if (auto t = TMaybeType<TReferenceType>(type)) {
+        return CopyTypeAttrs(
+            std::make_shared<TReferenceType>(CloneTypeWithGenericBindings(t.Cast()->ReferencedType, genericTypeParams, bindings)),
+            type);
+    }
+    if (auto t = TMaybeType<TNamedType>(type)) {
+        auto src = t.Cast();
+        if (src->TypeArgs.empty() && genericTypeParams.contains(src->Name)) {
+            auto it = bindings.find(src->Name);
+            if (it != bindings.end()) {
+                return CopyTypeAttrs(CloneTypeWithGenericBindings(it->second, genericTypeParams, bindings), type);
+            }
+        }
+        auto result = std::make_shared<TNamedType>(
+            src->Name,
+            CloneTypeWithGenericBindings(src->UnderlyingType, genericTypeParams, bindings),
+            CloneGenericArgsWithBindings(src->TypeArgs, genericTypeParams, bindings));
+        result->Reference = src->Reference;
+        return CopyTypeAttrs(std::move(result), type);
+    }
+    if (auto t = TMaybeType<TStructType>(type)) {
+        std::vector<std::pair<std::string, TTypePtr>> fields;
+        fields.reserve(t.Cast()->Fields.size());
+        for (const auto& [name, fieldType] : t.Cast()->Fields) {
+            fields.emplace_back(name, CloneTypeWithGenericBindings(fieldType, genericTypeParams, bindings));
+        }
+        return CopyTypeAttrs(std::make_shared<TStructType>(std::move(fields)), type);
+    }
+    return type;
+}
+
+} // namespace
+
 TNameResolver::TNameResolver(const TNameResolverOptions& options)
     : Options(options)
 { }
@@ -77,7 +196,7 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         return suggestion ? suggestion->ToString() : "";
     };
 
-    // Resolve TNamedType: fill in UnderlyingType from imported module types.
+    // Resolve TNamedType: fill in UnderlyingType from imported module and source type declarations.
     // Also recurses into TReferenceType and TPointerType wrappers.
     auto isGenericTypeParam = [](const std::string& name, TScopePtr typeScope) {
         while (typeScope) {
@@ -104,15 +223,45 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
             if (isGenericTypeParam(named->Name, typeScope)) {
                 return {};
             }
-            auto it = ImportedTypes.find(named->Name);
-            if (it == ImportedTypes.end()) {
+            auto it = RegisteredTypes.find(named->Name);
+            if (it == RegisteredTypes.end()) {
                 return TError(loc, "Неизвестный тип: " + named->Name);
             }
-            if (auto n = TMaybeType<TNamedType>(it->second); n && n.Cast()->Name == named->Name) {
-                throw std::runtime_error("resolveTypeRef: ImportedTypes['" + named->Name
+            const auto& typeDecl = it->second;
+            if (auto n = TMaybeType<TNamedType>(typeDecl.UnderlyingType); n && n.Cast()->Name == named->Name) {
+                throw std::runtime_error("resolveTypeRef: RegisteredTypes['" + named->Name
                     + "'] is a TNamedType with the same name — double wrap would result");
             }
-            named->UnderlyingType = it->second;
+            if (typeDecl.GenericParams.empty()) {
+                if (!named->TypeArgs.empty()) {
+                    return TError(loc, "Тип '" + named->Name + "' не принимает параметры");
+                }
+                named->UnderlyingType = typeDecl.UnderlyingType;
+            } else {
+                if (named->TypeArgs.size() != typeDecl.GenericParams.size()) {
+                    return TError(loc, "Неверное число параметров типа '" + named->Name + "': ожидается "
+                        + std::to_string(typeDecl.GenericParams.size()) + ", получено "
+                        + std::to_string(named->TypeArgs.size()));
+                }
+                std::unordered_set<std::string> genericTypeParams;
+                std::map<std::string, TTypePtr> bindings;
+                for (size_t i = 0; i < typeDecl.GenericParams.size(); ++i) {
+                    const auto& param = typeDecl.GenericParams[i];
+                    const auto& arg = named->TypeArgs[i];
+                    if (param.Kind != TGenericParam::EKind::Type) {
+                        return TError(loc, "Generic value type parameters are not supported yet: " + param.Name);
+                    }
+                    if (arg.Kind != TGenericArg::EKind::Type) {
+                        return TError(loc, "value generic arguments are not supported yet");
+                    }
+                    genericTypeParams.insert(param.Name);
+                    bindings[param.Name] = arg.Type;
+                }
+                named->UnderlyingType = CloneTypeWithGenericBindings(
+                    typeDecl.UnderlyingType,
+                    genericTypeParams,
+                    bindings);
+            }
             auto modIt = ImportedModuleSymbols.find(named->Name);
             if (modIt != ImportedModuleSymbols.end()) {
                 named->Reference = modIt->second; // marks type as imported from this module
@@ -151,7 +300,7 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
 
     // TODO: resolveTypeRefOuter on every node is O(n*depth); consider resolving types
     // only at declaration sites (TVarStmt, TFunDecl params) rather than all nodes.
-    if (node->Type && !TMaybeNode<TFunDecl>(node)) {
+    if (node->Type && !TMaybeNode<TFunDecl>(node) && !TMaybeNode<TTypeDeclStmt>(node)) {
         if (auto err = resolveTypeRefOuter(node->Type, node->Location, scope)) {
             co_return *err;
         }
@@ -243,9 +392,21 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         }
         co_return {};
     } else if (auto maybeTypeDecl = TMaybeNode<TTypeDeclStmt>(node)) {
-        if (auto maybeNamed = TMaybeType<TNamedType>(maybeTypeDecl.Cast()->Type)) {
+        auto typeDecl = maybeTypeDecl.Cast();
+        if (auto maybeNamed = TMaybeType<TNamedType>(typeDecl->Type)) {
             auto named = maybeNamed.Cast();
-            RegisterType(named->Name, named->UnderlyingType);
+            auto typeScope = scope;
+            if (!typeDecl->GenericParams.empty()) {
+                typeScope = NewScope(scope, funcScope);
+                for (const auto& param : typeDecl->GenericParams) {
+                    if (param.Kind == TGenericParam::EKind::Type) {
+                        typeScope->GenericTypeParams.insert(param.Name);
+                    }
+                }
+            }
+            if (auto err = resolveTypeRefOuter(named->UnderlyingType, typeDecl->Location, typeScope)) {
+                co_return *err;
+            }
         }
         co_return {};
     }
@@ -644,26 +805,39 @@ NAst::TTypePtr TNameResolver::LookupType(const std::string& name) const {
 }
 
 void TNameResolver::RegisterType(const std::string& name, NAst::TTypePtr underlying) {
+    RegisterTypeDecl(name, std::move(underlying), {});
+}
+
+void TNameResolver::RegisterTypeDecl(
+    const std::string& name,
+    NAst::TTypePtr underlying,
+    std::vector<NAst::TGenericParam> genericParams)
+{
     if (auto n = NAst::TMaybeType<NAst::TNamedType>(underlying); n && n.Cast()->Name == name) {
         throw std::runtime_error("RegisterType: underlying is a TNamedType with the same name '"
             + name + "' — see TExternalType::Type contract (must be unwrapped, not named)");
     }
-    ImportedTypes[name] = std::move(underlying);
+    ImportedTypes[name] = underlying;
+    RegisteredTypes[name] = TRegisteredTypeDecl{
+        .UnderlyingType = std::move(underlying),
+        .GenericParams = std::move(genericParams),
+    };
 }
 
 std::optional<TError> TNameResolver::RegisterTypeDecls(const NAst::TExprPtr& root) {
     auto block = TMaybeNode<TBlockExpr>(root);
     if (!block) return {};
+    std::unordered_set<std::string> localTypeNames;
     for (const auto& stmt : block.Cast()->Stmts) {
         auto td = TMaybeNode<TTypeDeclStmt>(stmt);
         if (!td) continue;
         auto named = TMaybeType<TNamedType>(td.Cast()->Type);
         if (!named) continue;
         auto n = named.Cast();
-        if (ImportedModuleSymbols.contains(n->Name)) {
+        if (ImportedModuleSymbols.contains(n->Name) || !localTypeNames.insert(n->Name).second) {
             return TError(stmt->Location, "Тип уже объявлен или импортирован: " + n->Name);
         }
-        RegisterType(n->Name, n->UnderlyingType);
+        RegisterTypeDecl(n->Name, n->UnderlyingType, td.Cast()->GenericParams);
     }
     return {};
 }
@@ -857,7 +1031,7 @@ std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& 
                 + "'}.Type is a TNamedType with the same name — contract violation (must be unwrapped)");
         }
         ImportedModuleSymbols[type.Name] = name;
-        ImportedTypes[type.Name] = type.Type;
+        RegisterType(type.Name, type.Type);
     }
 
     return true;

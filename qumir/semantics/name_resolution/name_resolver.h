@@ -246,6 +246,11 @@ public:
     }
 
 private:
+    struct TRegisteredTypeDecl {
+        NAst::TTypePtr UnderlyingType;
+        std::vector<NAst::TGenericParam> GenericParams;
+    };
+
     using TTask = TExpectedTask<std::monostate, TError, TLocation>;
     TTask Resolve(NAst::TExprPtr node, TScopePtr parentScope, TScopePtr funcScope);
     TTask ResolveTopFuncDecl(NAst::TExprPtr node, TScopePtr scope);
@@ -260,6 +265,11 @@ private:
 
     // Returns true if two TFunDecl have identical parameter type signatures.
     static bool ParamTypesSame(const NAst::TFunDecl& a, const NAst::TFunDecl& b);
+
+    void RegisterTypeDecl(
+        const std::string& name,
+        NAst::TTypePtr underlying,
+        std::vector<NAst::TGenericParam> genericParams);
 
     // Registers one TFunDecl into an existing overload set under a generated synthName.
     // Throws if param types match an already-registered overload (return-type-only diff).
@@ -287,6 +297,7 @@ private:
     std::unordered_set<std::string> ImportedModules;        // modules already imported (for idempotency)
     std::unordered_map<std::string, std::string> ImportedModuleSymbols; // symbol/type name -> source module
     std::unordered_map<std::string, NAst::TTypePtr> ImportedTypes; // type name -> resolved type
+    std::unordered_map<std::string, TRegisteredTypeDecl> RegisteredTypes;
     std::vector<std::shared_ptr<NAst::TFunDecl>> ImportedOperators; // operator overloads (IsOp=true), may have duplicates
 
     // cast operator map: {TypeKey(from), TypeKey(to)} -> synthetic name registered via DeclareFunction
