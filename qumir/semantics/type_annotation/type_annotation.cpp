@@ -1365,7 +1365,7 @@ TTypePtr SubstituteGenericType(
     }
     if (auto named = TMaybeType<TNamedType>(type)) {
         auto placeholder = named.Cast();
-        if (genericTypeParams.contains(placeholder->Name)) {
+        if (placeholder->TypeArgs.empty() && genericTypeParams.contains(placeholder->Name)) {
             auto it = bindings.find(placeholder->Name);
             if (it == bindings.end()) {
                 return type; // left for the caller to detect (unbound generic parameter)
@@ -1480,7 +1480,7 @@ std::optional<std::string> UnifyGenericType(
     }
     if (auto named = TMaybeType<TNamedType>(paramType)) {
         auto placeholder = named.Cast();
-        if (genericTypeParams.contains(placeholder->Name)) {
+        if (placeholder->TypeArgs.empty() && genericTypeParams.contains(placeholder->Name)) {
             auto concrete = UnwrapReferenceType(argType);
             auto [it, inserted] = bindings.try_emplace(placeholder->Name, concrete);
             if (!inserted && TypeKey(it->second) != TypeKey(concrete)) {
@@ -1965,7 +1965,7 @@ TRegisteredOpTask InstantiateGenericOperator(
     NSemantics::TNameResolver& context,
     TLocation callLoc)
 {
-    int bestCost = std::numeric_limits<int>::max();
+    std::optional<TArgCost> bestCost;
     std::shared_ptr<TFunDecl> bestDecl;
     bool ambiguous = false;
     std::optional<TError> delayedError;
@@ -1974,7 +1974,7 @@ TRegisteredOpTask InstantiateGenericOperator(
         if (!candidate || !candidate->OperatorName || !HasGenericParams(*candidate)) {
             continue;
         }
-        int totalCost = 0;
+        TArgCost totalCost;
         bool viable = true;
         auto genericTypeParams = GenericTypeParamSet(*candidate);
         for (size_t i = 0; i < args.size(); ++i) {
@@ -1984,7 +1984,7 @@ TRegisteredOpTask InstantiateGenericOperator(
                 viable = false;
                 break;
             }
-            totalCost += *cost;
+            totalCost = totalCost + *cost;
         }
         if (!viable) {
             continue;
@@ -2003,11 +2003,11 @@ TRegisteredOpTask InstantiateGenericOperator(
         if (expectedReturnType && !EqualTypes(*retType, expectedReturnType)) {
             continue;
         }
-        if (totalCost < bestCost) {
+        if (!bestCost || totalCost < *bestCost) {
             bestCost = totalCost;
             bestDecl = candidate;
             ambiguous = false;
-        } else if (totalCost == bestCost) {
+        } else if (totalCost == *bestCost) {
             ambiguous = true;
         }
     }
@@ -2085,7 +2085,7 @@ TTask AnnotateOverloadedCall(
         }
     }
 
-    int bestCost = std::numeric_limits<int>::max();
+    std::optional<TArgCost> bestCost;
     std::shared_ptr<TFunDecl> bestDecl;
     bool ambiguous = false;
 
@@ -2094,7 +2094,7 @@ TTask AnnotateOverloadedCall(
         if (!funDecl || funDecl->Params.size() != call->Args.size()) {
             continue;
         }
-        int totalCost = 0;
+        TArgCost totalCost;
         bool viable = true;
         auto genericTypeParams = GenericTypeParamSet(*funDecl);
         for (size_t i = 0; i < call->Args.size(); ++i) {
@@ -2103,7 +2103,7 @@ TTask AnnotateOverloadedCall(
                 viable = false;
                 break;
             }
-            totalCost += *cost;
+            totalCost = totalCost + *cost;
         }
         if (!viable) {
             continue;
@@ -2121,11 +2121,11 @@ TTask AnnotateOverloadedCall(
                 continue;
             }
         }
-        if (totalCost < bestCost) {
+        if (!bestCost || totalCost < *bestCost) {
             bestCost = totalCost;
             bestDecl = funDecl;
             ambiguous = false;
-        } else if (totalCost == bestCost) {
+        } else if (totalCost == *bestCost) {
             ambiguous = true;
         }
     }

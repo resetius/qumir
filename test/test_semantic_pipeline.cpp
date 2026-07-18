@@ -573,6 +573,89 @@ TEST(ParametricTypes, GenericFunctionInstantiatesParametricNamedType) {
     EXPECT_EQ(callType->Kind, TIntegerType::I64);
 }
 
+TEST(ParametricTypes, RejectsParameterizedGenericPlaceholder) {
+    auto root = ParseCore(R"__(
+(block
+  (fun bad [T] ((var x T)) -> <named T [i64]>
+    (block
+      (return x))))
+)__");
+    ASSERT_NE(root, nullptr);
+
+    TNameResolver resolver;
+    auto nameResult = NTransform::FinalNameResolution(root, resolver);
+    ASSERT_FALSE(nameResult.has_value());
+    EXPECT_NE(nameResult.error().ToString().find("Generic type parameter 'T' does not accept parameters"), std::string::npos);
+}
+
+TEST(ParametricTypes, RejectsAlphaEquivalentGenericOverloads) {
+    auto root = ParseCore(R"__(
+(block
+  (fun id [T] ((var x T)) -> T
+    (block
+      (return x)))
+  (fun id [U] ((var x U)) -> U
+    (block
+      (return x))))
+)__");
+    ASSERT_NE(root, nullptr);
+
+    TNameResolver resolver({.AllowOverloads = true});
+    auto nameResult = NTransform::FinalNameResolution(root, resolver);
+    ASSERT_FALSE(nameResult.has_value());
+    EXPECT_NE(nameResult.error().ToString().find("overload of 'id' has identical parameter types"), std::string::npos);
+}
+
+TEST(ParametricTypes, RejectsAlphaEquivalentGenericOperatorOverloads) {
+    auto root = ParseCore(R"__(
+(block
+  (type Box [T] <struct (Value T)>)
+  (fun plus_a [T] ((var a <named Box [T]>) (var b <named Box [T]>)) -> <named Box [T]> (attrs (operator "+"))
+    (block
+      (return a)))
+  (fun plus_b [U] ((var a <named Box [U]>) (var b <named Box [U]>)) -> <named Box [U]> (attrs (operator "+"))
+    (block
+      (return a))))
+)__");
+    ASSERT_NE(root, nullptr);
+
+    TNameResolver resolver({.AllowOverloads = true});
+    auto nameResult = NTransform::FinalNameResolution(root, resolver);
+    ASSERT_FALSE(nameResult.has_value());
+    EXPECT_NE(nameResult.error().ToString().find("operator overload '+' has identical parameter types"), std::string::npos);
+}
+
+TEST(ParametricTypes, PrefersParametricGenericOverBareGenericOverload) {
+    auto root = ParseCore(R"__(
+(block
+  (type Box [T] <struct (Value T)>)
+  (fun f [T] ((var x T)) -> string
+    (block
+      (return "fallback")))
+  (fun f [T] ((var x <named Box [T]>)) -> i64
+    (block
+      (return (: 2 i64))))
+  (fun run () -> i64
+    (block
+      (var boxed <named Box [i64]>)
+      (= boxed (cast (struct ((Value (: 42 i64)))) <named Box [i64]>))
+      (return (call f boxed)))))
+)__");
+    ASSERT_NE(root, nullptr);
+
+    TNameResolver resolver({.AllowOverloads = true});
+    auto nameResult = NTransform::FinalNameResolution(root, resolver);
+    ASSERT_TRUE(nameResult.has_value()) << nameResult.error().ToString();
+    auto typeResult = NTransform::FinalTypeAnnotation(root, resolver);
+    ASSERT_TRUE(typeResult.has_value()) << typeResult.error().ToString();
+
+    auto instantiatedCall = FindCallWithCalleePrefix(root, "__generic_");
+    ASSERT_TRUE(instantiatedCall);
+    auto callType = TMaybeType<TIntegerType>(instantiatedCall->Type).Cast();
+    ASSERT_TRUE(callType);
+    EXPECT_EQ(callType->Kind, TIntegerType::I64);
+}
+
 TEST(FinalSemanticPipeline, DoesNotRerunSourceTransforms) {
     auto condition = std::make_shared<TNumberExpr>(TLocation{}, true);
     auto assertNode = std::make_shared<TAssertStmt>(TLocation{}, condition);

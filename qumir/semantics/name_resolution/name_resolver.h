@@ -262,7 +262,7 @@ private:
     // Registers top-level functions carrying an (operator "X") attribute into
     // the type-keyed op/cast dispatch tables, with the function's own name as
     // the call target. Mirrors how ImportModule lifts runtime IsOp functions.
-    void RegisterOperatorDecls(const NAst::TExprPtr& root);
+    std::optional<TError> RegisterOperatorDecls(const NAst::TExprPtr& root);
     void ImportUseStmts(const NAst::TExprPtr& root);
     std::expected<TSymbolId, TError> Declare(const std::string& name, NAst::TExprPtr node, TScopePtr scope, TScopePtr funcScope);
     TScopePtr NewScope(TScopePtr parent, TScopePtr funcScope);
@@ -276,15 +276,15 @@ private:
         std::vector<NAst::TGenericParam> genericParams);
 
     // Registers one TFunDecl into an existing overload set under a generated synthName.
-    // Throws if param types match an already-registered overload (return-type-only diff).
-    TSymbolId RegisterOverloadEntry(
+    // Returns an error if param types match an already-registered overload.
+    std::expected<TSymbolId, TError> RegisterOverloadEntry(
         const std::string& canonicalName,
         NAst::TExprPtr node,
         std::vector<TSymbolId>& overloads);
 
     // Called on the first name collision between two TFunDecl.
     // Moves both into a new overload set, erases the canonical name from NameToSymbolId.
-    TSymbolId StartOverloadSet(
+    std::expected<TSymbolId, TError> StartOverloadSet(
         const std::string& name,
         TSymbolId existingSymId,
         NAst::TExprPtr newNode,

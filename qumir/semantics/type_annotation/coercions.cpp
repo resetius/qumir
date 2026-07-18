@@ -24,24 +24,37 @@ bool SameKind(const TTypePtr& a, const TTypePtr& b) {
     return true;
 }
 
-// Cost of matching a generic type parameter against
-// any concrete argument type. Deliberately higher than any real coercion cost
-// (the highest of which is 2, for int->float) so that overload resolution
-// always prefers a concrete overload over a generic one, falling back to the
-// generic only when nothing concrete fits — see AnnotateOverloadedCall.
-constexpr int GenericParamCost = 1'000'000;
-
 bool IsGenericTypeParam(const TTypePtr& type, const std::unordered_set<std::string>* genericTypeParams) {
     auto named = TMaybeType<TNamedType>(type);
-    return genericTypeParams && named && genericTypeParams->contains(named.Cast()->Name);
+    return genericTypeParams
+        && named
+        && named.Cast()->TypeArgs.empty()
+        && genericTypeParams->contains(named.Cast()->Name);
 }
 
-std::optional<int> GenericParametricCost(
+TArgCost GenericParamCost(bool topLevel) {
+    return TArgCost{
+        .GenericPenalty = 1,
+        .TopLevelGenericPenalty = topLevel ? 1 : 0,
+        .ConversionCost = 0,
+        .FixedTypeNodes = 0,
+        .GenericParamCount = 1,
+    };
+}
+
+TArgCost StructuralGenericCost(TArgCost cost) {
+    cost.GenericPenalty = 1;
+    cost.TopLevelGenericPenalty = 0;
+    ++cost.FixedTypeNodes;
+    return cost;
+}
+
+std::optional<TArgCost> GenericParametricCost(
     const TTypePtr& paramType,
     const TTypePtr& argType,
     const std::unordered_set<std::string>* genericTypeParams);
 
-std::optional<int> CombineGenericCost(
+std::optional<TArgCost> CombineGenericCost(
     const TTypePtr& paramType,
     const TTypePtr& argType,
     const std::unordered_set<std::string>* genericTypeParams,
@@ -52,12 +65,12 @@ std::optional<int> CombineGenericCost(
         return cost;
     }
     if (TypeKey(paramType) == TypeKey(argType)) {
-        return 0;
+        return TArgCost{};
     }
     return std::nullopt;
 }
 
-std::optional<int> GenericParametricCost(
+std::optional<TArgCost> GenericParametricCost(
     const TTypePtr& paramType,
     const TTypePtr& argType,
     const std::unordered_set<std::string>* genericTypeParams)
@@ -66,10 +79,10 @@ std::optional<int> GenericParametricCost(
         return std::nullopt;
     }
     if (IsGenericTypeParam(paramType, genericTypeParams)) {
-        return GenericParamCost;
+        return GenericParamCost(false);
     }
     bool matched = false;
-    int total = 0;
+    TArgCost total;
     if (auto paramNamed = TMaybeType<TNamedType>(paramType)) {
         auto argNamed = TMaybeType<TNamedType>(argType);
         if (!argNamed || paramNamed.Cast()->Name != argNamed.Cast()->Name
@@ -87,9 +100,9 @@ std::optional<int> GenericParametricCost(
             if (!cost) {
                 return std::nullopt;
             }
-            total += *cost;
+            total = total + *cost;
         }
-        return matched ? std::optional<int>{total} : std::nullopt;
+        return matched ? std::optional<TArgCost>{StructuralGenericCost(total)} : std::nullopt;
     }
     if (auto paramArray = TMaybeType<TArrayType>(paramType)) {
         auto argArray = TMaybeType<TArrayType>(argType);
@@ -97,7 +110,7 @@ std::optional<int> GenericParametricCost(
             return std::nullopt;
         }
         auto cost = CombineGenericCost(paramArray.Cast()->ElementType, argArray.Cast()->ElementType, genericTypeParams, matched);
-        return cost && matched ? cost : std::nullopt;
+        return cost && matched ? std::optional<TArgCost>{StructuralGenericCost(*cost)} : std::nullopt;
     }
     if (auto paramPtr = TMaybeType<TPointerType>(paramType)) {
         auto argPtr = TMaybeType<TPointerType>(argType);
@@ -105,13 +118,13 @@ std::optional<int> GenericParametricCost(
             return std::nullopt;
         }
         auto cost = CombineGenericCost(paramPtr.Cast()->PointeeType, argPtr.Cast()->PointeeType, genericTypeParams, matched);
-        return cost && matched ? cost : std::nullopt;
+        return cost && matched ? std::optional<TArgCost>{StructuralGenericCost(*cost)} : std::nullopt;
     }
     if (auto paramRef = TMaybeType<TReferenceType>(paramType)) {
         auto argRef = TMaybeType<TReferenceType>(argType);
         auto argInner = argRef ? argRef.Cast()->ReferencedType : argType;
         auto cost = CombineGenericCost(paramRef.Cast()->ReferencedType, argInner, genericTypeParams, matched);
-        return cost && matched ? cost : std::nullopt;
+        return cost && matched ? std::optional<TArgCost>{StructuralGenericCost(*cost)} : std::nullopt;
     }
     if (auto paramFuture = TMaybeType<TFutureType>(paramType)) {
         auto argFuture = TMaybeType<TFutureType>(argType);
@@ -119,7 +132,7 @@ std::optional<int> GenericParametricCost(
             return std::nullopt;
         }
         auto cost = CombineGenericCost(paramFuture.Cast()->ResultType, argFuture.Cast()->ResultType, genericTypeParams, matched);
-        return cost && matched ? cost : std::nullopt;
+        return cost && matched ? std::optional<TArgCost>{StructuralGenericCost(*cost)} : std::nullopt;
     }
     if (auto paramFun = TMaybeType<TFunctionType>(paramType)) {
         auto argFun = TMaybeType<TFunctionType>(argType);
@@ -131,14 +144,14 @@ std::optional<int> GenericParametricCost(
             if (!cost) {
                 return std::nullopt;
             }
-            total += *cost;
+            total = total + *cost;
         }
         auto retCost = CombineGenericCost(paramFun.Cast()->ReturnType, argFun.Cast()->ReturnType, genericTypeParams, matched);
         if (!retCost) {
             return std::nullopt;
         }
-        total += *retCost;
-        return matched ? std::optional<int>{total} : std::nullopt;
+        total = total + *retCost;
+        return matched ? std::optional<TArgCost>{StructuralGenericCost(total)} : std::nullopt;
     }
     if (auto paramStruct = TMaybeType<TStructType>(paramType)) {
         auto argStruct = TMaybeType<TStructType>(argType);
@@ -153,9 +166,9 @@ std::optional<int> GenericParametricCost(
             if (!cost) {
                 return std::nullopt;
             }
-            total += *cost;
+            total = total + *cost;
         }
-        return matched ? std::optional<int>{total} : std::nullopt;
+        return matched ? std::optional<TArgCost>{StructuralGenericCost(total)} : std::nullopt;
     }
     return std::nullopt;
 }
@@ -179,7 +192,7 @@ bool WideningInt(const TTypePtr& from, const TTypePtr& to) {
 
 } // namespace
 
-std::optional<int> ArgCost(
+std::optional<TArgCost> ArgCost(
     const TTypePtr& from,
     const TTypePtr& to,
     NSemantics::TNameResolver* ctx,
@@ -190,33 +203,32 @@ std::optional<int> ArgCost(
     }
 
     // Generic type parameter: matches any concrete argument type, but at a
-    // deliberately high fixed cost (see GenericParamCost) — the actual type
-    // bound to the parameter, and the function instantiation for it, are
-    // determined once this overload is chosen as the best match.
+    // higher cost than any concrete overload — the actual type bound to the
+    // parameter is determined once this overload is chosen as the best match.
     if (IsGenericTypeParam(to, genericTypeParams)) {
-        return GenericParamCost;
+        return GenericParamCost(true);
     }
     if (auto cost = GenericParametricCost(to, from, genericTypeParams)) {
         return cost;
     }
 
     if (SameKind(from, to)) {
-        return 0;
+        return TArgCost{};
     }
 
     if (TMaybeType<TIntegerType>(from) && TMaybeType<TIntegerType>(to)) {
-        return WideningInt(from, to) ? std::optional<int>{1} : std::nullopt;
+        return WideningInt(from, to) ? std::optional<TArgCost>{TArgCost{.ConversionCost = 1}} : std::nullopt;
     }
 
     if (TMaybeType<TIntegerType>(from) && TMaybeType<TFloatType>(to)) {
-        return 2;
+        return TArgCost{.ConversionCost = 2};
     }
     if (TMaybeType<TFloatType>(from) && TMaybeType<TFloatType>(to)) {
-        return 1;
+        return TArgCost{.ConversionCost = 1};
     }
 
     if (ctx && ctx->GetCast(from, to)) {
-        return 1;
+        return TArgCost{.ConversionCost = 1};
     }
 
     return std::nullopt;
