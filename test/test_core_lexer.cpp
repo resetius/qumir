@@ -199,14 +199,16 @@ TEST(CoreTypeTest, ParametricNamedTypeConcreteArgsPrintAndParse) {
     EXPECT_EQ(PrintType(type), "<named Nullable [i64]>");
 }
 
-TEST(CoreTypeTest, ParametricNamedTypeRejectsValueArgsForNow) {
-    std::istringstream input("(var value <named Decimal [42]>)");
-    TTokenStream tokens(input);
-    TParser parser;
+TEST(CoreTypeTest, ParametricNamedTypeValueArgsPrintAndParse) {
+    auto type = ParseVarType("<named Decimal [42]>");
+    auto named = TMaybeType<TNamedType>(type).Cast();
+    ASSERT_TRUE(named);
+    ASSERT_EQ(named->TypeArgs.size(), 1u);
+    EXPECT_EQ(named->TypeArgs[0].Kind, TGenericArg::EKind::Value);
+    EXPECT_EQ(named->TypeArgs[0].Value, "42");
 
-    auto parsed = parser.Parse(tokens);
-    ASSERT_FALSE(parsed.has_value());
-    EXPECT_NE(parsed.error().ToString().find("value generic arguments are not supported yet"), std::string::npos);
+    EXPECT_EQ(TypeKey(type), "Named::Decimal[Value::42]");
+    EXPECT_EQ(PrintType(type), "<named Decimal [42]>");
 }
 
 TEST(CoreTypeTest, ParametricTypeDeclPrintsAndParses) {

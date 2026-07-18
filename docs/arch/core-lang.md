@@ -229,8 +229,7 @@ when empty (`()`). The body must be a `block`. The return type defaults to
 after the function name. A bare generic parameter name declares a type
 parameter, for example `[T]` or `[K V]`. Value generic parameters may be parsed
 as `(const Name type)` (or `(Name type)`, which prints canonically with
-`const`), but they are reserved for future use and are not semantically
-supported yet.
+`const`). Only integer value parameters are semantically supported today.
 
 `(attrs ...)` is an optional attribute list, placed after the return type (if
 any) and before the body. Recognized attributes:
@@ -376,16 +375,19 @@ type is the same as the underlying type.
 
 `[generic_param1 ...]` is an optional generic parameter list placed immediately
 after the type name. It uses the same syntax as function generic parameters: a
-bare name declares a type parameter, while `(const Name type)` is reserved
-syntax for a future value parameter. Type parameters are introduced into the
-type declaration's type scope, so they can be used anywhere a type is expected
-inside the underlying type:
+bare name declares a type parameter, while `(const Name type)` declares a
+compile-time value parameter. Only integer value parameters are supported
+today. Generic parameters are introduced into the type declaration's type
+scope, so type parameters can be used anywhere a type is expected inside the
+underlying type, and value parameters can be used as value arguments to nested
+named types:
 
 ```core
 (block
   (type имя <struct (val i64)>)
   (type Box [T] <struct (Value T)>)
   (type Nullable [T] <struct (Value T) (Valid bool)>)
+  (type Decimal [(const Scale i32) (const Precision i32)] <struct (Value i64)>)
   (fun make_name ((var v i64)) -> <named имя>
     (block
       (return (: (struct ((val v))) <named имя>))))
@@ -404,9 +406,11 @@ still be written after the name/arguments as `<named name underlying_type>` or
 `<named name [type_arg1 ...] underlying_type>`, but normal source should prefer
 declaring the alias once with `(type ...)` and referring to it by name.
 
-Only type arguments are semantically supported today. Value generic parameters
-can be parsed in declarations, but instantiating a type that uses them fails
-during name resolution.
+Type arguments are written as types. Integer value arguments are written as
+integer literals, or as bare value-parameter names while resolving another
+generic type/function. For example, `<named Decimal [2 10]>` is a concrete
+decimal type, while `<named Decimal [Scale Precision]>` is valid inside a scope
+that declares `(const Scale i32)` and `(const Precision i32)`.
 
 Calls and I/O:
 
@@ -534,9 +538,17 @@ fallback — see `(fun f ((var x i64)) -> i64 ...)` vs.
 `(fun f [K] ((var x K)) -> i64 ...)`.
 
 Generic functions must be implemented in core-lang; external generic functions
-are not supported. Parsed value generic parameters, such as
-`[(const Scale i32)]`, are reserved syntax and currently fail if the function
-is instantiated.
+are not supported. Function-level value generic parameters use `(const Name
+type)` in the `[...]` list and are currently limited to integer types. Their
+values are inferred from parametric named types in the function parameters:
+
+```core
+(fun decimal_add [(const Scale i32) (const Precision i32)]
+    ((var a <named Decimal [Scale Precision]>)
+     (var b <named Decimal [Scale Precision]>))
+    -> <named Decimal [Scale Precision]> (attrs (operator "+"))
+  (block ...))
+```
 
 Casts, indexing, and slicing:
 
@@ -781,16 +793,16 @@ in scope or a declared/imported named type.
 Named type arguments use the same `[...]` delimiter as declarations, but in the
 canonical order `<named Name [Args]>`: the keyword `named` must immediately
 follow `<`, then the type name, then the optional argument list. Bare scalar
-types and generic type parameters may be used directly as arguments:
+types and generic type parameters may be used directly as type arguments;
+integer literals and generic value parameters may be used as value arguments:
 
 ```core
 <named Box [i64]>
 <named Pair [string T]>
+<named Decimal [2 10]>
+<named Decimal [Scale Precision]>
 <array <named Nullable [f64]> 1>
 ```
-
-Value generic arguments are reserved and currently rejected, so forms such as
-`<named Decimal [42]>` are syntax/semantic errors for now.
 
 ## Type Attributes
 
