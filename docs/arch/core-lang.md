@@ -490,9 +490,43 @@ of how many call sites use it.
 
 Type parameters may appear nested inside composite types (`<array K 1>`,
 `<ref K>`, `<fun K (K)>`, ...), and a function may have several independent
-type parameter names. A call is a typing error when a type parameter's binding
-cannot be inferred from the arguments, or when the same type parameter name
-would have to bind to two structurally different concrete types.
+type parameter names. If argument types do not bind every type parameter, the
+annotator may also infer the remaining parameters from the function's declared
+return type and return expressions. This is intentionally narrow: it is used
+after the argument-based pass, and it follows `return`, `cast`, `if`, and
+struct-constructor fields where the target return type still contains unbound
+generic parameters. A call is a typing error when a type parameter's binding
+cannot be inferred from the arguments or return body, or when the same type
+parameter name would have to bind to two structurally different concrete types.
+
+This makes generic operator overloads usable when the result type is determined
+by an operation inside the overload body rather than by a single operand type:
+
+```core
+(block
+  (pragma language overloads)
+  (type Nullable [T] <struct (Value T) (Valid bool)>)
+
+  (fun nullable_add_rhs [T U R] ((var a <named Nullable [T]>) (var b U))
+      -> <named Nullable [R]> (attrs (operator "+"))
+    (block
+      (return (cast
+        (if (field a Valid)
+          (struct ((Value (+ (field a Value) b)) (Valid #t)))
+          (struct ((Valid #f))))
+        <named Nullable [R]>)))))
+
+  (fun <main> ()
+    (block
+      (var a <named Nullable [i64]>)
+      (var c <named Nullable [f64]>)
+      (= a (cast (struct ((Value (: 4 i64)) (Valid #t))) <named Nullable [i64]>))
+      (= c (+ a (: 0.5 f64))))))
+```
+
+Here `T` is inferred as `i64` from `a`, `U` is inferred as `f64` from the
+right-hand operand, and `R` is inferred as `f64` from the returned struct's
+`Value` field expression `(+ (field a Value) b)`.
 
 When an overload set mixes concrete and generic `fun` forms for the same name,
 overload resolution prefers a concrete match over instantiating the generic
