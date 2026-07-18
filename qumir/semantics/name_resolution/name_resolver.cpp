@@ -138,6 +138,92 @@ bool IsGenericTypeParam(const std::string& name, TScopePtr typeScope) {
     return false;
 }
 
+std::optional<TError> ValidateGenericParams(
+    const std::vector<TGenericParam>& params,
+    const TLocation& loc)
+{
+    std::unordered_set<std::string> names;
+    for (const auto& param : params) {
+        if (!names.insert(param.Name).second) {
+            return TError(loc, "duplicate generic parameter: " + param.Name);
+        }
+    }
+    return std::nullopt;
+}
+
+std::unordered_map<std::string, std::string> GenericTypeParamAliases(const TFunDecl& decl) {
+    std::unordered_map<std::string, std::string> aliases;
+    int next = 0;
+    for (const auto& param : decl.GenericParams) {
+        if (param.Kind != TGenericParam::EKind::Type || aliases.contains(param.Name)) {
+            continue;
+        }
+        aliases[param.Name] = "T" + std::to_string(next++);
+    }
+    return aliases;
+}
+
+std::string OverloadTypeKey(
+    const TTypePtr& type,
+    const std::unordered_map<std::string, std::string>& genericTypeAliases)
+{
+    if (!type) return "unknown";
+    if (auto integer = TMaybeType<TIntegerType>(type)) return integer.Cast()->ToString();
+    if (auto named = TMaybeType<TNamedType>(type)) {
+        auto src = named.Cast();
+        auto alias = genericTypeAliases.find(src->Name);
+        std::string value = alias != genericTypeAliases.end()
+            ? "Generic::" + alias->second
+            : "Named::" + src->Name;
+        if (!src->TypeArgs.empty()) {
+            value += "[";
+            for (size_t i = 0; i < src->TypeArgs.size(); ++i) {
+                if (i != 0) {
+                    value += ",";
+                }
+                const auto& arg = src->TypeArgs[i];
+                value += arg.Kind == TGenericArg::EKind::Type
+                    ? OverloadTypeKey(arg.Type, genericTypeAliases)
+                    : "Value::" + arg.Value;
+            }
+            value += "]";
+        }
+        return value;
+    }
+    if (auto future = TMaybeType<TFutureType>(type)) {
+        return std::string("Future::") + OverloadTypeKey(future.Cast()->ResultType, genericTypeAliases);
+    }
+    if (auto array = TMaybeType<TArrayType>(type)) {
+        return "Array::" + std::to_string(array.Cast()->Arity) + "::"
+            + OverloadTypeKey(array.Cast()->ElementType, genericTypeAliases);
+    }
+    if (auto pointer = TMaybeType<TPointerType>(type)) {
+        return std::string("Ptr::") + OverloadTypeKey(pointer.Cast()->PointeeType, genericTypeAliases);
+    }
+    if (auto reference = TMaybeType<TReferenceType>(type)) {
+        return std::string("Ref::") + OverloadTypeKey(reference.Cast()->ReferencedType, genericTypeAliases);
+    }
+    if (auto function = TMaybeType<TFunctionType>(type)) {
+        std::string key = "Fun::(";
+        for (size_t i = 0; i < function.Cast()->ParamTypes.size(); ++i) {
+            if (i > 0) key += ",";
+            key += OverloadTypeKey(function.Cast()->ParamTypes[i], genericTypeAliases);
+        }
+        key += ")->";
+        key += OverloadTypeKey(function.Cast()->ReturnType, genericTypeAliases);
+        return key;
+    }
+    if (auto structure = TMaybeType<TStructType>(type)) {
+        std::string key = "Struct::{";
+        for (const auto& [name, fieldType] : structure.Cast()->Fields) {
+            key += name + ":" + OverloadTypeKey(fieldType, genericTypeAliases) + ";";
+        }
+        key += "}";
+        return key;
+    }
+    return std::string(type->TypeName());
+}
+
 } // namespace
 
 TNameResolver::TNameResolver(const TNameResolverOptions& options)
@@ -165,6 +251,9 @@ TNameResolver::TTask TNameResolver::ResolveTopFuncDecl(NAst::TExprPtr node, TSco
             auto fdecl = maybeFdecl.Cast();
             if (fdecl->Name.empty()) {
                 co_return TError(fdecl->Location, "function with empty name");
+            }
+            if (auto err = ValidateGenericParams(fdecl->GenericParams, fdecl->Location)) {
+                co_return *err;
             }
             if (fdecl->Scope >= 0) {
                 if (static_cast<size_t>(fdecl->Scope) >= Scopes.size()) {
@@ -213,6 +302,9 @@ std::optional<TError> TNameResolver::ResolveTypeRef(TTypePtr& type, const TLocat
                 }
             }
             if (IsGenericTypeParam(named->Name, typeScope)) {
+                if (!named->TypeArgs.empty()) {
+                    return TError(loc, "Generic type parameter '" + named->Name + "' does not accept parameters");
+                }
                 return {};
             }
             auto it = RegisteredTypes.find(named->Name);
@@ -394,6 +486,9 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         auto typeDecl = maybeTypeDecl.Cast();
         if (auto maybeNamed = TMaybeType<TNamedType>(typeDecl->Type)) {
             auto named = maybeNamed.Cast();
+            if (auto err = ValidateGenericParams(typeDecl->GenericParams, typeDecl->Location)) {
+                co_return *err;
+            }
             auto typeScope = scope;
             if (!typeDecl->GenericParams.empty()) {
                 typeScope = NewScope(scope, funcScope);
@@ -433,7 +528,9 @@ std::optional<TError> TNameResolver::Resolve(TExprPtr root) {
     if (auto err = RegisterTypeDecls(root)) {
         return err;
     }
-    RegisterOperatorDecls(root);
+    if (auto err = RegisterOperatorDecls(root)) {
+        return err;
+    }
     auto funcRes = ResolveTopFuncDecl(root, scope).result();
     if (!funcRes) {
         return funcRes.error();
@@ -709,15 +806,19 @@ bool TNameResolver::ParamTypesSame(const NAst::TFunDecl& a, const NAst::TFunDecl
     if (a.Params.size() != b.Params.size()) {
         return false;
     }
+    auto aGenericAliases = GenericTypeParamAliases(a);
+    auto bGenericAliases = GenericTypeParamAliases(b);
     for (size_t i = 0; i < a.Params.size(); ++i) {
-        if (TypeKey(a.Params[i]->Type) != TypeKey(b.Params[i]->Type)) {
+        if (OverloadTypeKey(a.Params[i]->Type, aGenericAliases)
+            != OverloadTypeKey(b.Params[i]->Type, bGenericAliases))
+        {
             return false;
         }
     }
     return true;
 }
 
-TSymbolId TNameResolver::RegisterOverloadEntry(
+std::expected<TSymbolId, TError> TNameResolver::RegisterOverloadEntry(
     const std::string& canonicalName,
     NAst::TExprPtr node,
     std::vector<TSymbolId>& overloads)
@@ -726,7 +827,9 @@ TSymbolId TNameResolver::RegisterOverloadEntry(
     for (const auto& existingId : overloads) {
         auto existingDecl = NAst::TMaybeNode<NAst::TFunDecl>(GetSymbolNode(existingId)).Cast();
         if (existingDecl && ParamTypesSame(*newDecl, *existingDecl)) {
-            throw std::runtime_error("overload of '" + canonicalName + "' differs only in return type");
+            return std::unexpected(TError(
+                newDecl->Location,
+                "overload of '" + canonicalName + "' has identical parameter types"));
         }
     }
     std::string synthName = "__overload_" + canonicalName + "_" + std::to_string(overloads.size());
@@ -736,7 +839,7 @@ TSymbolId TNameResolver::RegisterOverloadEntry(
     return symId;
 }
 
-TSymbolId TNameResolver::StartOverloadSet(
+std::expected<TSymbolId, TError> TNameResolver::StartOverloadSet(
     const std::string& name,
     TSymbolId existingSymId,
     NAst::TExprPtr newNode,
@@ -744,7 +847,10 @@ TSymbolId TNameResolver::StartOverloadSet(
 {
     auto& overloads = scope->OverloadSets[name];
     scope->NameToSymbolId.erase(name);
-    RegisterOverloadEntry(name, Symbols[existingSymId.Id].Node, overloads);
+    auto first = RegisterOverloadEntry(name, Symbols[existingSymId.Id].Node, overloads);
+    if (!first) {
+        return first;
+    }
     return RegisterOverloadEntry(name, newNode, overloads);
 }
 
@@ -864,15 +970,31 @@ std::optional<TError> TNameResolver::RegisterTypeDecls(const NAst::TExprPtr& roo
     return {};
 }
 
-void TNameResolver::RegisterOperatorDecls(const NAst::TExprPtr& root) {
+std::optional<TError> TNameResolver::RegisterOperatorDecls(const NAst::TExprPtr& root) {
     auto block = TMaybeNode<TBlockExpr>(root);
-    if (!block) return;
+    if (!block) return std::nullopt;
     for (const auto& stmt : block.Cast()->Stmts) {
         auto fd = TMaybeNode<TFunDecl>(stmt);
         if (!fd) continue;
         auto fun = fd.Cast();
         if (!fun->OperatorName) continue;
         if (!fun->GenericParams.empty()) {
+            for (const auto& existing : GenericOperatorDecls) {
+                if (existing == fun) {
+                    continue;
+                }
+                if (!existing->OperatorName
+                    || *existing->OperatorName != *fun->OperatorName
+                    || existing->Params.size() != fun->Params.size())
+                {
+                    continue;
+                }
+                if (ParamTypesSame(*fun, *existing)) {
+                    return TError(
+                        fun->Location,
+                        "operator overload '" + *fun->OperatorName + "' has identical parameter types");
+                }
+            }
             if (std::find(GenericOperatorDecls.begin(), GenericOperatorDecls.end(), fun) == GenericOperatorDecls.end()) {
                 GenericOperatorDecls.push_back(fun);
             }
@@ -895,6 +1017,7 @@ void TNameResolver::RegisterOperatorDecls(const NAst::TExprPtr& root) {
                 = {fun->Name, fun->RetType};
         }
     }
+    return std::nullopt;
 }
 
 void TNameResolver::ImportUseStmts(const NAst::TExprPtr& root) {

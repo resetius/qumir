@@ -235,6 +235,7 @@ TParamListTask ParseParams(TParserContext& context) {
 
 TGenericParamListTask ParseGenericParams(TParserContext& context) {
     std::vector<TGenericParam> result;
+    std::unordered_set<std::string> names;
     auto tok = context.Stream.Next();
     if (!IsOp(tok, '[')) {
         context.Stream.Unget(tok);
@@ -257,6 +258,9 @@ TGenericParamListTask ParseGenericParams(TParserContext& context) {
             } else {
                 name = std::move(head);
             }
+            if (!names.insert(name).second) {
+                co_return Error(token, "duplicate generic parameter: " + name);
+            }
             auto type = co_await ParseType(context);
             co_await Expect(context, ')');
 
@@ -268,6 +272,9 @@ TGenericParamListTask ParseGenericParams(TParserContext& context) {
         } else {
             context.Stream.Unget(token);
             auto name = co_await ParseName(context);
+            if (!names.insert(name).second) {
+                co_return Error(token, "duplicate generic parameter: " + name);
+            }
             result.emplace_back(TGenericParam {
                 .Name = std::move(name),
                 .Kind = TGenericParam::EKind::Type,

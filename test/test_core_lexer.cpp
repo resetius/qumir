@@ -271,6 +271,16 @@ TEST(CoreTypeTest, ParametricTypeDeclConstParamsPrintAndParse) {
     EXPECT_EQ(PrintAst(*parsed, TPrintOptions{.Pretty = false}), "(block " + expected + ")");
 }
 
+TEST(CoreTypeTest, ParametricTypeDeclRejectsDuplicateParams) {
+    std::istringstream input("(block (type Box [T T] <struct (Value T)>))");
+    TTokenStream tokens(input);
+    TParser parser;
+
+    auto parsed = parser.Parse(tokens);
+    ASSERT_FALSE(parsed.has_value());
+    EXPECT_NE(parsed.error().ToString().find("duplicate generic parameter: T"), std::string::npos);
+}
+
 TEST(CoreTypeTest, IntegerWidthsPrintAndParse) {
     EXPECT_EQ(PrintType(std::make_shared<TIntegerType>(TIntegerType::I8)), "i8");
     EXPECT_EQ(PrintType(std::make_shared<TIntegerType>(TIntegerType::I16)), "i16");
