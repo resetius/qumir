@@ -14,6 +14,7 @@
 #include <sstream>
 #include <cassert>
 #include <limits>
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -26,6 +27,8 @@ namespace {
 
 using TTask = TExpectedTask<TExprPtr, TError, TLocation>;
 using TFunDeclTask = TExpectedTask<std::shared_ptr<TFunDecl>, TError, TLocation>;
+using TGenericBindingsTask = TExpectedTask<std::map<std::string, TTypePtr>, TError, TLocation>;
+using TGenericBoolTask = TExpectedTask<bool, TError, TLocation>;
 using TRegisteredOpTask = TExpectedTask<std::optional<NSemantics::TNameResolver::TRegisteredOp>, TError, TLocation>;
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId);
@@ -1662,7 +1665,8 @@ std::optional<std::string> InferGenericBindings(
     const std::vector<std::string>& paramNames,
     std::map<std::string, TTypePtr>& bindings,
     bool retypeIntegerLiterals,
-    TTypePtr expectedReturnType = nullptr)
+    TTypePtr expectedReturnType = nullptr,
+    bool requireAllBindings = true)
 {
     const size_t count = std::min(decl.Params.size(), args.size());
     auto unifyArg = [&](size_t i) -> std::optional<std::string> {
@@ -1709,9 +1713,11 @@ std::optional<std::string> InferGenericBindings(
         }
     }
 
-    for (const auto& name : paramNames) {
-        if (!bindings.contains(name)) {
-            return "не удалось определить тип обобщённого параметра '" + name + "' по аргументам вызова";
+    if (requireAllBindings) {
+        for (const auto& name : paramNames) {
+            if (!bindings.contains(name)) {
+                return "не удалось определить тип обобщённого параметра '" + name + "' по аргументам вызова";
+            }
         }
     }
     return std::nullopt;
@@ -1857,6 +1863,395 @@ TExprPtr CloneAndSubstituteExpr(
     return clone;
 }
 
+bool AllGenericBindingsPresent(
+    const std::vector<std::string>& paramNames,
+    const std::map<std::string, TTypePtr>& bindings)
+{
+    for (const auto& name : paramNames) {
+        if (!bindings.contains(name)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ContainsGenericTypeParam(
+    const TTypePtr& type,
+    const std::unordered_set<std::string>& genericTypeParams)
+{
+    if (!type) {
+        return false;
+    }
+    if (auto named = TMaybeType<TNamedType>(type)) {
+        auto src = named.Cast();
+        if (src->TypeArgs.empty() && genericTypeParams.contains(src->Name)) {
+            return true;
+        }
+        for (const auto& arg : src->TypeArgs) {
+            if (arg.Kind == TGenericArg::EKind::Type
+                && ContainsGenericTypeParam(arg.Type, genericTypeParams))
+            {
+                return true;
+            }
+        }
+        return ContainsGenericTypeParam(src->UnderlyingType, genericTypeParams);
+    }
+    if (auto arr = TMaybeType<TArrayType>(type)) {
+        return ContainsGenericTypeParam(arr.Cast()->ElementType, genericTypeParams);
+    }
+    if (auto ptr = TMaybeType<TPointerType>(type)) {
+        return ContainsGenericTypeParam(ptr.Cast()->PointeeType, genericTypeParams);
+    }
+    if (auto ref = TMaybeType<TReferenceType>(type)) {
+        return ContainsGenericTypeParam(ref.Cast()->ReferencedType, genericTypeParams);
+    }
+    if (auto future = TMaybeType<TFutureType>(type)) {
+        return ContainsGenericTypeParam(future.Cast()->ResultType, genericTypeParams);
+    }
+    if (auto fun = TMaybeType<TFunctionType>(type)) {
+        for (const auto& param : fun.Cast()->ParamTypes) {
+            if (ContainsGenericTypeParam(param, genericTypeParams)) {
+                return true;
+            }
+        }
+        return ContainsGenericTypeParam(fun.Cast()->ReturnType, genericTypeParams);
+    }
+    if (auto structure = TMaybeType<TStructType>(type)) {
+        for (const auto& [_, fieldType] : structure.Cast()->Fields) {
+            if (ContainsGenericTypeParam(fieldType, genericTypeParams)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+std::vector<TGenericParam> UnboundGenericParams(
+    const TFunDecl& decl,
+    const std::map<std::string, TTypePtr>& bindings)
+{
+    std::vector<TGenericParam> result;
+    for (const auto& param : decl.GenericParams) {
+        if (!bindings.contains(param.Name)) {
+            result.push_back(param);
+        }
+    }
+    return result;
+}
+
+std::optional<std::string> RequireAllGenericBindings(
+    const std::vector<std::string>& paramNames,
+    const std::map<std::string, TTypePtr>& bindings)
+{
+    for (const auto& name : paramNames) {
+        if (!bindings.contains(name)) {
+            return "не удалось определить тип обобщённого параметра '" + name
+                + "' по аргументам вызова или телу функции";
+        }
+    }
+    return std::nullopt;
+}
+
+TGenericBoolTask InferGenericBindingsFromReturnContext(
+    TExprPtr& expr,
+    TTypePtr targetType,
+    const std::unordered_set<std::string>& genericTypeParams,
+    std::map<std::string, TTypePtr>& bindings,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId);
+
+TGenericBoolTask InferGenericBindingsFromStructConstruct(
+    std::shared_ptr<TStructConstructExpr> structure,
+    TTypePtr targetType,
+    const std::unordered_set<std::string>& genericTypeParams,
+    std::map<std::string, TTypePtr>& bindings,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId)
+{
+    auto targetStruct = TMaybeType<TStructType>(UnwrapNamedType(UnwrapReferenceType(targetType))).Cast();
+    if (!targetStruct) {
+        co_return false;
+    }
+
+    std::unordered_map<std::string, size_t> fieldByName;
+    for (size_t i = 0; i < targetStruct->Fields.size(); ++i) {
+        fieldByName.emplace(targetStruct->Fields[i].first, i);
+    }
+
+    bool inferred = false;
+    for (size_t i = 0; i < structure->Fields.size(); ++i) {
+        size_t fieldIndex = i;
+        if (i < structure->FieldNames.size()) {
+            auto it = fieldByName.find(structure->FieldNames[i]);
+            if (it == fieldByName.end()) {
+                continue;
+            }
+            fieldIndex = it->second;
+        }
+        if (fieldIndex >= targetStruct->Fields.size()) {
+            continue;
+        }
+
+        auto fieldTargetType = targetStruct->Fields[fieldIndex].second;
+        if (!ContainsGenericTypeParam(fieldTargetType, genericTypeParams)) {
+            continue;
+        }
+
+        auto& field = structure->Fields[i];
+        inferred = (co_await InferGenericBindingsFromReturnContext(
+            field,
+            fieldTargetType,
+            genericTypeParams,
+            bindings,
+            context,
+            scopeId)) || inferred;
+        if (!field->Type) {
+            field = co_await DoAnnotate(field, context, scopeId);
+        }
+        if (!field->Type) {
+            co_return TError(field->Location, "Не удалось определить тип поля возвращаемой структуры.");
+        }
+        if (auto err = UnifyGenericType(
+                fieldTargetType,
+                UnwrapReferenceType(field->Type),
+                genericTypeParams,
+                bindings))
+        {
+            co_return TError(field->Location, *err);
+        }
+        inferred = true;
+    }
+
+    co_return inferred;
+}
+
+TGenericBoolTask InferGenericBindingsFromReturnContext(
+    TExprPtr& expr,
+    TTypePtr targetType,
+    const std::unordered_set<std::string>& genericTypeParams,
+    std::map<std::string, TTypePtr>& bindings,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId)
+{
+    if (!expr || !targetType || !ContainsGenericTypeParam(targetType, genericTypeParams)) {
+        co_return false;
+    }
+
+    if (auto cast = TMaybeNode<TCastExpr>(expr)) {
+        co_return co_await InferGenericBindingsFromReturnContext(
+            cast.Cast()->Operand,
+            cast.Cast()->Type,
+            genericTypeParams,
+            bindings,
+            context,
+            scopeId);
+    }
+
+    if (auto ifExpr = TMaybeNode<TIfExpr>(expr)) {
+        bool inferred = false;
+        inferred = (co_await InferGenericBindingsFromReturnContext(
+            ifExpr.Cast()->Then,
+            targetType,
+            genericTypeParams,
+            bindings,
+            context,
+            scopeId)) || inferred;
+        if (ifExpr.Cast()->Else) {
+            inferred = (co_await InferGenericBindingsFromReturnContext(
+                ifExpr.Cast()->Else,
+                targetType,
+                genericTypeParams,
+                bindings,
+                context,
+                scopeId)) || inferred;
+        }
+        co_return inferred;
+    }
+
+    if (auto structure = TMaybeNode<TStructConstructExpr>(expr)) {
+        co_return co_await InferGenericBindingsFromStructConstruct(
+            structure.Cast(),
+            targetType,
+            genericTypeParams,
+            bindings,
+            context,
+            scopeId);
+    }
+
+    expr = co_await DoAnnotate(expr, context, scopeId);
+    if (!expr->Type) {
+        co_return TError(expr->Location, "Не удалось определить тип возвращаемого выражения.");
+    }
+    if (auto err = UnifyGenericType(
+            targetType,
+            UnwrapReferenceType(expr->Type),
+            genericTypeParams,
+            bindings))
+    {
+        co_return TError(expr->Location, *err);
+    }
+    co_return true;
+}
+
+TGenericBoolTask InferGenericBindingsFromExplicitReturns(
+    TExprPtr& node,
+    TTypePtr returnType,
+    const std::unordered_set<std::string>& genericTypeParams,
+    std::map<std::string, TTypePtr>& bindings,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId)
+{
+    if (!node) {
+        co_return false;
+    }
+    if (auto ret = TMaybeNode<TReturnExpr>(node)) {
+        if (!ret.Cast()->Value) {
+            co_return false;
+        }
+        co_return co_await InferGenericBindingsFromReturnContext(
+            ret.Cast()->Value,
+            returnType,
+            genericTypeParams,
+            bindings,
+            context,
+            scopeId);
+    }
+
+    bool inferred = false;
+    for (auto* child : node->MutableChildren()) {
+        if (!child || !*child) {
+            continue;
+        }
+        inferred = (co_await InferGenericBindingsFromExplicitReturns(
+            *child,
+            returnType,
+            genericTypeParams,
+            bindings,
+            context,
+            scopeId)) || inferred;
+    }
+    co_return inferred;
+}
+
+TGenericBoolTask InferGenericBindingsFromReturnBody(
+    const std::shared_ptr<TFunDecl>& genericDecl,
+    const std::unordered_set<std::string>& genericTypeParams,
+    const std::vector<std::string>& paramNames,
+    std::map<std::string, TTypePtr>& bindings,
+    NSemantics::TNameResolver& context,
+    TLocation callLoc)
+{
+    if (AllGenericBindingsPresent(paramNames, bindings)) {
+        co_return false;
+    }
+
+    std::vector<TParam> params;
+    params.reserve(genericDecl->Params.size());
+    for (auto& param : genericDecl->Params) {
+        auto clonedParam = std::make_shared<TVarStmt>(*param);
+        clonedParam->Type = SubstituteGenericType(param->Type, genericTypeParams, bindings);
+        for (auto& bound : clonedParam->Bounds) {
+            bound.first = CloneAndSubstituteExpr(bound.first, genericTypeParams, bindings);
+            bound.second = CloneAndSubstituteExpr(bound.second, genericTypeParams, bindings);
+        }
+        params.push_back(std::move(clonedParam));
+    }
+
+    auto retType = SubstituteGenericType(genericDecl->RetType, genericTypeParams, bindings);
+    auto body = TMaybeNode<TBlockExpr>(CloneAndSubstituteExpr(genericDecl->Body, genericTypeParams, bindings)).Cast();
+    auto probe = std::make_shared<TFunDecl>(
+        genericDecl->Location,
+        genericDecl->Name + "$return_infer",
+        UnboundGenericParams(*genericDecl, bindings),
+        std::move(params),
+        body,
+        retType);
+
+    std::vector<TTypePtr> paramTypes;
+    paramTypes.reserve(probe->Params.size());
+    for (auto& param : probe->Params) {
+        paramTypes.push_back(param->Type);
+    }
+    probe->Type = std::make_shared<TFunctionType>(std::move(paramTypes), probe->RetType);
+
+    auto declRes = context.ResolveInstantiatedFunDecl(probe, false);
+    if (!declRes) {
+        co_return declRes.error();
+    }
+
+    auto returnType = FutureResultType(probe->RetType);
+    if (!returnType) {
+        returnType = probe->RetType;
+    }
+
+    auto scopeId = NSemantics::TScopeId{probe->Scope};
+    TExprPtr probeBody = probe->Body;
+    bool inferred = co_await InferGenericBindingsFromExplicitReturns(
+        probeBody,
+        returnType,
+        genericTypeParams,
+        bindings,
+        context,
+        scopeId);
+
+    if (!inferred && !probe->Body->Stmts.empty() && !TMaybeType<TVoidType>(returnType)) {
+        inferred = co_await InferGenericBindingsFromReturnContext(
+            probe->Body->Stmts.back(),
+            returnType,
+            genericTypeParams,
+            bindings,
+            context,
+            scopeId);
+    }
+
+    if (!inferred) {
+        co_return TError(callLoc,
+            "Не удалось вывести оставшиеся обобщённые параметры функции '"
+            + genericDecl->Name + "' по телу функции.");
+    }
+    co_return true;
+}
+
+TGenericBindingsTask InferCompleteGenericBindings(
+    const std::shared_ptr<TFunDecl>& genericDecl,
+    const std::vector<TExprPtr>& args,
+    NSemantics::TNameResolver& context,
+    TLocation callLoc,
+    bool retypeIntegerLiterals,
+    TTypePtr expectedReturnType)
+{
+    auto genericTypeParams = GenericTypeParamSet(*genericDecl);
+    auto paramNames = GenericTypeParamNames(*genericDecl);
+    std::map<std::string, TTypePtr> bindings;
+    if (auto err = InferGenericBindings(
+            *genericDecl,
+            args,
+            genericTypeParams,
+            paramNames,
+            bindings,
+            retypeIntegerLiterals,
+            expectedReturnType,
+            false))
+    {
+        co_return TError(callLoc, *err);
+    }
+
+    if (!AllGenericBindingsPresent(paramNames, bindings)) {
+        co_await InferGenericBindingsFromReturnBody(
+            genericDecl,
+            genericTypeParams,
+            paramNames,
+            bindings,
+            context,
+            callLoc);
+    }
+
+    if (auto err = RequireAllGenericBindings(paramNames, bindings)) {
+        co_return TError(callLoc, *err);
+    }
+    co_return bindings;
+}
+
 // Clones+substitutes a generic TFunDecl for the concrete types inferred from
 // `args`, registers the result under a synthetic mangled name and
 // (re-)resolves+annotates its body. Caching by that name (via a root-scope
@@ -1883,18 +2278,13 @@ TFunDeclTask InstantiateGenericFunction(
 
     auto genericTypeParams = GenericTypeParamSet(*genericDecl);
     auto paramNames = GenericTypeParamNames(*genericDecl);
-    std::map<std::string, TTypePtr> bindings;
-    if (auto err = InferGenericBindings(
-            *genericDecl,
-            args,
-            genericTypeParams,
-            paramNames,
-            bindings,
-            true,
-            expectedReturnType))
-    {
-        co_return TError(callLoc, "Не удалось вывести типы обобщённых параметров функции '" + genericDecl->Name + "': " + *err);
-    }
+    auto bindings = co_await InferCompleteGenericBindings(
+        genericDecl,
+        args,
+        context,
+        callLoc,
+        true,
+        expectedReturnType);
 
     std::string mangledName = "__generic_" + genericDecl->Name;
     for (auto& name : paramNames) {
@@ -1978,25 +2368,25 @@ std::optional<TTypePtr> SubstituteGenericOperatorReturnType(
     const std::shared_ptr<TFunDecl>& decl,
     const std::vector<TExprPtr>& args,
     const std::unordered_set<std::string>& genericTypeParams,
+    NSemantics::TNameResolver& context,
     TTypePtr expectedReturnType,
     TLocation loc,
     TError& error)
 {
-    std::map<std::string, TTypePtr> bindings;
-    auto paramNames = GenericTypeParamNames(*decl);
-    if (auto err = InferGenericBindings(
-            *decl,
-            args,
-            genericTypeParams,
-            paramNames,
-            bindings,
-            false,
-            expectedReturnType))
-    {
-        error = TError(loc, "Не удалось вывести типы обобщённых параметров оператора '" + *decl->OperatorName + "': " + *err);
+    auto bindingsResult = InferCompleteGenericBindings(
+        decl,
+        args,
+        context,
+        loc,
+        false,
+        expectedReturnType).result();
+    if (!bindingsResult) {
+        error = TError(loc,
+            "Не удалось вывести типы обобщённых параметров оператора '"
+            + *decl->OperatorName + "': " + bindingsResult.error().what());
         return std::nullopt;
     }
-    return SubstituteGenericType(decl->RetType, genericTypeParams, bindings);
+    return SubstituteGenericType(decl->RetType, genericTypeParams, *bindingsResult);
 }
 
 TRegisteredOpTask InstantiateGenericOperator(
@@ -2035,6 +2425,7 @@ TRegisteredOpTask InstantiateGenericOperator(
             candidate,
             args,
             genericTypeParams,
+            context,
             expectedReturnType,
             callLoc,
             error);
@@ -2158,6 +2549,8 @@ TTask AnnotateOverloadedCall(
                     genericTypeParams,
                     GenericTypeParamNames(*funDecl),
                     bindings,
+                    false,
+                    nullptr,
                     false))
             {
                 continue;
