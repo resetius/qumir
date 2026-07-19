@@ -1,0 +1,2 @@
+Error: if-expression: типы ветвей несовместимы: 'f64' и 'Nullable[f64] (struct { Value: f64; Valid: bool; })'. @ Line: 9, Byte: 16, Column: 16
+

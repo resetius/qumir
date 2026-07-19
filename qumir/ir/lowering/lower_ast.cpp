@@ -582,7 +582,7 @@ TExpectedTask<std::monostate, TError, TLocation> TAstLowerer::EmitLifetimeDestro
         }
     } else {
         co_return TError(loc, "lifetime destroy does not support type '"
-            + std::string(type->TypeName()) + "'");
+            + NAst::TypeDiagnosticName(type) + "'");
     }
 
     auto destructorId = co_await GlobalSymbolId(destructorName);
@@ -781,7 +781,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             && NAst::TMaybeType<NAst::TIntegerType>(NAst::UnwrapNamedType(cast->Operand->Type))) {
             tmp = Builder.Emit1("mov"_op, {*operand.Value});
         } else {
-            co_return TError(cast->Location, TErrorString::Get<EErrorId::UNSUPPORTED_CAST_TYPES>(std::string(cast->Operand->Type->TypeName()), std::string(expr->Type->TypeName())));
+            co_return TError(cast->Location, TErrorString::Get<EErrorId::UNSUPPORTED_CAST_TYPES>(
+                NAst::TypeDiagnosticName(cast->Operand->Type),
+                NAst::TypeDiagnosticName(expr->Type)));
         }
         Builder.SetType(tmp->Tmp, FromAstType(expr->Type, Module.Types));
         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
