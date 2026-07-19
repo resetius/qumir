@@ -78,6 +78,19 @@ TTask TryGenericUnaryOp(
 // body-annotation for generic declarations.
 bool HasGenericParams(const TFunDecl& decl);
 
+std::string FormatCallSignature(const std::string& name, const std::vector<TExprPtr>& args) {
+    std::ostringstream out;
+    out << name << "(";
+    for (size_t i = 0; i < args.size(); ++i) {
+        if (i != 0) {
+            out << ", ";
+        }
+        out << TypeDiagnosticName(UnwrapReferenceType(args[i]->Type));
+    }
+    out << ")";
+    return out.str();
+}
+
 bool WideningIntOK(TTypePtr typeSrc, TTypePtr typeDst) {
     auto src = TMaybeType<TIntegerType>(typeSrc).Cast();
     auto dst = TMaybeType<TIntegerType>(typeDst).Cast();
@@ -424,6 +437,58 @@ std::string AvailableStructFields(const TStructType& structure) {
     return available;
 }
 
+std::string FormatStructFieldForDiagnostic(const std::pair<std::string, TTypePtr>& field) {
+    return "'" + field.first + ": " + TypeDiagnosticName(field.second) + "'";
+}
+
+std::string FormatStructCastMismatch(const TStructType& source, const TStructType& target) {
+    std::vector<std::string> details;
+    const auto count = std::max(source.Fields.size(), target.Fields.size());
+    for (size_t i = 0; i < count; ++i) {
+        const auto index = std::to_string(i + 1);
+        if (i >= source.Fields.size()) {
+            details.push_back("поле #" + index + ": ожидается "
+                + FormatStructFieldForDiagnostic(target.Fields[i])
+                + ", но в исходной структуре поля нет");
+            continue;
+        }
+        if (i >= target.Fields.size()) {
+            details.push_back("поле #" + index + ": лишнее исходное поле "
+                + FormatStructFieldForDiagnostic(source.Fields[i]));
+            continue;
+        }
+
+        const auto& sourceField = source.Fields[i];
+        const auto& targetField = target.Fields[i];
+        if (sourceField.first != targetField.first) {
+            details.push_back("поле #" + index + ": ожидается "
+                + FormatStructFieldForDiagnostic(targetField)
+                + ", получено "
+                + FormatStructFieldForDiagnostic(sourceField));
+            continue;
+        }
+        if (TypeKey(sourceField.second) != TypeKey(targetField.second)) {
+            details.push_back("поле #" + index + " '" + sourceField.first
+                + "': ожидается " + TypeDiagnosticName(targetField.second)
+                + ", получено " + TypeDiagnosticName(sourceField.second));
+        }
+    }
+
+    if (details.empty()) {
+        return "исходная структура: " + TypeDiagnosticName(std::make_shared<TStructType>(source))
+            + ", целевая структура: " + TypeDiagnosticName(std::make_shared<TStructType>(target));
+    }
+
+    std::string result;
+    for (size_t i = 0; i < details.size(); ++i) {
+        if (i != 0) {
+            result += "; ";
+        }
+        result += details[i];
+    }
+    return result;
+}
+
 bool HasConcreteStructFieldTypes(const TStructType& structure) {
     for (const auto& [_, fieldType] : structure.Fields) {
         if (!fieldType) {
@@ -513,8 +578,8 @@ TTask AnnotateStructConstruct(std::shared_ptr<TStructConstructExpr> structure, N
         if (!EqualTypes(valueType, fieldType)) {
             if (!CanImplicit(valueType, fieldType, &context)) {
                 co_return TError(field->Location,
-                    "Нельзя неявно преобразовать тип '" + std::string(valueType->TypeName()) +
-                    "' к типу поля '" + fieldName + "' (" + std::string(fieldType->TypeName()) + ").");
+                    "Нельзя неявно преобразовать тип '" + TypeDiagnosticName(valueType) +
+                    "' к типу поля '" + fieldName + "' (" + TypeDiagnosticName(fieldType) + ").");
             }
             field = InsertImplicitCastIfNeeded(field, fieldType, &context);
         }
@@ -551,8 +616,11 @@ TTask AnnotateCast(std::shared_ptr<TCastExpr> cast, NSemantics::TNameResolver& c
             && TMaybeType<TStructType>(targetStructType)
             && TypeKey(sourceStructType) != TypeKey(targetStructType))
         {
+            auto sourceStruct = TMaybeType<TStructType>(sourceStructType).Cast();
+            auto targetStruct = TMaybeType<TStructType>(targetStructType).Cast();
             co_return TError(cast->Location,
-                "Нельзя привести структуру к целевому типу: поля структуры не совпадают.");
+                "Нельзя привести структуру к целевому типу: поля структуры не совпадают: "
+                + FormatStructCastMismatch(*sourceStruct, *targetStruct) + ".");
         }
     }
     co_return cast;
@@ -684,8 +752,8 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
             if (!EqualTypes(bodyType, funcScope->RetType)) {
                 if (!CanImplicit(bodyType, funcScope->RetType, &context)) {
                     co_return TError(funDecl->Location,
-                        "Тело функции должно возвращать значение типа '" + std::string(funcScope->RetType->TypeName()) +
-                        "', но имеет тип '" + std::string(bodyType->TypeName()) + "'.");
+                        "Тело функции должно возвращать значение типа '" + TypeDiagnosticName(funcScope->RetType) +
+                        "', но имеет тип '" + TypeDiagnosticName(bodyType) + "'.");
                 }
                 funDecl->Body->Stmts.back() = InsertImplicitCastIfNeeded(funDecl->Body->Stmts.back(), funcScope->RetType, &context);
                 funDecl->Body->Type = funcScope->RetType;
@@ -716,15 +784,15 @@ TTask AnnotateReturn(std::shared_ptr<TReturnExpr> ret, NSemantics::TNameResolver
         if (!EqualTypes(valueType, retType)) {
             if (!CanImplicit(valueType, retType, &context)) {
                 co_return TError(ret->Location,
-                    "Нельзя неявно преобразовать тип '" + std::string(valueType->TypeName()) +
-                    "' к возвращаемому типу функции '" + std::string(retType->TypeName()) + "'.");
+                    "Нельзя неявно преобразовать тип '" + TypeDiagnosticName(valueType) +
+                    "' к возвращаемому типу функции '" + TypeDiagnosticName(retType) + "'.");
             }
             ret->Value = InsertImplicitCastIfNeeded(ret->Value, retType, &context);
         }
     } else {
         if (!TMaybeType<TVoidType>(retType)) {
             co_return TError(ret->Location,
-                "Функция должна возвращать значение типа '" + std::string(retType->TypeName()) + "', но `return` указан без значения.");
+                "Функция должна возвращать значение типа '" + TypeDiagnosticName(retType) + "', но `return` указан без значения.");
         }
     }
 
@@ -779,8 +847,8 @@ TTask AnnotateReplace(
     if (!EqualTypes(valueType, targetType)) {
         if (!CanImplicit(valueType, targetType, &context)) {
             co_return TError(replace->Location,
-                "Нельзя заменить значение типа '" + std::string(targetType->TypeName())
-                + "' значением типа '" + std::string(valueType->TypeName()) + "'.");
+                "Нельзя заменить значение типа '" + TypeDiagnosticName(targetType)
+                + "' значением типа '" + TypeDiagnosticName(valueType) + "'.");
         }
         replace->Value = InsertImplicitCastIfNeeded(replace->Value, targetType, &context);
     }
@@ -810,16 +878,16 @@ TTask AnnotateCleanupExit(
             if (!EqualTypes(valueType, returnType)) {
                 if (!CanImplicit(valueType, returnType, &context)) {
                     co_return TError(exit->Location,
-                        "Нельзя неявно преобразовать тип '" + std::string(valueType->TypeName())
+                        "Нельзя неявно преобразовать тип '" + TypeDiagnosticName(valueType)
                         + "' к возвращаемому типу функции '"
-                        + std::string(returnType->TypeName()) + "'.");
+                        + TypeDiagnosticName(returnType) + "'.");
                 }
                 exit->Value = InsertImplicitCastIfNeeded(exit->Value, returnType, &context);
             }
         } else if (!TMaybeType<TVoidType>(returnType)) {
             co_return TError(exit->Location,
                 "Функция должна возвращать значение типа '"
-                + std::string(returnType->TypeName())
+                + TypeDiagnosticName(returnType)
                 + "', но `return` указан без значения.");
         }
     } else if (exit->Value) {
@@ -1127,7 +1195,7 @@ TTask AnnotateAssign(std::shared_ptr<TAssignExpr> assign, NSemantics::TNameResol
             co_return assign;
         }
         if (!CanImplicit(valueType, symbolType, &context)) {
-            co_return TError(assign->Location, "Нельзя неявно преобразовать тип '" + std::string(valueType->TypeName()) + "' к типу '" + std::string(symbolType->TypeName()) + "' при присваивании переменной '" + assign->Name + "'.");
+            co_return TError(assign->Location, "Нельзя неявно преобразовать тип '" + TypeDiagnosticName(valueType) + "' к типу '" + TypeDiagnosticName(symbolType) + "' при присваивании переменной '" + assign->Name + "'.");
         }
         assign->Value = InsertImplicitCastIfNeeded(assign->Value, sym->Type, &context);
     }
@@ -1159,7 +1227,7 @@ TTask AnnotateArrayAssign(std::shared_ptr<TArrayAssignExpr> arrayAssign, NSemant
         if (!EqualTypes(valueType, arrayType->ElementType)) {
             if (!CanImplicit(valueType, arrayType->ElementType, &context)) {
                 co_return TError(arrayAssign->Location, "Нельзя неявно преобразовать тип '" +
-                    std::string(valueType->TypeName()) + "' к типу '" + std::string(arrayType->ElementType->TypeName()) + "' при присваивании элементу массива '" + arrayAssign->Name + "'.");
+                    TypeDiagnosticName(valueType) + "' к типу '" + TypeDiagnosticName(arrayType->ElementType) + "' при присваивании элементу массива '" + arrayAssign->Name + "'.");
             }
             arrayAssign->Value = InsertImplicitCastIfNeeded(arrayAssign->Value, arrayType->ElementType, &context);
         }
@@ -1201,7 +1269,7 @@ TTask AnnotateArrayAssign(std::shared_ptr<TArrayAssignExpr> arrayAssign, NSemant
         if (!EqualTypes(valueType, pointerType->PointeeType)) {
             if (!CanImplicit(valueType, pointerType->PointeeType, &context)) {
                 co_return TError(arrayAssign->Location, "Нельзя неявно преобразовать тип '" +
-                    std::string(valueType->TypeName()) + "' к типу '" + std::string(pointerType->PointeeType->TypeName()) + "' при присваивании по указателю '" + arrayAssign->Name + "'.");
+                    TypeDiagnosticName(valueType) + "' к типу '" + TypeDiagnosticName(pointerType->PointeeType) + "' при присваивании по указателю '" + arrayAssign->Name + "'.");
             }
             arrayAssign->Value = InsertImplicitCastIfNeeded(arrayAssign->Value, pointerType->PointeeType, &context);
         }
@@ -1264,8 +1332,8 @@ TTask AnnotateVar(std::shared_ptr<TVarStmt> var, NSemantics::TNameResolver& cont
             if (!CanImplicit(initType, variableType, &context)) {
                 co_return TError(var->Location,
                     "Нельзя инициализировать переменную '" + var->Name
-                    + "' типа '" + std::string(variableType->TypeName())
-                    + "' значением типа '" + std::string(initType->TypeName()) + "'.");
+                    + "' типа '" + TypeDiagnosticName(variableType)
+                    + "' значением типа '" + TypeDiagnosticName(initType) + "'.");
             }
             var->Init = InsertImplicitCastIfNeeded(var->Init, variableType, &context);
         }
@@ -2386,8 +2454,8 @@ TFunDeclTask InstantiateGenericFunction(
             if (!EqualTypes(bodyType, funcScope->RetType)) {
                 if (!CanImplicit(bodyType, funcScope->RetType, &context)) {
                     co_return TError(cloned->Location,
-                        "Тело функции должно возвращать значение типа '" + std::string(funcScope->RetType->TypeName()) +
-                        "', но имеет тип '" + std::string(bodyType->TypeName()) + "'.");
+                        "Тело функции должно возвращать значение типа '" + TypeDiagnosticName(funcScope->RetType) +
+                        "', но имеет тип '" + TypeDiagnosticName(bodyType) + "'.");
                 }
                 cloned->Body->Stmts.back() = InsertImplicitCastIfNeeded(cloned->Body->Stmts.back(), funcScope->RetType, &context);
                 cloned->Body->Type = funcScope->RetType;
@@ -2596,11 +2664,13 @@ TTask AnnotateOverloadedCall(
         }
     }
 
+    const auto callName = TMaybeNode<TIdentExpr>(call->Callee).Cast()->Name;
+    const auto callSignature = FormatCallSignature(callName, call->Args);
     if (!bestDecl) {
-        co_return TError(call->Location, "no matching overload for '" + TMaybeNode<TIdentExpr>(call->Callee).Cast()->Name + "'");
+        co_return TError(call->Location, "no matching overload for call " + callSignature);
     }
     if (ambiguous) {
-        co_return TError(call->Location, "ambiguous overload for '" + TMaybeNode<TIdentExpr>(call->Callee).Cast()->Name + "'");
+        co_return TError(call->Location, "ambiguous overload for call " + callSignature);
     }
 
     if (HasGenericParams(*bestDecl)) {
@@ -2701,7 +2771,7 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
                 }
                 auto argTypeUnwrapped = UnwrapReferenceType(arg->Type);
                 if (!EqualTypes(argTypeUnwrapped, paramRefT->ReferencedType)) {
-                    co_return TError(arg->Location, "Аргумент #" + std::to_string(i+1) + ": тип '" + std::string(arg->Type->TypeName()) + "' не совпадает с типом ссылочного параметра '" + std::string(paramT->TypeName()) + "'.");
+                    co_return TError(arg->Location, "Аргумент #" + std::to_string(i+1) + ": тип '" + TypeDiagnosticName(arg->Type) + "' не совпадает с типом ссылочного параметра '" + TypeDiagnosticName(paramT) + "'.");
                 }
                 // no implicit cast for reference parameters
                 continue;
@@ -2709,7 +2779,7 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
             RetypeIntegerLiteralIfFits(arg, paramT);
             if (!EqualTypes(arg->Type, paramT)) {
                 if (!CanImplicit(UnwrapReferenceType(arg->Type), paramT, &context)) {
-                    co_return TError(arg->Location, "Аргумент #" + std::to_string(i+1) + ": нельзя неявно преобразовать тип '" + std::string(arg->Type->TypeName()) + "' к типу параметра '" + std::string(paramT->TypeName()) + "'.");
+                    co_return TError(arg->Location, "Аргумент #" + std::to_string(i+1) + ": нельзя неявно преобразовать тип '" + TypeDiagnosticName(arg->Type) + "' к типу параметра '" + TypeDiagnosticName(paramT) + "'.");
                 }
                 arg = InsertImplicitCastIfNeeded(arg, paramT, &context);
             }
@@ -2787,8 +2857,8 @@ TTask AnnotateIfExpr(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver&
     auto common = CommonValueType(thenType, elseType, context);
     if (!common) {
         co_return TError(ifExpr->Location,
-            "if-expression: типы ветвей несовместимы: '" + std::string(thenType->TypeName()) +
-            "' и '" + std::string(elseType->TypeName()) + "'.");
+            "if-expression: типы ветвей несовместимы: '" + TypeDiagnosticName(thenType) +
+            "' и '" + TypeDiagnosticName(elseType) + "'.");
     }
     ifExpr->Then = InsertImplicitCastIfNeeded(ifExpr->Then, common, &context);
     ifExpr->Else = InsertImplicitCastIfNeeded(ifExpr->Else, common, &context);
@@ -2962,7 +3032,7 @@ TTask AnnotateFieldAccess(std::shared_ptr<TFieldAccessExpr> fieldAccess, NSemant
     auto maybeStruct = TMaybeType<TStructType>(objType);
     if (!maybeStruct) {
         co_return TError(fieldAccess->Location,
-            "Обращение к полю '" + fieldAccess->FieldName + "' невозможно: объект не является структурой (тип: " + std::string(fieldAccess->Object->Type->TypeName()) + ").");
+            "Обращение к полю '" + fieldAccess->FieldName + "' невозможно: объект не является структурой (тип: " + TypeDiagnosticName(fieldAccess->Object->Type) + ").");
     }
     auto structType = maybeStruct.Cast();
 
@@ -3030,8 +3100,8 @@ TTask AnnotateFieldAssign(std::shared_ptr<TFieldAssignExpr> fieldAssign, NSemant
     if (!EqualTypes(valueType, fieldType)) {
         if (!CanImplicit(valueType, fieldType, &context)) {
             co_return TError(fieldAssign->Location,
-                "Нельзя неявно преобразовать тип '" + std::string(valueType->TypeName()) +
-                "' к типу поля '" + fieldAssign->FieldName + "' (" + std::string(fieldType->TypeName()) + ").");
+                "Нельзя неявно преобразовать тип '" + TypeDiagnosticName(valueType) +
+                "' к типу поля '" + fieldAssign->FieldName + "' (" + TypeDiagnosticName(fieldType) + ").");
         }
         fieldAssign->Value = InsertImplicitCastIfNeeded(fieldAssign->Value, fieldType, &context);
     }

@@ -390,6 +390,90 @@ inline TTypePtr WrapFutureType(TTypePtr type) {
     return std::make_shared<TFutureType>(std::move(type));
 }
 
+inline std::string TypeDiagnosticName(const TTypePtr& type);
+
+inline std::string GenericArgDiagnosticName(const TGenericArg& arg) {
+    if (arg.Kind == TGenericArg::EKind::Type) {
+        return TypeDiagnosticName(arg.Type);
+    }
+    return arg.Value;
+}
+
+inline std::string TypeDiagnosticName(const TTypePtr& type) {
+    if (!type) {
+        return "unknown";
+    }
+    if (auto integer = TMaybeType<TIntegerType>(type)) {
+        return integer.Cast()->ToString();
+    }
+    if (TMaybeType<TFloatType>(type)) {
+        return "f64";
+    }
+    if (TMaybeType<TBoolType>(type)) {
+        return "bool";
+    }
+    if (TMaybeType<TStringType>(type)) {
+        return "string";
+    }
+    if (TMaybeType<TSymbolType>(type)) {
+        return "char";
+    }
+    if (TMaybeType<TVoidType>(type)) {
+        return "void";
+    }
+    if (auto future = TMaybeType<TFutureType>(type)) {
+        return "Future<" + TypeDiagnosticName(future.Cast()->ResultType) + ">";
+    }
+    if (auto array = TMaybeType<TArrayType>(type)) {
+        return "[" + TypeDiagnosticName(array.Cast()->ElementType) + "; "
+            + (array.Cast()->Arity > 0 ? std::to_string(array.Cast()->Arity) : "?") + "]";
+    }
+    if (auto pointer = TMaybeType<TPointerType>(type)) {
+        return "*" + TypeDiagnosticName(pointer.Cast()->PointeeType);
+    }
+    if (auto reference = TMaybeType<TReferenceType>(type)) {
+        return "&" + TypeDiagnosticName(reference.Cast()->ReferencedType);
+    }
+    if (auto function = TMaybeType<TFunctionType>(type)) {
+        std::string result = "(";
+        for (size_t i = 0; i < function.Cast()->ParamTypes.size(); ++i) {
+            if (i != 0) {
+                result += ", ";
+            }
+            result += TypeDiagnosticName(function.Cast()->ParamTypes[i]);
+        }
+        result += ") -> ";
+        result += TypeDiagnosticName(function.Cast()->ReturnType);
+        return result;
+    }
+    if (auto named = TMaybeType<TNamedType>(type)) {
+        auto value = named.Cast()->Name;
+        if (!named.Cast()->TypeArgs.empty()) {
+            value += "[";
+            for (size_t i = 0; i < named.Cast()->TypeArgs.size(); ++i) {
+                if (i != 0) {
+                    value += ", ";
+                }
+                value += GenericArgDiagnosticName(named.Cast()->TypeArgs[i]);
+            }
+            value += "]";
+        }
+        if (named.Cast()->UnderlyingType) {
+            value += " (" + TypeDiagnosticName(named.Cast()->UnderlyingType) + ")";
+        }
+        return value;
+    }
+    if (auto structure = TMaybeType<TStructType>(type)) {
+        std::string result = "struct { ";
+        for (const auto& [name, fieldType] : structure.Cast()->Fields) {
+            result += name + ": " + TypeDiagnosticName(fieldType) + "; ";
+        }
+        result += "}";
+        return result;
+    }
+    return std::string(type->TypeName());
+}
+
 // Stable string key for a type, used in cast/operator maps.
 // Named types include their name to distinguish компл from цвет.
 inline std::string TypeKey(const TTypePtr& t) {
