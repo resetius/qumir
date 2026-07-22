@@ -59,6 +59,39 @@ TOperand TAstLowerer::AllocLayoutStorage(NSemantics::TSymbolInfo symbol, int typ
     return TOperand{slot};
 }
 
+TExpectedTask<TOperand, TError, TLocation> TAstLowerer::EnsureStructAddress(
+    TOperand value,
+    int structTypeId,
+    const TLocation& loc)
+{
+    if (Module.Types.GetKind(structTypeId) != EKind::Struct) {
+        co_return TError(loc, "Внутренняя ошибка: ожидается структурный тип.");
+    }
+    if (value.Type != TOperand::EType::Tmp) {
+        co_return TError(loc, "Внутренняя ошибка: значение структуры должно быть временным значением.");
+    }
+
+    int ptrTypeId = Module.Types.Ptr(structTypeId);
+    int valueTypeId = Builder.GetType(value.Tmp);
+    if (valueTypeId == ptrTypeId) {
+        co_return value;
+    }
+    if (Module.Types.GetKind(valueTypeId) == EKind::Ptr) {
+        auto typedPtr = Builder.Emit1("mov"_op, {value});
+        Builder.SetType(typedPtr, ptrTypeId);
+        co_return TOperand{typedPtr};
+    }
+    if (valueTypeId != structTypeId) {
+        co_return TError(loc, "Внутренняя ошибка: значение структуры имеет несовместимый IR-тип.");
+    }
+
+    auto local = Builder.AllocLocal(structTypeId);
+    Builder.Emit0("stre"_op, {TOperand{local}, value});
+    auto addr = Builder.Emit1("lea"_op, {TOperand{local}});
+    Builder.SetType(addr, ptrTypeId);
+    co_return TOperand{addr};
+}
+
 TTmp TAstLowerer::LoadLayoutOperand(TOperand operand)
 {
     auto tmp = Builder.Emit1("load"_op, {operand});
@@ -144,6 +177,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .ContinueLabel = condLabel,
         .ReturnLabel = scope.ReturnLabel,
         .RetLocal = scope.RetLocal,
+        .RetTypeId = scope.RetTypeId,
         .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
@@ -172,6 +206,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .ContinueLabel = condLabel,
         .ReturnLabel = scope.ReturnLabel,
         .RetLocal = scope.RetLocal,
+        .RetTypeId = scope.RetTypeId,
         .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
@@ -266,6 +301,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .ContinueLabel = postLabel,
         .ReturnLabel = scope.ReturnLabel,
         .RetLocal = scope.RetLocal,
+        .RetTypeId = scope.RetTypeId,
         .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
@@ -330,6 +366,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .ContinueLabel = postLabel,
         .ReturnLabel = scope.ReturnLabel,
         .RetLocal = scope.RetLocal,
+        .RetTypeId = scope.RetTypeId,
         .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
@@ -368,11 +405,16 @@ TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& n
         ? TOperand{ TLocal{ var->FunctionLevelIdx } }
         : TOperand{ TSlot{ var->Id } };
 
-    // "load" returns a value; "lea" returns an address for ref arguments.
-    TOp opcode = takeRefOfNotRef ? "lea"_op : "load"_op;
-    auto tmp = Builder.Emit1(opcode, { op });
     int valueTypeId = FromAstType(node->Type, Module.Types);
-    Builder.SetType(tmp, takeRefOfNotRef ? Module.Types.Ptr(valueTypeId) : valueTypeId);
+    bool loadStructByAddress =
+        !takeRefOfNotRef
+        && NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(node->Type));
+
+    // Struct rvalues are address-backed in IR; scalar values are loaded.
+    TOp opcode = (takeRefOfNotRef || loadStructByAddress) ? "lea"_op : "load"_op;
+    auto tmp = Builder.Emit1(opcode, { op });
+    Builder.SetType(tmp,
+        (takeRefOfNotRef || loadStructByAddress) ? Module.Types.Ptr(valueTypeId) : valueTypeId);
     co_return tmp;
 }
 
@@ -530,7 +572,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         int64_t fieldByteOffset = Module.Types.FieldOffset(structTypeId, field->FieldIndex);
 
         auto i64 = Module.Types.I(EKind::I64);
-        int ptrTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
+        int fieldTypeId = FromAstType(field->Type, Module.Types);
+        int ptrTypeId = Module.Types.Ptr(fieldTypeId);
         auto fieldPtr = Builder.Emit1("+"_op, {objAddr, TImm{fieldByteOffset, i64}});
         Builder.SetType(fieldPtr, ptrTypeId);
         co_return TValueWithBlock{fieldPtr, Builder.CurrentBlockLabel()};
@@ -680,7 +723,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 if (!value.Value || !scope.RetLocal) {
                     co_return TError(expr->Location, "cleanup return value cannot be stored");
                 }
-                Builder.Emit0("stre"_op, {TOperand{*scope.RetLocal}, *value.Value});
+                auto returnValue = *value.Value;
+                if (scope.RetTypeId && Module.Types.GetKind(*scope.RetTypeId) == EKind::Struct) {
+                    returnValue = co_await EnsureStructAddress(returnValue, *scope.RetTypeId, exit->Value->Location);
+                }
+                Builder.Emit0("stre"_op, {TOperand{*scope.RetLocal}, returnValue});
             }
             if (scope.LastAssert) {
                 co_await Lower(scope.LastAssert, scope);
@@ -946,7 +993,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
 
             auto endLabel = Builder.NewLabel();
-            if (!thenTerminated) {
+            if (isVoid && !thenTerminated) {
                 Builder.SetCurrentBlock(thenEdgeLabel);
                 Builder.Emit0("jmp"_op, {endLabel});
             }
@@ -959,22 +1006,38 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 if (!elseRes.Value) {
                     co_return TError(ife->Else->Location, "Ветвь `иначе' в `если'-выражении не возвращает значение");
                 }
+                int resultTypeId = FromAstType(expr->Type, Module.Types);
+                bool isStructResult = NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(expr->Type));
+                if (isStructResult) {
+                    if (thenTerminated || elseTerminated) {
+                        co_return TError(ife->Location, "Внутренняя ошибка: структурное if-выражение с завершающейся ветвью не поддержано.");
+                    }
+                    Builder.SetCurrentBlock(thenEdgeLabel);
+                    auto thenAddress = co_await EnsureStructAddress(*thenRes.Value, resultTypeId, ife->Then->Location);
+                    thenEdgeLabel = Builder.CurrentBlockLabel();
+                    Builder.Emit0("jmp"_op, {endLabel});
+
+                    auto elseEdgeLabel = elseRes.ProducingLabel;
+                    Builder.SetCurrentBlock(elseEdgeLabel);
+                    auto elseAddress = co_await EnsureStructAddress(*elseRes.Value, resultTypeId, ife->Else->Location);
+                    elseEdgeLabel = Builder.CurrentBlockLabel();
+                    Builder.Emit0("jmp"_op, {endLabel});
+
+                    Builder.NewBlock(endLabel);
+                    auto res = Builder.Emit1("phi"_op, {thenAddress, thenEdgeLabel, elseAddress, elseEdgeLabel});
+                    Builder.SetType(res, Module.Types.Ptr(resultTypeId));
+                    co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
+                }
+
+                if (!thenTerminated) {
+                    Builder.SetCurrentBlock(thenEdgeLabel);
+                    Builder.Emit0("jmp"_op, {endLabel});
+                }
                 auto elseEdgeLabel = elseRes.ProducingLabel;
                 Builder.SetCurrentBlock(elseEdgeLabel);
                 Builder.Emit0("jmp"_op, {endLabel});
                 Builder.NewBlock(endLabel);
                 auto res = Builder.Emit1("phi"_op, {*thenRes.Value, thenEdgeLabel, *elseRes.Value, elseEdgeLabel});
-                int resultTypeId = FromAstType(expr->Type, Module.Types);
-                if (NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(expr->Type))
-                    && thenRes.Value->Type == TOperand::EType::Tmp
-                    && elseRes.Value->Type == TOperand::EType::Tmp)
-                {
-                    int thenTypeId = Builder.GetType(thenRes.Value->Tmp);
-                    int elseTypeId = Builder.GetType(elseRes.Value->Tmp);
-                    if (thenTypeId == elseTypeId && Module.Types.GetKind(thenTypeId) == EKind::Ptr) {
-                        resultTypeId = thenTypeId;
-                    }
-                }
                 Builder.SetType(res, resultTypeId);
                 if (thenRes.Value->Type == TOperand::EType::Tmp) {
                     Builder.UnifyTypes(res, thenRes.Value->Tmp);
@@ -1057,9 +1120,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto rhs = co_await Lower(asg->Value, scope);
         if (!rhs.Value) co_return TError(asg->Value->Location, TErrorString::Get<EErrorId::RIGHT_HAND_SIDE_NOT_NUMBER>());
 
-        Module.Types.GetKind(arrayElemTypeId);
         if (Module.Types.GetKind(arrayElemTypeId) == EKind::Struct) {
-            Builder.Emit0("copy"_op, {destPtr, *rhs.Value, TImm{(int64_t)elemByteSize}});
+            auto src = co_await EnsureStructAddress(*rhs.Value, arrayElemTypeId, asg->Value->Location);
+            Builder.Emit0("copy"_op, {destPtr, src, TImm{(int64_t)elemByteSize}});
         } else {
             Builder.Emit0("ste"_op, {destPtr, *rhs.Value});
         }
@@ -1098,6 +1161,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.SetType(offset, i64);
             auto destPtr = Builder.Emit1("+"_op, {arrayPtr, offset});
             Builder.SetType(destPtr, arrayType);
+            if (Module.Types.GetKind(elemTypeId) == EKind::Struct) {
+                Builder.SetType(destPtr, Module.Types.Ptr(elemTypeId));
+                co_return TValueWithBlock{ destPtr, Builder.CurrentBlockLabel() };
+            }
             auto loaded = Builder.Emit1("lde"_op, { destPtr });
             Builder.SetType(loaded, elemTypeId);
             co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
@@ -1123,8 +1190,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // For struct elements: return the pointer directly (caller uses memcpy/lea semantics)
         bool isStructElem = NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(expr->Type));
         if (isStructElem) {
-            int ptrType = Module.Types.Ptr(Module.Types.I(EKind::I8));
-            Builder.SetType(destPtr, ptrType);
+            Builder.SetType(destPtr, Module.Types.Ptr(elemTypeId));
             co_return TValueWithBlock{ destPtr, Builder.CurrentBlockLabel() };
         }
         auto loaded = Builder.Emit1("lde"_op, { destPtr });
@@ -1135,7 +1201,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto objAstType = NAst::UnwrapReferenceType(NAst::UnwrapNamedType(sc->Type));
         int structTypeId = FromAstType(objAstType, Module.Types);
         int64_t totalSize = Module.Types.SizeInBytes(structTypeId);
-        int ptrTypeId = Module.Types.Ptr(Module.Types.I(EKind::I8));
+        int ptrTypeId = Module.Types.Ptr(structTypeId);
         auto i64 = Module.Types.I(EKind::I64);
 
         auto ptr = Builder.Emit1("salloc"_op, {TImm{totalSize, i64}});
@@ -1170,7 +1236,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.SetType(fieldPtr, Module.Types.Ptr(fieldTypeId));
             if (Module.Types.GetKind(fieldTypeId) == EKind::Struct) {
                 int fieldSize = Module.Types.SizeInBytes(fieldTypeId);
-                Builder.Emit0("copy"_op, {fieldPtr, *fieldVal.Value, TImm{(int64_t)fieldSize}});
+                auto src = co_await EnsureStructAddress(*fieldVal.Value, fieldTypeId, sc->Fields[i]->Location);
+                Builder.Emit0("copy"_op, {fieldPtr, src, TImm{(int64_t)fieldSize}});
             } else {
                 Builder.Emit0("ste"_op, {fieldPtr, *fieldVal.Value});
             }
@@ -1231,7 +1298,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 co_return TError(maybeWrite.Cast()->Value->Location, "Не удалось вычислить значение при присваивании полю '" + fieldName + "'.");
             }
             if (Module.Types.GetKind(fieldTypeId) == EKind::Struct) {
-                Builder.Emit0("copy"_op, {fieldPtr, *rhs.Value, TImm{(int64_t)Module.Types.SizeInBytes(fieldTypeId)}});
+                auto src = co_await EnsureStructAddress(*rhs.Value, fieldTypeId, maybeWrite.Cast()->Value->Location);
+                Builder.Emit0("copy"_op, {fieldPtr, src, TImm{(int64_t)Module.Types.SizeInBytes(fieldTypeId)}});
             } else {
                 Builder.Emit0("ste"_op, {fieldPtr, *rhs.Value});
             }
@@ -1266,6 +1334,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto totalIndex = *indices.Value;
         auto destPtr = Builder.Emit1("+"_op, {arrayPtr, totalIndex});
         Builder.SetType(destPtr, arrayType);
+        if (Module.Types.GetKind(multiElemTypeId) == EKind::Struct) {
+            Builder.SetType(destPtr, Module.Types.Ptr(multiElemTypeId));
+            co_return TValueWithBlock{ destPtr, Builder.CurrentBlockLabel() };
+        }
         auto loaded = Builder.Emit1("lde"_op, { destPtr });
         Builder.SetType(loaded, FromAstType(expr->Type, Module.Types));
         co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
@@ -1297,14 +1369,21 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto refType = NAst::UnwrapNamedType(ref->ReferencedType);
             if (NAst::TMaybeType<NAst::TStructType>(refType).Cast() != nullptr) {
                 // рез компл: addrTmp is Tmp pointer to destination, rhs is Tmp pointer to source
-                int sizeBytes = Module.Types.SizeInBytes(FromAstType(refType, Module.Types));
-                Builder.Emit0("copy"_op, {addrTmp, *rhs.Value, TImm{(int64_t)sizeBytes}});
+                int refTypeId = FromAstType(refType, Module.Types);
+                int sizeBytes = Module.Types.SizeInBytes(refTypeId);
+                auto src = co_await EnsureStructAddress(*rhs.Value, refTypeId, asg->Value->Location);
+                Builder.Emit0("copy"_op, {addrTmp, src, TImm{(int64_t)sizeBytes}});
             } else {
                 // see cases/ref/index_ref
                 Builder.Emit0("ste"_op, {addrTmp, *rhs.Value});
             }
         } else {
-            Builder.Emit0("stre"_op, {storeOperand, *rhs.Value});
+            auto storedValue = *rhs.Value;
+            int storedTypeId = FromAstType(node->Type, Module.Types);
+            if (localSlot.Idx >= 0 && Module.Types.GetKind(storedTypeId) == EKind::Struct) {
+                storedValue = co_await EnsureStructAddress(storedValue, storedTypeId, asg->Value->Location);
+            }
+            Builder.Emit0("stre"_op, {storeOperand, storedValue});
         }
 
         // store does not produce a value
@@ -1320,7 +1399,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto ref = maybeRef.Cast();
             auto refType = NAst::UnwrapNamedType(ref->ReferencedType);
             if (NAst::TMaybeType<NAst::TStructType>(refType)) {
-                Builder.SetType(tmp, Module.Types.Ptr(Module.Types.I(EKind::I8)));
+                Builder.SetType(tmp, Module.Types.Ptr(FromAstType(ref->ReferencedType, Module.Types)));
             } else {
                 auto derefTmp = Builder.Emit1("lde"_op, { tmp });
                 Builder.SetType(derefTmp, FromAstType(ref->ReferencedType, Module.Types));
@@ -1434,11 +1513,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // trailing return) by the body's fall-through value.
         auto retAstType = isCoroutine ? coroutineResultType : fun->RetType;
         std::optional<TLocal> retLocal;
+        std::optional<int> retTypeId;
         if (!NAst::TMaybeType<NAst::TVoidType>(retAstType)) {
-            retLocal = Builder.AllocLocal(FromAstType(retAstType, Module.Types));
+            retTypeId = FromAstType(retAstType, Module.Types);
+            retLocal = Builder.AllocLocal(*retTypeId);
         }
 
-        // Create a dedicated final return block label beforehand and pass it as ReturnLabel for `return` and early exits.
+        // Create a dedicated final return block label beforehand and pass it
+        // as ReturnLabel for `return` and early exits.
         auto endLabel = Builder.NewLabel();
 
         TBlockScope functionBodyScope {
@@ -1448,6 +1530,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             .ContinueLabel = std::nullopt,
             .ReturnLabel = endLabel,
             .RetLocal = retLocal,
+            .RetTypeId = retTypeId,
             .LastAssert = fun->LastAssert
         };
         for (auto& param : fun->Params) {
@@ -1461,15 +1544,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_await LowerArrayLayout(*psid, param->Bounds, functionBodyScope, param->Location);
         }
 
-        auto loweredBody = co_await Lower(body, TBlockScope {
-            .FuncIdx = funcIdx,
-            .Id = NSemantics::TScopeId{funScope},
-            .BreakLabel = std::nullopt,
-            .ContinueLabel = std::nullopt,
-            .ReturnLabel = endLabel,
-            .RetLocal = retLocal,
-            .LastAssert = fun->LastAssert
-        });
+        auto loweredBody = co_await Lower(body, functionBodyScope);
         // Jump to final return block unless already terminated by earlier logic (e.g. explicit `return`).
         if (!Builder.IsCurrentBlockTerminated()) {
             if (retLocal) {
@@ -1480,19 +1555,26 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     // value-producing expression).
                     co_return TError(fun->Location, "Тело функции должно заканчиваться оператором `return` или выражением, возвращающим значение.");
                 }
-                Builder.Emit0("stre"_op, {
-                    TOperand{*retLocal},
-                    *loweredBody.Value,
-                });
+                auto returnValue = *loweredBody.Value;
+                if (retTypeId && Module.Types.GetKind(*retTypeId) == EKind::Struct) {
+                    returnValue = co_await EnsureStructAddress(returnValue, *retTypeId, body->Location);
+                }
+                Builder.Emit0("stre"_op, {TOperand{*retLocal}, returnValue});
             }
             Builder.Emit0("jmp"_op, { endLabel });
         }
         // Materialize final return block and emit single ret there.
         Builder.NewBlock(endLabel);
         if (retLocal) {
-            auto loaded = Builder.Emit1("load"_op, {TOperand{*retLocal}});
-            Builder.SetType(loaded, FromAstType(retAstType, Module.Types));
-            Builder.Emit0("ret"_op, {loaded});
+            TTmp returned;
+            if (retTypeId && Module.Types.GetKind(*retTypeId) == EKind::Struct) {
+                returned = Builder.Emit1("lea"_op, {TOperand{*retLocal}});
+                Builder.SetType(returned, Module.Types.Ptr(*retTypeId));
+            } else {
+                returned = Builder.Emit1("load"_op, {TOperand{*retLocal}});
+                Builder.SetType(returned, *retTypeId);
+            }
+            Builder.Emit0("ret"_op, {returned});
         } else {
             Builder.Emit0("ret"_op, {});
         }
@@ -1560,9 +1642,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     Builder.SetType(av.Value->Tmp, FromAstType(argType, Module.Types));
                 }
             } else {
-                // struct args and scalar args are both lowered the same way —
-                // VMCompiler handles ABI (lea/pointer) for struct types
                 av = co_await Lower(a, scope);
+                int argTypeId = FromAstType(argType, Module.Types);
+                if (av.Value && Module.Types.GetKind(argTypeId) == EKind::Struct) {
+                    // By-value struct ABI consumes an address-backed rvalue.
+                    av.Value = co_await EnsureStructAddress(*av.Value, argTypeId, a->Location);
+                }
             }
 
             if (!av.Value) co_return TError(a->Location, TErrorString::Get<EErrorId::INVALID_ARGUMENT>());
@@ -1583,7 +1668,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         std::optional<TOperand> tmp = std::nullopt;
         if (returnsValue) {
             tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
-            Builder.SetType(tmp->Tmp, FromAstType(returnType, Module.Types));
+            int returnTypeId = FromAstType(returnType, Module.Types);
+            Builder.SetType(tmp->Tmp, returnTypeId);
+            if (Module.Types.GetKind(returnTypeId) == EKind::Struct) {
+                tmp = co_await EnsureStructAddress(*tmp, returnTypeId, call->Location);
+            }
         } else {
             Builder.Emit0("call"_op, {TImm{calleeSymId}});
         }

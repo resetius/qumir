@@ -2,17 +2,25 @@ function <main> () { ; void
   block {
     label: label(0)
     call tmp(0,struct { i8}) = null 
-    arg tmp(0,struct { i8}) 
-    call tmp(1,struct { i64; i1}) = __generic_nullable_from_null$i64 
-    stre local(0,struct { i64; i1}) tmp(1,struct { i64; i1}) 
-    call tmp(2,struct { i8}) = null 
-    arg tmp(2,struct { i8}) 
-    call tmp(3,struct { f64; i1}) = __generic_nullable_from_null$Float 
-    stre local(1,struct { f64; i1}) tmp(3,struct { f64; i1}) 
-    lea tmp(4,ptr to struct { i64; i1}) = local(0,struct { i64; i1}) 
-    + tmp(5,ptr to i1) = tmp(4,ptr to struct { i64; i1}) imm(8,i64) 
-    lde tmp(6,i1) = tmp(5,ptr to i1) 
-    cmp tmp(6,i1) label(2) label(3) 
+    stre local(2,struct { i8}) tmp(0,struct { i8}) 
+    lea tmp(1,ptr to struct { i8}) = local(2,struct { i8}) 
+    arg tmp(1,ptr to struct { i8}) 
+    call tmp(2,struct { i64; i1}) = __generic_nullable_from_null$i64 
+    stre local(3,struct { i64; i1}) tmp(2,struct { i64; i1}) 
+    lea tmp(3,ptr to struct { i64; i1}) = local(3,struct { i64; i1}) 
+    stre local(0,struct { i64; i1}) tmp(3,ptr to struct { i64; i1}) 
+    call tmp(4,struct { i8}) = null 
+    stre local(4,struct { i8}) tmp(4,struct { i8}) 
+    lea tmp(5,ptr to struct { i8}) = local(4,struct { i8}) 
+    arg tmp(5,ptr to struct { i8}) 
+    call tmp(6,struct { f64; i1}) = __generic_nullable_from_null$Float 
+    stre local(5,struct { f64; i1}) tmp(6,struct { f64; i1}) 
+    lea tmp(7,ptr to struct { f64; i1}) = local(5,struct { f64; i1}) 
+    stre local(1,struct { f64; i1}) tmp(7,ptr to struct { f64; i1}) 
+    lea tmp(8,ptr to struct { i64; i1}) = local(0,struct { i64; i1}) 
+    + tmp(9,ptr to i1) = tmp(8,ptr to struct { i64; i1}) imm(8,i64) 
+    lde tmp(10,i1) = tmp(9,ptr to i1) 
+    cmp tmp(10,i1) label(2) label(3) 
   }
   block {
     label: label(2)
@@ -28,10 +36,10 @@ function <main> () { ; void
   }
   block {
     label: label(4)
-    lea tmp(7,ptr to struct { f64; i1}) = local(1,struct { f64; i1}) 
-    + tmp(8,ptr to i1) = tmp(7,ptr to struct { f64; i1}) imm(8,i64) 
-    lde tmp(9,i1) = tmp(8,ptr to i1) 
-    cmp tmp(9,i1) label(5) label(6) 
+    lea tmp(11,ptr to struct { f64; i1}) = local(1,struct { f64; i1}) 
+    + tmp(12,ptr to i1) = tmp(11,ptr to struct { f64; i1}) imm(8,i64) 
+    lde tmp(13,i1) = tmp(12,ptr to i1) 
+    cmp tmp(13,i1) label(5) label(6) 
   }
   block {
     label: label(5)
@@ -57,45 +65,45 @@ function <main> () { ; void
 function null () { ; struct { i8}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(1,i64) 
-    + tmp(1,ptr to i8) = tmp(0,ptr to i8) imm(0,i64) 
+    salloc tmp(0,ptr to struct { i8}) = imm(1,i64) 
+    + tmp(1,ptr to i8) = tmp(0,ptr to struct { i8}) imm(0,i64) 
     ste tmp(1,ptr to i8) imm(0,i8) 
-    stre local(0,struct { i8}) tmp(0,ptr to i8) 
+    stre local(0,struct { i8}) tmp(0,ptr to struct { i8}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(2,struct { i8}) = local(0,struct { i8}) 
-    ret tmp(2,struct { i8}) 
+    lea tmp(2,ptr to struct { i8}) = local(0,struct { i8}) 
+    ret tmp(2,ptr to struct { i8}) 
   }
 }
 function __generic_nullable_from_null$i64 (local(0)) { ; struct { i64; i1}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(16,i64) 
-    + tmp(1,ptr to i1) = tmp(0,ptr to i8) imm(8,i64) 
+    salloc tmp(0,ptr to struct { i64; i1}) = imm(16,i64) 
+    + tmp(1,ptr to i1) = tmp(0,ptr to struct { i64; i1}) imm(8,i64) 
     ste tmp(1,ptr to i1) imm(0,i64) 
-    stre local(1,struct { i64; i1}) tmp(0,ptr to i8) 
+    stre local(1,struct { i64; i1}) tmp(0,ptr to struct { i64; i1}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(2,struct { i64; i1}) = local(1,struct { i64; i1}) 
-    ret tmp(2,struct { i64; i1}) 
+    lea tmp(2,ptr to struct { i64; i1}) = local(1,struct { i64; i1}) 
+    ret tmp(2,ptr to struct { i64; i1}) 
   }
 }
 function __generic_nullable_from_null$Float (local(0)) { ; struct { f64; i1}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(16,i64) 
-    + tmp(1,ptr to i1) = tmp(0,ptr to i8) imm(8,i64) 
+    salloc tmp(0,ptr to struct { f64; i1}) = imm(16,i64) 
+    + tmp(1,ptr to i1) = tmp(0,ptr to struct { f64; i1}) imm(8,i64) 
     ste tmp(1,ptr to i1) imm(0,i64) 
-    stre local(1,struct { f64; i1}) tmp(0,ptr to i8) 
+    stre local(1,struct { f64; i1}) tmp(0,ptr to struct { f64; i1}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(2,struct { f64; i1}) = local(1,struct { f64; i1}) 
-    ret tmp(2,struct { f64; i1}) 
+    lea tmp(2,ptr to struct { f64; i1}) = local(1,struct { f64; i1}) 
+    ret tmp(2,ptr to struct { f64; i1}) 
   }
 }

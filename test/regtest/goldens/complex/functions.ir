@@ -4,48 +4,54 @@ function main () { ; void
     arg imm(4611686018427387904,f64) 
     arg imm(4617315517961601024,f64) 
     call tmp(0,struct { f64; f64}) = make_complex 
-    stre local(0,struct { f64; f64}) tmp(0,struct { f64; f64}) 
+    stre local(2,struct { f64; f64}) tmp(0,struct { f64; f64}) 
+    lea tmp(1,ptr to struct { f64; f64}) = local(2,struct { f64; f64}) 
+    stre local(0,struct { f64; f64}) tmp(1,ptr to struct { f64; f64}) 
     arg imm(1,ptr to i8) 
     call output_string 
-    load tmp(1,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    arg tmp(1,struct { f64; f64}) 
-    call tmp(2,f64) = real_part 
-    arg tmp(2,f64) 
+    lea tmp(2,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(2,ptr to struct { f64; f64}) 
+    call tmp(3,f64) = real_part 
+    arg tmp(3,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(3,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    arg tmp(3,struct { f64; f64}) 
-    call tmp(4,f64) = imag_part 
-    arg tmp(4,f64) 
+    lea tmp(4,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(4,ptr to struct { f64; f64}) 
+    call tmp(5,f64) = imag_part 
+    arg tmp(5,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
     arg imm(3,ptr to i8) 
     call output_string 
-    load tmp(5,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    call tmp(6,struct { f64; f64}) = i 
-    arg tmp(5,struct { f64; f64}) 
-    arg tmp(6,struct { f64; f64}) 
-    call tmp(7,struct { f64; f64}) = add_twice 
-    stre local(1,struct { f64; f64}) tmp(7,struct { f64; f64}) 
+    lea tmp(6,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
+    call tmp(7,struct { f64; f64}) = i 
+    stre local(3,struct { f64; f64}) tmp(7,struct { f64; f64}) 
+    lea tmp(8,ptr to struct { f64; f64}) = local(3,struct { f64; f64}) 
+    arg tmp(6,ptr to struct { f64; f64}) 
+    arg tmp(8,ptr to struct { f64; f64}) 
+    call tmp(9,struct { f64; f64}) = add_twice 
+    stre local(4,struct { f64; f64}) tmp(9,struct { f64; f64}) 
+    lea tmp(10,ptr to struct { f64; f64}) = local(4,struct { f64; f64}) 
+    stre local(1,struct { f64; f64}) tmp(10,ptr to struct { f64; f64}) 
     arg imm(4,ptr to i8) 
     call output_string 
-    load tmp(8,struct { f64; f64}) = local(1,struct { f64; f64}) 
-    arg tmp(8,struct { f64; f64}) 
-    call tmp(9,f64) = Re 
-    arg tmp(9,f64) 
+    lea tmp(11,ptr to struct { f64; f64}) = local(1,struct { f64; f64}) 
+    arg tmp(11,ptr to struct { f64; f64}) 
+    call tmp(12,f64) = Re 
+    arg tmp(12,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
     arg imm(2,ptr to i8) 
     call output_string 
-    load tmp(10,struct { f64; f64}) = local(1,struct { f64; f64}) 
-    arg tmp(10,struct { f64; f64}) 
-    call tmp(11,f64) = Im 
-    arg tmp(11,f64) 
+    lea tmp(13,ptr to struct { f64; f64}) = local(1,struct { f64; f64}) 
+    arg tmp(13,ptr to struct { f64; f64}) 
+    call tmp(14,f64) = Im 
+    arg tmp(14,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
     call output_double 
@@ -61,8 +67,8 @@ function main () { ; void
 function real_part (local(0)) { ; f64
   block {
     label: label(0)
-    load tmp(0,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    arg tmp(0,struct { f64; f64}) 
+    lea tmp(0,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(0,ptr to struct { f64; f64}) 
     call tmp(1,f64) = Re 
     stre local(1,f64) tmp(1,f64) 
     load tmp(2,f64) = local(1,f64) 
@@ -78,8 +84,8 @@ function real_part (local(0)) { ; f64
 function imag_part (local(0)) { ; f64
   block {
     label: label(0)
-    load tmp(0,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    arg tmp(0,struct { f64; f64}) 
+    lea tmp(0,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
+    arg tmp(0,ptr to struct { f64; f64}) 
     call tmp(1,f64) = Im 
     stre local(1,f64) tmp(1,f64) 
     load tmp(2,f64) = local(1,f64) 
@@ -98,65 +104,79 @@ function make_complex (local(0), local(1)) { ; struct { f64; f64}
     load tmp(0,f64) = local(0,f64) 
     arg tmp(0,f64) 
     call tmp(1,struct { f64; f64}) = complex_from_float 
-    load tmp(2,f64) = local(1,f64) 
-    arg tmp(2,f64) 
-    call tmp(3,struct { f64; f64}) = complex_from_float 
-    call tmp(4,struct { f64; f64}) = i 
-    arg tmp(3,struct { f64; f64}) 
-    arg tmp(4,struct { f64; f64}) 
-    call tmp(5,struct { f64; f64}) = complex_mul 
-    arg tmp(1,struct { f64; f64}) 
-    arg tmp(5,struct { f64; f64}) 
-    call tmp(6,struct { f64; f64}) = complex_add 
-    stre local(2,struct { f64; f64}) tmp(6,struct { f64; f64}) 
-    load tmp(7,struct { f64; f64}) = local(2,struct { f64; f64}) 
-    stre local(3,struct { f64; f64}) tmp(7,struct { f64; f64}) 
+    stre local(4,struct { f64; f64}) tmp(1,struct { f64; f64}) 
+    lea tmp(2,ptr to struct { f64; f64}) = local(4,struct { f64; f64}) 
+    load tmp(3,f64) = local(1,f64) 
+    arg tmp(3,f64) 
+    call tmp(4,struct { f64; f64}) = complex_from_float 
+    stre local(5,struct { f64; f64}) tmp(4,struct { f64; f64}) 
+    lea tmp(5,ptr to struct { f64; f64}) = local(5,struct { f64; f64}) 
+    call tmp(6,struct { f64; f64}) = i 
+    stre local(6,struct { f64; f64}) tmp(6,struct { f64; f64}) 
+    lea tmp(7,ptr to struct { f64; f64}) = local(6,struct { f64; f64}) 
+    arg tmp(5,ptr to struct { f64; f64}) 
+    arg tmp(7,ptr to struct { f64; f64}) 
+    call tmp(8,struct { f64; f64}) = complex_mul 
+    stre local(7,struct { f64; f64}) tmp(8,struct { f64; f64}) 
+    lea tmp(9,ptr to struct { f64; f64}) = local(7,struct { f64; f64}) 
+    arg tmp(2,ptr to struct { f64; f64}) 
+    arg tmp(9,ptr to struct { f64; f64}) 
+    call tmp(10,struct { f64; f64}) = complex_add 
+    stre local(8,struct { f64; f64}) tmp(10,struct { f64; f64}) 
+    lea tmp(11,ptr to struct { f64; f64}) = local(8,struct { f64; f64}) 
+    stre local(2,struct { f64; f64}) tmp(11,ptr to struct { f64; f64}) 
+    lea tmp(12,ptr to struct { f64; f64}) = local(2,struct { f64; f64}) 
+    stre local(3,struct { f64; f64}) tmp(12,ptr to struct { f64; f64}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(8,struct { f64; f64}) = local(3,struct { f64; f64}) 
-    ret tmp(8,struct { f64; f64}) 
+    lea tmp(13,ptr to struct { f64; f64}) = local(3,struct { f64; f64}) 
+    ret tmp(13,ptr to struct { f64; f64}) 
   }
 }
 function add_twice (local(0), local(1)) { ; struct { f64; f64}
   block {
     label: label(0)
-    load tmp(0,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    load tmp(1,struct { f64; f64}) = local(1,struct { f64; f64}) 
-    arg tmp(0,struct { f64; f64}) 
-    arg tmp(1,struct { f64; f64}) 
+    lea tmp(0,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
+    lea tmp(1,ptr to struct { f64; f64}) = local(1,struct { f64; f64}) 
+    arg tmp(0,ptr to struct { f64; f64}) 
+    arg tmp(1,ptr to struct { f64; f64}) 
     call tmp(2,struct { f64; f64}) = complex_add 
-    load tmp(3,struct { f64; f64}) = local(1,struct { f64; f64}) 
-    arg tmp(2,struct { f64; f64}) 
-    arg tmp(3,struct { f64; f64}) 
-    call tmp(4,struct { f64; f64}) = complex_add 
-    stre local(2,struct { f64; f64}) tmp(4,struct { f64; f64}) 
-    load tmp(5,struct { f64; f64}) = local(2,struct { f64; f64}) 
-    stre local(3,struct { f64; f64}) tmp(5,struct { f64; f64}) 
+    stre local(4,struct { f64; f64}) tmp(2,struct { f64; f64}) 
+    lea tmp(3,ptr to struct { f64; f64}) = local(4,struct { f64; f64}) 
+    lea tmp(4,ptr to struct { f64; f64}) = local(1,struct { f64; f64}) 
+    arg tmp(3,ptr to struct { f64; f64}) 
+    arg tmp(4,ptr to struct { f64; f64}) 
+    call tmp(5,struct { f64; f64}) = complex_add 
+    stre local(5,struct { f64; f64}) tmp(5,struct { f64; f64}) 
+    lea tmp(6,ptr to struct { f64; f64}) = local(5,struct { f64; f64}) 
+    stre local(2,struct { f64; f64}) tmp(6,ptr to struct { f64; f64}) 
+    lea tmp(7,ptr to struct { f64; f64}) = local(2,struct { f64; f64}) 
+    stre local(3,struct { f64; f64}) tmp(7,ptr to struct { f64; f64}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(6,struct { f64; f64}) = local(3,struct { f64; f64}) 
-    ret tmp(6,struct { f64; f64}) 
+    lea tmp(8,ptr to struct { f64; f64}) = local(3,struct { f64; f64}) 
+    ret tmp(8,ptr to struct { f64; f64}) 
   }
 }
 function i () { ; struct { f64; f64}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(16,i64) 
-    + tmp(1,ptr to f64) = tmp(0,ptr to i8) imm(0,i64) 
+    salloc tmp(0,ptr to struct { f64; f64}) = imm(16,i64) 
+    + tmp(1,ptr to f64) = tmp(0,ptr to struct { f64; f64}) imm(0,i64) 
     ste tmp(1,ptr to f64) imm(0,f64) 
-    + tmp(2,ptr to f64) = tmp(0,ptr to i8) imm(8,i64) 
+    + tmp(2,ptr to f64) = tmp(0,ptr to struct { f64; f64}) imm(8,i64) 
     ste tmp(2,ptr to f64) imm(4607182418800017408,f64) 
-    stre local(0,struct { f64; f64}) tmp(0,ptr to i8) 
+    stre local(0,struct { f64; f64}) tmp(0,ptr to struct { f64; f64}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(3,struct { f64; f64}) = local(0,struct { f64; f64}) 
-    ret tmp(3,struct { f64; f64}) 
+    lea tmp(3,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
+    ret tmp(3,ptr to struct { f64; f64}) 
   }
 }
 function Re (local(0)) { ; f64
@@ -192,7 +212,7 @@ function Im (local(0)) { ; f64
 function complex_add (local(0), local(1)) { ; struct { f64; f64}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(16,i64) 
+    salloc tmp(0,ptr to struct { f64; f64}) = imm(16,i64) 
     lea tmp(1,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
     + tmp(2,ptr to f64) = tmp(1,ptr to struct { f64; f64}) imm(0,i64) 
     lde tmp(3,f64) = tmp(2,ptr to f64) 
@@ -200,7 +220,7 @@ function complex_add (local(0), local(1)) { ; struct { f64; f64}
     + tmp(5,ptr to f64) = tmp(4,ptr to struct { f64; f64}) imm(0,i64) 
     lde tmp(6,f64) = tmp(5,ptr to f64) 
     + tmp(7,f64) = tmp(3,f64) tmp(6,f64) 
-    + tmp(8,ptr to f64) = tmp(0,ptr to i8) imm(0,i64) 
+    + tmp(8,ptr to f64) = tmp(0,ptr to struct { f64; f64}) imm(0,i64) 
     ste tmp(8,ptr to f64) tmp(7,f64) 
     lea tmp(9,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
     + tmp(10,ptr to f64) = tmp(9,ptr to struct { f64; f64}) imm(8,i64) 
@@ -209,21 +229,21 @@ function complex_add (local(0), local(1)) { ; struct { f64; f64}
     + tmp(13,ptr to f64) = tmp(12,ptr to struct { f64; f64}) imm(8,i64) 
     lde tmp(14,f64) = tmp(13,ptr to f64) 
     + tmp(15,f64) = tmp(11,f64) tmp(14,f64) 
-    + tmp(16,ptr to f64) = tmp(0,ptr to i8) imm(8,i64) 
+    + tmp(16,ptr to f64) = tmp(0,ptr to struct { f64; f64}) imm(8,i64) 
     ste tmp(16,ptr to f64) tmp(15,f64) 
-    stre local(2,struct { f64; f64}) tmp(0,ptr to i8) 
+    stre local(2,struct { f64; f64}) tmp(0,ptr to struct { f64; f64}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(17,struct { f64; f64}) = local(2,struct { f64; f64}) 
-    ret tmp(17,struct { f64; f64}) 
+    lea tmp(17,ptr to struct { f64; f64}) = local(2,struct { f64; f64}) 
+    ret tmp(17,ptr to struct { f64; f64}) 
   }
 }
 function complex_mul (local(0), local(1)) { ; struct { f64; f64}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(16,i64) 
+    salloc tmp(0,ptr to struct { f64; f64}) = imm(16,i64) 
     lea tmp(1,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
     + tmp(2,ptr to f64) = tmp(1,ptr to struct { f64; f64}) imm(0,i64) 
     lde tmp(3,f64) = tmp(2,ptr to f64) 
@@ -239,7 +259,7 @@ function complex_mul (local(0), local(1)) { ; struct { f64; f64}
     lde tmp(13,f64) = tmp(12,ptr to f64) 
     * tmp(14,f64) = tmp(10,f64) tmp(13,f64) 
     - tmp(15,f64) = tmp(7,f64) tmp(14,f64) 
-    + tmp(16,ptr to f64) = tmp(0,ptr to i8) imm(0,i64) 
+    + tmp(16,ptr to f64) = tmp(0,ptr to struct { f64; f64}) imm(0,i64) 
     ste tmp(16,ptr to f64) tmp(15,f64) 
     lea tmp(17,ptr to struct { f64; f64}) = local(0,struct { f64; f64}) 
     + tmp(18,ptr to f64) = tmp(17,ptr to struct { f64; f64}) imm(0,i64) 
@@ -256,32 +276,32 @@ function complex_mul (local(0), local(1)) { ; struct { f64; f64}
     lde tmp(29,f64) = tmp(28,ptr to f64) 
     * tmp(30,f64) = tmp(26,f64) tmp(29,f64) 
     + tmp(31,f64) = tmp(23,f64) tmp(30,f64) 
-    + tmp(32,ptr to f64) = tmp(0,ptr to i8) imm(8,i64) 
+    + tmp(32,ptr to f64) = tmp(0,ptr to struct { f64; f64}) imm(8,i64) 
     ste tmp(32,ptr to f64) tmp(31,f64) 
-    stre local(2,struct { f64; f64}) tmp(0,ptr to i8) 
+    stre local(2,struct { f64; f64}) tmp(0,ptr to struct { f64; f64}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(33,struct { f64; f64}) = local(2,struct { f64; f64}) 
-    ret tmp(33,struct { f64; f64}) 
+    lea tmp(33,ptr to struct { f64; f64}) = local(2,struct { f64; f64}) 
+    ret tmp(33,ptr to struct { f64; f64}) 
   }
 }
 function complex_from_float (local(0)) { ; struct { f64; f64}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(16,i64) 
+    salloc tmp(0,ptr to struct { f64; f64}) = imm(16,i64) 
     load tmp(1,f64) = local(0,f64) 
-    + tmp(2,ptr to f64) = tmp(0,ptr to i8) imm(0,i64) 
+    + tmp(2,ptr to f64) = tmp(0,ptr to struct { f64; f64}) imm(0,i64) 
     ste tmp(2,ptr to f64) tmp(1,f64) 
-    + tmp(3,ptr to f64) = tmp(0,ptr to i8) imm(8,i64) 
+    + tmp(3,ptr to f64) = tmp(0,ptr to struct { f64; f64}) imm(8,i64) 
     ste tmp(3,ptr to f64) imm(0,f64) 
-    stre local(1,struct { f64; f64}) tmp(0,ptr to i8) 
+    stre local(1,struct { f64; f64}) tmp(0,ptr to struct { f64; f64}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(4,struct { f64; f64}) = local(1,struct { f64; f64}) 
-    ret tmp(4,struct { f64; f64}) 
+    lea tmp(4,ptr to struct { f64; f64}) = local(1,struct { f64; f64}) 
+    ret tmp(4,ptr to struct { f64; f64}) 
   }
 }
