@@ -1,31 +1,37 @@
 function <main> () { ; void
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(8,i64) 
-    + tmp(1,ptr to i64) = tmp(0,ptr to i8) imm(0,i64) 
+    salloc tmp(0,ptr to struct { i64}) = imm(8,i64) 
+    + tmp(1,ptr to i64) = tmp(0,ptr to struct { i64}) imm(0,i64) 
     ste tmp(1,ptr to i64) imm(40,i64) 
-    stre local(0,struct { i64}) tmp(0,ptr to i8) 
-    load tmp(2,struct { i64}) = local(0,struct { i64}) 
-    arg tmp(2,struct { i64}) 
+    stre local(0,struct { i64}) tmp(0,ptr to struct { i64}) 
+    lea tmp(2,ptr to struct { i64}) = local(0,struct { i64}) 
+    arg tmp(2,ptr to struct { i64}) 
     arg imm(2,i64) 
     call tmp(3,struct { i64}) = __generic_decimal_add_int$2$10 
-    stre local(1,struct { i64}) tmp(3,struct { i64}) 
-    load tmp(4,struct { i64}) = local(1,struct { i64}) 
-    load tmp(5,struct { i64}) = local(0,struct { i64}) 
-    arg tmp(4,struct { i64}) 
-    arg tmp(5,struct { i64}) 
-    call tmp(6,struct { i64}) = __generic_decimal_add_decimal$2$10 
-    stre local(2,struct { i64}) tmp(6,struct { i64}) 
-    load tmp(7,struct { i64}) = local(2,struct { i64}) 
-    arg tmp(7,struct { i64}) 
+    stre local(4,struct { i64}) tmp(3,struct { i64}) 
+    lea tmp(4,ptr to struct { i64}) = local(4,struct { i64}) 
+    stre local(1,struct { i64}) tmp(4,ptr to struct { i64}) 
+    lea tmp(5,ptr to struct { i64}) = local(1,struct { i64}) 
+    lea tmp(6,ptr to struct { i64}) = local(0,struct { i64}) 
+    arg tmp(5,ptr to struct { i64}) 
+    arg tmp(6,ptr to struct { i64}) 
+    call tmp(7,struct { i64}) = __generic_decimal_add_decimal$2$10 
+    stre local(5,struct { i64}) tmp(7,struct { i64}) 
+    lea tmp(8,ptr to struct { i64}) = local(5,struct { i64}) 
+    stre local(2,struct { i64}) tmp(8,ptr to struct { i64}) 
+    lea tmp(9,ptr to struct { i64}) = local(2,struct { i64}) 
+    arg tmp(9,ptr to struct { i64}) 
     arg imm(2,i64) 
-    call tmp(8,struct { i64}) = __generic_decimal_mul_int$2$10 
-    stre local(3,struct { i64}) tmp(8,struct { i64}) 
-    lea tmp(9,ptr to struct { i64}) = local(3,struct { i64}) 
-    + tmp(10,ptr to i64) = tmp(9,ptr to struct { i64}) imm(0,i64) 
-    lde tmp(11,i64) = tmp(10,ptr to i64) 
-    == tmp(12,i1) = tmp(11,i64) imm(164,i64) 
-    cmp tmp(12,i1) label(2) label(3) 
+    call tmp(10,struct { i64}) = __generic_decimal_mul_int$2$10 
+    stre local(6,struct { i64}) tmp(10,struct { i64}) 
+    lea tmp(11,ptr to struct { i64}) = local(6,struct { i64}) 
+    stre local(3,struct { i64}) tmp(11,ptr to struct { i64}) 
+    lea tmp(12,ptr to struct { i64}) = local(3,struct { i64}) 
+    + tmp(13,ptr to i64) = tmp(12,ptr to struct { i64}) imm(0,i64) 
+    lde tmp(14,i64) = tmp(13,ptr to i64) 
+    == tmp(15,i1) = tmp(14,i64) imm(164,i64) 
+    cmp tmp(15,i1) label(2) label(3) 
   }
   block {
     label: label(2)
@@ -51,27 +57,27 @@ function <main> () { ; void
 function __generic_decimal_add_int$2$10 (local(0), local(1)) { ; struct { i64}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(8,i64) 
+    salloc tmp(0,ptr to struct { i64}) = imm(8,i64) 
     lea tmp(1,ptr to struct { i64}) = local(0,struct { i64}) 
     + tmp(2,ptr to i64) = tmp(1,ptr to struct { i64}) imm(0,i64) 
     lde tmp(3,i64) = tmp(2,ptr to i64) 
     load tmp(4,i64) = local(1,i64) 
     + tmp(5,i64) = tmp(3,i64) tmp(4,i64) 
-    + tmp(6,ptr to i64) = tmp(0,ptr to i8) imm(0,i64) 
+    + tmp(6,ptr to i64) = tmp(0,ptr to struct { i64}) imm(0,i64) 
     ste tmp(6,ptr to i64) tmp(5,i64) 
-    stre local(2,struct { i64}) tmp(0,ptr to i8) 
+    stre local(2,struct { i64}) tmp(0,ptr to struct { i64}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(7,struct { i64}) = local(2,struct { i64}) 
-    ret tmp(7,struct { i64}) 
+    lea tmp(7,ptr to struct { i64}) = local(2,struct { i64}) 
+    ret tmp(7,ptr to struct { i64}) 
   }
 }
 function __generic_decimal_add_decimal$2$10 (local(0), local(1)) { ; struct { i64}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(8,i64) 
+    salloc tmp(0,ptr to struct { i64}) = imm(8,i64) 
     lea tmp(1,ptr to struct { i64}) = local(0,struct { i64}) 
     + tmp(2,ptr to i64) = tmp(1,ptr to struct { i64}) imm(0,i64) 
     lde tmp(3,i64) = tmp(2,ptr to i64) 
@@ -79,34 +85,34 @@ function __generic_decimal_add_decimal$2$10 (local(0), local(1)) { ; struct { i6
     + tmp(5,ptr to i64) = tmp(4,ptr to struct { i64}) imm(0,i64) 
     lde tmp(6,i64) = tmp(5,ptr to i64) 
     + tmp(7,i64) = tmp(3,i64) tmp(6,i64) 
-    + tmp(8,ptr to i64) = tmp(0,ptr to i8) imm(0,i64) 
+    + tmp(8,ptr to i64) = tmp(0,ptr to struct { i64}) imm(0,i64) 
     ste tmp(8,ptr to i64) tmp(7,i64) 
-    stre local(2,struct { i64}) tmp(0,ptr to i8) 
+    stre local(2,struct { i64}) tmp(0,ptr to struct { i64}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(9,struct { i64}) = local(2,struct { i64}) 
-    ret tmp(9,struct { i64}) 
+    lea tmp(9,ptr to struct { i64}) = local(2,struct { i64}) 
+    ret tmp(9,ptr to struct { i64}) 
   }
 }
 function __generic_decimal_mul_int$2$10 (local(0), local(1)) { ; struct { i64}
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(8,i64) 
+    salloc tmp(0,ptr to struct { i64}) = imm(8,i64) 
     lea tmp(1,ptr to struct { i64}) = local(0,struct { i64}) 
     + tmp(2,ptr to i64) = tmp(1,ptr to struct { i64}) imm(0,i64) 
     lde tmp(3,i64) = tmp(2,ptr to i64) 
     load tmp(4,i64) = local(1,i64) 
     * tmp(5,i64) = tmp(3,i64) tmp(4,i64) 
-    + tmp(6,ptr to i64) = tmp(0,ptr to i8) imm(0,i64) 
+    + tmp(6,ptr to i64) = tmp(0,ptr to struct { i64}) imm(0,i64) 
     ste tmp(6,ptr to i64) tmp(5,i64) 
-    stre local(2,struct { i64}) tmp(0,ptr to i8) 
+    stre local(2,struct { i64}) tmp(0,ptr to struct { i64}) 
     jmp label(1) 
   }
   block {
     label: label(1)
-    load tmp(7,struct { i64}) = local(2,struct { i64}) 
-    ret tmp(7,struct { i64}) 
+    lea tmp(7,ptr to struct { i64}) = local(2,struct { i64}) 
+    ret tmp(7,ptr to struct { i64}) 
   }
 }

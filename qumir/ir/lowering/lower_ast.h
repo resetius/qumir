@@ -30,6 +30,7 @@ private:
         std::optional<TLabel> ContinueLabel;
         std::optional<TLabel> ReturnLabel; // function's exit block, set for every scope inside a function body
         std::optional<TLocal> RetLocal; // holds the return value; unset for void-returning functions
+        std::optional<int> RetTypeId; // type of RetLocal when a function returns a value
         NAst::TExprPtr LastAssert; // function epilogue executed after evaluating the return value and before cleanup
     };
 
@@ -46,6 +47,7 @@ private:
     };
 
     TExpectedTask<TValueWithBlock, TError, TLocation> Lower(const NAst::TExprPtr& expr, TBlockScope scope);
+    TExpectedTask<TOperand, TError, TLocation> EnsureStructAddress(TOperand value, int structTypeId, const TLocation& loc);
 
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerWhile(std::shared_ptr<NAst::TWhileStmtExpr> loop, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerFor(std::shared_ptr<NAst::TForStmtExpr> loop, TBlockScope scope);

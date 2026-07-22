@@ -1,10 +1,10 @@
 function <main> () { ; void
   block {
     label: label(0)
-    salloc tmp(0,ptr to i8) = imm(8,i64) 
-    + tmp(1,ptr to i64) = tmp(0,ptr to i8) imm(0,i64) 
+    salloc tmp(0,ptr to struct { i64}) = imm(8,i64) 
+    + tmp(1,ptr to i64) = tmp(0,ptr to struct { i64}) imm(0,i64) 
     ste tmp(1,ptr to i64) imm(10,i64) 
-    stre local(0,struct { i64}) tmp(0,ptr to i8) 
+    stre local(0,struct { i64}) tmp(0,ptr to struct { i64}) 
     lea tmp(2,ptr to struct { i64}) = local(0,struct { i64}) 
     + tmp(3,ptr to i64) = tmp(2,ptr to struct { i64}) imm(0,i64) 
     lde tmp(4,i64) = tmp(3,ptr to i64) 
