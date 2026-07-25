@@ -24,6 +24,7 @@ struct TPipelineExtensions {
 
 struct TPipelineOptions {
     TPipelineExtensions Extensions;
+    bool RunDefiniteAssignment = true;
 };
 
 std::expected<bool, TError> PreNameResolutionTransform(NAst::TExprPtr& expr);

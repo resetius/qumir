@@ -18,6 +18,8 @@
 #include <qumir/frontend/source_module_loader.h>
 
 #include <algorithm>
+#include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -25,6 +27,72 @@
 namespace NQumir {
 
 using namespace NIR;
+
+namespace {
+
+bool CompileTraceEnabled() {
+    return std::getenv("QUMIR_LLVM_COMPILE_TRACE") != nullptr;
+}
+
+double SecondsSince(std::chrono::steady_clock::time_point start) {
+    return std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - start).count();
+}
+
+size_t CountNirBlocks(const TModule& module) {
+    size_t count = 0;
+    for (const auto& function : module.Functions) {
+        count += function.Blocks.size();
+    }
+    return count;
+}
+
+size_t CountNirInstrs(const TModule& module) {
+    size_t count = 0;
+    for (const auto& function : module.Functions) {
+        for (const auto& block : function.Blocks) {
+            count += block.Phis.size();
+            count += block.Instrs.size();
+        }
+    }
+    return count;
+}
+
+void PrintTopNirFunctions(const TModule& module) {
+    if (!CompileTraceEnabled()) {
+        return;
+    }
+
+    std::vector<std::pair<size_t, std::string>> functions;
+    functions.reserve(module.Functions.size());
+    for (const auto& function : module.Functions) {
+        size_t instrs = 0;
+        for (const auto& block : function.Blocks) {
+            instrs += block.Phis.size();
+            instrs += block.Instrs.size();
+        }
+        functions.emplace_back(instrs, function.Name);
+    }
+    std::sort(
+        functions.begin(),
+        functions.end(),
+        [](const auto& left, const auto& right) {
+            return left.first > right.first;
+        });
+
+    const size_t limit = std::min<size_t>(12, functions.size());
+    for (size_t i = 0; i < limit; ++i) {
+        std::cerr << "[qumir-llvm-trace] nir top"
+                  << i + 1
+                  << " instrs="
+                  << functions[i].first
+                  << " name="
+                  << functions[i].second
+                  << "\n";
+    }
+}
+
+} // namespace
 
 TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     : Options(std::move(options))
@@ -156,6 +224,7 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
     }
     auto pipelineOptions = NTransform::TPipelineOptions{
         .Extensions = std::move(extensions),
+        .RunDefiniteAssignment = Options.RunDefiniteAssignment,
     };
     auto error = NTransform::Pipeline(ast, Resolver, std::move(pipelineOptions));
     if (!error) {
@@ -275,6 +344,17 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
     const std::vector<std::string>& entryNames,
     std::string* error)
 {
+    const bool trace = CompileTraceEnabled();
+    auto phaseStart = std::chrono::steady_clock::now();
+    auto logPhase = [&](const char* name) {
+        if (!trace) {
+            return;
+        }
+        std::cerr << "[qumir-llvm-trace] " << name << ": "
+                  << SecondsSince(phaseStart) << " seconds\n";
+        phaseStart = std::chrono::steady_clock::now();
+    };
+
     std::vector<NAst::TPragma> mainPragmas;
     if (Options.AllowOverloads) {
         mainPragmas.push_back(NAst::TPragma{"language", {"overloads"}, {}});
@@ -292,6 +372,8 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
             return nullptr;
         }
     }
+    logPhase("register modules");
+
     {
         auto composed = NFrontend::LoadAndCompose(loader, ast, mainPragmas);
         if (!composed) {
@@ -303,6 +385,7 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
         ast = std::move(composed->Ast);
         Resolver.ApplyPragmas(composed->Pragmas);
     }
+    logPhase("compose");
 
     auto scope = Resolver.GetOrCreateRootScope();
     // scope->AllowsRedeclare = true;
@@ -314,14 +397,19 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
         }
         return nullptr;
     }
+    logPhase("resolve");
 
-    auto transformResult = NTransform::Pipeline(ast, Resolver, {});
+    auto transformResult = NTransform::Pipeline(
+        ast,
+        Resolver,
+        {.RunDefiniteAssignment = Options.RunDefiniteAssignment});
     if (!transformResult) {
         if (error) {
             *error = transformResult.error().ToString();
         }
         return nullptr;
     }
+    logPhase("transform");
 
     auto lowerRes = Lowerer.LowerTop(ast);
     if (!lowerRes) {
@@ -329,6 +417,23 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
             *error = lowerRes.error().ToString();
         }
         return nullptr;
+    }
+    logPhase("lower");
+    if (trace) {
+        std::cerr << "[qumir-llvm-trace] nir functions="
+                  << Module.Functions.size()
+                  << " external_functions="
+                  << Module.ExternalFunctions.size()
+                  << " blocks="
+                  << CountNirBlocks(Module)
+                  << " instrs="
+                  << CountNirInstrs(Module)
+                  << " globals="
+                  << Module.GlobalTypes.size()
+                  << " entrypoints="
+                  << entryNames.size()
+                  << "\n";
+        PrintTopNirFunctions(Module);
     }
 
     if (Options.PrintIr) {
@@ -368,6 +473,7 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> artifacts;
     try {
         artifacts = cg.Emit(Module, Options.OptLevel);
+        logPhase("llvm emit");
     } catch (const std::exception& e) {
         if (error) {
             *error = std::string("llvm codegen error: ") + e.what();
@@ -397,8 +503,13 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
         return {};
     }
 
+    auto lookupStart = std::chrono::steady_clock::now();
     std::string runErr;
     auto entries = LlvmRunner_.LookupMany(std::move(artifacts), entryNames, &runErr);
+    if (CompileTraceEnabled()) {
+        std::cerr << "[qumir-llvm-trace] orc lookup/finalize: "
+                  << SecondsSince(lookupStart) << " seconds\n";
+    }
     if (entries.empty()) {
         if (error) {
             *error = runErr.empty() ? "function lookup failed" : runErr;
@@ -493,7 +604,10 @@ void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) 
         return nullptr;
     }
 
-    auto transformResult = NTransform::Pipeline(*parsed, Resolver, {});
+    auto transformResult = NTransform::Pipeline(
+        *parsed,
+        Resolver,
+        {.RunDefiniteAssignment = Options.RunDefiniteAssignment});
     if (!transformResult) {
         if (error) {
             *error = transformResult.error().ToString();

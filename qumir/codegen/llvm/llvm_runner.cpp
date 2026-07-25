@@ -1,21 +1,35 @@
 #include "llvm_runner.h"
 #include "llvm_codegen_impl.h"
 
+#include <llvm/ADT/SmallString.h>
+#include <llvm/ADT/StringExtras.h>
+#include <llvm/Config/llvm-config.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+#include <llvm/ExecutionEngine/ObjectCache.h>
+#include <llvm/ExecutionEngine/Orc/CompileUtils.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/Error.h>
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/Path.h>
+#include <llvm/Support/SHA256.h>
 #include <llvm/TargetParser/Host.h>
 
+#include <cstdlib>
 #include <sstream>
 #include <iomanip>
 #include <setjmp.h>
 #include <stdexcept>
 #include <functional>
+#include <unordered_map>
 #include <utility>
 
 #include <qumir/runtime/string.h> // for str_release
@@ -96,6 +110,171 @@ llvm::JITEventListener* CreatePerfJitEventListener() {
 #else
     return nullptr;
 #endif
+}
+
+std::string ToString(llvm::Error error) {
+    return llvm::toString(std::move(error));
+}
+
+template <typename T>
+std::optional<T> TakeExpected(llvm::Expected<T> expected, std::string* error) {
+    if (!expected) {
+        if (error) {
+            *error = ToString(expected.takeError());
+        } else {
+            llvm::consumeError(expected.takeError());
+        }
+        return std::nullopt;
+    }
+    return std::move(*expected);
+}
+
+class TDiskObjectCache final : public llvm::ObjectCache {
+public:
+    TDiskObjectCache(std::string dir, bool nativeCode)
+        : Dir_(std::move(dir))
+        , NativeCode_(nativeCode)
+    {}
+
+    void notifyObjectCompiled(
+        const llvm::Module* module,
+        llvm::MemoryBufferRef object) override
+    {
+        llvm::SmallString<256> path = CachePath(CacheKeyForCompiledModule(module));
+        llvm::SmallString<256> model = path;
+        model += ".%%%%%%.tmp";
+
+        int fd = -1;
+        llvm::SmallString<256> tempPath;
+        if (llvm::sys::fs::createUniqueFile(model, fd, tempPath)) {
+            return;
+        }
+
+        llvm::raw_fd_ostream out(fd, true);
+        out.write(object.getBufferStart(), object.getBufferSize());
+        out.close();
+        if (out.has_error()) {
+            (void)llvm::sys::fs::remove(tempPath);
+            return;
+        }
+
+        if (llvm::sys::fs::rename(tempPath, path)) {
+            (void)llvm::sys::fs::remove(tempPath);
+        }
+    }
+
+    std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* module) override {
+        std::string key = CacheKey(module);
+        Keys_[module] = key;
+        auto buffer = llvm::MemoryBuffer::getFile(CachePath(key), false, false);
+        if (!buffer) {
+            return nullptr;
+        }
+        return std::move(*buffer);
+    }
+
+private:
+    std::string CacheKey(const llvm::Module* module) const {
+        llvm::SHA256 hash;
+        hash.update("qumir-orc-object-cache-v1");
+        hash.update(LLVM_VERSION_STRING);
+        hash.update(module->getTargetTriple().str());
+        hash.update(module->getDataLayout().getStringRepresentation());
+        if (NativeCode_) {
+            auto [nativeCpu, nativeFeatures] = GetNativeCpuAndFeatures();
+            hash.update(nativeCpu);
+            hash.update(nativeFeatures);
+        } else {
+            hash.update("generic");
+        }
+
+        std::string ir;
+        llvm::raw_string_ostream out(ir);
+        module->print(out, nullptr);
+        out.flush();
+        hash.update(ir);
+
+        auto digest = hash.final();
+        return llvm::toHex(
+            llvm::ArrayRef<uint8_t>(digest.data(), digest.size()),
+            true);
+    }
+
+    std::string CacheKeyForCompiledModule(const llvm::Module* module) {
+        auto it = Keys_.find(module);
+        if (it != Keys_.end()) {
+            return it->second;
+        }
+        return CacheKey(module);
+    }
+
+    llvm::SmallString<256> CachePath(const std::string& key) const {
+        llvm::SmallString<256> path(Dir_);
+        llvm::sys::path::append(path, key + ".o");
+        return path;
+    }
+
+    std::string Dir_;
+    bool NativeCode_ = false;
+    std::unordered_map<const llvm::Module*, std::string> Keys_;
+};
+
+std::unique_ptr<llvm::ObjectCache> CreateDiskObjectCache(bool nativeCode) {
+    const char* dir = std::getenv("QUMIR_LLVM_OBJECT_CACHE_DIR");
+    if (!dir || !*dir) {
+        return nullptr;
+    }
+    if (llvm::sys::fs::create_directories(dir)) {
+        return nullptr;
+    }
+    return std::make_unique<TDiskObjectCache>(dir, nativeCode);
+}
+
+std::unique_ptr<llvm::orc::LLJIT> CreateOrcJit(
+    bool nativeCode,
+    llvm::ObjectCache* objectCache,
+    std::string* error)
+{
+    auto jtmb = TakeExpected(llvm::orc::JITTargetMachineBuilder::detectHost(), error);
+    if (!jtmb) {
+        return nullptr;
+    }
+
+    jtmb->setRelocationModel(llvm::Reloc::PIC_);
+    if (nativeCode) {
+        auto [nativeCpu, nativeFeatures] = GetNativeCpuAndFeatures();
+        if (!nativeCpu.empty()) {
+            jtmb->setCPU(nativeCpu);
+        }
+        if (!nativeFeatures.empty()) {
+            jtmb->addFeatures(SplitFeatures(nativeFeatures));
+        }
+    }
+
+    llvm::orc::LLJITBuilder builder;
+    builder.setJITTargetMachineBuilder(std::move(*jtmb));
+    if (objectCache) {
+        builder.setCompileFunctionCreator(
+            [objectCache](llvm::orc::JITTargetMachineBuilder jtmb)
+                -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>>
+            {
+                auto tm = jtmb.createTargetMachine();
+                if (!tm) {
+                    return tm.takeError();
+                }
+
+                std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler> compiler =
+                    std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
+                        std::move(*tm),
+                        objectCache);
+                return compiler;
+            });
+    }
+    auto jit = TakeExpected(builder.create(), error);
+    if (!jit) {
+        return nullptr;
+    }
+    return std::move(*jit);
 }
 
 } // namespace
@@ -344,56 +523,45 @@ std::unordered_map<std::string, void*> TLlvmRunner::LookupMany(
 
     llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
-    std::string eeErr;
-    llvm::EngineBuilder builder(std::move(artifacts->Module));
-    builder.setEngineKind(llvm::EngineKind::JIT);
-    if (artifacts->NativeCode) {
-        auto [nativeCpu, nativeFeatures] = GetNativeCpuAndFeatures();
-        if (!nativeCpu.empty()) {
-            builder.setMCPU(nativeCpu);
-        }
-        if (!nativeFeatures.empty()) {
-            builder.setMAttrs(SplitFeatures(nativeFeatures));
-        }
-    }
-    auto ee = std::unique_ptr<llvm::ExecutionEngine>(builder.setErrorStr(&eeErr).create());
-    if (!ee) {
-        if (error) *error = std::string("ExecutionEngine create failed: ") + eeErr;
+    auto objectCache = CreateDiskObjectCache(artifacts->NativeCode);
+    auto jit = CreateOrcJit(artifacts->NativeCode, objectCache.get(), error);
+    if (!jit) {
         return {};
     }
-    llvm::JITEventListener* perfListener = nullptr;
-    if (Options_.EnablePerfJitEventListener) {
-        perfListener = CreatePerfJitEventListener();
-        if (perfListener) {
-            ee->RegisterJITEventListener(perfListener);
+    artifacts->Module->setDataLayout(jit->getDataLayout());
+    auto module = llvm::orc::ThreadSafeModule(
+        std::move(artifacts->Module),
+        std::move(artifacts->Ctx));
+    if (auto err = jit->addIRModule(std::move(module))) {
+        if (error) {
+            *error = ToString(std::move(err));
         }
+        return {};
     }
 
-    ee->finalizeObject();
     std::unordered_map<std::string, void*> entries;
     entries.reserve(names.size());
     for (const auto& name : names) {
-        auto addr = ee->getFunctionAddress(name);
+        auto addr = jit->lookup(name);
         if (!addr) {
-            if (error) *error = "function not found: " + name;
+            if (error) {
+                *error = ToString(addr.takeError());
+            } else {
+                llvm::consumeError(addr.takeError());
+            }
             return {};
         }
-        entries.emplace(name, reinterpret_cast<void*>(addr));
+        entries.emplace(name, addr->toPtr<void*>());
     }
 
     struct TLiveJit {
-        // Destruction order is important: Engine owns the Module, while Artifacts
-        // owns the LLVMContext used by that Module. Members are destroyed in
-        // reverse declaration order, so Engine must be declared after Artifacts.
-        std::unique_ptr<ILLVMModuleArtifacts> Artifacts;
-        llvm::JITEventListener* PerfListener = nullptr;
-        std::unique_ptr<llvm::ExecutionEngine> Engine;
+        std::unique_ptr<llvm::ObjectCache> ObjectCache;
+        std::unique_ptr<llvm::orc::LLJIT> Jit;
     };
 
     auto live = std::make_shared<TLiveJit>();
-    live->Artifacts = std::move(iartifacts);
-    live->PerfListener = perfListener;
-    live->Engine = std::move(ee);
+    live->ObjectCache = std::move(objectCache);
+    live->Jit = std::move(jit);
     LiveEngines_.push_back(std::move(live));
     return entries;
 }

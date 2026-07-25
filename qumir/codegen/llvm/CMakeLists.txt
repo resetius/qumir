@@ -62,7 +62,9 @@ set(LLVM_COMPONENTS
     mc
     mcparser
     mcjit
+    orcjit
     executionengine
+    jitlink
     target
     asmparser
     asmprinter
