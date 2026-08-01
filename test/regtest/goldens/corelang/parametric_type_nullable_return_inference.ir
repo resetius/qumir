@@ -5,7 +5,7 @@ function <main> () { ; void
     + tmp(1,ptr to i64) = tmp(0,ptr to struct { i64; i1}) imm(0,i64) 
     ste tmp(1,ptr to i64) imm(4,i64) 
     + tmp(2,ptr to i1) = tmp(0,ptr to struct { i64; i1}) imm(8,i64) 
-    ste tmp(2,ptr to i1) imm(1,i64) 
+    ste tmp(2,ptr to i1) imm(1,i1) 
     stre local(0,struct { i64; i1}) tmp(0,ptr to struct { i64; i1}) 
     lea tmp(3,ptr to struct { i64; i1}) = local(0,struct { i64; i1}) 
     arg tmp(3,ptr to struct { i64; i1}) 
@@ -73,14 +73,14 @@ function __generic_nullable_add_rhs$i64$Float$Float (local(0), local(1)) { ; str
     + tmp(10,ptr to f64) = tmp(3,ptr to struct { f64; i1}) imm(0,i64) 
     ste tmp(10,ptr to f64) tmp(9,f64) 
     + tmp(11,ptr to i1) = tmp(3,ptr to struct { f64; i1}) imm(8,i64) 
-    ste tmp(11,ptr to i1) imm(1,i64) 
+    ste tmp(11,ptr to i1) imm(1,i1) 
     jmp label(4) 
   }
   block {
     label: label(3)
     salloc tmp(12,ptr to struct { f64; i1}) = imm(16,i64) 
     + tmp(13,ptr to i1) = tmp(12,ptr to struct { f64; i1}) imm(8,i64) 
-    ste tmp(13,ptr to i1) imm(0,i64) 
+    ste tmp(13,ptr to i1) imm(0,i1) 
     jmp label(4) 
   }
   block {

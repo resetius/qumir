@@ -841,6 +841,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         } else {
             int typeId = num->Type && (
                 NAst::TMaybeType<NAst::TIntegerType>(num->Type)
+                || NAst::TMaybeType<NAst::TBoolType>(num->Type)
                 || NAst::TMaybeType<NAst::TStringType>(num->Type))
                 ? FromAstType(num->Type, Module.Types)
                 : Module.Types.I(EKind::I64);
