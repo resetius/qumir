@@ -156,6 +156,7 @@ std::expected<std::optional<std::string>, TError> TLLVMRunner::Run(std::istream&
     }
     auto pipelineOptions = NTransform::TPipelineOptions{
         .Extensions = std::move(extensions),
+        .RunDefiniteAssignment = Options.RunDefiniteAssignment,
     };
     auto error = NTransform::Pipeline(ast, Resolver, std::move(pipelineOptions));
     if (!error) {
@@ -315,7 +316,10 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
         return nullptr;
     }
 
-    auto transformResult = NTransform::Pipeline(ast, Resolver, {});
+    auto transformResult = NTransform::Pipeline(
+        ast,
+        Resolver,
+        {.RunDefiniteAssignment = Options.RunDefiniteAssignment});
     if (!transformResult) {
         if (error) {
             *error = transformResult.error().ToString();
@@ -493,7 +497,10 @@ void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) 
         return nullptr;
     }
 
-    auto transformResult = NTransform::Pipeline(*parsed, Resolver, {});
+    auto transformResult = NTransform::Pipeline(
+        *parsed,
+        Resolver,
+        {.RunDefiniteAssignment = Options.RunDefiniteAssignment});
     if (!transformResult) {
         if (error) {
             *error = transformResult.error().ToString();
