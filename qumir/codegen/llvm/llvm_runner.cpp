@@ -1,21 +1,29 @@
 #include "llvm_runner.h"
 #include "llvm_codegen_impl.h"
 
+#include <llvm/Config/llvm-config.h>
 #include <llvm/IR/Module.h>
-#include <llvm/Support/raw_ostream.h>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/ExecutionEngine/MCJIT.h>
-#include <llvm/ExecutionEngine/JITEventListener.h>
-#include <llvm/ExecutionEngine/GenericValue.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h>
+#include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/Error.h>
+#include <llvm/Support/Casting.h>
+#if defined(__linux__)
+#include <llvm/ExecutionEngine/Orc/Debugging/PerfSupportPlugin.h>
+#include <llvm/ExecutionEngine/Orc/TargetProcess/JITLoaderPerf.h>
+#endif
 #include <llvm/TargetParser/Host.h>
 
-#include <sstream>
+#include <cstdint>
 #include <iomanip>
+#include <optional>
+#include <sstream>
 #include <setjmp.h>
 #include <stdexcept>
 #include <functional>
+#include <type_traits>
 #include <utility>
 
 #include <qumir/runtime/string.h> // for str_release
@@ -52,73 +60,248 @@ using namespace NIR;
 
 namespace {
 
-std::pair<std::string, std::string> GetNativeCpuAndFeatures() {
-    auto cpu = llvm::sys::getHostCPUName().str();
-    std::string features;
-    auto hostFeatures = llvm::sys::getHostCPUFeatures();
-    for (const auto& feature : hostFeatures) {
-        if (!features.empty()) {
-            features += ",";
-        }
-        features += feature.getValue() ? "+" : "-";
-        features += feature.getKey().str();
-    }
-    return {std::move(cpu), std::move(features)};
+void InitializeNativeJitTarget() {
+    static const bool initialized = [] {
+        llvm::InitializeNativeTarget();
+        llvm::InitializeNativeTargetAsmPrinter();
+        llvm::InitializeNativeTargetAsmParser();
+        return true;
+    }();
+    (void)initialized;
 }
 
-std::vector<std::string> SplitFeatures(const std::string& features) {
-    std::vector<std::string> out;
-    std::string current;
-    for (char c : features) {
-        if (c == ',') {
-            if (!current.empty()) {
-                out.push_back(current);
-                current.clear();
-            }
+std::string ToString(llvm::Error error) {
+    return llvm::toString(std::move(error));
+}
+
+template <typename T>
+std::optional<T> TakeExpected(llvm::Expected<T> expected, std::string* error) {
+    if (!expected) {
+        if (error) {
+            *error = ToString(expected.takeError());
         } else {
-            current.push_back(c);
+            llvm::consumeError(expected.takeError());
         }
+        return std::nullopt;
     }
-    if (!current.empty()) {
-        out.push_back(current);
-    }
-    return out;
+    return std::move(*expected);
 }
 
-/*
-perf record -k 1 -g --call-graph dwarf ./your_qdb_command
-perf inject --jit -i perf.data -o perf.jit.data
-perf report -i perf.jit.data
-*/
-llvm::JITEventListener* CreatePerfJitEventListener() {
-#if defined(__linux__) && defined(QUMIR_HAS_LLVM_PERF_JIT_EVENTS)
-    return llvm::JITEventListener::createPerfJITEventListener();
+bool EnablePerfSupport(llvm::orc::LLJIT& jit, std::string* error) {
+#if defined(__linux__)
+    auto* objectLayer = llvm::dyn_cast<llvm::orc::ObjectLinkingLayer>(&jit.getObjLinkingLayer());
+    if (!objectLayer) {
+        if (error) {
+            *error = "ORC perf support requires ObjectLinkingLayer";
+        }
+        return false;
+    }
+    auto& epc = jit.getExecutionSession().getExecutorProcessControl();
+    if (!epc.getTargetTriple().isOSBinFormatELF()) {
+        if (error) {
+            *error = "ORC perf support is only available for ELF targets";
+        }
+        return false;
+    }
+    auto plugin = std::make_shared<llvm::orc::PerfSupportPlugin>(
+        epc,
+        llvm::orc::ExecutorAddr::fromPtr(&llvm_orc_registerJITLoaderPerfStart),
+        llvm::orc::ExecutorAddr::fromPtr(&llvm_orc_registerJITLoaderPerfEnd),
+        llvm::orc::ExecutorAddr::fromPtr(&llvm_orc_registerJITLoaderPerfImpl),
+        /*EmitDebugInfo=*/true,
+        /*EmitUnwindInfo=*/true);
+    objectLayer->addPlugin(std::move(plugin));
+    return true;
 #else
-    return nullptr;
+    (void)jit;
+    (void)error;
+    return true;
 #endif
+}
+
+void SetObjectLinkingLayerCreator(llvm::orc::LLJITBuilder& builder) {
+#if LLVM_VERSION_MAJOR <= 20
+    builder.setObjectLinkingLayerCreator(
+        [](llvm::orc::ExecutionSession& es, const llvm::Triple&)
+            -> llvm::Expected<std::unique_ptr<llvm::orc::ObjectLayer>>
+        {
+            return std::make_unique<llvm::orc::ObjectLinkingLayer>(es);
+        });
+#else
+    builder.setObjectLinkingLayerCreator(
+        [](llvm::orc::ExecutionSession& es)
+            -> llvm::Expected<std::unique_ptr<llvm::orc::ObjectLayer>>
+        {
+            return std::make_unique<llvm::orc::ObjectLinkingLayer>(es);
+        });
+#endif
+}
+
+std::unique_ptr<llvm::orc::LLJIT> CreateOrcJit(
+    bool nativeCode,
+    bool enablePerf,
+    std::string* error)
+{
+    llvm::orc::JITTargetMachineBuilder jtmb{
+        llvm::Triple(llvm::sys::getProcessTriple())};
+    if (nativeCode) {
+        auto nativeJtmb = TakeExpected(llvm::orc::JITTargetMachineBuilder::detectHost(), error);
+        if (!nativeJtmb) {
+            return nullptr;
+        }
+        jtmb = std::move(*nativeJtmb);
+    }
+    jtmb.setRelocationModel(llvm::Reloc::PIC_);
+
+    llvm::orc::LLJITBuilder builder;
+    builder.setJITTargetMachineBuilder(std::move(jtmb));
+    SetObjectLinkingLayerCreator(builder);
+    auto jit = TakeExpected(builder.create(), error);
+    if (!jit) {
+        return nullptr;
+    }
+    if (enablePerf && !EnablePerfSupport(**jit, error)) {
+        return nullptr;
+    }
+    return std::move(*jit);
+}
+
+bool AddArtifactsToJit(TLLVMModuleArtifacts& artifacts, llvm::orc::LLJIT& jit, std::string* error) {
+    artifacts.Module->setDataLayout(jit.getDataLayout());
+    auto module = llvm::orc::ThreadSafeModule(
+        std::move(artifacts.Module),
+        std::move(artifacts.Ctx));
+    if (auto err = jit.addIRModule(std::move(module))) {
+        if (error) {
+            *error = ToString(std::move(err));
+        } else {
+            llvm::consumeError(std::move(err));
+        }
+        return false;
+    }
+    return true;
+}
+
+template <typename TFunction>
+std::optional<TFunction> LookupFunction(llvm::orc::LLJIT& jit, const std::string& name, std::string* error) {
+    auto addr = jit.lookup(name);
+    if (!addr) {
+        if (error) {
+            *error = ToString(addr.takeError());
+        } else {
+            llvm::consumeError(addr.takeError());
+        }
+        return std::nullopt;
+    }
+    return addr->toPtr<TFunction>();
+}
+
+enum class EReturnKind {
+    Void,
+    Bool,
+    Integer,
+    Float,
+    Double,
+    Pointer,
+    Unsupported,
+};
+
+struct TEntryInfo {
+    std::string Name;
+    std::string ConstructorName;
+    std::string DestructorName;
+    std::string CoroutinePromisePtrName;
+    EReturnKind ReturnKind = EReturnKind::Unsupported;
+    unsigned IntegerBits = 0;
+    bool IsCoroutineModule = false;
+};
+
+EReturnKind ReturnKindOf(llvm::Type* type) {
+    if (type->isVoidTy()) {
+        return EReturnKind::Void;
+    }
+    if (type->isIntegerTy()) {
+        return type->getIntegerBitWidth() == 1 ? EReturnKind::Bool : EReturnKind::Integer;
+    }
+    if (type->isFloatTy()) {
+        return EReturnKind::Float;
+    }
+    if (type->isDoubleTy()) {
+        return EReturnKind::Double;
+    }
+    if (type->isPointerTy()) {
+        return EReturnKind::Pointer;
+    }
+    return EReturnKind::Unsupported;
+}
+
+std::optional<TEntryInfo> PrepareRunEntry(llvm::Module& module, const std::string& entryPoint, std::string* error) {
+    TEntryInfo info;
+    llvm::Function* target = nullptr;
+    llvm::Function* last = nullptr;
+    for (auto& f : module) {
+        last = &f;
+        std::string name = f.getName().str();
+        if (name == entryPoint) {
+            target = &f;
+        }
+        if (name == "$$module_constructor") {
+            f.setLinkage(llvm::Function::ExternalLinkage);
+            info.ConstructorName = std::move(name);
+        } else if (name == "$$module_destructor") {
+            f.setLinkage(llvm::Function::ExternalLinkage);
+            info.DestructorName = std::move(name);
+        } else if (name == "__qumir_coro_promise_ptr") {
+            info.CoroutinePromisePtrName = std::move(name);
+        }
+    }
+    if (!target) {
+        target = last;
+    }
+    if (!target) {
+        if (error) {
+            *error = "no function in module";
+        }
+        return std::nullopt;
+    }
+
+    auto* type = target->getFunctionType();
+    if (type->getNumParams() != 0) {
+        if (error) {
+            *error = "function requires arguments (unsupported)";
+        }
+        return std::nullopt;
+    }
+
+    auto* retType = type->getReturnType();
+    info.Name = target->getName().str();
+    info.ReturnKind = ReturnKindOf(retType);
+    if (retType->isIntegerTy()) {
+        info.IntegerBits = retType->getIntegerBitWidth();
+    }
+    info.IsCoroutineModule = (module.getGlobalVariable("__qumir_is_coroutine") != nullptr);
+    return info;
 }
 
 } // namespace
 
 #ifdef __APPLE__
-// On macOS, MCJIT needs __dso_handle for global constructors/destructors
+// On macOS, the JIT needs __dso_handle for global constructors/destructors
 // registered via __cxa_atexit. Provide a dummy symbol for the JIT to resolve.
 extern "C" {
     void* __dso_handle = (void*)&__dso_handle;
 } // extern "C"
 #endif
 
-// Wraps a single runFunction call with a setjmp guard so that if the JIT
+// Wraps a single JIT entry call with a setjmp guard so that if the JIT
 // program calls __ensure which triggers longjmp, we rethrow as a normal
 // C++ exception (through host frames) rather than trying to unwind through
 // JIT frames that lack DWARF unwind info (fatal on macOS).
 //
 // Must be noinline: inlining into Run() would put C++ objects with dtors
 // between the setjmp and the potential longjmp.
-[[gnu::noinline]] static llvm::GenericValue SafeRunFunction(
-    llvm::ExecutionEngine* ee,
-    llvm::Function* func,
-    const std::vector<llvm::GenericValue>& args)
+template <typename TResult, typename TFunction, typename... TArgs>
+[[gnu::noinline]] static TResult SafeJitCall(TFunction function, TArgs... args)
 {
     jmp_buf jb;
     __set_jmp_target(&jb);
@@ -126,8 +309,157 @@ extern "C" {
         __clear_jmp_target();
         throw std::runtime_error(__get_runtime_error());
     }
-    auto result = ee->runFunction(func, args);
-    __clear_jmp_target();
+    if constexpr (std::is_void_v<TResult>) {
+        function(args...);
+        __clear_jmp_target();
+        return;
+    } else {
+        auto result = function(args...);
+        __clear_jmp_target();
+        return result;
+    }
+}
+
+template <typename TInteger>
+std::optional<int64_t> RunIntegerFunction(llvm::orc::LLJIT& jit, const std::string& name, std::string* error) {
+    using TFn = TInteger (*)();
+    auto function = LookupFunction<TFn>(jit, name, error);
+    if (!function) {
+        return std::nullopt;
+    }
+    return static_cast<int64_t>(SafeJitCall<TInteger>(*function));
+}
+
+static std::optional<std::string> RunEntryFunction(
+    llvm::orc::LLJIT& jit,
+    const TEntryInfo& entry,
+    bool returnTypeIsString,
+    std::string* error)
+{
+    std::ostringstream oss;
+    switch (entry.ReturnKind) {
+        case EReturnKind::Void: {
+            using TFn = void (*)();
+            auto function = LookupFunction<TFn>(jit, entry.Name, error);
+            if (!function) {
+                return std::nullopt;
+            }
+            SafeJitCall<void>(*function);
+            return std::nullopt;
+        }
+        case EReturnKind::Bool: {
+            using TFn = bool (*)();
+            auto function = LookupFunction<TFn>(jit, entry.Name, error);
+            if (!function) {
+                return std::nullopt;
+            }
+            oss << (SafeJitCall<bool>(*function) ? "true" : "false");
+            return oss.str();
+        }
+        case EReturnKind::Integer: {
+            std::optional<int64_t> result;
+            if (entry.IntegerBits <= 8) {
+                result = RunIntegerFunction<int8_t>(jit, entry.Name, error);
+            } else if (entry.IntegerBits <= 16) {
+                result = RunIntegerFunction<int16_t>(jit, entry.Name, error);
+            } else if (entry.IntegerBits <= 32) {
+                result = RunIntegerFunction<int32_t>(jit, entry.Name, error);
+            } else if (entry.IntegerBits <= 64) {
+                result = RunIntegerFunction<int64_t>(jit, entry.Name, error);
+            } else {
+                if (error) {
+                    *error = "unsupported integer return width: " + std::to_string(entry.IntegerBits);
+                }
+                return std::nullopt;
+            }
+            if (!result) {
+                return std::nullopt;
+            }
+            oss << *result;
+            return oss.str();
+        }
+        case EReturnKind::Float: {
+            using TFn = float (*)();
+            auto function = LookupFunction<TFn>(jit, entry.Name, error);
+            if (!function) {
+                return std::nullopt;
+            }
+            oss << std::fixed << std::setprecision(15) << SafeJitCall<float>(*function);
+            return oss.str();
+        }
+        case EReturnKind::Double: {
+            using TFn = double (*)();
+            auto function = LookupFunction<TFn>(jit, entry.Name, error);
+            if (!function) {
+                return std::nullopt;
+            }
+            oss << std::fixed << std::setprecision(15) << SafeJitCall<double>(*function);
+            return oss.str();
+        }
+        case EReturnKind::Pointer: {
+            using TFn = void* (*)();
+            auto function = LookupFunction<TFn>(jit, entry.Name, error);
+            if (!function) {
+                return std::nullopt;
+            }
+            auto* ptr = static_cast<char*>(SafeJitCall<void*>(*function));
+            if (ptr) {
+                oss << ptr;
+                if (returnTypeIsString) {
+                    NRuntime::str_release(ptr);
+                }
+            } else {
+                oss << "(null)";
+            }
+            return oss.str();
+        }
+        case EReturnKind::Unsupported:
+            break;
+    }
+    if (error) {
+        *error = "unsupported function return type";
+    }
+    return std::nullopt;
+}
+
+static bool RunVoidFunctionIfPresent(
+    llvm::orc::LLJIT& jit,
+    const std::string& name,
+    std::string* error)
+{
+    if (name.empty()) {
+        return true;
+    }
+    using TFn = void (*)();
+    auto function = LookupFunction<TFn>(jit, name, error);
+    if (!function) {
+        return false;
+    }
+    SafeJitCall<void>(*function);
+    return true;
+}
+
+static void* RunCoroutineEntry(llvm::orc::LLJIT& jit, const std::string& name, std::string* error) {
+    using TFn = void* (*)();
+    auto function = LookupFunction<TFn>(jit, name, error);
+    if (!function) {
+        return nullptr;
+    }
+    return SafeJitCall<void*>(*function);
+}
+
+static std::optional<void*> RunPromisePtrFunction(
+    llvm::orc::LLJIT& jit,
+    const std::string& name,
+    void* handle,
+    std::string* error)
+{
+    using TFn = void* (*)(void*);
+    auto function = LookupFunction<TFn>(jit, name, error);
+    if (!function) {
+        return std::nullopt;
+    }
+    auto* result = SafeJitCall<void*>(*function, handle);
     return result;
 }
 
@@ -141,94 +473,42 @@ std::optional<std::string> TLlvmRunner::Run(
     std::string* error,
     bool returnTypeIsString,
     std::function<std::optional<std::string>(const void*)> coroutineResultFormatter) {
+    if (error) {
+        error->clear();
+    }
+    std::string localError;
+    auto* runError = error ? error : &localError;
+
     auto* artifacts = static_cast<TLLVMModuleArtifacts*>(iartifacts.get());
     if (!artifacts || !artifacts->Module) {
-        if (error) *error = "null artifacts";
+        *runError = "null artifacts";
         return std::nullopt;
     }
-    // Initialize targets once per process (idempotent in LLVM).
-    static bool inited = false;
-    if (!inited) {
-        LLVMInitializeNativeTarget();
-        LLVMInitializeNativeAsmPrinter();
-        LLVMInitializeNativeAsmParser();
-        inited = true;
+    auto entry = PrepareRunEntry(*artifacts->Module, entryPoint, runError);
+    if (!entry) {
+        return std::nullopt;
     }
+
+    InitializeNativeJitTarget();
 
     // Make symbols from the current process available to the JIT. On Linux,
     // this requires the executable to be linked with -rdynamic as well.
     llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
-
-    // Build execution engine
-    std::string eeErr;
-    llvm::Module* rawModulePtr = artifacts->Module.get();
-    llvm::EngineBuilder builder(std::move(artifacts->Module));
-    builder.setEngineKind(llvm::EngineKind::JIT);
-    if (artifacts->NativeCode) {
-        auto [nativeCpu, nativeFeatures] = GetNativeCpuAndFeatures();
-        if (!nativeCpu.empty()) {
-            builder.setMCPU(nativeCpu);
-        }
-        if (!nativeFeatures.empty()) {
-            builder.setMAttrs(SplitFeatures(nativeFeatures));
-        }
-    }
-    llvm::JITEventListener* perfListener = nullptr;
-    auto ee = std::unique_ptr<llvm::ExecutionEngine>(builder.setErrorStr(&eeErr).create());
-    if (!ee) {
-        if (error) *error = std::string("ExecutionEngine create failed: ") + eeErr;
+    auto jit = CreateOrcJit(
+        artifacts->NativeCode,
+        Options_.EnablePerfJitEventListener,
+        runError);
+    if (!jit) {
         return std::nullopt;
     }
-    if (Options_.EnablePerfJitEventListener) {
-        perfListener = CreatePerfJitEventListener();
-        if (perfListener) {
-            ee->RegisterJITEventListener(perfListener);
-        }
-    }
-
-    // Heuristic: last function in our internal Module is the newest __repl*; but
-    // artifacts->Module may have different ordering. We search for name pattern.
-    llvm::Module* mod = rawModulePtr;
-    llvm::Function* target = nullptr;
-    llvm::Function* last = nullptr;
-    llvm::Function* constructorFunc = nullptr;
-    llvm::Function* destructorFunc = nullptr;
-    llvm::Function* coroPromisePtrFunc = nullptr;
-    if (mod) {
-        for (auto& f : *mod) {
-            last = &f;
-            std::string name = f.getName().str();
-            if (name == entryPoint) target = &f; // keep last matching
-            if (name == "$$module_constructor") constructorFunc = &f;
-            if (name == "$$module_destructor") destructorFunc = &f;
-            if (name == "__qumir_coro_promise_ptr") coroPromisePtrFunc = &f;
-        }
-    }
-    if (!target) target = last;
-    if (!target) {
-        if (error) *error = "no function in module";
+    if (!AddArtifactsToJit(*artifacts, *jit, runError)) {
         return std::nullopt;
     }
 
-    // DEBUG: dump function IR
-    //target->print(llvm::errs());
-    //llvm::errs() << "\n";
-
-    auto* ty = target->getFunctionType();
-    if (ty->getNumParams() != 0) {
-        // We only handle zero-arg functions currently.
-        if (error) *error = "function requires arguments (unsupported)";
+    if (!RunVoidFunctionIfPresent(*jit, entry->ConstructorName, runError)) {
         return std::nullopt;
     }
-
-    const bool isCoroutineModule = (mod->getGlobalVariable("__qumir_is_coroutine") != nullptr);
-
-    std::vector<llvm::GenericValue> noargs;
-    if (constructorFunc) {
-        SafeRunFunction(ee.get(), constructorFunc, noargs);
-    }
-    auto gv = SafeRunFunction(ee.get(), target, noargs);
 
     auto processEvents = [&]() {
         size_t processed = 0;
@@ -240,11 +520,15 @@ std::optional<std::string> TLlvmRunner::Run(
         return processed;
     };
 
-    if (isCoroutineModule) {
+    if (entry->IsCoroutineModule) {
+        void* handle = RunCoroutineEntry(*jit, entry->Name, runError);
+        if (!handle) {
+            return std::nullopt;
+        }
         // Wrap the raw coro frame in ITypeErasedFuture* and use the public
         // __qumir_future_* API for the event loop. This avoids any dependency
         // on the __qumir_coro_* LLVM-intrinsic wrappers.
-        ITypeErasedFuture* future = __qumir_wrap_coro(gv.PointerVal, 0);
+        ITypeErasedFuture* future = __qumir_wrap_coro(handle, 0);
 
         while (!__qumir_future_done(future)) {
             size_t processed = processEvents();
@@ -257,60 +541,29 @@ std::optional<std::string> TLlvmRunner::Run(
         processEvents();
 
         std::optional<std::string> result;
-        if (coroutineResultFormatter && coroPromisePtrFunc) {
-            using TPromisePtrFn = void* (*)(void*);
-            auto addr = ee->getFunctionAddress(coroPromisePtrFunc->getName().str());
-            if (addr == 0) {
-                if (error) *error = "failed to resolve __qumir_coro_promise_ptr";
-            } else {
-                auto* promisePtrFn = reinterpret_cast<TPromisePtrFn>(addr);
-                result = coroutineResultFormatter(promisePtrFn(gv.PointerVal));
+        if (coroutineResultFormatter && !entry->CoroutinePromisePtrName.empty()) {
+            auto promisePtr = RunPromisePtrFunction(*jit, entry->CoroutinePromisePtrName, handle, runError);
+            if (promisePtr) {
+                result = coroutineResultFormatter(*promisePtr);
             }
         }
 
         __qumir_future_destroy(future);
 
-        if (destructorFunc) {
-            SafeRunFunction(ee.get(), destructorFunc, noargs);
+        if (!RunVoidFunctionIfPresent(*jit, entry->DestructorName, runError)) {
+            return std::nullopt;
         }
         return result;
     }
 
-    if (destructorFunc) {
-        SafeRunFunction(ee.get(), destructorFunc, noargs);
+    auto result = RunEntryFunction(*jit, *entry, returnTypeIsString, runError);
+    if (!runError->empty()) {
+        return std::nullopt;
     }
-    auto* retTy = ty->getReturnType();
-    if (retTy->isVoidTy()) {
-        return std::nullopt; // no value
+    if (!RunVoidFunctionIfPresent(*jit, entry->DestructorName, runError)) {
+        return std::nullopt;
     }
-    std::ostringstream oss;
-    if (retTy->isFloatTy()) {
-        oss << std::fixed << std::setprecision(15) << gv.FloatVal;
-    }
-    if (retTy->isDoubleTy()) {
-        oss << std::fixed << std::setprecision(15) << gv.DoubleVal;
-    }
-    if (retTy->isIntegerTy()) {
-        unsigned bits = retTy->getIntegerBitWidth();
-        if (bits == 1) {
-            oss << (gv.IntVal.getZExtValue() ? "true" : "false");
-        } else {
-            oss << gv.IntVal.getSExtValue();
-        }
-    }
-    if (retTy->isPointerTy()) {
-        auto ptr = (char*)gv.PointerVal;
-        if (ptr) {
-            oss << ptr;
-            if (returnTypeIsString) {
-                NRuntime::str_release(ptr);
-            }
-        } else {
-            oss << "(null)";
-        }
-    }
-
-    return oss.str();
+    return result;
 }
 
 void* TLlvmRunner::Lookup(
@@ -318,7 +571,13 @@ void* TLlvmRunner::Lookup(
     const std::string& name,
     std::string* error)
 {
-    auto entries = LookupMany(std::move(iartifacts), {name}, error);
+    if (error) {
+        error->clear();
+    }
+    std::string localError;
+    auto* lookupError = error ? error : &localError;
+
+    auto entries = LookupMany(std::move(iartifacts), {name}, lookupError);
     auto it = entries.find(name);
     return it == entries.end() ? nullptr : it->second;
 }
@@ -328,72 +587,50 @@ std::unordered_map<std::string, void*> TLlvmRunner::LookupMany(
     const std::vector<std::string>& names,
     std::string* error)
 {
+    if (error) {
+        error->clear();
+    }
+    std::string localError;
+    auto* lookupError = error ? error : &localError;
+
     auto* artifacts = static_cast<TLLVMModuleArtifacts*>(iartifacts.get());
     if (!artifacts || !artifacts->Module) {
-        if (error) *error = "null artifacts";
+        *lookupError = "null artifacts";
         return {};
     }
 
-    static bool inited = false;
-    if (!inited) {
-        LLVMInitializeNativeTarget();
-        LLVMInitializeNativeAsmPrinter();
-        LLVMInitializeNativeAsmParser();
-        inited = true;
-    }
+    InitializeNativeJitTarget();
 
     llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
-    std::string eeErr;
-    llvm::EngineBuilder builder(std::move(artifacts->Module));
-    builder.setEngineKind(llvm::EngineKind::JIT);
-    if (artifacts->NativeCode) {
-        auto [nativeCpu, nativeFeatures] = GetNativeCpuAndFeatures();
-        if (!nativeCpu.empty()) {
-            builder.setMCPU(nativeCpu);
-        }
-        if (!nativeFeatures.empty()) {
-            builder.setMAttrs(SplitFeatures(nativeFeatures));
-        }
-    }
-    auto ee = std::unique_ptr<llvm::ExecutionEngine>(builder.setErrorStr(&eeErr).create());
-    if (!ee) {
-        if (error) *error = std::string("ExecutionEngine create failed: ") + eeErr;
+    auto jit = CreateOrcJit(
+        artifacts->NativeCode,
+        Options_.EnablePerfJitEventListener,
+        lookupError);
+    if (!jit) {
         return {};
     }
-    llvm::JITEventListener* perfListener = nullptr;
-    if (Options_.EnablePerfJitEventListener) {
-        perfListener = CreatePerfJitEventListener();
-        if (perfListener) {
-            ee->RegisterJITEventListener(perfListener);
-        }
+    if (!AddArtifactsToJit(*artifacts, *jit, lookupError)) {
+        return {};
     }
 
-    ee->finalizeObject();
     std::unordered_map<std::string, void*> entries;
     entries.reserve(names.size());
     for (const auto& name : names) {
-        auto addr = ee->getFunctionAddress(name);
+        auto addr = jit->lookup(name);
         if (!addr) {
-            if (error) *error = "function not found: " + name;
+            *lookupError = ToString(addr.takeError());
             return {};
         }
-        entries.emplace(name, reinterpret_cast<void*>(addr));
+        entries.emplace(name, addr->toPtr<void*>());
     }
 
     struct TLiveJit {
-        // Destruction order is important: Engine owns the Module, while Artifacts
-        // owns the LLVMContext used by that Module. Members are destroyed in
-        // reverse declaration order, so Engine must be declared after Artifacts.
-        std::unique_ptr<ILLVMModuleArtifacts> Artifacts;
-        llvm::JITEventListener* PerfListener = nullptr;
-        std::unique_ptr<llvm::ExecutionEngine> Engine;
+        std::unique_ptr<llvm::orc::LLJIT> Jit;
     };
 
     auto live = std::make_shared<TLiveJit>();
-    live->Artifacts = std::move(iartifacts);
-    live->PerfListener = perfListener;
-    live->Engine = std::move(ee);
+    live->Jit = std::move(jit);
     LiveEngines_.push_back(std::move(live));
     return entries;
 }
