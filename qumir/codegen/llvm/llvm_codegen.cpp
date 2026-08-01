@@ -33,7 +33,6 @@
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
-#include <llvm/Transforms/Vectorize/LoopVectorize.h>
 
 #include <utility>
 
@@ -1869,9 +1868,6 @@ void TLLVMCodeGen::Optimize(int optLevel) {
         default: OL = llvm::OptimizationLevel::O2; break;
     }
     llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(OL);
-    if (OL == llvm::OptimizationLevel::O3) {
-        MPM.addPass(llvm::createModuleToFunctionPassAdaptor(llvm::LoopVectorizePass()));
-    }
     MPM.run(*LModule, MAM);
 }
 
