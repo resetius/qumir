@@ -30,6 +30,7 @@ struct TLLVMRunnerOptions {
     bool ResolveCoreInput = true;
     bool AllowOverloads = false; // enable function overloads / generics (pragma language overloads)
     bool EnablePerfJitEventListener = false;
+    bool RunDefiniteAssignment = true;
     int OptLevel = 0; // 0-3
     // Core frontend host prelude: modules imported on behalf of the host.
     // Empty means pure core-lang imports nothing. Ignored for the Kumir

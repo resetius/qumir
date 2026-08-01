@@ -976,9 +976,11 @@ std::expected<std::monostate, TError> Pipeline(
         return result;
     }
 
-    NSemantics::TDefiniteAssignmentChecker definiteAssignmentChecker(context);
-    if (auto result = definiteAssignmentChecker.Check(expr); !result) {
-        return std::unexpected(result.error());
+    if (options.RunDefiniteAssignment) {
+        NSemantics::TDefiniteAssignmentChecker definiteAssignmentChecker(context);
+        if (auto result = definiteAssignmentChecker.Check(expr); !result) {
+            return std::unexpected(result.error());
+        }
     }
 
     return RunFinalSemanticPipeline(expr, context);
