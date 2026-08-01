@@ -10,7 +10,7 @@ function функция () { ; ptr to i8
     arg tmp(3,ptr to i8) 
     call str_release 
     ste tmp(2,ptr to ptr to i8) tmp(1,ptr to i8) 
-    mov tmp(4,i1) = imm(1,i64) 
+    mov tmp(4,i1) = imm(1,i1) 
     cmp tmp(4,i1) label(2) label(3) 
   }
   block {

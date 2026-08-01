@@ -1,7 +1,7 @@
 function bitoff (local(0), local(1), local(2)) { ; i1
   block {
     label: label(0)
-    stre local(3,i1) imm(1,i64) 
+    stre local(3,i1) imm(1,i1) 
     jmp label(1) 
   }
   block {
@@ -37,7 +37,7 @@ function test (local(0), local(1)) { ; i1
     arg tmp(3,ptr to u8) 
     call tmp(4,ptr to u8) = touch 
     stre local(3,ptr to u8) tmp(4,ptr to u8) 
-    cmp imm(1,i64) label(2) label(3) 
+    cmp imm(1,i1) label(2) label(3) 
   }
   block {
     label: label(2)
@@ -46,7 +46,7 @@ function test (local(0), local(1)) { ; i1
   }
   block {
     label: label(3)
-    phi tmp(6,i1) = imm(1,i64) label(0) tmp(5,i1) label(2) 
+    phi tmp(6,i1) = imm(1,i1) label(0) tmp(5,i1) label(2) 
     stre local(4,i1) tmp(6,i1) 
     jmp label(1) 
   }

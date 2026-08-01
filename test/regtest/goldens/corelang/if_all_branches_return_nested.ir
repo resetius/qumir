@@ -1,14 +1,14 @@
 function <main> () { ; void
   block {
     label: label(0)
-    arg imm(1,i64) 
+    arg imm(1,i1) 
     call tmp(0,i64) = choose 
     arg tmp(0,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(1,ptr to i8) 
     call output_string 
-    arg imm(0,i64) 
+    arg imm(0,i1) 
     call tmp(1,i64) = choose 
     arg tmp(1,i64) 
     arg imm(0,i64) 

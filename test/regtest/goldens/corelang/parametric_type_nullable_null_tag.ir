@@ -82,7 +82,7 @@ function __generic_nullable_from_null$i64 (local(0)) { ; struct { i64; i1}
     label: label(0)
     salloc tmp(0,ptr to struct { i64; i1}) = imm(16,i64) 
     + tmp(1,ptr to i1) = tmp(0,ptr to struct { i64; i1}) imm(8,i64) 
-    ste tmp(1,ptr to i1) imm(0,i64) 
+    ste tmp(1,ptr to i1) imm(0,i1) 
     stre local(1,struct { i64; i1}) tmp(0,ptr to struct { i64; i1}) 
     jmp label(1) 
   }
@@ -97,7 +97,7 @@ function __generic_nullable_from_null$Float (local(0)) { ; struct { f64; i1}
     label: label(0)
     salloc tmp(0,ptr to struct { f64; i1}) = imm(16,i64) 
     + tmp(1,ptr to i1) = tmp(0,ptr to struct { f64; i1}) imm(8,i64) 
-    ste tmp(1,ptr to i1) imm(0,i64) 
+    ste tmp(1,ptr to i1) imm(0,i1) 
     stre local(1,struct { f64; i1}) tmp(0,ptr to struct { f64; i1}) 
     jmp label(1) 
   }

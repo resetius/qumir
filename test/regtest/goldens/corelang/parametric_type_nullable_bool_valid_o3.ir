@@ -2,7 +2,7 @@ function <main> () { ; void
   block {
     label: label(0)
     arg imm(4677104761256804352,f64) 
-    arg imm(1,i64) 
+    arg imm(1,i1) 
     call tmp(0,i1) = cmp 
     cmp tmp(0,i1) label(2) label(3) 
   }
@@ -77,14 +77,14 @@ function __generic_nullable_lt_rhs$Float$i64 (local(0), local(1)) { ; struct { i
     + tmp(10,ptr to i1) = tmp(3,ptr to struct { i1; i1}) imm(0,i64) 
     ste tmp(10,ptr to i1) tmp(9,i1) 
     + tmp(11,ptr to i1) = tmp(3,ptr to struct { i1; i1}) imm(1,i64) 
-    ste tmp(11,ptr to i1) imm(1,i64) 
+    ste tmp(11,ptr to i1) imm(1,i1) 
     jmp label(4) 
   }
   block {
     label: label(3)
     salloc tmp(12,ptr to struct { i1; i1}) = imm(2,i64) 
     + tmp(13,ptr to i1) = tmp(12,ptr to struct { i1; i1}) imm(1,i64) 
-    ste tmp(13,ptr to i1) imm(0,i64) 
+    ste tmp(13,ptr to i1) imm(0,i1) 
     jmp label(4) 
   }
   block {

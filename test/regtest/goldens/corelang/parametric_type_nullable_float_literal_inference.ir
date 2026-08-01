@@ -5,7 +5,7 @@ function <main> () { ; void
     + tmp(1,ptr to f64) = tmp(0,ptr to struct { f64; i1}) imm(0,i64) 
     ste tmp(1,ptr to f64) imm(4612811918334230528,f64) 
     + tmp(2,ptr to i1) = tmp(0,ptr to struct { f64; i1}) imm(8,i64) 
-    ste tmp(2,ptr to i1) imm(1,i64) 
+    ste tmp(2,ptr to i1) imm(1,i1) 
     stre local(0,struct { f64; i1}) tmp(0,ptr to struct { f64; i1}) 
     lea tmp(3,ptr to struct { f64; i1}) = local(0,struct { f64; i1}) 
     arg tmp(3,ptr to struct { f64; i1}) 
@@ -61,7 +61,7 @@ function __generic_nullable_from_value$Float (local(0)) { ; struct { f64; i1}
     + tmp(2,ptr to f64) = tmp(0,ptr to struct { f64; i1}) imm(0,i64) 
     ste tmp(2,ptr to f64) tmp(1,f64) 
     + tmp(3,ptr to i1) = tmp(0,ptr to struct { f64; i1}) imm(8,i64) 
-    ste tmp(3,ptr to i1) imm(1,i64) 
+    ste tmp(3,ptr to i1) imm(1,i1) 
     stre local(1,struct { f64; i1}) tmp(0,ptr to struct { f64; i1}) 
     jmp label(1) 
   }
@@ -104,14 +104,14 @@ function __generic_nullable_add$Float (local(0), local(1)) { ; struct { f64; i1}
     + tmp(15,ptr to f64) = tmp(7,ptr to struct { f64; i1}) imm(0,i64) 
     ste tmp(15,ptr to f64) tmp(14,f64) 
     + tmp(16,ptr to i1) = tmp(7,ptr to struct { f64; i1}) imm(8,i64) 
-    ste tmp(16,ptr to i1) imm(1,i64) 
+    ste tmp(16,ptr to i1) imm(1,i1) 
     jmp label(6) 
   }
   block {
     label: label(5)
     salloc tmp(17,ptr to struct { f64; i1}) = imm(16,i64) 
     + tmp(18,ptr to i1) = tmp(17,ptr to struct { f64; i1}) imm(8,i64) 
-    ste tmp(18,ptr to i1) imm(0,i64) 
+    ste tmp(18,ptr to i1) imm(0,i1) 
     jmp label(6) 
   }
   block {
