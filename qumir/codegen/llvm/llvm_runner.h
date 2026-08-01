@@ -47,7 +47,7 @@ private:
     TLlvmRunnerOptions Options_;
     std::string LastError; // currently unused (kept for future diagnostics)
 
-    // Keeps ExecutionEngines alive so function pointers returned by Lookup remain valid.
+    // Keeps JIT engines alive so function pointers returned by Lookup remain valid.
     // Type-erased to avoid including heavy LLVM headers here.
     std::vector<std::shared_ptr<void>> LiveEngines_;
 };
