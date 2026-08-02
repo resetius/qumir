@@ -4,6 +4,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <unordered_map>
 
@@ -30,6 +31,17 @@ struct TBlock;
 } // namespace NQumir::NIR
 
 namespace NQumir::NCodeGen {
+
+// A generic instance: stable, specialization-addressed name. Implementation
+// changes are invalidated via the fingerprint's KernelLibVersion, not by hashing.
+inline bool IsCacheableSymbol(std::string_view name) {
+    return name.starts_with("__generic_");
+}
+
+// Names of cacheable function *definitions* in the module (generic instances or
+// `cacheable`-flagged), excluding coroutines. Pure discovery: no LLVM emission,
+// no state mutation.
+std::vector<std::string> CollectCacheableSymbols(const NIR::TModule& module);
 
 struct TLLVMCodeGenOptions {
     std::string ModuleName {"oz_module"};
