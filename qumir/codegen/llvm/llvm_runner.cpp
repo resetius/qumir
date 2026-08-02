@@ -17,9 +17,11 @@
 #endif
 #include <llvm/TargetParser/Host.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <iomanip>
 #include <optional>
+#include <vector>
 #include <sstream>
 #include <setjmp.h>
 #include <stdexcept>
@@ -712,6 +714,52 @@ TLlvmRunner::TLinkedModule TLlvmRunner::LinkAndLookup(
     live->Jit = std::move(jit);
     linked.Lifetime = std::move(live);
     return linked;
+}
+
+TBuildFingerprint MakeBuildFingerprint(
+    bool nativeCode,
+    const std::string& targetTriple,
+    int optLevel,
+    std::string cacheSchema,
+    std::string kernelLibVersion)
+{
+    TBuildFingerprint fp;
+    fp.CacheSchema = std::move(cacheSchema);
+    fp.KernelLibVersion = std::move(kernelLibVersion);
+    fp.LlvmVersion = LLVM_VERSION_STRING;
+    fp.Triple = targetTriple.empty() ? llvm::sys::getProcessTriple() : targetTriple;
+
+    llvm::orc::JITTargetMachineBuilder jtmb{llvm::Triple(fp.Triple)};
+    if (nativeCode) {
+        std::vector<std::string> feats;
+        for (const auto& f : llvm::sys::getHostCPUFeatures()) {
+            feats.push_back((f.getValue() ? "+" : "-") + f.getKey().str());
+        }
+        std::sort(feats.begin(), feats.end());
+        std::string joined = llvm::sys::getHostCPUName().str();
+        for (const auto& f : feats) {
+            joined += ",";
+            joined += f;
+        }
+        fp.CpuFeatures = std::move(joined);
+
+        InitializeNativeJitTarget();
+        if (auto host = llvm::orc::JITTargetMachineBuilder::detectHost()) {
+            jtmb = std::move(*host);
+        } else {
+            llvm::consumeError(host.takeError());
+        }
+    } else {
+        fp.CpuFeatures = "generic";
+    }
+    // Authoritative DataLayout from the same target machine that codegen uses.
+    if (auto tm = jtmb.createTargetMachine()) {
+        fp.DataLayout = (*tm)->createDataLayout().getStringRepresentation();
+    } else {
+        llvm::consumeError(tm.takeError());
+    }
+    fp.OptSettings = "O" + std::to_string(optLevel);
+    return fp;
 }
 
 } // namespace NQumir::NCodeGen

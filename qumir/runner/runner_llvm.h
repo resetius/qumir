@@ -75,6 +75,19 @@ public:
         const std::vector<std::string>& entryNames,
         std::string* error);
 
+    // Compiles `ast` using the symbol-granular object cache in `cacheDir`.
+    // Cacheable dependency symbols are loaded from cache when present and
+    // compiled+persisted when missing; the query-specific kernel is always
+    // recompiled and links against the deps by name. Returns the entry pointers
+    // with a lifetime handle that scopes their JIT to the caller.
+    NCodeGen::TLlvmRunner::TLinkedModule CompileFusedKernelsCached(
+        NAst::TExprPtr ast,
+        const std::vector<std::string>& entryNames,
+        const std::string& cacheDir,
+        const std::string& cacheSchema,
+        const std::string& kernelLibVersion,
+        std::string* error);
+
 private:
     // Frontend: compose, resolve, transform and lower `ast` into Module, then
     // check every entry exists. Returns false on error.

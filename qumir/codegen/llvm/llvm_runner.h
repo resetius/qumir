@@ -1,6 +1,7 @@
 #pragma once
 
 #include "llvm_codegen.h"
+#include "symbol_object_cache.h"
 
 #include <istream>
 #include <string>
@@ -71,5 +72,14 @@ private:
     // Type-erased to avoid including heavy LLVM headers here.
     std::vector<std::shared_ptr<void>> LiveEngines_;
 };
+
+// Builds a fingerprint from the current LLVM/target settings plus the caller's
+// schema and dep-library versions.
+TBuildFingerprint MakeBuildFingerprint(
+    bool nativeCode,
+    const std::string& targetTriple,
+    int optLevel,
+    std::string cacheSchema,
+    std::string kernelLibVersion);
 
 } // namespace NQumir::NCodeGen
