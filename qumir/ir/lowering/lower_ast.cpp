@@ -1490,6 +1490,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto returnType = FromAstType(physicalReturnAstType, Module.Types);
         Builder.SetReturnType(returnType);
         Module.Functions[funcIdx].IsCoroutine = isCoroutine;
+        Module.Functions[funcIdx].Cacheable = fun->Cacheable;
         if (isCoroutine) {
             Module.Functions[funcIdx].CoroutineResultTypeId = FromAstType(coroutineResultType, Module.Types);
         }

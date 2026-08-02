@@ -642,6 +642,9 @@ struct TFunDecl : TExpr {
     std::optional<std::string> LiteralSuffix;
     // `used` attribute: keep this function even when no explicit reference makes
     bool Used = false;
+    // `cacheable` attribute: content-stable and reusable across compilations,
+    // so its compiled object may be persisted in the JIT object cache.
+    bool Cacheable = false;
     TFunDecl(TLocation loc, std::string name, std::vector<TGenericParam> genericParams, std::vector<TParam> args, std::shared_ptr<TBlockExpr> body, NAst::TTypePtr type)
         : TExpr(std::move(loc))
         , Name(std::move(name))

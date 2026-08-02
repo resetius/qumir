@@ -841,6 +841,7 @@ TListHandlerMap MakeDefaultHandlers() {
             std::optional<std::string> externSymbol;
             std::optional<std::string> literalSuffix;
             bool used = false;
+            bool cacheable = false;
             tok = ctx.Stream.Next();
             if (IsOp(tok, '(')) {
                 auto peek = ctx.Stream.Next();
@@ -890,6 +891,8 @@ TListHandlerMap MakeDefaultHandlers() {
                                 externSymbol = name;
                             } else if (attrTok.Name == "used") {
                                 used = true;
+                            } else if (attrTok.Name == "cacheable") {
+                                cacheable = true;
                             }
                         } else {
                             co_return Error(attrTok, "expected function attribute");
@@ -914,6 +917,7 @@ TListHandlerMap MakeDefaultHandlers() {
             funDecl->OperatorName = std::move(operatorName);
             funDecl->LiteralSuffix = std::move(literalSuffix);
             funDecl->Used = used;
+            funDecl->Cacheable = cacheable;
             if (externSymbol) {
                 funDecl->MangledName = std::move(*externSymbol);
             }

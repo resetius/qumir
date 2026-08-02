@@ -446,6 +446,21 @@ std::unordered_map<uint64_t, llvm::Instruction::BinaryOps> fbinOpMap = {
 
 } // namespace
 
+std::vector<std::string> CollectCacheableSymbols(const NIR::TModule& module) {
+    std::vector<std::string> out;
+    for (const auto& fn : module.Functions) {
+        // Only real definitions; a coroutine lowers to several symbols (entry/
+        // resume/destroy) that one name cannot describe, so never cache it.
+        if (fn.Blocks.empty() || fn.IsCoroutine) {
+            continue;
+        }
+        if (IsCacheableSymbol(fn.Name) || fn.Cacheable) {
+            out.push_back(fn.Name);
+        }
+    }
+    return out;
+}
+
 TLLVMCodeGen::TLLVMCodeGen(const TLLVMCodeGenOptions& opts): Opts(opts) {}
 TLLVMCodeGen::~TLLVMCodeGen() = default;
 

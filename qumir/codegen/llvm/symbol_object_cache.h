@@ -33,9 +33,11 @@ enum class ERegisterResult {
 };
 
 // Symbol-granular on-disk cache of compiled objects, keyed by symbol name.
-// Only content-addressed symbols belong here: the name must uniquely identify
-// canonical semantics, ABI and layout (e.g. __generic_<name>$<TypeKey>...).
-// Feeding a human name like "filter_12" would silently serve wrong code.
+// Only symbols with a stable identity belong here: the name must uniquely
+// determine semantics within a build fingerprint (generic instances, versioned
+// helpers). Implementation changes are invalidated via the fingerprint's
+// KernelLibVersion, not by hashing bodies; a query-specific name like "filter_12"
+// would silently serve wrong code.
 // Each build fingerprint gets its own subdirectory, so generations never wipe
 // each other. Objects stay mutually disjoint and self-attributed (all-or-nothing
 // Register), so loading any subset never double-defines a symbol.
