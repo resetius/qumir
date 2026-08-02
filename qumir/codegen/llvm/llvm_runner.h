@@ -43,6 +43,26 @@ public:
         const std::vector<std::string>& names,
         std::string* error = nullptr);
 
+    // Entry pointers plus an opaque handle that keeps their JIT alive. The
+    // pointers are valid exactly as long as Lifetime is held, so the caller can
+    // scope a query's compiled code to the query (not to the whole runner).
+    struct TLinkedModule {
+        std::unordered_map<std::string, void*> Entries;
+        std::shared_ptr<void> Lifetime;
+    };
+
+    // Links prebuilt objects (from files and/or in-memory blobs) and an optional
+    // IR module into one JIT, then looks up `names`. Objects are added first so
+    // the module can reference their symbols; each symbol must be defined once.
+    // On failure returns an empty Entries map (and sets *error).
+    TLinkedModule LinkAndLookup(
+        const std::vector<std::string>& objectPaths,
+        const std::vector<std::string>& objectBlobs,
+        std::unique_ptr<ILLVMModuleArtifacts> kernelModule,
+        bool nativeCode,
+        const std::vector<std::string>& names,
+        std::string* error = nullptr);
+
 private:
     TLlvmRunnerOptions Options_;
     std::string LastError; // currently unused (kept for future diagnostics)

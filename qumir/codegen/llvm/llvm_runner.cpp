@@ -10,6 +10,7 @@
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/Casting.h>
+#include <llvm/Support/MemoryBuffer.h>
 #if defined(__linux__)
 #include <llvm/ExecutionEngine/Orc/Debugging/PerfSupportPlugin.h>
 #include <llvm/ExecutionEngine/Orc/TargetProcess/JITLoaderPerf.h>
@@ -633,6 +634,84 @@ std::unordered_map<std::string, void*> TLlvmRunner::LookupMany(
     live->Jit = std::move(jit);
     LiveEngines_.push_back(std::move(live));
     return entries;
+}
+
+TLlvmRunner::TLinkedModule TLlvmRunner::LinkAndLookup(
+    const std::vector<std::string>& objectPaths,
+    const std::vector<std::string>& objectBlobs,
+    std::unique_ptr<ILLVMModuleArtifacts> kernelModule,
+    bool nativeCode,
+    const std::vector<std::string>& names,
+    std::string* error)
+{
+    std::string localError;
+    auto* err = error ? error : &localError;
+    err->clear();
+
+    InitializeNativeJitTarget();
+    llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
+
+    auto jit = CreateOrcJit(nativeCode, Options_.EnablePerfJitEventListener, err);
+    if (!jit) {
+        return {};
+    }
+
+    auto addObject = [&](std::unique_ptr<llvm::MemoryBuffer> buf) -> bool {
+        if (auto e = jit->addObjectFile(std::move(buf))) {
+            *err = ToString(std::move(e));
+            return false;
+        }
+        return true;
+    };
+
+    // Objects first so the kernel module resolves their symbols by name.
+    for (const auto& path : objectPaths) {
+        auto buf = llvm::MemoryBuffer::getFile(path);
+        if (!buf) {
+            *err = "cannot read object file " + path + ": " + buf.getError().message();
+            return {};
+        }
+        if (!addObject(std::move(*buf))) {
+            return {};
+        }
+    }
+    for (size_t i = 0; i < objectBlobs.size(); ++i) {
+        auto buf = llvm::MemoryBuffer::getMemBufferCopy(
+            objectBlobs[i], "cached-object-" + std::to_string(i));
+        if (!addObject(std::move(buf))) {
+            return {};
+        }
+    }
+
+    if (kernelModule) {
+        auto* artifacts = dynamic_cast<TLLVMModuleArtifacts*>(kernelModule.get());
+        if (!artifacts || !artifacts->Module) {
+            *err = "unexpected kernel artifacts implementation";
+            return {};
+        }
+        if (!AddArtifactsToJit(*artifacts, *jit, err)) {
+            return {};
+        }
+    }
+
+    TLinkedModule linked;
+    linked.Entries.reserve(names.size());
+    for (const auto& name : names) {
+        auto addr = jit->lookup(name);
+        if (!addr) {
+            *err = ToString(addr.takeError());
+            return {};
+        }
+        linked.Entries.emplace(name, addr->toPtr<void*>());
+    }
+
+    struct TLiveJit {
+        std::unique_ptr<llvm::orc::LLJIT> Jit;
+    };
+    auto live = std::make_shared<TLiveJit>();
+    live->Jit = std::move(jit);
+    linked.Lifetime = std::move(live);
+    return linked;
 }
 
 } // namespace NQumir::NCodeGen
