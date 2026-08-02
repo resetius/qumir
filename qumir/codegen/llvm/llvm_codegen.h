@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <qumir/ir/builder.h>
 
@@ -50,6 +51,13 @@ struct TLLVMCodeGenOptions {
     // Optional target triple override (e.g., "wasm32-unknown-unknown").
     // If empty, defaults are used.
     std::string TargetTriple;
+    // Module partitioning for the object cache (mutually exclusive):
+    //   RestrictToDefinitions — only these get bodies (dependency-only object).
+    //   EmitAsExternal        — these become external decls (kernel object).
+    // Others are external declarations / definitions respectively. Both null =
+    // define everything (default).
+    const std::unordered_set<std::string>* RestrictToDefinitions {nullptr};
+    const std::unordered_set<std::string>* EmitAsExternal {nullptr};
 };
 
 struct ILLVMModuleArtifacts {

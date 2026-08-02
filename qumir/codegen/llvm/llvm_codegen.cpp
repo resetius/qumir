@@ -495,6 +495,17 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
         FMF.setAllowReciprocal(true);
         irb->setFastMathFlags(FMF);
     }
+    // Whether this function gets a body here (vs an external declaration).
+    auto shouldDefine = [&](const std::string& name) -> bool {
+        if (Opts.RestrictToDefinitions) {
+            return Opts.RestrictToDefinitions->count(name) != 0;
+        }
+        if (Opts.EmitAsExternal) {
+            return Opts.EmitAsExternal->count(name) == 0;
+        }
+        return true;
+    };
+
     std::unordered_set<int> newSymIds;
     // Pass 1: predeclare all functions so calls can reference them by SymId in any order
     for (const auto& f : module.Functions) {
@@ -535,8 +546,10 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
             lfun->addFnAttr("disable-tail-calls", "true");
         }
         SymIdToLFun[f.SymId] = lfun;
-        newSymIds.insert(f.SymId);
-        SymIdToUniqueFunId[f.SymId] = f.UniqueId;
+        if (shouldDefine(f.Name)) {
+            newSymIds.insert(f.SymId);
+            SymIdToUniqueFunId[f.SymId] = f.UniqueId;
+        }
     }
 
     // Pass 2: lower function bodies
@@ -615,7 +628,7 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
     // Emit a sentinel global so the JS runtime can reliably detect coroutine modules
     // without heuristics. JS checks instance.exports.__qumir_is_coroutine !== undefined.
     const bool hasCoroutines = std::any_of(module.Functions.begin(), module.Functions.end(),
-        [](const NIR::TFunction& f) { return f.IsCoroutine; });
+        [&](const NIR::TFunction& f) { return f.IsCoroutine && newSymIds.count(f.SymId); });
     if (hasCoroutines) {
         auto* i32Ty = llvm::Type::getInt32Ty(*Ctx);
         new llvm::GlobalVariable(*LModule, i32Ty, /*isConstant*/true,

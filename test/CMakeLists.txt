@@ -34,6 +34,7 @@ ut(test_ffi test_ffi.cpp)
 ut(test_kernel_ast test_kernel_ast.cpp)
 ut(test_symbol_object_cache test_symbol_object_cache.cpp)
 ut(test_collect_cacheable test_collect_cacheable.cpp)
+ut(test_codegen_partition test_codegen_partition.cpp)
 
 # JavaScript execution tests (Node.js required)
 find_program(NODE_EXECUTABLE node)
