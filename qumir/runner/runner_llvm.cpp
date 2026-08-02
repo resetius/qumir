@@ -453,6 +453,77 @@ std::optional<std::string> TLLVMRunner::CompileKernelAstToObject(
     return obj.str();
 }
 
+NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
+    NAst::TExprPtr ast,
+    const std::vector<std::string>& entryNames,
+    const std::string& cacheDir,
+    const std::string& cacheSchema,
+    const std::string& kernelLibVersion,
+    std::string* error)
+{
+    if (error) {
+        error->clear();
+    }
+    if (!LowerKernelAst(std::move(ast), entryNames, error)) {
+        return {};
+    }
+
+    // The full cacheable set of the (monomorphized) module. This is transitively
+    // closed: if a cacheable A calls a cacheable B, B is instantiated here too,
+    // so Resolve pulls B's object even when A is a miss and B a hit. The cache
+    // therefore need not store per-object dependencies.
+    auto required = NCodeGen::CollectCacheableSymbols(Module);
+
+    auto fp = NCodeGen::MakeBuildFingerprint(
+        Options.NativeCode, Options.TargetTriple, Options.OptLevel, cacheSchema, kernelLibVersion);
+    auto cache = NCodeGen::TSymbolObjectCache::Open(cacheDir, fp);
+    if (!cache) {
+        if (error) {
+            *error = cache.error().what();
+        }
+        return {};
+    }
+    auto plan = cache->Resolve(required);
+
+    // Compile and persist the missing dependency symbols as one object.
+    std::vector<std::string> depBlobs;
+    if (!plan.Misses.empty()) {
+        std::unordered_set<std::string> missSet(plan.Misses.begin(), plan.Misses.end());
+        auto depArt = EmitLoweredModule(&missSet, nullptr, error);
+        if (!depArt) {
+            return {};
+        }
+        auto provided = depArt->GetDefinedFunctionNames();
+        if (std::unordered_set<std::string>(provided.begin(), provided.end()) != missSet) {
+            if (error) {
+                *error = "cache: dependency codegen produced unexpected definitions";
+            }
+            return {};
+        }
+        std::ostringstream obj(std::ios::binary);
+        depArt->Generate(obj, /*generateAsm=*/false, /*generateObj=*/true);
+        std::string depBytes = obj.str();
+        if (auto reg = cache->Register(depBytes, provided); !reg) {
+            if (error) {
+                *error = reg.error().what();
+            }
+            return {};
+        }
+        depBlobs.push_back(std::move(depBytes));
+    }
+
+    // Kernel module: all cacheable deps are external, resolved from the objects.
+    std::unordered_set<std::string> depSet(required.begin(), required.end());
+    auto kernelArt = EmitLoweredModule(
+        /*restrict=*/nullptr, required.empty() ? nullptr : &depSet, error);
+    if (!kernelArt) {
+        return {};
+    }
+
+    return LlvmRunner_.LinkAndLookup(
+        plan.ObjectFiles, depBlobs, std::move(kernelArt), Options.NativeCode, entryNames, error);
+}
+
 void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) {
     std::vector<NAst::TPragma> mainPragmas;
     if (Options.AllowOverloads) {
