@@ -43,6 +43,9 @@ struct TLLVMRunnerOptions {
     std::string TargetTriple;
 };
 
+// A single compilation session: holds persistent frontend state (Module,
+// Resolver, Builder) that accumulates across calls, so it is not thread-safe.
+// Use a fresh runner per independent compilation (e.g. one per query).
 class TLLVMRunner {
 public:
     TLLVMRunner(TLLVMRunnerOptions options = {});
@@ -73,8 +76,21 @@ public:
         std::string* error);
 
 private:
-    // Shared frontend for both CompileKernelAst overloads: compose, resolve,
-    // transform, lower and emit LLVM artifacts. Returns nullptr on error.
+    // Frontend: compose, resolve, transform and lower `ast` into Module, then
+    // check every entry exists. Returns false on error.
+    bool LowerKernelAst(
+        NAst::TExprPtr ast,
+        const std::vector<std::string>& entryNames,
+        std::string* error);
+
+    // Codegen the already-lowered Module, optionally partitioned (see
+    // TLLVMCodeGenOptions). Returns nullptr on error.
+    std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> EmitLoweredModule(
+        const std::unordered_set<std::string>* restrictToDefinitions,
+        const std::unordered_set<std::string>* emitAsExternal,
+        std::string* error);
+
+    // Shared frontend for both CompileKernelAst overloads: lower then emit.
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> EmitKernelArtifacts(
         NAst::TExprPtr ast,
         const std::vector<std::string>& entryNames,

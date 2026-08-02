@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstring>
 #include <iostream>
+#include <cassert>
 #include <sstream>
 
 namespace NQumir {
@@ -270,11 +271,14 @@ void* TLLVMRunner::CompileKernelAst(
     return it == entries.end() ? nullptr : it->second;
 }
 
-std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts(
+bool TLLVMRunner::LowerKernelAst(
     NAst::TExprPtr ast,
     const std::vector<std::string>& entryNames,
     std::string* error)
 {
+    if (error) {
+        error->clear();
+    }
     std::vector<NAst::TPragma> mainPragmas;
     if (Options.AllowOverloads) {
         mainPragmas.push_back(NAst::TPragma{"language", {"overloads"}, {}});
@@ -289,7 +293,7 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
             if (error) {
                 *error = reg.error().ToString();
             }
-            return nullptr;
+            return false;
         }
     }
     {
@@ -298,7 +302,7 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
             if (error) {
                 *error = composed.error().ToString();
             }
-            return nullptr;
+            return false;
         }
         ast = std::move(composed->Ast);
         Resolver.ApplyPragmas(composed->Pragmas);
@@ -312,7 +316,7 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
         if (error) {
             *error = err->ToString();
         }
-        return nullptr;
+        return false;
     }
 
     auto transformResult = NTransform::Pipeline(ast, Resolver, {});
@@ -320,7 +324,7 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
         if (error) {
             *error = transformResult.error().ToString();
         }
-        return nullptr;
+        return false;
     }
 
     auto lowerRes = Lowerer.LowerTop(ast);
@@ -328,7 +332,7 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
         if (error) {
             *error = lowerRes.error().ToString();
         }
-        return nullptr;
+        return false;
     }
 
     if (Options.PrintIr) {
@@ -347,7 +351,7 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
         if (error) {
             *error = "no functions after lowering";
         }
-        return nullptr;
+        return false;
     }
     for (const auto& entryName : entryNames) {
         auto entry = std::find_if(
@@ -357,13 +361,28 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
             if (error) {
                 *error = "entry function not found: " + entryName;
             }
-            return nullptr;
+            return false;
         }
     }
+    return true;
+}
+
+std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitLoweredModule(
+    const std::unordered_set<std::string>* restrictToDefinitions,
+    const std::unordered_set<std::string>* emitAsExternal,
+    std::string* error)
+{
+    if (error) {
+        error->clear();
+    }
+    assert(!(restrictToDefinitions && emitAsExternal) &&
+           "partition modes are mutually exclusive");
 
     NCodeGen::TLLVMCodeGen cg({
         .NativeCode = Options.NativeCode,
         .TargetTriple = Options.TargetTriple,
+        .RestrictToDefinitions = restrictToDefinitions,
+        .EmitAsExternal = emitAsExternal,
     });
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> artifacts;
     try {
@@ -385,6 +404,17 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts
     }
 
     return artifacts;
+}
+
+std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts(
+    NAst::TExprPtr ast,
+    const std::vector<std::string>& entryNames,
+    std::string* error)
+{
+    if (!LowerKernelAst(std::move(ast), entryNames, error)) {
+        return nullptr;
+    }
+    return EmitLoweredModule(nullptr, nullptr, error);
 }
 
 std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
