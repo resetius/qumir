@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <optional>
 
@@ -521,6 +522,27 @@ inline std::string TypeKey(const TTypePtr& t) {
         return key;
     }
     return std::string(t->TypeName());
+}
+
+// One generic argument in declaration order: a type, or a value string when Type is null.
+struct TGenericMangleArg {
+    TTypePtr Type;
+    std::string Value;
+};
+
+// Single source of truth for generic-instance symbol names, shared by the annotator
+// and any external code that pre-registers instantiations.
+inline std::string MangleGenericInstance(
+    std::string_view name,
+    const std::vector<TGenericMangleArg>& args)
+{
+    std::string mangled = "__generic_";
+    mangled += name;
+    for (const auto& arg : args) {
+        mangled += "$";
+        mangled += arg.Type ? TypeKey(arg.Type) : arg.Value;
+    }
+    return mangled;
 }
 
 } // namespace NAst
