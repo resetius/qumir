@@ -2384,14 +2384,16 @@ TFunDeclTask InstantiateGenericFunction(
         true,
         expectedReturnType);
 
-    std::string mangledName = "__generic_" + genericDecl->Name;
+    std::vector<TGenericMangleArg> mangleArgs;
+    mangleArgs.reserve(genericDecl->GenericParams.size());
     for (const auto& param : genericDecl->GenericParams) {
         if (param.Kind == TGenericParam::EKind::Type) {
-            mangledName += "$" + TypeKey(bindings.Types[param.Name]);
+            mangleArgs.push_back({.Type = bindings.Types[param.Name]});
         } else {
-            mangledName += "$" + bindings.Values[param.Name];
+            mangleArgs.push_back({.Value = bindings.Values[param.Name]});
         }
     }
+    std::string mangledName = MangleGenericInstance(genericDecl->Name, mangleArgs);
 
     auto rootScopeId = context.GetOrCreateRootScope()->Id;
     if (auto found = context.Lookup(mangledName, rootScopeId)) {
