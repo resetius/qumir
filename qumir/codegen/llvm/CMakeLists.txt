@@ -34,6 +34,8 @@ add_library(qumir_codegen_llvm
     llvm_codegen.h
     llvm_runner.cpp
     llvm_runner.h
+    symbol_object_cache.cpp
+    symbol_object_cache.h
 )
 
 target_include_directories(qumir_codegen_llvm
@@ -42,8 +44,8 @@ target_include_directories(qumir_codegen_llvm
         ${CMAKE_CURRENT_SOURCE_DIR}/../../.. # project root include
 )
 
-# Use a conservative feature requirement (can be raised later)
-target_compile_features(qumir_codegen_llvm PUBLIC cxx_std_20)
+# C++23 for std::expected (matches the core lib).
+target_compile_features(qumir_codegen_llvm PUBLIC cxx_std_23)
 
 # Propagate minimal definitions
 add_definitions(${LLVM_DEFINITIONS})
