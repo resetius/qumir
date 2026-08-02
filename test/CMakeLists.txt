@@ -32,6 +32,7 @@ ut(test_compose test_compose.cpp)
 ut(test_module_exec test_module_exec.cpp)
 ut(test_ffi test_ffi.cpp)
 ut(test_kernel_ast test_kernel_ast.cpp)
+ut(test_symbol_object_cache test_symbol_object_cache.cpp)
 
 # JavaScript execution tests (Node.js required)
 find_program(NODE_EXECUTABLE node)
