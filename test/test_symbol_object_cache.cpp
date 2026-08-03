@@ -4,9 +4,11 @@
 
 #include <unistd.h>
 
+#include <atomic>
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace NQumir::NCodeGen;
@@ -147,6 +149,55 @@ TEST(SymbolObjectCache, ResolveDedupsRepeatedMisses) {
     auto cache = TSymbolObjectCache::Open(dir.Str(), Fp());
     ASSERT_TRUE(cache);
     EXPECT_EQ(cache->Resolve({"A", "A"}).Misses, std::vector<std::string>{"A"});
+}
+
+TEST(SymbolObjectCache, ConcurrentDisjointRegistrations) {
+    TCacheDir dir;
+    constexpr int N = 8;
+    std::vector<std::thread> threads;
+    for (int i = 0; i < N; ++i) {
+        threads.emplace_back([&, i] {
+            auto cache = TSymbolObjectCache::Open(dir.Str(), Fp());
+            if (!cache) { ADD_FAILURE() << "open failed"; return; }
+            auto r = cache->Register("OBJ" + std::to_string(i), {"S" + std::to_string(i)});
+            EXPECT_TRUE(r) << (r ? "" : r.error().what());
+        });
+    }
+    for (auto& t : threads) t.join();
+
+    auto cache = TSymbolObjectCache::Open(dir.Str(), Fp());
+    ASSERT_TRUE(cache);
+    std::vector<std::string> all;
+    for (int i = 0; i < N; ++i) all.push_back("S" + std::to_string(i));
+    auto plan = cache->Resolve(all);
+    EXPECT_TRUE(plan.Misses.empty());
+    EXPECT_EQ(plan.ObjectFiles.size(), static_cast<size_t>(N));
+}
+
+TEST(SymbolObjectCache, ConcurrentSameSymbolFirstWriterWins) {
+    TCacheDir dir;
+    constexpr int N = 8;
+    std::atomic<int> installed{0};
+    std::vector<std::thread> threads;
+    for (int i = 0; i < N; ++i) {
+        threads.emplace_back([&, i] {
+            auto cache = TSymbolObjectCache::Open(dir.Str(), Fp());
+            if (!cache) { ADD_FAILURE() << "open failed"; return; }
+            auto r = cache->Register("OBJ" + std::to_string(i), {"S"});
+            EXPECT_TRUE(r) << (r ? "" : r.error().what());
+            if (r && *r == ERegisterResult::Installed) {
+                ++installed;
+            }
+        });
+    }
+    for (auto& t : threads) t.join();
+    EXPECT_EQ(installed.load(), 1); // exactly one writer installs S; the rest see it present
+
+    auto cache = TSymbolObjectCache::Open(dir.Str(), Fp());
+    ASSERT_TRUE(cache);
+    auto plan = cache->Resolve({"S"});
+    EXPECT_TRUE(plan.Misses.empty());
+    EXPECT_EQ(plan.ObjectFiles.size(), 1u);
 }
 
 int main(int argc, char** argv) {
