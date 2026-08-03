@@ -2384,16 +2384,23 @@ TFunDeclTask InstantiateGenericFunction(
         true,
         expectedReturnType);
 
-    std::vector<TGenericMangleArg> mangleArgs;
-    mangleArgs.reserve(genericDecl->GenericParams.size());
-    for (const auto& param : genericDecl->GenericParams) {
-        if (param.Kind == TGenericParam::EKind::Type) {
-            mangleArgs.push_back({.Type = bindings.Types[param.Name]});
-        } else {
-            mangleArgs.push_back({.Value = bindings.Values[param.Name]});
+    std::vector<TParam> params;
+    params.reserve(genericDecl->Params.size());
+    std::vector<TTypePtr> paramTypes;
+    paramTypes.reserve(genericDecl->Params.size());
+    for (auto& param : genericDecl->Params) {
+        auto clonedParam = std::make_shared<TVarStmt>(*param);
+        clonedParam->Type = SubstituteGenericType(param->Type, genericParams, bindings);
+        for (auto& bound : clonedParam->Bounds) {
+            bound.first = CloneAndSubstituteExpr(bound.first, genericParams, bindings);
+            bound.second = CloneAndSubstituteExpr(bound.second, genericParams, bindings);
         }
+        paramTypes.push_back(clonedParam->Type);
+        params.push_back(std::move(clonedParam));
     }
-    std::string mangledName = MangleGenericInstance(genericDecl->Name, mangleArgs);
+    auto retType = SubstituteGenericType(genericDecl->RetType, genericParams, bindings);
+
+    std::string mangledName = MangleGenericInstance(genericDecl->Name, retType, paramTypes);
 
     auto rootScopeId = context.GetOrCreateRootScope()->Id;
     if (auto found = context.Lookup(mangledName, rootScopeId)) {
@@ -2402,29 +2409,10 @@ TFunDeclTask InstantiateGenericFunction(
         }
     }
 
-    std::vector<TParam> params;
-    params.reserve(genericDecl->Params.size());
-    for (auto& param : genericDecl->Params) {
-        auto clonedParam = std::make_shared<TVarStmt>(*param);
-        clonedParam->Type = SubstituteGenericType(param->Type, genericParams, bindings);
-        for (auto& bound : clonedParam->Bounds) {
-            bound.first = CloneAndSubstituteExpr(bound.first, genericParams, bindings);
-            bound.second = CloneAndSubstituteExpr(bound.second, genericParams, bindings);
-        }
-        params.push_back(std::move(clonedParam));
-    }
-    auto retType = SubstituteGenericType(genericDecl->RetType, genericParams, bindings);
-
     auto body = TMaybeNode<TBlockExpr>(CloneAndSubstituteExpr(genericDecl->Body, genericParams, bindings)).Cast();
 
     auto cloned = std::make_shared<TFunDecl>(genericDecl->Location, mangledName, std::vector<TGenericParam>{}, std::move(params), body, retType);
     cloned->LastAssert = CloneAndSubstituteExpr(genericDecl->LastAssert, genericParams, bindings);
-
-    std::vector<TTypePtr> paramTypes;
-    paramTypes.reserve(cloned->Params.size());
-    for (auto& param : cloned->Params) {
-        paramTypes.push_back(param->Type);
-    }
     cloned->Type = std::make_shared<TFunctionType>(std::move(paramTypes), cloned->RetType);
 
     auto declRes = context.ResolveInstantiatedFunDecl(cloned);

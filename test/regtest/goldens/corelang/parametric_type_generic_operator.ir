@@ -2,12 +2,12 @@ function <main> () { ; void
   block {
     label: label(0)
     arg imm(4,i64) 
-    call tmp(0,struct { i64}) = __generic_box_from$i64 
+    call tmp(0,struct { i64}) = __generic_box_from$Box_i64__$i64 
     stre local(3,struct { i64}) tmp(0,struct { i64}) 
     lea tmp(1,ptr to struct { i64}) = local(3,struct { i64}) 
     stre local(0,struct { i64}) tmp(1,ptr to struct { i64}) 
     arg imm(8,i64) 
-    call tmp(2,struct { i64}) = __generic_box_from$i64 
+    call tmp(2,struct { i64}) = __generic_box_from$Box_i64__$i64 
     stre local(4,struct { i64}) tmp(2,struct { i64}) 
     lea tmp(3,ptr to struct { i64}) = local(4,struct { i64}) 
     stre local(1,struct { i64}) tmp(3,ptr to struct { i64}) 
@@ -15,7 +15,7 @@ function <main> () { ; void
     lea tmp(5,ptr to struct { i64}) = local(1,struct { i64}) 
     arg tmp(4,ptr to struct { i64}) 
     arg tmp(5,ptr to struct { i64}) 
-    call tmp(6,struct { i64}) = __generic_box_add$i64 
+    call tmp(6,struct { i64}) = __generic_box_add$Box_i64__$Box_i64$Box_i64 
     stre local(5,struct { i64}) tmp(6,struct { i64}) 
     lea tmp(7,ptr to struct { i64}) = local(5,struct { i64}) 
     stre local(2,struct { i64}) tmp(7,ptr to struct { i64}) 
@@ -34,7 +34,7 @@ function <main> () { ; void
     ret 
   }
 }
-function __generic_box_from$i64 (local(0)) { ; struct { i64}
+function __generic_box_from$Box_i64__$i64 (local(0)) { ; struct { i64}
   block {
     label: label(0)
     salloc tmp(0,ptr to struct { i64}) = imm(8,i64) 
@@ -50,7 +50,7 @@ function __generic_box_from$i64 (local(0)) { ; struct { i64}
     ret tmp(3,ptr to struct { i64}) 
   }
 }
-function __generic_box_add$i64 (local(0), local(1)) { ; struct { i64}
+function __generic_box_add$Box_i64__$Box_i64$Box_i64 (local(0), local(1)) { ; struct { i64}
   block {
     label: label(0)
     salloc tmp(0,ptr to struct { i64}) = imm(8,i64) 

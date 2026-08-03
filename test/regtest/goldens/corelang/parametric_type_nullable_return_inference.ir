@@ -10,7 +10,7 @@ function <main> () { ; void
     lea tmp(3,ptr to struct { i64; i1}) = local(0,struct { i64; i1}) 
     arg tmp(3,ptr to struct { i64; i1}) 
     arg imm(4602678819172646912,f64) 
-    call tmp(4,struct { f64; i1}) = __generic_nullable_add_rhs$i64$Float$Float 
+    call tmp(4,struct { f64; i1}) = __generic_nullable_add_rhs$Nullable_f64__$Nullable_i64$f64 
     stre local(2,struct { f64; i1}) tmp(4,struct { f64; i1}) 
     lea tmp(5,ptr to struct { f64; i1}) = local(2,struct { f64; i1}) 
     stre local(1,struct { f64; i1}) tmp(5,ptr to struct { f64; i1}) 
@@ -53,7 +53,7 @@ function <main> () { ; void
     ret 
   }
 }
-function __generic_nullable_add_rhs$i64$Float$Float (local(0), local(1)) { ; struct { f64; i1}
+function __generic_nullable_add_rhs$Nullable_f64__$Nullable_i64$f64 (local(0), local(1)) { ; struct { f64; i1}
   block {
     label: label(0)
     lea tmp(0,ptr to struct { i64; i1}) = local(0,struct { i64; i1}) 

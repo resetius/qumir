@@ -7,7 +7,7 @@ function <main> () { ; void
     stre local(0,struct { i64}) tmp(0,ptr to struct { i64}) 
     lea tmp(2,ptr to struct { i64}) = local(0,struct { i64}) 
     arg tmp(2,ptr to struct { i64}) 
-    call tmp(3,i64) = __generic___overload_unwrap$Named::Box[Generic::T0]$i64 
+    call tmp(3,i64) = __generic___overload_unwrap$T0__$Box_T0$i64__$Box_i64 
     arg tmp(3,i64) 
     arg imm(0,i64) 
     call output_int64 
@@ -20,7 +20,7 @@ function <main> () { ; void
     ret 
   }
 }
-function __overload_unwrap$String (local(0)) { ; i64
+function __overload_unwrap$i64__$string (local(0)) { ; i64
   block {
     label: label(0)
     stre local(1,i64) imm(0,i64) 
@@ -32,7 +32,7 @@ function __overload_unwrap$String (local(0)) { ; i64
     ret tmp(0,i64) 
   }
 }
-function __generic___overload_unwrap$Named::Box[Generic::T0]$i64 (local(0)) { ; i64
+function __generic___overload_unwrap$T0__$Box_T0$i64__$Box_i64 (local(0)) { ; i64
   block {
     label: label(0)
     lea tmp(0,ptr to struct { i64}) = local(0,struct { i64}) 

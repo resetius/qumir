@@ -10,14 +10,14 @@ function <main> () { ; void
     lea tmp(3,ptr to struct { i32; i1}) = local(0,struct { i32; i1}) 
     arg tmp(3,ptr to struct { i32; i1}) 
     arg imm(1,i32) 
-    call tmp(4,struct { i32; i1}) = __generic_nullable_add_rhs$i32 
+    call tmp(4,struct { i32; i1}) = __generic_nullable_add_rhs$Nullable_i32__$Nullable_i32$i32 
     stre local(3,struct { i32; i1}) tmp(4,struct { i32; i1}) 
     lea tmp(5,ptr to struct { i32; i1}) = local(3,struct { i32; i1}) 
     stre local(1,struct { i32; i1}) tmp(5,ptr to struct { i32; i1}) 
     lea tmp(6,ptr to struct { i32; i1}) = local(0,struct { i32; i1}) 
     arg imm(2,i32) 
     arg tmp(6,ptr to struct { i32; i1}) 
-    call tmp(7,struct { i32; i1}) = __generic_nullable_add_lhs$i32 
+    call tmp(7,struct { i32; i1}) = __generic_nullable_add_lhs$Nullable_i32__$i32$Nullable_i32 
     stre local(4,struct { i32; i1}) tmp(7,struct { i32; i1}) 
     lea tmp(8,ptr to struct { i32; i1}) = local(4,struct { i32; i1}) 
     stre local(2,struct { i32; i1}) tmp(8,ptr to struct { i32; i1}) 
@@ -70,18 +70,18 @@ function add_i32 (local(0), local(1)) { ; i32
     ret tmp(3,i32) 
   }
 }
-function __generic_nullable_add_rhs$i32 (local(0), local(1)) { ; struct { i32; i1}
+function __generic_nullable_add_rhs$Nullable_i32__$Nullable_i32$i32 (local(0), local(1)) { ; struct { i32; i1}
   block {
     label: label(0)
     lea tmp(0,ptr to struct { i32; i1}) = local(0,struct { i32; i1}) 
     load tmp(1,i32) = local(1,i32) 
     arg tmp(1,i32) 
-    call tmp(2,struct { i32; i1}) = __generic_nullable_from_value$i32 
+    call tmp(2,struct { i32; i1}) = __generic_nullable_from_value$Nullable_i32__$i32 
     stre local(3,struct { i32; i1}) tmp(2,struct { i32; i1}) 
     lea tmp(3,ptr to struct { i32; i1}) = local(3,struct { i32; i1}) 
     arg tmp(0,ptr to struct { i32; i1}) 
     arg tmp(3,ptr to struct { i32; i1}) 
-    call tmp(4,struct { i32; i1}) = __generic_nullable_add$i32 
+    call tmp(4,struct { i32; i1}) = __generic_nullable_add$Nullable_i32__$Nullable_i32$Nullable_i32 
     stre local(4,struct { i32; i1}) tmp(4,struct { i32; i1}) 
     lea tmp(5,ptr to struct { i32; i1}) = local(4,struct { i32; i1}) 
     stre local(2,struct { i32; i1}) tmp(5,ptr to struct { i32; i1}) 
@@ -93,7 +93,7 @@ function __generic_nullable_add_rhs$i32 (local(0), local(1)) { ; struct { i32; i
     ret tmp(6,ptr to struct { i32; i1}) 
   }
 }
-function __generic_nullable_from_value$i32 (local(0)) { ; struct { i32; i1}
+function __generic_nullable_from_value$Nullable_i32__$i32 (local(0)) { ; struct { i32; i1}
   block {
     label: label(0)
     salloc tmp(0,ptr to struct { i32; i1}) = imm(8,i64) 
@@ -111,7 +111,7 @@ function __generic_nullable_from_value$i32 (local(0)) { ; struct { i32; i1}
     ret tmp(4,ptr to struct { i32; i1}) 
   }
 }
-function __generic_nullable_add$i32 (local(0), local(1)) { ; struct { i32; i1}
+function __generic_nullable_add$Nullable_i32__$Nullable_i32$Nullable_i32 (local(0), local(1)) { ; struct { i32; i1}
   block {
     label: label(0)
     lea tmp(0,ptr to struct { i32; i1}) = local(0,struct { i32; i1}) 
@@ -166,18 +166,18 @@ function __generic_nullable_add$i32 (local(0), local(1)) { ; struct { i32; i1}
     ret tmp(20,ptr to struct { i32; i1}) 
   }
 }
-function __generic_nullable_add_lhs$i32 (local(0), local(1)) { ; struct { i32; i1}
+function __generic_nullable_add_lhs$Nullable_i32__$i32$Nullable_i32 (local(0), local(1)) { ; struct { i32; i1}
   block {
     label: label(0)
     load tmp(0,i32) = local(0,i32) 
     arg tmp(0,i32) 
-    call tmp(1,struct { i32; i1}) = __generic_nullable_from_value$i32 
+    call tmp(1,struct { i32; i1}) = __generic_nullable_from_value$Nullable_i32__$i32 
     stre local(3,struct { i32; i1}) tmp(1,struct { i32; i1}) 
     lea tmp(2,ptr to struct { i32; i1}) = local(3,struct { i32; i1}) 
     lea tmp(3,ptr to struct { i32; i1}) = local(1,struct { i32; i1}) 
     arg tmp(2,ptr to struct { i32; i1}) 
     arg tmp(3,ptr to struct { i32; i1}) 
-    call tmp(4,struct { i32; i1}) = __generic_nullable_add$i32 
+    call tmp(4,struct { i32; i1}) = __generic_nullable_add$Nullable_i32__$Nullable_i32$Nullable_i32 
     stre local(4,struct { i32; i1}) tmp(4,struct { i32; i1}) 
     lea tmp(5,ptr to struct { i32; i1}) = local(4,struct { i32; i1}) 
     stre local(2,struct { i32; i1}) tmp(5,ptr to struct { i32; i1}) 

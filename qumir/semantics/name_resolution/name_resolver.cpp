@@ -224,61 +224,57 @@ std::string OverloadTypeKey(
 {
     if (!type) return "unknown";
     if (auto integer = TMaybeType<TIntegerType>(type)) return integer.Cast()->ToString();
+    if (TMaybeType<TFloatType>(type)) return "f64";
+    if (TMaybeType<TBoolType>(type)) return "bool";
+    if (TMaybeType<TStringType>(type)) return "string";
+    if (TMaybeType<TSymbolType>(type)) return "char";
+    if (TMaybeType<TVoidType>(type)) return "void";
     if (auto named = TMaybeType<TNamedType>(type)) {
         auto src = named.Cast();
         auto alias = genericAliases.Types.find(src->Name);
         std::string value = alias != genericAliases.Types.end()
-            ? "Generic::" + alias->second
-            : "Named::" + src->Name;
-        if (!src->TypeArgs.empty()) {
-            value += "[";
-            for (size_t i = 0; i < src->TypeArgs.size(); ++i) {
-                if (i != 0) {
-                    value += ",";
-                }
-                const auto& arg = src->TypeArgs[i];
-                if (arg.Kind == TGenericArg::EKind::Type) {
-                    value += OverloadTypeKey(arg.Type, genericAliases);
-                } else {
-                    auto valueAlias = genericAliases.Values.find(arg.Value);
-                    value += valueAlias != genericAliases.Values.end()
-                        ? "GenericValue::" + valueAlias->second
-                        : "Value::" + arg.Value;
-                }
+            ? alias->second
+            : src->Name;
+        for (const auto& arg : src->TypeArgs) {
+            value += "_";
+            if (arg.Kind == TGenericArg::EKind::Type) {
+                value += OverloadTypeKey(arg.Type, genericAliases);
+            } else {
+                auto valueAlias = genericAliases.Values.find(arg.Value);
+                value += valueAlias != genericAliases.Values.end()
+                    ? valueAlias->second
+                    : "Value_" + arg.Value;
             }
-            value += "]";
         }
         return value;
     }
     if (auto future = TMaybeType<TFutureType>(type)) {
-        return std::string("Future::") + OverloadTypeKey(future.Cast()->ResultType, genericAliases);
+        return std::string("Future_") + OverloadTypeKey(future.Cast()->ResultType, genericAliases);
     }
     if (auto array = TMaybeType<TArrayType>(type)) {
-        return "Array::" + std::to_string(array.Cast()->Arity) + "::"
+        return "Array" + std::to_string(array.Cast()->Arity) + "_"
             + OverloadTypeKey(array.Cast()->ElementType, genericAliases);
     }
     if (auto pointer = TMaybeType<TPointerType>(type)) {
-        return std::string("Ptr::") + OverloadTypeKey(pointer.Cast()->PointeeType, genericAliases);
+        return std::string("Ptr_") + OverloadTypeKey(pointer.Cast()->PointeeType, genericAliases);
     }
     if (auto reference = TMaybeType<TReferenceType>(type)) {
-        return std::string("Ref::") + OverloadTypeKey(reference.Cast()->ReferencedType, genericAliases);
+        return std::string("Ref_") + OverloadTypeKey(reference.Cast()->ReferencedType, genericAliases);
     }
     if (auto function = TMaybeType<TFunctionType>(type)) {
-        std::string key = "Fun::(";
-        for (size_t i = 0; i < function.Cast()->ParamTypes.size(); ++i) {
-            if (i > 0) key += ",";
-            key += OverloadTypeKey(function.Cast()->ParamTypes[i], genericAliases);
-        }
-        key += ")->";
+        std::string key = "Fun_";
         key += OverloadTypeKey(function.Cast()->ReturnType, genericAliases);
+        key += "__";
+        for (const auto& paramType : function.Cast()->ParamTypes) {
+            key += "_" + OverloadTypeKey(paramType, genericAliases);
+        }
         return key;
     }
     if (auto structure = TMaybeType<TStructType>(type)) {
-        std::string key = "Struct::{";
-        for (const auto& [name, fieldType] : structure.Cast()->Fields) {
-            key += name + ":" + OverloadTypeKey(fieldType, genericAliases) + ";";
+        std::string key = "Struct";
+        for (const auto& [_, fieldType] : structure.Cast()->Fields) {
+            key += "_" + OverloadTypeKey(fieldType, genericAliases);
         }
-        key += "}";
         return key;
     }
     return std::string(type->TypeName());
@@ -286,10 +282,13 @@ std::string OverloadTypeKey(
 
 // Signature-based, order-independent symbol name; uniqueness matches ParamTypesSame.
 std::string OverloadMangledName(const std::string& canonicalName, const TFunDecl& decl) {
-    std::string name = "__overload_" + canonicalName;
+    std::string name = "__overload_" + canonicalName + "$";
     auto aliases = GenericParamAliases(decl);
+    name += OverloadTypeKey(decl.RetType, aliases);
+    name += "__";
     for (const auto& param : decl.Params) {
-        name += "$" + OverloadTypeKey(param->Type, aliases);
+        name += "$";
+        name += OverloadTypeKey(param->Type, aliases);
     }
     return name;
 }

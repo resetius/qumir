@@ -682,7 +682,7 @@ TEST(ParametricTypes, RetypesIntegerLiteralToExistingFloatGenericBinding) {
     auto typeResult = NTransform::FinalTypeAnnotation(root, resolver);
     ASSERT_TRUE(typeResult.has_value()) << typeResult.error().ToString();
 
-    auto instantiatedCall = FindCallWithCalleePrefix(root, "__generic_nullable_add_rhs$Float");
+    auto instantiatedCall = FindCallWithCalleePrefix(root, "__generic_nullable_add_rhs$Nullable_f64__$Nullable_f64$f64");
     ASSERT_TRUE(instantiatedCall);
     auto nullable = TMaybeType<TNamedType>(instantiatedCall->Type).Cast();
     ASSERT_TRUE(nullable);

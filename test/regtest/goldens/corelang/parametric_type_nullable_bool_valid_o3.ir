@@ -41,7 +41,7 @@ function cmp (local(0), local(1)) { ; i1
     lea tmp(5,ptr to struct { f64; i1}) = local(2,struct { f64; i1}) 
     arg tmp(5,ptr to struct { f64; i1}) 
     arg imm(100000,i64) 
-    call tmp(6,struct { i1; i1}) = __generic_nullable_lt_rhs$Float$i64 
+    call tmp(6,struct { i1; i1}) = __generic_nullable_lt_rhs$Nullable_bool__$Nullable_f64$i64 
     stre local(5,struct { i1; i1}) tmp(6,struct { i1; i1}) 
     lea tmp(7,ptr to struct { i1; i1}) = local(5,struct { i1; i1}) 
     stre local(3,struct { i1; i1}) tmp(7,ptr to struct { i1; i1}) 
@@ -57,7 +57,7 @@ function cmp (local(0), local(1)) { ; i1
     ret tmp(11,i1) 
   }
 }
-function __generic_nullable_lt_rhs$Float$i64 (local(0), local(1)) { ; struct { i1; i1}
+function __generic_nullable_lt_rhs$Nullable_bool__$Nullable_f64$i64 (local(0), local(1)) { ; struct { i1; i1}
   block {
     label: label(0)
     lea tmp(0,ptr to struct { f64; i1}) = local(0,struct { f64; i1}) 

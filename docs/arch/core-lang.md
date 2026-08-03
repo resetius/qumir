@@ -486,11 +486,11 @@ Generic functions are enabled by the same `(pragma language overloads)` pragma
 as overload sets. At each call site the concrete types bound to type parameters
 are inferred from argument types by unification, and a monomorphized clone of
 the function is generated for that binding. The clone is registered under a
-synthetic name `__generic_<name>$<TypeKey1>$<TypeKey2>...`
-(`__generic_identity$i64`, `__generic_identity$String`, ...) and substituted
-for the call. Repeat calls with the same concrete types reuse the cached clone
-— exactly one definition exists per (function, type-binding) pair, regardless
-of how many call sites use it.
+signature-based synthetic name `__generic_<name>$<ReturnType>__$<ArgType1>...`
+(`__generic_identity$i64__$i64`, `__generic_identity$string__$string`, ...)
+and substituted for the call. Repeat calls with the same concrete signature
+reuse the cached clone — exactly one definition exists per concrete signature,
+regardless of how many call sites use it.
 
 Type parameters may appear nested inside composite types (`<array K 1>`,
 `<ref K>`, `<fun K (K)>`, ...), and a function may have several independent
