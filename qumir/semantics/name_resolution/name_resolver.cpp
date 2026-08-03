@@ -284,6 +284,16 @@ std::string OverloadTypeKey(
     return std::string(type->TypeName());
 }
 
+// Signature-based, order-independent symbol name; uniqueness matches ParamTypesSame.
+std::string OverloadMangledName(const std::string& canonicalName, const TFunDecl& decl) {
+    std::string name = "__overload_" + canonicalName;
+    auto aliases = GenericParamAliases(decl);
+    for (const auto& param : decl.Params) {
+        name += "$" + OverloadTypeKey(param->Type, aliases);
+    }
+    return name;
+}
+
 } // namespace
 
 TNameResolver::TNameResolver(const TNameResolverOptions& options)
@@ -757,10 +767,20 @@ std::optional<TSuggestion> TNameResolver::Suggest(const std::string& name, TScop
 std::expected<TSymbolId, TError> TNameResolver::Declare(const std::string& name, TExprPtr node, TScopePtr scope, TScopePtr funcScope) {
     auto maybeSymbolId = scope->NameToSymbolId.find(name);
     TSymbolId symbolId{-1};
-    if (Options.AllowOverloads && NAst::TMaybeNode<NAst::TFunDecl>(node)) {
-        auto ovIt = scope->OverloadSets.find(name);
-        if (ovIt != scope->OverloadSets.end()) {
-            return RegisterOverloadEntry(name, node, ovIt->second);
+    if (auto fd = NAst::TMaybeNode<NAst::TFunDecl>(node)) {
+        if (Options.AllowOverloads) {
+            auto ovIt = scope->OverloadSets.find(name);
+            if (ovIt != scope->OverloadSets.end()) {
+                return RegisterOverloadEntry(name, node, ovIt->second);
+            }
+        }
+        // Independent of overloads: a sole cacheable decl gets a signature-stable
+        // emit symbol (versioned by KernelLibVersion) while keeping canonical
+        // Name lookup.
+        if (fd.Cast()->Cacheable && !fd.Cast()->Mangled
+            && maybeSymbolId == scope->NameToSymbolId.end()) {
+            fd.Cast()->MangledName = OverloadMangledName(name, *fd.Cast());
+            fd.Cast()->Mangled = true;
         }
     }
 
@@ -907,8 +927,9 @@ std::expected<TSymbolId, TError> TNameResolver::RegisterOverloadEntry(
                 "overload of '" + canonicalName + "' has identical parameter types"));
         }
     }
-    std::string synthName = "__overload_" + canonicalName + "_" + std::to_string(overloads.size());
+    std::string synthName = OverloadMangledName(canonicalName, *newDecl);
     newDecl->Name = synthName;
+    newDecl->Mangled = true;
     auto symId = DeclareFunction(synthName, node);
     overloads.push_back(symId);
     return symId;

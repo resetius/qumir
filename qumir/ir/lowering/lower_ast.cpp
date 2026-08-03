@@ -1453,7 +1453,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (fun->IsExternal()) {
             co_return TValueWithBlock{ std::nullopt, TLabel{} };
         }
-        auto name = fun->Name;
+        // Emit under MangledName when set (cacheable/overloaded symbol), else Name.
+        auto name = fun->MangledName.empty() ? fun->Name : fun->MangledName;
         if (scope.Id.Id != 0) {
             co_return TError(fun->Location, TErrorString::Get<EErrorId::NESTED_FUNCTIONS_NOT_SUPPORTED>());
         }
