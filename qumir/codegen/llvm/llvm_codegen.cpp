@@ -447,14 +447,70 @@ std::unordered_map<uint64_t, llvm::Instruction::BinaryOps> fbinOpMap = {
 } // namespace
 
 std::vector<std::string> CollectCacheableSymbols(const NIR::TModule& module) {
-    std::vector<std::string> out;
+    // Candidate cacheable definitions (generic instance or `cacheable`); a
+    // coroutine lowers to several symbols one name cannot describe.
+    std::unordered_set<int> candidates;
+    std::unordered_set<int> definedSyms;
     for (const auto& fn : module.Functions) {
-        // Only real definitions; a coroutine lowers to several symbols (entry/
-        // resume/destroy) that one name cannot describe, so never cache it.
+        definedSyms.insert(fn.SymId);
         if (fn.Blocks.empty() || fn.IsCoroutine) {
             continue;
         }
         if (IsCacheableSymbol(fn.Name) || fn.Cacheable) {
+            candidates.insert(fn.SymId);
+        }
+    }
+
+    // Defined callees of each candidate (external/runtime callees never matter,
+    // they resolve at load time everywhere).
+    std::unordered_map<int, std::vector<int>> definedCallees;
+    for (const auto& fn : module.Functions) {
+        if (!candidates.count(fn.SymId)) {
+            continue;
+        }
+        auto& callees = definedCallees[fn.SymId];
+        for (const auto& block : fn.Blocks) {
+            for (const auto& instr : block.Instrs) {
+                if ((instr.Op == "call"_op || instr.Op == "await"_op)
+                    && instr.OperandCount >= 1
+                    && instr.Operands[0].Type == TOperand::EType::Imm) {
+                    int callee = static_cast<int>(instr.Operands[0].Imm.Value);
+                    if (definedSyms.count(callee)) {
+                        callees.push_back(callee);
+                    }
+                }
+            }
+        }
+    }
+
+    // A cache object must be self-contained: reference only cacheable or runtime
+    // symbols. Demote (to fixpoint) any candidate that calls a defined
+    // non-candidate (a query-specific function like jt_residual_filter, or an
+    // already-demoted candidate) — its object could not link into a kernel that
+    // lacks that symbol.
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (auto it = candidates.begin(); it != candidates.end();) {
+            bool demote = false;
+            for (int callee : definedCallees[*it]) {
+                if (!candidates.count(callee)) {
+                    demote = true;
+                    break;
+                }
+            }
+            if (demote) {
+                it = candidates.erase(it);
+                changed = true;
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    std::vector<std::string> out;
+    for (const auto& fn : module.Functions) {
+        if (candidates.count(fn.SymId)) {
             out.push_back(fn.Name);
         }
     }
