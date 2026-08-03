@@ -17,7 +17,7 @@ function <main> () { ; void
     lea tmp(7,ptr to struct { f64; i1}) = local(1,struct { f64; i1}) 
     arg tmp(6,ptr to struct { i64; i1}) 
     arg tmp(7,ptr to struct { f64; i1}) 
-    call tmp(8,struct { f64; i1}) = __generic_nullable_mul$i64$Float$Float 
+    call tmp(8,struct { f64; i1}) = __generic_nullable_mul$Nullable_f64__$Nullable_i64$Nullable_f64 
     stre local(3,struct { f64; i1}) tmp(8,struct { f64; i1}) 
     lea tmp(9,ptr to struct { f64; i1}) = local(3,struct { f64; i1}) 
     stre local(2,struct { f64; i1}) tmp(9,ptr to struct { f64; i1}) 
@@ -60,7 +60,7 @@ function <main> () { ; void
     ret 
   }
 }
-function __generic_nullable_mul$i64$Float$Float (local(0), local(1)) { ; struct { f64; i1}
+function __generic_nullable_mul$Nullable_f64__$Nullable_i64$Nullable_f64 (local(0), local(1)) { ; struct { f64; i1}
   block {
     label: label(0)
     lea tmp(0,ptr to struct { i64; i1}) = local(0,struct { i64; i1}) 

@@ -33,10 +33,12 @@ const NAst::TFunDecl* FindFun(const NAst::TExprPtr& e, const std::string& name) 
 
 TEST(CollectCacheableSymbols, ByGenericNameAndByFlag) {
     NIR::TModule m;
+    int symId = 1;
     auto add = [&](std::string name, bool cacheable) {
         NIR::TFunction f{};
         f.Name = std::move(name);
         f.Cacheable = cacheable;
+        f.SymId = symId++;
         f.Blocks.emplace_back(); // a definition has at least one block
         m.Functions.push_back(std::move(f));
     };

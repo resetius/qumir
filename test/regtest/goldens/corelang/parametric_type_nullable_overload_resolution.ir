@@ -17,7 +17,7 @@ function <main> () { ; void
     lea tmp(7,ptr to struct { i32; i1}) = local(1,struct { i32; i1}) 
     arg tmp(6,ptr to struct { i32; i1}) 
     arg tmp(7,ptr to struct { i32; i1}) 
-    call tmp(8,struct { i32; i1}) = __generic_nullable_add$i32 
+    call tmp(8,struct { i32; i1}) = __generic_nullable_add$Nullable_i32__$Nullable_i32$Nullable_i32 
     stre local(4,struct { i32; i1}) tmp(8,struct { i32; i1}) 
     lea tmp(9,ptr to struct { i32; i1}) = local(4,struct { i32; i1}) 
     stre local(2,struct { i32; i1}) tmp(9,ptr to struct { i32; i1}) 
@@ -25,7 +25,7 @@ function <main> () { ; void
     lea tmp(11,ptr to struct { i32; i1}) = local(1,struct { i32; i1}) 
     arg tmp(10,ptr to struct { i32; i1}) 
     arg tmp(11,ptr to struct { i32; i1}) 
-    call tmp(12,struct { f64; i1}) = __generic_nullable_div$i32 
+    call tmp(12,struct { f64; i1}) = __generic_nullable_div$Nullable_f64__$Nullable_i32$Nullable_i32 
     stre local(5,struct { f64; i1}) tmp(12,struct { f64; i1}) 
     lea tmp(13,ptr to struct { f64; i1}) = local(5,struct { f64; i1}) 
     stre local(3,struct { f64; i1}) tmp(13,ptr to struct { f64; i1}) 
@@ -54,7 +54,7 @@ function <main> () { ; void
     ret 
   }
 }
-function __generic_nullable_add$i32 (local(0), local(1)) { ; struct { i32; i1}
+function __generic_nullable_add$Nullable_i32__$Nullable_i32$Nullable_i32 (local(0), local(1)) { ; struct { i32; i1}
   block {
     label: label(0)
     lea tmp(0,ptr to struct { i32; i1}) = local(0,struct { i32; i1}) 
@@ -109,7 +109,7 @@ function __generic_nullable_add$i32 (local(0), local(1)) { ; struct { i32; i1}
     ret tmp(20,ptr to struct { i32; i1}) 
   }
 }
-function __generic_nullable_div$i32 (local(0), local(1)) { ; struct { f64; i1}
+function __generic_nullable_div$Nullable_f64__$Nullable_i32$Nullable_i32 (local(0), local(1)) { ; struct { f64; i1}
   block {
     label: label(0)
     lea tmp(0,ptr to struct { i32; i1}) = local(0,struct { i32; i1}) 

@@ -524,25 +524,84 @@ inline std::string TypeKey(const TTypePtr& t) {
     return std::string(t->TypeName());
 }
 
-// One generic argument in declaration order: a type, or a value string when Type is null.
-struct TGenericMangleArg {
-    TTypePtr Type;
-    std::string Value;
-};
+inline std::string TypeMangleKey(const TTypePtr& t);
 
-// Single source of truth for generic-instance symbol names, shared by the annotator
-// and any external code that pre-registers instantiations.
-inline std::string MangleGenericInstance(
-    std::string_view name,
-    const std::vector<TGenericMangleArg>& args)
+inline std::string GenericArgMangleKey(const TGenericArg& arg) {
+    if (arg.Kind == TGenericArg::EKind::Type) {
+        return TypeMangleKey(arg.Type);
+    }
+    return "Value_" + arg.Value;
+}
+
+inline std::string TypeMangleKey(const TTypePtr& t) {
+    if (!t) return "unknown";
+    if (auto integer = TMaybeType<TIntegerType>(t)) return integer.Cast()->ToString();
+    if (TMaybeType<TFloatType>(t)) return "f64";
+    if (TMaybeType<TBoolType>(t)) return "bool";
+    if (TMaybeType<TStringType>(t)) return "string";
+    if (TMaybeType<TSymbolType>(t)) return "char";
+    if (TMaybeType<TVoidType>(t)) return "void";
+    if (auto named = TMaybeType<TNamedType>(t)) {
+        auto src = named.Cast();
+        std::string key = src->Name;
+        for (const auto& arg : src->TypeArgs) {
+            key += "_" + GenericArgMangleKey(arg);
+        }
+        return key;
+    }
+    if (auto future = TMaybeType<TFutureType>(t)) {
+        return std::string("Future_") + TypeMangleKey(future.Cast()->ResultType);
+    }
+    if (auto array = TMaybeType<TArrayType>(t)) {
+        return "Array" + std::to_string(array.Cast()->Arity) + "_" + TypeMangleKey(array.Cast()->ElementType);
+    }
+    if (auto pointer = TMaybeType<TPointerType>(t)) {
+        return std::string("Ptr_") + TypeMangleKey(pointer.Cast()->PointeeType);
+    }
+    if (auto reference = TMaybeType<TReferenceType>(t)) {
+        return std::string("Ref_") + TypeMangleKey(reference.Cast()->ReferencedType);
+    }
+    if (auto function = TMaybeType<TFunctionType>(t)) {
+        std::string key = "Fun_" + TypeMangleKey(function.Cast()->ReturnType) + "__";
+        for (const auto& paramType : function.Cast()->ParamTypes) {
+            key += "_" + TypeMangleKey(paramType);
+        }
+        return key;
+    }
+    if (auto structure = TMaybeType<TStructType>(t)) {
+        std::string key = "Struct";
+        for (const auto& [_, type] : structure.Cast()->Fields) {
+            key += "_" + TypeMangleKey(type);
+        }
+        return key;
+    }
+    return std::string(t->TypeName());
+}
+
+inline std::string MangleFunctionSignature(
+    std::string_view prefixName,
+    const TTypePtr& returnType,
+    const std::vector<TTypePtr>& paramTypes)
 {
-    std::string mangled = "__generic_";
-    mangled += name;
-    for (const auto& arg : args) {
+    std::string mangled(prefixName);
+    mangled += "$";
+    mangled += TypeMangleKey(returnType);
+    mangled += "__";
+    for (const auto& paramType : paramTypes) {
         mangled += "$";
-        mangled += arg.Type ? TypeKey(arg.Type) : arg.Value;
+        mangled += TypeMangleKey(paramType);
     }
     return mangled;
+}
+
+inline std::string MangleGenericInstance(
+    std::string_view name,
+    const TTypePtr& returnType,
+    const std::vector<TTypePtr>& paramTypes)
+{
+    std::string prefix = "__generic_";
+    prefix += name;
+    return MangleFunctionSignature(prefix, returnType, paramTypes);
 }
 
 } // namespace NAst

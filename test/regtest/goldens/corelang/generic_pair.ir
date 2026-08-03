@@ -7,7 +7,7 @@ function <main> () { ; void
     load tmp(1,ptr to i8) = local(0,ptr to i8) 
     arg imm(3,i64) 
     arg tmp(1,ptr to i8) 
-    call tmp(2,i64) = __generic_pairFirst$i64$String 
+    call tmp(2,i64) = __generic_pairFirst$i64__$i64$string 
     stre local(1,i64) tmp(2,i64) 
     load tmp(3,ptr to i8) = local(0,ptr to i8) 
     arg tmp(3,ptr to i8) 
@@ -24,7 +24,7 @@ function <main> () { ; void
     load tmp(6,ptr to i8) = local(3,ptr to i8) 
     arg tmp(6,ptr to i8) 
     arg imm(10,i64) 
-    call tmp(7,ptr to i8) = __generic_pairFirst$String$i64 
+    call tmp(7,ptr to i8) = __generic_pairFirst$string__$string$i64 
     stre local(4,ptr to i8) tmp(7,ptr to i8) 
     load tmp(8,ptr to i8) = local(3,ptr to i8) 
     arg tmp(8,ptr to i8) 
@@ -45,7 +45,7 @@ function <main> () { ; void
     load tmp(13,ptr to i8) = local(6,ptr to i8) 
     arg imm(3,i64) 
     arg tmp(13,ptr to i8) 
-    call tmp(14,ptr to i8) = __generic_pairSecond$i64$String 
+    call tmp(14,ptr to i8) = __generic_pairSecond$string__$i64$string 
     stre local(7,ptr to i8) tmp(14,ptr to i8) 
     load tmp(15,ptr to i8) = local(6,ptr to i8) 
     arg tmp(15,ptr to i8) 
@@ -66,7 +66,7 @@ function <main> () { ; void
     load tmp(20,ptr to i8) = local(8,ptr to i8) 
     arg tmp(20,ptr to i8) 
     arg imm(10,i64) 
-    call tmp(21,i64) = __generic_pairSecond$String$i64 
+    call tmp(21,i64) = __generic_pairSecond$i64__$string$i64 
     stre local(9,i64) tmp(21,i64) 
     load tmp(22,ptr to i8) = local(8,ptr to i8) 
     arg tmp(22,ptr to i8) 
@@ -84,7 +84,7 @@ function <main> () { ; void
     ret 
   }
 }
-function __overload_plus$i64$i64 (local(0), local(1)) { ; i64
+function __overload_plus$i64__$i64$i64 (local(0), local(1)) { ; i64
   block {
     label: label(0)
     load tmp(0,i64) = local(0,i64) 
@@ -99,7 +99,7 @@ function __overload_plus$i64$i64 (local(0), local(1)) { ; i64
     ret tmp(3,i64) 
   }
 }
-function __overload_plus$String$String (local(0), local(1)) { ; ptr to i8
+function __overload_plus$string__$string$string (local(0), local(1)) { ; ptr to i8
   block {
     label: label(0)
     load tmp(0,ptr to i8) = local(0,ptr to i8) 
@@ -118,14 +118,14 @@ function __overload_plus$String$String (local(0), local(1)) { ; ptr to i8
     ret tmp(4,ptr to i8) 
   }
 }
-function __generic_pairFirst$i64$String (local(0), local(1)) { ; i64
+function __generic_pairFirst$i64__$i64$string (local(0), local(1)) { ; i64
   block {
     label: label(0)
     load tmp(0,i64) = local(0,i64) 
     load tmp(1,i64) = local(0,i64) 
     arg tmp(0,i64) 
     arg tmp(1,i64) 
-    call tmp(2,i64) = __overload_plus$i64$i64 
+    call tmp(2,i64) = __overload_plus$i64__$i64$i64 
     stre local(2,i64) tmp(2,i64) 
     jmp label(1) 
   }
@@ -135,14 +135,14 @@ function __generic_pairFirst$i64$String (local(0), local(1)) { ; i64
     ret tmp(3,i64) 
   }
 }
-function __generic_pairFirst$String$i64 (local(0), local(1)) { ; ptr to i8
+function __generic_pairFirst$string__$string$i64 (local(0), local(1)) { ; ptr to i8
   block {
     label: label(0)
     load tmp(0,ptr to i8) = local(0,ptr to i8) 
     load tmp(1,ptr to i8) = local(0,ptr to i8) 
     arg tmp(0,ptr to i8) 
     arg tmp(1,ptr to i8) 
-    call tmp(2,ptr to i8) = __overload_plus$String$String 
+    call tmp(2,ptr to i8) = __overload_plus$string__$string$string 
     stre local(2,ptr to i8) tmp(2,ptr to i8) 
     load tmp(3,ptr to i8) = local(2,ptr to i8) 
     stre local(3,ptr to i8) tmp(3,ptr to i8) 
@@ -154,14 +154,14 @@ function __generic_pairFirst$String$i64 (local(0), local(1)) { ; ptr to i8
     ret tmp(4,ptr to i8) 
   }
 }
-function __generic_pairSecond$i64$String (local(0), local(1)) { ; ptr to i8
+function __generic_pairSecond$string__$i64$string (local(0), local(1)) { ; ptr to i8
   block {
     label: label(0)
     load tmp(0,ptr to i8) = local(1,ptr to i8) 
     load tmp(1,ptr to i8) = local(1,ptr to i8) 
     arg tmp(0,ptr to i8) 
     arg tmp(1,ptr to i8) 
-    call tmp(2,ptr to i8) = __overload_plus$String$String 
+    call tmp(2,ptr to i8) = __overload_plus$string__$string$string 
     stre local(2,ptr to i8) tmp(2,ptr to i8) 
     load tmp(3,ptr to i8) = local(2,ptr to i8) 
     stre local(3,ptr to i8) tmp(3,ptr to i8) 
@@ -173,14 +173,14 @@ function __generic_pairSecond$i64$String (local(0), local(1)) { ; ptr to i8
     ret tmp(4,ptr to i8) 
   }
 }
-function __generic_pairSecond$String$i64 (local(0), local(1)) { ; i64
+function __generic_pairSecond$i64__$string$i64 (local(0), local(1)) { ; i64
   block {
     label: label(0)
     load tmp(0,i64) = local(1,i64) 
     load tmp(1,i64) = local(1,i64) 
     arg tmp(0,i64) 
     arg tmp(1,i64) 
-    call tmp(2,i64) = __overload_plus$i64$i64 
+    call tmp(2,i64) = __overload_plus$i64__$i64$i64 
     stre local(2,i64) tmp(2,i64) 
     jmp label(1) 
   }

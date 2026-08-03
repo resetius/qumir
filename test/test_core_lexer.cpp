@@ -23,12 +23,15 @@ using NQumir::NAst::TGenericArg;
 using NQumir::NAst::TGenericParam;
 using NQumir::NAst::TIntegerType;
 using NQumir::NAst::TNamedType;
+using NQumir::NAst::TPointerType;
 using NQumir::NAst::TStructType;
 using NQumir::NAst::TTypeDeclStmt;
 using NQumir::NAst::TTypePtr;
 using NQumir::NAst::TVarStmt;
 using NQumir::NAst::TVoidType;
+using NQumir::NAst::MangleFunctionSignature;
 using NQumir::NAst::TypeKey;
+using NQumir::NAst::TypeMangleKey;
 
 namespace {
 
@@ -209,6 +212,24 @@ TEST(CoreTypeTest, ParametricNamedTypeValueArgsPrintAndParse) {
 
     EXPECT_EQ(TypeKey(type), "Named::Decimal[Value::42]");
     EXPECT_EQ(PrintType(type), "<named Decimal [42]>");
+}
+
+TEST(CoreTypeTest, TypeMangleKeyUsesPlainNamedAndStructLayout) {
+    auto structure = std::make_shared<TStructType>(std::vector<std::pair<std::string, TTypePtr>>{
+        {"Value", std::make_shared<TIntegerType>(TIntegerType::I32)},
+        {"Valid", std::make_shared<TNamedType>("n", nullptr)},
+        {"Bytes", std::make_shared<TPointerType>(std::make_shared<TIntegerType>(TIntegerType::U8))},
+    });
+    auto named = std::make_shared<TNamedType>("AggKey_i32_n", structure);
+
+    EXPECT_EQ(TypeMangleKey(named), "AggKey_i32_n");
+    EXPECT_EQ(TypeMangleKey(structure), "Struct_i32_n_Ptr_u8");
+    EXPECT_EQ(
+        MangleFunctionSignature(
+            "__overload_key_clone_owned",
+            std::make_shared<TVoidType>(),
+            {named, std::make_shared<TPointerType>(std::make_shared<TIntegerType>(TIntegerType::U8))}),
+        "__overload_key_clone_owned$void__$AggKey_i32_n$Ptr_u8");
 }
 
 TEST(CoreTypeTest, ParametricTypeDeclPrintsAndParses) {

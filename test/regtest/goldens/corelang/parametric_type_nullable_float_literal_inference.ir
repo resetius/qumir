@@ -10,7 +10,7 @@ function <main> () { ; void
     lea tmp(3,ptr to struct { f64; i1}) = local(0,struct { f64; i1}) 
     arg tmp(3,ptr to struct { f64; i1}) 
     arg imm(4607182418800017408,f64) 
-    call tmp(4,struct { f64; i1}) = __generic_nullable_add_rhs$Float 
+    call tmp(4,struct { f64; i1}) = __generic_nullable_add_rhs$Nullable_f64__$Nullable_f64$f64 
     stre local(2,struct { f64; i1}) tmp(4,struct { f64; i1}) 
     lea tmp(5,ptr to struct { f64; i1}) = local(2,struct { f64; i1}) 
     stre local(1,struct { f64; i1}) tmp(5,ptr to struct { f64; i1}) 
@@ -30,18 +30,18 @@ function <main> () { ; void
     ret 
   }
 }
-function __generic_nullable_add_rhs$Float (local(0), local(1)) { ; struct { f64; i1}
+function __generic_nullable_add_rhs$Nullable_f64__$Nullable_f64$f64 (local(0), local(1)) { ; struct { f64; i1}
   block {
     label: label(0)
     lea tmp(0,ptr to struct { f64; i1}) = local(0,struct { f64; i1}) 
     load tmp(1,f64) = local(1,f64) 
     arg tmp(1,f64) 
-    call tmp(2,struct { f64; i1}) = __generic_nullable_from_value$Float 
+    call tmp(2,struct { f64; i1}) = __generic_nullable_from_value$Nullable_f64__$f64 
     stre local(3,struct { f64; i1}) tmp(2,struct { f64; i1}) 
     lea tmp(3,ptr to struct { f64; i1}) = local(3,struct { f64; i1}) 
     arg tmp(0,ptr to struct { f64; i1}) 
     arg tmp(3,ptr to struct { f64; i1}) 
-    call tmp(4,struct { f64; i1}) = __generic_nullable_add$Float 
+    call tmp(4,struct { f64; i1}) = __generic_nullable_add$Nullable_f64__$Nullable_f64$Nullable_f64 
     stre local(4,struct { f64; i1}) tmp(4,struct { f64; i1}) 
     lea tmp(5,ptr to struct { f64; i1}) = local(4,struct { f64; i1}) 
     stre local(2,struct { f64; i1}) tmp(5,ptr to struct { f64; i1}) 
@@ -53,7 +53,7 @@ function __generic_nullable_add_rhs$Float (local(0), local(1)) { ; struct { f64;
     ret tmp(6,ptr to struct { f64; i1}) 
   }
 }
-function __generic_nullable_from_value$Float (local(0)) { ; struct { f64; i1}
+function __generic_nullable_from_value$Nullable_f64__$f64 (local(0)) { ; struct { f64; i1}
   block {
     label: label(0)
     salloc tmp(0,ptr to struct { f64; i1}) = imm(16,i64) 
@@ -71,7 +71,7 @@ function __generic_nullable_from_value$Float (local(0)) { ; struct { f64; i1}
     ret tmp(4,ptr to struct { f64; i1}) 
   }
 }
-function __generic_nullable_add$Float (local(0), local(1)) { ; struct { f64; i1}
+function __generic_nullable_add$Nullable_f64__$Nullable_f64$Nullable_f64 (local(0), local(1)) { ; struct { f64; i1}
   block {
     label: label(0)
     lea tmp(0,ptr to struct { f64; i1}) = local(0,struct { f64; i1}) 

@@ -8,7 +8,7 @@ function <main> () { ; void
     lea tmp(2,ptr to struct { i64}) = local(0,struct { i64}) 
     arg tmp(2,ptr to struct { i64}) 
     arg imm(2,i64) 
-    call tmp(3,struct { i64}) = __generic_decimal_add_int$2$10 
+    call tmp(3,struct { i64}) = __generic_decimal_add_int$Decimal_Value_2_Value_10__$Decimal_Value_2_Value_10$i64 
     stre local(4,struct { i64}) tmp(3,struct { i64}) 
     lea tmp(4,ptr to struct { i64}) = local(4,struct { i64}) 
     stre local(1,struct { i64}) tmp(4,ptr to struct { i64}) 
@@ -16,14 +16,14 @@ function <main> () { ; void
     lea tmp(6,ptr to struct { i64}) = local(0,struct { i64}) 
     arg tmp(5,ptr to struct { i64}) 
     arg tmp(6,ptr to struct { i64}) 
-    call tmp(7,struct { i64}) = __generic_decimal_add_decimal$2$10 
+    call tmp(7,struct { i64}) = __generic_decimal_add_decimal$Decimal_Value_2_Value_10__$Decimal_Value_2_Value_10$Decimal_Value_2_Value_10 
     stre local(5,struct { i64}) tmp(7,struct { i64}) 
     lea tmp(8,ptr to struct { i64}) = local(5,struct { i64}) 
     stre local(2,struct { i64}) tmp(8,ptr to struct { i64}) 
     lea tmp(9,ptr to struct { i64}) = local(2,struct { i64}) 
     arg tmp(9,ptr to struct { i64}) 
     arg imm(2,i64) 
-    call tmp(10,struct { i64}) = __generic_decimal_mul_int$2$10 
+    call tmp(10,struct { i64}) = __generic_decimal_mul_int$Decimal_Value_2_Value_10__$Decimal_Value_2_Value_10$i64 
     stre local(6,struct { i64}) tmp(10,struct { i64}) 
     lea tmp(11,ptr to struct { i64}) = local(6,struct { i64}) 
     stre local(3,struct { i64}) tmp(11,ptr to struct { i64}) 
@@ -54,7 +54,7 @@ function <main> () { ; void
     ret 
   }
 }
-function __generic_decimal_add_int$2$10 (local(0), local(1)) { ; struct { i64}
+function __generic_decimal_add_int$Decimal_Value_2_Value_10__$Decimal_Value_2_Value_10$i64 (local(0), local(1)) { ; struct { i64}
   block {
     label: label(0)
     salloc tmp(0,ptr to struct { i64}) = imm(8,i64) 
@@ -74,7 +74,7 @@ function __generic_decimal_add_int$2$10 (local(0), local(1)) { ; struct { i64}
     ret tmp(7,ptr to struct { i64}) 
   }
 }
-function __generic_decimal_add_decimal$2$10 (local(0), local(1)) { ; struct { i64}
+function __generic_decimal_add_decimal$Decimal_Value_2_Value_10__$Decimal_Value_2_Value_10$Decimal_Value_2_Value_10 (local(0), local(1)) { ; struct { i64}
   block {
     label: label(0)
     salloc tmp(0,ptr to struct { i64}) = imm(8,i64) 
@@ -96,7 +96,7 @@ function __generic_decimal_add_decimal$2$10 (local(0), local(1)) { ; struct { i6
     ret tmp(9,ptr to struct { i64}) 
   }
 }
-function __generic_decimal_mul_int$2$10 (local(0), local(1)) { ; struct { i64}
+function __generic_decimal_mul_int$Decimal_Value_2_Value_10__$Decimal_Value_2_Value_10$i64 (local(0), local(1)) { ; struct { i64}
   block {
     label: label(0)
     salloc tmp(0,ptr to struct { i64}) = imm(8,i64) 

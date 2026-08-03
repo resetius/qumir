@@ -1,4 +1,4 @@
-function __overload_pick$i64 (local(0)) { ; i64
+function __overload_pick$i64__$i64 (local(0)) { ; i64
   block {
     label: label(0)
     load tmp(0,i64) = local(0,i64) 
@@ -12,7 +12,7 @@ function __overload_pick$i64 (local(0)) { ; i64
     ret tmp(2,i64) 
   }
 }
-function __overload_pick$Float (local(0)) { ; f64
+function __overload_pick$f64__$f64 (local(0)) { ; f64
   block {
     label: label(0)
     load tmp(0,f64) = local(0,f64) 
@@ -26,7 +26,7 @@ function __overload_pick$Float (local(0)) { ; f64
     ret tmp(2,f64) 
   }
 }
-function __overload_pick$String (local(0)) { ; ptr to i8
+function __overload_pick$string__$string (local(0)) { ; ptr to i8
   block {
     label: label(0)
     load tmp(0,ptr to i8) = local(0,ptr to i8) 
@@ -47,14 +47,14 @@ function <main> () { ; void
   block {
     label: label(0)
     arg imm(7,i64) 
-    call tmp(0,i64) = __overload_pick$i64 
+    call tmp(0,i64) = __overload_pick$i64__$i64 
     arg tmp(0,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(1,ptr to i8) 
     call output_string 
     arg imm(4612811918334230528,f64) 
-    call tmp(1,f64) = __overload_pick$Float 
+    call tmp(1,f64) = __overload_pick$f64__$f64 
     arg tmp(1,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
@@ -66,7 +66,7 @@ function <main> () { ; void
     stre local(1,ptr to i8) tmp(2,ptr to i8) 
     load tmp(3,ptr to i8) = local(1,ptr to i8) 
     arg tmp(3,ptr to i8) 
-    call tmp(4,ptr to i8) = __overload_pick$String 
+    call tmp(4,ptr to i8) = __overload_pick$string__$string 
     stre local(2,ptr to i8) tmp(4,ptr to i8) 
     load tmp(5,ptr to i8) = local(1,ptr to i8) 
     arg tmp(5,ptr to i8) 

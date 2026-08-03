@@ -308,6 +308,18 @@ bool TLLVMRunner::LowerKernelAst(
         Resolver.ApplyPragmas(composed->Pragmas);
     }
 
+    // Contract: an entrypoint is looked up by its source name, so its emit symbol
+    // must equal that name — never mangle/cache it, whatever flags it carries.
+    if (auto block = NAst::TMaybeNode<NAst::TBlockExpr>(ast)) {
+        std::unordered_set<std::string> entrySet(entryNames.begin(), entryNames.end());
+        for (auto& stmt : block.Cast()->Stmts) {
+            if (auto fd = NAst::TMaybeNode<NAst::TFunDecl>(stmt);
+                fd && entrySet.count(fd.Cast()->Name)) {
+                fd.Cast()->Cacheable = false;
+            }
+        }
+    }
+
     auto scope = Resolver.GetOrCreateRootScope();
     // scope->AllowsRedeclare = true;
     scope->RootLevel = false;
@@ -485,18 +497,21 @@ NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
     }
     auto plan = cache->Resolve(required);
 
-    // Compile and persist the missing dependency symbols as one object.
+    // Compile and persist each missing dependency as its own object, so a kernel
+    // loads exactly the symbols it needs. Each object is self-contained: it
+    // references only other cacheable symbols (their objects, pulled by the
+    // transitively-closed required set) and runtime symbols.
     std::vector<std::string> depBlobs;
-    if (!plan.Misses.empty()) {
-        std::unordered_set<std::string> missSet(plan.Misses.begin(), plan.Misses.end());
-        auto depArt = EmitLoweredModule(&missSet, nullptr, error);
+    for (const auto& miss : plan.Misses) {
+        std::unordered_set<std::string> one{miss};
+        auto depArt = EmitLoweredModule(&one, nullptr, error);
         if (!depArt) {
             return {};
         }
         auto provided = depArt->GetDefinedFunctionNames();
-        if (std::unordered_set<std::string>(provided.begin(), provided.end()) != missSet) {
+        if (provided.size() != 1 || provided[0] != miss) {
             if (error) {
-                *error = "cache: dependency codegen produced unexpected definitions";
+                *error = "cache: per-symbol dependency codegen produced unexpected definitions";
             }
             return {};
         }

@@ -2,7 +2,7 @@ function <main> () { ; void
   block {
     label: label(0)
     arg imm(5,i64) 
-    call tmp(0,i64) = __generic_identity$i64 
+    call tmp(0,i64) = __generic_identity$i64__$i64 
     arg tmp(0,i64) 
     arg imm(0,i64) 
     call output_int64 
@@ -13,7 +13,7 @@ function <main> () { ; void
     stre local(1,ptr to i8) tmp(1,ptr to i8) 
     load tmp(2,ptr to i8) = local(1,ptr to i8) 
     arg tmp(2,ptr to i8) 
-    call tmp(3,ptr to i8) = __generic_identity$String 
+    call tmp(3,ptr to i8) = __generic_identity$string__$string 
     stre local(2,ptr to i8) tmp(3,ptr to i8) 
     load tmp(4,ptr to i8) = local(1,ptr to i8) 
     arg tmp(4,ptr to i8) 
@@ -29,7 +29,7 @@ function <main> () { ; void
     arg imm(1,ptr to i8) 
     call output_string 
     arg imm(4615063718147915776,f64) 
-    call tmp(8,f64) = __generic_identity$Float 
+    call tmp(8,f64) = __generic_identity$f64__$f64 
     arg tmp(8,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 
@@ -37,7 +37,7 @@ function <main> () { ; void
     arg imm(1,ptr to i8) 
     call output_string 
     arg imm(7,i64) 
-    call tmp(9,i64) = __generic_identity$i64 
+    call tmp(9,i64) = __generic_identity$i64__$i64 
     arg tmp(9,i64) 
     arg imm(0,i64) 
     call output_int64 
@@ -50,7 +50,7 @@ function <main> () { ; void
     ret 
   }
 }
-function __generic_identity$i64 (local(0)) { ; i64
+function __generic_identity$i64__$i64 (local(0)) { ; i64
   block {
     label: label(0)
     load tmp(0,i64) = local(0,i64) 
@@ -63,7 +63,7 @@ function __generic_identity$i64 (local(0)) { ; i64
     ret tmp(1,i64) 
   }
 }
-function __generic_identity$String (local(0)) { ; ptr to i8
+function __generic_identity$string__$string (local(0)) { ; ptr to i8
   block {
     label: label(0)
     load tmp(0,ptr to i8) = local(0,ptr to i8) 
@@ -80,7 +80,7 @@ function __generic_identity$String (local(0)) { ; ptr to i8
     ret tmp(2,ptr to i8) 
   }
 }
-function __generic_identity$Float (local(0)) { ; f64
+function __generic_identity$f64__$f64 (local(0)) { ; f64
   block {
     label: label(0)
     load tmp(0,f64) = local(0,f64) 

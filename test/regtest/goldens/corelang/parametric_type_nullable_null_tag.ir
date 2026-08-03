@@ -5,7 +5,7 @@ function <main> () { ; void
     stre local(2,struct { i8}) tmp(0,struct { i8}) 
     lea tmp(1,ptr to struct { i8}) = local(2,struct { i8}) 
     arg tmp(1,ptr to struct { i8}) 
-    call tmp(2,struct { i64; i1}) = __generic_nullable_from_null$i64 
+    call tmp(2,struct { i64; i1}) = __generic_nullable_from_null$Nullable_i64__$null_tag 
     stre local(3,struct { i64; i1}) tmp(2,struct { i64; i1}) 
     lea tmp(3,ptr to struct { i64; i1}) = local(3,struct { i64; i1}) 
     stre local(0,struct { i64; i1}) tmp(3,ptr to struct { i64; i1}) 
@@ -13,7 +13,7 @@ function <main> () { ; void
     stre local(4,struct { i8}) tmp(4,struct { i8}) 
     lea tmp(5,ptr to struct { i8}) = local(4,struct { i8}) 
     arg tmp(5,ptr to struct { i8}) 
-    call tmp(6,struct { f64; i1}) = __generic_nullable_from_null$Float 
+    call tmp(6,struct { f64; i1}) = __generic_nullable_from_null$Nullable_f64__$null_tag 
     stre local(5,struct { f64; i1}) tmp(6,struct { f64; i1}) 
     lea tmp(7,ptr to struct { f64; i1}) = local(5,struct { f64; i1}) 
     stre local(1,struct { f64; i1}) tmp(7,ptr to struct { f64; i1}) 
@@ -77,7 +77,7 @@ function null () { ; struct { i8}
     ret tmp(2,ptr to struct { i8}) 
   }
 }
-function __generic_nullable_from_null$i64 (local(0)) { ; struct { i64; i1}
+function __generic_nullable_from_null$Nullable_i64__$null_tag (local(0)) { ; struct { i64; i1}
   block {
     label: label(0)
     salloc tmp(0,ptr to struct { i64; i1}) = imm(16,i64) 
@@ -92,7 +92,7 @@ function __generic_nullable_from_null$i64 (local(0)) { ; struct { i64; i1}
     ret tmp(2,ptr to struct { i64; i1}) 
   }
 }
-function __generic_nullable_from_null$Float (local(0)) { ; struct { f64; i1}
+function __generic_nullable_from_null$Nullable_f64__$null_tag (local(0)) { ; struct { f64; i1}
   block {
     label: label(0)
     salloc tmp(0,ptr to struct { f64; i1}) = imm(16,i64) 
