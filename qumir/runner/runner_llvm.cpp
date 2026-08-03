@@ -476,9 +476,11 @@ NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
     if (error) {
         error->clear();
     }
+    auto tStart = std::chrono::steady_clock::now();
     if (!LowerKernelAst(std::move(ast), entryNames, error)) {
         return {};
     }
+    auto tLowered = std::chrono::steady_clock::now();
 
     // The full cacheable set of the (monomorphized) module. This is transitively
     // closed: if a cacheable A calls a cacheable B, B is instantiated here too,
@@ -496,6 +498,9 @@ NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
         return {};
     }
     auto plan = cache->Resolve(required);
+
+    const bool cacheStats = std::getenv("QDB_JIT_CACHE_STATS") != nullptr;
+    auto tResolve = std::chrono::steady_clock::now();
 
     // Compile and persist each missing dependency as its own object, so a kernel
     // loads exactly the symbols it needs. Each object is self-contained: it
@@ -527,6 +532,8 @@ NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
         depBlobs.push_back(std::move(depBytes));
     }
 
+    auto tDeps = std::chrono::steady_clock::now();
+
     // Kernel module: all cacheable deps are external, resolved from the objects.
     std::unordered_set<std::string> depSet(required.begin(), required.end());
     auto kernelArt = EmitLoweredModule(
@@ -534,9 +541,22 @@ NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
     if (!kernelArt) {
         return {};
     }
+    auto tKernel = std::chrono::steady_clock::now();
 
-    return LlvmRunner_.LinkAndLookup(
+    auto linked = LlvmRunner_.LinkAndLookup(
         plan.ObjectFiles, depBlobs, std::move(kernelArt), Options.NativeCode, entryNames, error);
+
+    if (cacheStats) {
+        auto ms = [](auto d) { return std::chrono::duration<double, std::milli>(d).count(); };
+        std::cerr << "[cache] " << (entryNames.empty() ? "?" : entryNames[0])
+                  << " req=" << required.size() << " hit=" << plan.ObjectFiles.size()
+                  << " miss=" << plan.Misses.size()
+                  << " | lower=" << ms(tLowered - tStart) << "ms"
+                  << " depCompile=" << ms(tDeps - tResolve) << "ms"
+                  << " kernelEmit=" << ms(tKernel - tDeps) << "ms"
+                  << " link=" << ms(std::chrono::steady_clock::now() - tKernel) << "ms\n";
+    }
+    return linked;
 }
 
 void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) {
