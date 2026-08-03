@@ -120,6 +120,30 @@ TEST(CachedCompile, TransitiveCacheableAcrossObjects) {
     EXPECT_EQ(CountObjects(cache.Dir), 2); // B.o reused, A.o added
 }
 
+// Two cacheable overloads (distinct signature-mangled symbols) are persisted
+// and reused: a fresh runner hits both, adding no new objects.
+TEST(CachedCompile, OverloadedCacheableReused) {
+    TCacheDir cache;
+    std::string err;
+    constexpr const char* src =
+        "(block"
+        "  (fun h ((var x i64)) -> i64 (attrs cacheable) (block (return (+ x (: 1 i64)))))"
+        "  (fun h ((var x bool)) -> i64 (attrs cacheable) (block (return (: 2 i64))))"
+        "  (fun kernel () -> i64 (block"
+        "    (return (+ (call h (: 40 i64)) (call h (< (: 0 i64) (: 1 i64))))))))";
+
+    auto first = Compile(cache.Str(), src, "kernel", &err);
+    ASSERT_FALSE(first.Entries.empty()) << err;
+    EXPECT_EQ(reinterpret_cast<int64_t (*)()>(first.Entries["kernel"])(), 43);
+    const int after = CountObjects(cache.Dir);
+    ASSERT_GE(after, 1);
+
+    auto second = Compile(cache.Str(), src, "kernel", &err);
+    ASSERT_FALSE(second.Entries.empty()) << err;
+    EXPECT_EQ(reinterpret_cast<int64_t (*)()>(second.Entries["kernel"])(), 43);
+    EXPECT_EQ(CountObjects(cache.Dir), after); // both overloads were cache hits
+}
+
 int main(int argc, char** argv) {
     NQumir::NCodeGen::TLLVMInitializer llvmInit;
     testing::InitGoogleTest(&argc, argv);

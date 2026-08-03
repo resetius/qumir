@@ -1,4 +1,4 @@
-function __overload_square_0 (local(0)) { ; i64
+function __overload_square$i64 (local(0)) { ; i64
   block {
     label: label(0)
     load tmp(0,i64) = local(0,i64) 
@@ -13,7 +13,7 @@ function __overload_square_0 (local(0)) { ; i64
     ret tmp(3,i64) 
   }
 }
-function __overload_square_1 (local(0)) { ; f64
+function __overload_square$Float (local(0)) { ; f64
   block {
     label: label(0)
     load tmp(0,f64) = local(0,f64) 
@@ -32,14 +32,14 @@ function <main> () { ; void
   block {
     label: label(0)
     arg imm(5,i64) 
-    call tmp(0,i64) = __overload_square_0 
+    call tmp(0,i64) = __overload_square$i64 
     arg tmp(0,i64) 
     arg imm(0,i64) 
     call output_int64 
     arg imm(1,ptr to i8) 
     call output_string 
     arg imm(4613937818241073152,f64) 
-    call tmp(1,f64) = __overload_square_1 
+    call tmp(1,f64) = __overload_square$Float 
     arg tmp(1,f64) 
     arg imm(0,i64) 
     arg imm(-1,i64) 

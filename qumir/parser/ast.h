@@ -645,6 +645,9 @@ struct TFunDecl : TExpr {
     // `cacheable` attribute: content-stable and reusable across compilations,
     // so its compiled object may be persisted in the JIT object cache.
     bool Cacheable = false;
+    // Set once the resolver finalized the emit symbol (overload/cacheable mangling);
+    // guards against re-mangling when the mangled name is re-declared.
+    bool Mangled = false;
     TFunDecl(TLocation loc, std::string name, std::vector<TGenericParam> genericParams, std::vector<TParam> args, std::shared_ptr<TBlockExpr> body, NAst::TTypePtr type)
         : TExpr(std::move(loc))
         , Name(std::move(name))
@@ -654,8 +657,12 @@ struct TFunDecl : TExpr {
         , RetType(std::move(type))
     { }
 
+    // A mangled/link symbol marks an external function, except a cacheable one
+    // which carries a MangledName (its emit symbol) yet still has a body.
+    // Bodyless but NOT external: inline/intrinsic builtins (InlineFactory/Packed,
+    // no MangledName) — expanded at the call site, so nothing to lower or link.
     bool IsExternal() const {
-        return !MangledName.empty();
+        return !MangledName.empty() && !(Cacheable && Body);
     }
 
     std::vector<TExprPtr> Children() const override {
