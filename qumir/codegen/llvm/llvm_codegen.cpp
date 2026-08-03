@@ -4,6 +4,9 @@
 #include <qumir/ir/builder.h>
 #include <qumir/align.h>
 
+#include <algorithm>
+#include <chrono>
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <iostream>
@@ -42,6 +45,72 @@ using namespace NQumir::NIR;
 using namespace NQumir::NIR::NLiterals;
 
 namespace {
+
+bool CompileTraceEnabled() {
+    return std::getenv("QUMIR_LLVM_COMPILE_TRACE") != nullptr;
+}
+
+double SecondsSince(std::chrono::steady_clock::time_point start) {
+    return std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - start).count();
+}
+
+void PrintLlvmModuleStats(const llvm::Module& module, const char* label) {
+    if (!CompileTraceEnabled()) {
+        return;
+    }
+
+    std::vector<std::pair<size_t, std::string>> topFunctions;
+    size_t functions = 0;
+    size_t declarations = 0;
+    size_t blocks = 0;
+    size_t instrs = 0;
+    for (const auto& function : module) {
+        if (function.isDeclaration()) {
+            ++declarations;
+            continue;
+        }
+        ++functions;
+        size_t functionInstrs = 0;
+        for (const auto& block : function) {
+            ++blocks;
+            functionInstrs += block.size();
+        }
+        instrs += functionInstrs;
+        topFunctions.emplace_back(functionInstrs, function.getName().str());
+    }
+
+    std::cerr << "[qumir-llvm-trace] llvm " << label
+              << " functions="
+              << functions
+              << " declarations="
+              << declarations
+              << " blocks="
+              << blocks
+              << " instrs="
+              << instrs
+              << " globals="
+              << module.global_size()
+              << "\n";
+
+    std::sort(
+        topFunctions.begin(),
+        topFunctions.end(),
+        [](const auto& left, const auto& right) {
+            return left.first > right.first;
+        });
+    const size_t limit = std::min<size_t>(12, topFunctions.size());
+    for (size_t i = 0; i < limit; ++i) {
+        std::cerr << "[qumir-llvm-trace] llvm " << label
+                  << " top"
+                  << i + 1
+                  << " instrs="
+                  << topFunctions[i].first
+                  << " name="
+                  << topFunctions[i].second
+                  << "\n";
+    }
+}
 
 llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx) {
     if (typeId < 0) {
@@ -450,6 +519,17 @@ TLLVMCodeGen::TLLVMCodeGen(const TLLVMCodeGenOptions& opts): Opts(opts) {}
 TLLVMCodeGen::~TLLVMCodeGen() = default;
 
 std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int optLevel) {
+    const bool trace = CompileTraceEnabled();
+    auto phaseStart = std::chrono::steady_clock::now();
+    auto logPhase = [&](const char* name) {
+        if (!trace) {
+            return;
+        }
+        std::cerr << "[qumir-llvm-trace] llvm " << name << ": "
+                  << SecondsSince(phaseStart) << " seconds\n";
+        phaseStart = std::chrono::steady_clock::now();
+    };
+
     Ctx = std::make_unique<llvm::LLVMContext>();
     LModule = std::make_unique<llvm::Module>(Opts.ModuleName, *Ctx);
 
@@ -466,6 +546,7 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
     if (optLevel > 0) {
         CreateTargetMachine();
     }
+    logPhase("init");
 
     auto builder = std::make_unique<llvm::IRBuilder<>>(*Ctx);
     BuilderBase = std::move(builder);
@@ -523,6 +604,7 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
         newSymIds.insert(f.SymId);
         SymIdToUniqueFunId[f.SymId] = f.UniqueId;
     }
+    logPhase("predeclare");
 
     // Pass 2: lower function bodies
     int funcIdx = 0;
@@ -543,6 +625,7 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
         }
         funcIdx++;
     }
+    logPhase("lower functions");
 
     auto& ctx = *Ctx;
     auto* int32Ty = llvm::Type::getInt32Ty(ctx);
@@ -609,6 +692,8 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
             "__qumir_is_coroutine");
         EmitCoroutineRuntimeHelpers(*LModule, *Ctx);
     }
+    logPhase("module metadata");
+    PrintLlvmModuleStats(*LModule, "before-opt");
 
     // Coroutine passes must run before verification: pre-split coroutine IR
     // intentionally violates SSA dominance (values live across suspend points
@@ -619,12 +704,15 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
     } else if (hasCoroutines) {
         RunCoroutinePasses();
     }
+    logPhase("optimize");
+    PrintLlvmModuleStats(*LModule, "after-opt");
 
     if (llvm::verifyModule(*LModule, &llvm::errs())) {
         llvm::errs() << "\n[LLVMCodeGen] Module verify failed. Dumping IR:\n";
         LModule->print(llvm::errs(), nullptr);
         throw std::runtime_error("LLVM verify failed");
     }
+    logPhase("verify");
 
     auto out = std::make_unique<TLLVMModuleArtifacts>();
     out->Ctx = std::move(Ctx);

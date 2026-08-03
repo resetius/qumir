@@ -11,6 +11,9 @@
 
 #include <algorithm>
 #include <bit>
+#include <chrono>
+#include <cstdlib>
+#include <iostream>
 #include <limits>
 #include <sstream>
 #include <unordered_map>
@@ -21,6 +24,27 @@ namespace NQumir {
 namespace NTransform {
 
 namespace {
+
+bool CompileTraceEnabled() {
+    return std::getenv("QUMIR_LLVM_COMPILE_TRACE") != nullptr;
+}
+
+double SecondsSince(std::chrono::steady_clock::time_point start) {
+    return std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - start).count();
+}
+
+size_t CountAstNodes(const NAst::TExprPtr& expr) {
+    if (!expr) {
+        return 0;
+    }
+
+    size_t count = 1;
+    for (const auto& child : expr->Children()) {
+        count += CountAstNodes(child);
+    }
+    return count;
+}
 
 bool IsFileType(const NAst::TTypePtr& type) {
     auto named = NAst::TMaybeType<NAst::TNamedType>(type);
@@ -868,6 +892,19 @@ std::expected<std::monostate, TError> RunSourceTransformFixpoint(
     TPipelineOptions options)
 {
     static constexpr int MaxIterations = 10;
+    const bool trace = CompileTraceEnabled();
+    auto phaseStart = std::chrono::steady_clock::now();
+    auto logPhase = [&](const std::string& name) {
+        if (!trace) {
+            return;
+        }
+        std::cerr << "[qumir-llvm-trace] transform " << name << ": "
+                  << SecondsSince(phaseStart)
+                  << " seconds ast_nodes="
+                  << CountAstNodes(expr)
+                  << "\n";
+        phaseStart = std::chrono::steady_clock::now();
+    };
 
     auto initialNameResolution = RunSourceNameResolution(
         expr,
@@ -876,6 +913,7 @@ std::expected<std::monostate, TError> RunSourceTransformFixpoint(
     if (!initialNameResolution) {
         return std::unexpected(initialNameResolution.error());
     }
+    logPhase("initial-name-resolution");
 
     NTypeAnnotation::TTypeAnnotator annotator(context);
     for (int iteration = 0; iteration < MaxIterations; ++iteration) {
@@ -884,12 +922,14 @@ std::expected<std::monostate, TError> RunSourceTransformFixpoint(
             return std::unexpected(annotationResult.error());
         }
         expr = std::move(annotationResult.value());
+        logPhase("iter-" + std::to_string(iteration) + "-annotate");
 
         auto postResult = PostTypeAnnotationTransform(expr, context);
         if (!postResult) {
             return std::unexpected(postResult.error());
         }
         bool changed = postResult.value();
+        logPhase("iter-" + std::to_string(iteration) + "-post-type");
 
         for (const auto& pass : options.Extensions.AfterTypeAnnotation) {
             auto result = pass(expr, context);
@@ -898,6 +938,7 @@ std::expected<std::monostate, TError> RunSourceTransformFixpoint(
             }
             changed = result.value() || changed;
         }
+        logPhase("iter-" + std::to_string(iteration) + "-extensions");
 
         auto nameResolution = RunSourceNameResolution(
             expr,
@@ -907,6 +948,7 @@ std::expected<std::monostate, TError> RunSourceTransformFixpoint(
             return std::unexpected(nameResolution.error());
         }
         changed = nameResolution.value() || changed;
+        logPhase("iter-" + std::to_string(iteration) + "-name-resolution");
         if (!changed) {
             return std::monostate{};
         }
@@ -942,28 +984,47 @@ std::expected<std::monostate, TError> RunFinalSemanticPipeline(
     NAst::TExprPtr& expr,
     NSemantics::TNameResolver& context)
 {
+    const bool trace = CompileTraceEnabled();
+    auto phaseStart = std::chrono::steady_clock::now();
+    auto logPhase = [&](const char* name) {
+        if (!trace) {
+            return;
+        }
+        std::cerr << "[qumir-llvm-trace] final-semantics " << name << ": "
+                  << SecondsSince(phaseStart)
+                  << " seconds ast_nodes="
+                  << CountAstNodes(expr)
+                  << "\n";
+        phaseStart = std::chrono::steady_clock::now();
+    };
+
     auto returnResult = NSemantics::ReturnNormalizationPass(expr, context);
     if (!returnResult) {
         return std::unexpected(returnResult.error());
     }
+    logPhase("return-normalization");
 
     NSemantics::TSyntheticNameGenerator syntheticNames(context, expr);
     auto lifetimeResult = NSemantics::LifetimePass(expr, context, syntheticNames);
     if (!lifetimeResult) {
         return std::unexpected(lifetimeResult.error());
     }
+    logPhase("lifetime");
 
     if (auto result = FinalNameResolution(expr, context); !result) {
         return result;
     }
+    logPhase("name-resolution");
     if (auto result = FinalTypeAnnotation(expr, context); !result) {
         return result;
     }
+    logPhase("type-annotation");
 
     NSemantics::TLifetimeValidator validator(context);
     if (auto result = validator.Validate(expr); !result) {
         return std::unexpected(result.error());
     }
+    logPhase("lifetime-validation");
     return std::monostate{};
 }
 
@@ -972,16 +1033,34 @@ std::expected<std::monostate, TError> Pipeline(
     NSemantics::TNameResolver& context,
     TPipelineOptions options)
 {
+    const bool trace = CompileTraceEnabled();
+    auto pipelineStart = std::chrono::steady_clock::now();
     if (auto result = RunSourceTransformFixpoint(expr, context, options); !result) {
         return result;
     }
 
+    auto definiteAssignmentStart = std::chrono::steady_clock::now();
     NSemantics::TDefiniteAssignmentChecker definiteAssignmentChecker(context);
     if (auto result = definiteAssignmentChecker.Check(expr); !result) {
         return std::unexpected(result.error());
     }
+    if (trace) {
+        std::cerr << "[qumir-llvm-trace] definite-assignment: "
+                  << SecondsSince(definiteAssignmentStart)
+                  << " seconds ast_nodes="
+                  << CountAstNodes(expr)
+                  << "\n";
+    }
 
-    return RunFinalSemanticPipeline(expr, context);
+    auto result = RunFinalSemanticPipeline(expr, context);
+    if (trace) {
+        std::cerr << "[qumir-llvm-trace] transform total: "
+                  << SecondsSince(pipelineStart)
+                  << " seconds ast_nodes="
+                  << CountAstNodes(expr)
+                  << "\n";
+    }
+    return result;
 }
 
 } // namespace NTransform
