@@ -4,7 +4,17 @@ pkg_check_modules(GTEST gtest REQUIRED)
 
 macro(ut name source)
     add_executable(${name} ${source})
-    target_link_libraries(${name} qumir qumir_runtime qumir_codegen_llvm ${GTEST_LIBRARIES})
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(${name}
+            "$<LINK_GROUP:RESCAN,qumir,qumir_runtime,qumir_codegen_llvm>"
+            ${GTEST_LIBRARIES})
+    else()
+        target_link_libraries(${name}
+            qumir
+            qumir_runtime
+            qumir_codegen_llvm
+            ${GTEST_LIBRARIES})
+    endif()
     target_include_directories(${name} PRIVATE ${GTEST_INCLUDE_DIRS})
     target_link_directories(${name} PRIVATE ${GTEST_LIBRARY_DIRS})
     target_compile_options(${name} PRIVATE -Wno-character-conversion)

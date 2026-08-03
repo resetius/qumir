@@ -2,7 +2,13 @@ find_package(LLVM REQUIRED CONFIG)
 
 add_executable(server server.cpp)
 # Link to our libs; LLVM libs come transitively via qumir_codegen_llvm
-target_link_libraries(server PUBLIC qumir qumir_runtime qumir_codegen_llvm coroio)
+if(UNIX AND NOT APPLE)
+    target_link_libraries(server PUBLIC
+        "$<LINK_GROUP:RESCAN,qumir,qumir_runtime,qumir_codegen_llvm>"
+        coroio)
+else()
+    target_link_libraries(server PUBLIC qumir qumir_runtime qumir_codegen_llvm coroio)
+endif()
 
 # Headers and defs for using llvm/Support headers directly in server
 target_include_directories(server PRIVATE ${LLVM_INCLUDE_DIRS})
