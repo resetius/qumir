@@ -225,6 +225,30 @@ TEST(SourceTransformExtensions, PropagateErrorsAndStopLaterPasses) {
     EXPECT_FALSE(laterPassRan);
 }
 
+TEST(PostNameResolutionTransform, WrapsOnlyBareZeroArgumentFunctionIdentifiers) {
+    auto callee = MakeVoidFunction("foo", MakeRoot({}));
+    auto bareIdent = std::make_shared<TIdentExpr>(TLocation{}, "foo");
+    auto explicitIdent = std::make_shared<TIdentExpr>(TLocation{}, "foo");
+    auto explicitCall = std::make_shared<TCallExpr>(
+        TLocation{}, explicitIdent, std::vector<TExprPtr>{});
+    auto callerBody = MakeRoot({bareIdent, explicitCall});
+    auto caller = MakeVoidFunction("caller", callerBody);
+    TExprPtr root = MakeRoot({callee, caller});
+
+    TNameResolver resolver;
+    ASSERT_FALSE(resolver.Resolve(root).has_value());
+
+    auto result = NTransform::PostNameResolutionTransform(root, resolver);
+    ASSERT_TRUE(result.has_value()) << result.error().ToString();
+    EXPECT_TRUE(*result);
+
+    auto wrappedBare = TMaybeNode<TCallExpr>(callerBody->Stmts[0]).Cast();
+    ASSERT_NE(wrappedBare, nullptr);
+    EXPECT_EQ(wrappedBare->Callee, bareIdent);
+    EXPECT_EQ(callerBody->Stmts[1], explicitCall);
+    EXPECT_EQ(explicitCall->Callee, explicitIdent);
+}
+
 TEST(KumirPipeline, InjectsCoroutineAnnotationAfterTypeAnnotation) {
     auto extensions = NSemantics::NKumir::PipelineExtensions();
 

@@ -541,26 +541,22 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
     // Need PreorderTransformAst for scope tracking: update scopeId when entering a block
     // TODO: implement scrope tracking in TransformAst and use it here
 
-    auto isCallCallee = [&](const NAst::TExprPtr& target) {
-        bool result = false;
-        auto visit = [&](auto&& self, const NAst::TExprPtr& node) -> void {
-            if (!node || result) {
-                return;
+    std::unordered_set<const NAst::TExpr*> callCallees;
+    auto collectCallCallees = [&](auto&& self, const NAst::TExprPtr& node) -> void {
+        if (!node) {
+            return;
+        }
+        if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(node)) {
+            auto call = maybeCall.Cast();
+            if (call->Callee) {
+                callCallees.insert(call->Callee.get());
             }
-            if (auto maybeCall = NAst::TMaybeNode<NAst::TCallExpr>(node)) {
-                auto call = maybeCall.Cast();
-                if (call->Callee == target) {
-                    result = true;
-                    return;
-                }
-            }
-            for (const auto& child : node->Children()) {
-                self(self, child);
-            }
-        };
-        visit(visit, expr);
-        return result;
+        }
+        for (const auto& child : node->Children()) {
+            self(self, child);
+        }
     };
+    collectCallCallees(collectCallCallees, expr);
 
     bool changed = PreorderTransformAst(expr, expr,
         [&](const NAst::TExprPtr& node) -> NAst::TExprPtr {
@@ -587,7 +583,7 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
                 }
                 if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(sym)) {
                     auto fun = maybeFun.Cast();
-                    if (fun->Params.empty() && !isCallCallee(node)) {
+                    if (fun->Params.empty() && !callCallees.contains(node.get())) {
                         // function call without brackets
                         auto call = std::make_shared<NAst::TCallExpr>(ident->Location, ident, std::vector<NAst::TExprPtr>{});
                         call->Type = fun->RetType;
