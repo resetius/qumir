@@ -10,18 +10,7 @@ using namespace NAst;
 namespace {
 
 bool SameKind(const TTypePtr& a, const TTypePtr& b) {
-    if (a->TypeName() != b->TypeName()) {
-        return false;
-    }
-    if (auto ai = TMaybeType<TIntegerType>(a)) {
-        auto bi = TMaybeType<TIntegerType>(b);
-        return bi && ai.Cast()->Kind == bi.Cast()->Kind;
-    }
-    if (auto an = TMaybeType<TNamedType>(a)) {
-        auto bn = TMaybeType<TNamedType>(b);
-        return bn && TypeKey(a) == TypeKey(b);
-    }
-    return true;
+    return TypeKey(a) == TypeKey(b);
 }
 
 bool IsGenericTypeParam(const TTypePtr& type, const std::unordered_set<std::string>* genericTypeParams) {
