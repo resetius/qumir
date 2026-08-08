@@ -1075,6 +1075,12 @@ std::expected<TExprPtr, TError> TParser::Parse(TTokenStream& baseStream) {
     return result;
 }
 
+std::expected<TTypePtr, TError> ParseType(ITokenStream& baseStream) {
+    TWrappedTokenStream stream(baseStream, 4);
+    TParserContext context{stream};
+    return ParseType(context).result();
+}
+
 } // namespace NCore
 } // namespace NAst
 } // namespace NQumir
