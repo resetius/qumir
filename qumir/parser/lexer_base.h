@@ -96,6 +96,10 @@ public:
 protected:
     virtual void Read() = 0;
 
+    char Take();
+    std::pair<std::string, std::string> ReadQuoted(char quote);
+    void ReadNumber(TLocation location);
+
     TLookAheadStream In;
     std::deque<TToken> Tokens;
     bool SeenFirstToken = false;

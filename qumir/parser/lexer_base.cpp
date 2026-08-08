@@ -3,6 +3,12 @@
 namespace NQumir {
 namespace NAst {
 
+namespace {
+
+static constexpr auto Eof = std::istream::traits_type::eof();
+
+} // namespace
+
 // Interpret a string literal value as a single character code if possible.
 // Returns std::nullopt if the string does not represent exactly one character.
 std::optional<int64_t> AsSingleCharCode(const std::string& s) {
@@ -77,8 +83,8 @@ bool IsUtf8ContinuationByte(char ch) {
 void AdvanceLocation(TLocation& location, char ch) {
     if (ch == '\n') {
         location.Line++;
-        location.Byte = 0;
-        location.Column = 0;
+        location.Byte = 1;
+        location.Column = 1;
         return;
     }
 
@@ -109,6 +115,93 @@ TToken ITokenStream::Next() {
         SeenFirstToken = true;
     }
     return token;
+}
+
+char ITokenStream::Take() {
+    char ch = 0;
+    In.get(ch);
+    AdvanceLocation(CurrentLocation, ch);
+    return ch;
+}
+
+std::pair<std::string, std::string> ITokenStream::ReadQuoted(char quote) {
+    std::string value;
+    std::string rawValue;
+    bool escaped = false;
+
+    while (In.peek() != Eof) {
+        char ch = Take();
+        rawValue += ch;
+        if (escaped) {
+            value += Unescape(ch);
+            escaped = false;
+        } else if (ch == '\\') {
+            escaped = true;
+        } else if (ch == quote) {
+            rawValue.pop_back();
+            return std::make_pair(value, rawValue);
+        } else {
+            value += ch;
+        }
+    }
+
+    throw std::runtime_error("unterminated literal");
+}
+
+void ITokenStream::ReadNumber(TLocation location) {
+    std::string rawValue;
+    bool isFloat = false;
+
+    if (In.peek() == '-') {
+        rawValue += Take();
+    }
+
+    if (In.peek() == '.') {
+        isFloat = true;
+        rawValue += Take();
+    }
+
+    while (In.peek() != Eof && std::isdigit(In.peek())) {
+        rawValue += Take();
+    }
+
+    if (In.peek() == '.') {
+        isFloat = true;
+        rawValue += Take();
+        while (In.peek() != Eof && std::isdigit(In.peek())) {
+            rawValue += Take();
+        }
+    }
+
+    if (In.peek() == 'e' || In.peek() == 'E') {
+        isFloat = true;
+        rawValue += Take();
+        if (In.peek() == '+' || In.peek() == '-') {
+            rawValue += Take();
+        }
+        if (In.peek() == Eof || !std::isdigit(In.peek())) {
+            throw std::runtime_error("expected digit in exponent at " + CurrentLocation.ToString());
+        }
+        while (In.peek() != Eof && std::isdigit(In.peek())) {
+            rawValue += Take();
+        }
+    }
+
+    if (isFloat) {
+        Tokens.emplace_back(TToken {
+            .Value = {.f64 = std::stod(rawValue)},
+            .RawValue = rawValue,
+            .Type = TToken::Float,
+            .Location = location,
+        });
+    } else {
+        Tokens.emplace_back(TToken {
+            .Value = {.i64 = std::stoll(rawValue)},
+            .RawValue = rawValue,
+            .Type = TToken::Integer,
+            .Location = location,
+        });
+    }
 }
 
 void ITokenStream::Unget(TToken token) {

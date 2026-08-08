@@ -449,6 +449,7 @@ void TTokenStream::Read() {
     };
 
     while ((Tokens.empty() || state != Start) && In.get(ch)) {
+        TLocation charLocation = CurrentLocation;
         AdvanceLocation(CurrentLocation, ch);
 
         do {
@@ -458,6 +459,7 @@ void TTokenStream::Read() {
             // if 'оно истина' is a variable name
             switch (state) {
                 case Start:
+                    tokenLocation = charLocation;
                     if (ch == '\n' || ch == ';') {
                         emitOperator(EOperator::Eol, ch == '\n' ? "\\n" : std::string(1, ch));
                     } else if (std::isdigit(ch)) {
@@ -490,7 +492,6 @@ void TTokenStream::Read() {
                         state = InIdentifier;
                         token = std::move(idList);
                     }
-                    tokenLocation = CurrentLocation;
                     break;
                 case InIdentifier: {
                     if (!isIdentifierStop(ch)) {

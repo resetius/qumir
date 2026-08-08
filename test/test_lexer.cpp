@@ -270,6 +270,44 @@ TEST(LexerTest, EolBetweenStatements) {
     ExpectInt(tokens.Next(), 2);
 }
 
+TEST(LexerTest, TokenLocationsAreOneBasedOnEveryLine) {
+    std::istringstream input("x := 1\n  y := 22");
+    TTokenStream tokens(input);
+
+    auto expect = [](const TToken& token, int line, int column) {
+        EXPECT_EQ(token.Location.Line, line);
+        EXPECT_EQ(token.Location.Column, column);
+        EXPECT_EQ(token.Location.Byte, column);
+    };
+
+    expect(tokens.Next(), 1, 1); // x
+    expect(tokens.Next(), 1, 3); // :=
+    expect(tokens.Next(), 1, 6); // 1
+    expect(tokens.Next(), 1, 7); // \n
+    expect(tokens.Next(), 2, 3); // y
+    expect(tokens.Next(), 2, 5); // :=
+    expect(tokens.Next(), 2, 8); // 22
+}
+
+TEST(LexerTest, TokenLocationsCountCharactersNotBytes) {
+    std::istringstream input("аб := 1\n  аб := 2");
+    TTokenStream tokens(input);
+
+    auto expect = [](const TToken& token, int line, int byte, int column) {
+        EXPECT_EQ(token.Location.Line, line);
+        EXPECT_EQ(token.Location.Byte, byte);
+        EXPECT_EQ(token.Location.Column, column);
+    };
+
+    expect(tokens.Next(), 1, 1, 1); // аб
+    expect(tokens.Next(), 1, 6, 4); // :=
+    expect(tokens.Next(), 1, 9, 7); // 1
+    expect(tokens.Next(), 1, 10, 8); // \n
+    expect(tokens.Next(), 2, 3, 3); // аб
+    expect(tokens.Next(), 2, 8, 6); // :=
+    expect(tokens.Next(), 2, 11, 9); // 2
+}
+
 TEST(LexerTest, String) {
     std::istringstream input("\"Hello, World!\"");
     TTokenStream tokens(input);
