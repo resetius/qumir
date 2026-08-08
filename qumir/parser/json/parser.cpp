@@ -13,10 +13,6 @@ struct TContext {
     TJson Json;
 };
 
-bool IsEof(const TToken& token) {
-    return token.Type == TToken::Operator && token.Value.i64 == -1;
-}
-
 TError Error(const TToken& token, const std::string& message) {
     return TError(token.Location, message);
 }
@@ -139,7 +135,7 @@ std::expected<TJson, TError> TParser::Parse(TTokenStream& baseStream) {
 
     try {
         auto token = stream.Next();
-        if (!IsEof(token)) {
+        if (!token.IsEof()) {
             return std::unexpected(Error(token, "unexpected token after JSON value"));
         }
     } catch (const TError& err) {

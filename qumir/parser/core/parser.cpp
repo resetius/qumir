@@ -53,10 +53,6 @@ std::shared_ptr<TIntegerType> IntegerTypeByName(const std::string& name) {
     return nullptr;
 }
 
-bool IsEof(const TToken& token) {
-    return token.Type == TToken::Operator && token.Value.i64 == -1;
-}
-
 bool IsOp(const TToken& token, char op) {
     return token.Type == TToken::Operator && token.Value.i64 == static_cast<int64_t>(op);
 }
@@ -140,7 +136,7 @@ TExprListTask ParseExprsUntil(TParserContext& context, char close) {
         if (IsOp(token, close)) {
             co_return result;
         }
-        if (IsEof(token)) {
+        if (token.IsEof()) {
             co_return Error(token, std::string("expected '") + close + "'");
         }
         context.Stream.Unget(token);
@@ -156,7 +152,7 @@ TTypeListTask ParseTypeList(TParserContext& context) {
         if (IsOp(token, ')')) {
             co_return result;
         }
-        if (IsEof(token)) {
+        if (token.IsEof()) {
             co_return Error(token, "expected ')' in type list");
         }
         context.Stream.Unget(token);
@@ -177,7 +173,7 @@ TGenericArgListTask ParseGenericTypeArgs(TParserContext& context) {
         if (IsOp(token, ']')) {
             co_return result;
         }
-        if (IsEof(token)) {
+        if (token.IsEof()) {
             co_return Error(token, "expected ']' in generic type argument list");
         }
         if (token.Type == TToken::Integer) {
@@ -250,7 +246,7 @@ TGenericParamListTask ParseGenericParams(TParserContext& context) {
         if (IsOp(token, ']')) {
             co_return result;
         }
-        if (IsEof(token)) {
+        if (token.IsEof()) {
             co_return Error(token, "expected ']' in generic parameter list");
         }
         if (IsOp(token, '(')) {
@@ -331,7 +327,7 @@ TExpectedTask<std::monostate, TError, TLocation> SkipBalancedList(TParserContext
     int depth = 1;
     while (depth > 0) {
         auto token = context.Stream.Next();
-        if (IsEof(token)) {
+        if (token.IsEof()) {
             co_return Error(token, "unexpected eof in list");
         }
         if (IsOp(token, '(')) {
@@ -507,7 +503,7 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
         while (true) {
             auto token = context.Stream.Next();
             if (IsOp(token, '>')) break;
-            if (IsEof(token)) co_return Error(token, "expected '>'");
+            if (token.IsEof()) co_return Error(token, "expected '>'");
         }
         co_return std::make_shared<TFunctionType>(std::move(params), std::move(returnType));
     }
@@ -985,7 +981,7 @@ TListHandlerMap MakeDefaultHandlers() {
             while (true) {
                 auto vt = ctx.Stream.Next();
                 if (IsOp(vt, ')')) break;
-                if (IsEof(vt)) co_return Error(vt, "unexpected eof in pragma");
+                if (vt.IsEof()) co_return Error(vt, "unexpected eof in pragma");
                 if (vt.Type != TToken::Identifier) co_return Error(vt, "expected pragma value");
                 values.push_back(vt.Name);
             }
@@ -1083,7 +1079,7 @@ std::expected<TExprPtr, TError> TParser::Parse(TTokenStream& baseStream) {
         return std::unexpected(result.error());
     }
     auto token = stream.Next();
-    if (!IsEof(token)) {
+    if (!token.IsEof()) {
         return std::unexpected(Error(token, "expected eof"));
     }
     Pragmas = std::move(context.Pragmas);

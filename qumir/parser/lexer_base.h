@@ -79,6 +79,10 @@ struct TToken {
     std::string RawValue; // original raw value from source code (for error messages)
     EType Type;
     TLocation Location;
+
+    bool IsEof() const {
+        return Type == Operator && Value.i64 == -1;
+    }
 };
 
 class ITokenStream {
