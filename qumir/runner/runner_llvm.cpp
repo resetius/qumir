@@ -469,7 +469,8 @@ std::optional<std::string> TLLVMRunner::CompileKernelAstToObject(
     return obj.str();
 }
 
-NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
+std::optional<TLLVMRunner::TPreparedCachedCompilation>
+TLLVMRunner::PrepareFusedKernelsCached(
     NAst::TExprPtr ast,
     const std::vector<std::string>& entryNames,
     const std::string& cacheDir,
@@ -480,11 +481,9 @@ NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
     if (error) {
         error->clear();
     }
-    auto tStart = std::chrono::steady_clock::now();
     if (!LowerKernelAst(std::move(ast), entryNames, error)) {
-        return {};
+        return std::nullopt;
     }
-    auto tLowered = std::chrono::steady_clock::now();
 
     // The full cacheable set of the (monomorphized) module. This is transitively
     // closed: if a cacheable A calls a cacheable B, B is instantiated here too,
@@ -499,12 +498,9 @@ NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
         if (error) {
             *error = cache.error().what();
         }
-        return {};
+        return std::nullopt;
     }
     auto plan = cache->Resolve(required);
-
-    const bool cacheStats = std::getenv("QDB_JIT_CACHE_STATS") != nullptr;
-    auto tResolve = std::chrono::steady_clock::now();
 
     // Compile and persist each missing dependency as its own object, so a kernel
     // loads exactly the symbols it needs. Each object is self-contained: it
@@ -515,14 +511,14 @@ NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
         std::unordered_set<std::string> one{miss};
         auto depArt = EmitLoweredModule(&one, nullptr, error);
         if (!depArt) {
-            return {};
+            return std::nullopt;
         }
         auto provided = depArt->GetDefinedFunctionNames();
         if (provided.size() != 1 || provided[0] != miss) {
             if (error) {
                 *error = "cache: per-symbol dependency codegen produced unexpected definitions";
             }
-            return {};
+            return std::nullopt;
         }
         std::ostringstream obj(std::ios::binary);
         depArt->Generate(obj, /*generateAsm=*/false, /*generateObj=*/true);
@@ -531,36 +527,104 @@ NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
             if (error) {
                 *error = reg.error().what();
             }
-            return {};
+            return std::nullopt;
         }
         depBlobs.push_back(std::move(depBytes));
     }
-
-    auto tDeps = std::chrono::steady_clock::now();
 
     // Kernel module: all cacheable deps are external, resolved from the objects.
     std::unordered_set<std::string> depSet(required.begin(), required.end());
     auto kernelArt = EmitLoweredModule(
         /*restrict=*/nullptr, required.empty() ? nullptr : &depSet, error);
     if (!kernelArt) {
+        return std::nullopt;
+    }
+
+    const size_t hitCount = plan.ObjectFiles.size();
+    const size_t missCount = plan.Misses.size();
+    return TPreparedCachedCompilation{
+        .ObjectFiles = std::move(plan.ObjectFiles),
+        .ObjectBlobs = std::move(depBlobs),
+        .KernelModule = std::move(kernelArt),
+        .RequiredCount = required.size(),
+        .HitCount = hitCount,
+        .MissCount = missCount,
+    };
+}
+
+NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
+    NAst::TExprPtr ast,
+    const std::vector<std::string>& entryNames,
+    const std::string& cacheDir,
+    const std::string& cacheSchema,
+    const std::string& kernelLibVersion,
+    std::string* error)
+{
+    auto tStart = std::chrono::steady_clock::now();
+    auto prepared = PrepareFusedKernelsCached(
+        std::move(ast), entryNames, cacheDir, cacheSchema, kernelLibVersion, error);
+    if (!prepared) {
         return {};
     }
-    auto tKernel = std::chrono::steady_clock::now();
+    auto tPrepared = std::chrono::steady_clock::now();
 
     auto linked = LlvmRunner_.LinkAndLookup(
-        plan.ObjectFiles, depBlobs, std::move(kernelArt), Options.NativeCode, entryNames, error);
+        prepared->ObjectFiles,
+        prepared->ObjectBlobs,
+        std::move(prepared->KernelModule),
+        Options.NativeCode,
+        entryNames,
+        error);
 
-    if (cacheStats) {
+    if (std::getenv("QDB_JIT_CACHE_STATS")) {
         auto ms = [](auto d) { return std::chrono::duration<double, std::milli>(d).count(); };
         std::cerr << "[cache] " << (entryNames.empty() ? "?" : entryNames[0])
-                  << " req=" << required.size() << " hit=" << plan.ObjectFiles.size()
-                  << " miss=" << plan.Misses.size()
-                  << " | lower=" << ms(tLowered - tStart) << "ms"
-                  << " depCompile=" << ms(tDeps - tResolve) << "ms"
-                  << " kernelEmit=" << ms(tKernel - tDeps) << "ms"
-                  << " link=" << ms(std::chrono::steady_clock::now() - tKernel) << "ms\n";
+                  << " req=" << prepared->RequiredCount
+                  << " hit=" << prepared->HitCount
+                  << " miss=" << prepared->MissCount
+                  << " | prepare=" << ms(tPrepared - tStart) << "ms"
+                  << " link=" << ms(std::chrono::steady_clock::now() - tPrepared) << "ms\n";
     }
     return linked;
+}
+
+std::optional<TLLVMRunner::TCachedObjectModule>
+TLLVMRunner::CompileFusedKernelsToObjectsCached(
+    NAst::TExprPtr ast,
+    const std::vector<std::string>& entryNames,
+    const std::string& cacheDir,
+    const std::string& cacheSchema,
+    const std::string& kernelLibVersion,
+    std::string* error)
+{
+    auto tStart = std::chrono::steady_clock::now();
+    auto prepared = PrepareFusedKernelsCached(
+        std::move(ast), entryNames, cacheDir, cacheSchema, kernelLibVersion, error);
+    if (!prepared) {
+        return std::nullopt;
+    }
+    auto tPrepared = std::chrono::steady_clock::now();
+
+    std::ostringstream object(std::ios::binary);
+    prepared->KernelModule->Generate(
+        object, /*generateAsm=*/false, /*generateObj=*/true);
+
+    if (std::getenv("QDB_JIT_CACHE_STATS")) {
+        auto ms = [](auto d) { return std::chrono::duration<double, std::milli>(d).count(); };
+        std::cerr << "[cache] " << (entryNames.empty() ? "?" : entryNames[0])
+                  << " req=" << prepared->RequiredCount
+                  << " hit=" << prepared->HitCount
+                  << " miss=" << prepared->MissCount
+                  << " | prepare=" << ms(tPrepared - tStart) << "ms"
+                  << " objectEmit="
+                  << ms(std::chrono::steady_clock::now() - tPrepared) << "ms\n";
+    }
+
+    return TCachedObjectModule{
+        .ObjectFiles = std::move(prepared->ObjectFiles),
+        .ObjectBlobs = std::move(prepared->ObjectBlobs),
+        .KernelObject = object.str(),
+    };
 }
 
 void* TLLVMRunner::CompileKernel(const std::string& source, std::string* error) {

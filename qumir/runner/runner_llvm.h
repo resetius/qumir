@@ -49,6 +49,12 @@ struct TLLVMRunnerOptions {
 // Use a fresh runner per independent compilation (e.g. one per query).
 class TLLVMRunner {
 public:
+    struct TCachedObjectModule {
+        std::vector<std::string> ObjectFiles;
+        std::vector<std::string> ObjectBlobs;
+        std::string KernelObject;
+    };
+
     TLLVMRunner(TLLVMRunnerOptions options = {});
 
     void RegisterModule(std::shared_ptr<NRegistry::IModule> module, bool import = false);
@@ -89,7 +95,35 @@ public:
         const std::string& kernelLibVersion,
         std::string* error);
 
+    // Object-emitting counterpart of CompileFusedKernelsCached. Cache hits are
+    // returned as paths, freshly compiled dependencies as object blobs, and the
+    // query-specific kernel as a separate object. The caller owns final linking.
+    std::optional<TCachedObjectModule> CompileFusedKernelsToObjectsCached(
+        NAst::TExprPtr ast,
+        const std::vector<std::string>& entryNames,
+        const std::string& cacheDir,
+        const std::string& cacheSchema,
+        const std::string& kernelLibVersion,
+        std::string* error);
+
 private:
+    struct TPreparedCachedCompilation {
+        std::vector<std::string> ObjectFiles;
+        std::vector<std::string> ObjectBlobs;
+        std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> KernelModule;
+        size_t RequiredCount = 0;
+        size_t HitCount = 0;
+        size_t MissCount = 0;
+    };
+
+    std::optional<TPreparedCachedCompilation> PrepareFusedKernelsCached(
+        NAst::TExprPtr ast,
+        const std::vector<std::string>& entryNames,
+        const std::string& cacheDir,
+        const std::string& cacheSchema,
+        const std::string& kernelLibVersion,
+        std::string* error);
+
     // Frontend: compose, resolve, transform and lower `ast` into Module, then
     // check every entry exists. Returns false on error.
     bool LowerKernelAst(
