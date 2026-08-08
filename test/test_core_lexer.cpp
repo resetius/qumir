@@ -323,6 +323,77 @@ TEST(CoreTypeTest, IntegerWidthsPrintAndParse) {
     EXPECT_EQ(PrintAst(*parsed, TPrintOptions{.Pretty = false}), "(var x u32)");
 }
 
+TEST(CoreParseTypeTest, ParsesStandaloneType) {
+    const std::vector<std::string> types = {
+        "i64",
+        "u8",
+        "f64",
+        "bool",
+        "string",
+        "char",
+        "void",
+        "<i64 (readonly)>",
+        "<array i64 2>",
+        "<ptr f64>",
+    };
+
+    for (const auto& text : types) {
+        SCOPED_TRACE(text);
+        std::istringstream input(text);
+        TTokenStream tokens(input);
+
+        auto type = ParseType(tokens);
+        ASSERT_TRUE(type.has_value()) << type.error().ToString();
+        EXPECT_EQ(PrintType(*type), text);
+    }
+}
+
+TEST(CoreParseTypeTest, ParsesGenericNamedType) {
+    std::istringstream input("<named Pair [i64 42 <ptr f64>]>");
+    TTokenStream tokens(input);
+
+    auto type = ParseType(tokens);
+    ASSERT_TRUE(type.has_value()) << type.error().ToString();
+
+    auto named = TMaybeType<TNamedType>(*type).Cast();
+    ASSERT_TRUE(named);
+    ASSERT_EQ(named->TypeArgs.size(), 3u);
+
+    EXPECT_EQ(named->TypeArgs[0].Kind, TGenericArg::EKind::Type);
+    EXPECT_TRUE(TMaybeType<TIntegerType>(named->TypeArgs[0].Type));
+
+    EXPECT_EQ(named->TypeArgs[1].Kind, TGenericArg::EKind::Value);
+    EXPECT_EQ(named->TypeArgs[1].Value, "42");
+
+    EXPECT_EQ(named->TypeArgs[2].Kind, TGenericArg::EKind::Type);
+    EXPECT_TRUE(TMaybeType<TPointerType>(named->TypeArgs[2].Type));
+
+    EXPECT_EQ(TypeKey(*type), "Named::Pair[i64,Value::42,Ptr::Float]");
+    EXPECT_EQ(PrintType(*type), "<named Pair [i64 42 <ptr f64>]>");
+}
+
+TEST(CoreParseTypeTest, ReportsMalformedType) {
+    std::istringstream input("<array i64>");
+    TTokenStream tokens(input);
+
+    auto type = ParseType(tokens);
+    ASSERT_FALSE(type.has_value());
+    EXPECT_NE(type.error().ToString().find("expected array arity"), std::string::npos);
+}
+
+TEST(CoreParseTypeTest, LeavesTrailingTokensInTheStream) {
+    std::istringstream input("i64 f64");
+    TTokenStream tokens(input);
+
+    auto first = ParseType(tokens);
+    ASSERT_TRUE(first.has_value()) << first.error().ToString();
+    EXPECT_EQ(PrintType(*first), "i64");
+
+    auto second = ParseType(tokens);
+    ASSERT_TRUE(second.has_value()) << second.error().ToString();
+    EXPECT_EQ(PrintType(*second), "f64");
+}
+
 TEST(CoreTypeAttrs, ParseAndPrintCanonicalAccessModes) {
     struct TCase {
         std::string Source;

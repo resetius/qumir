@@ -46,6 +46,9 @@ public:
     std::expected<TExprPtr, TError> Parse(TTokenStream& stream);
 };
 
+// Reads a single type off the stream, leaving whatever follows it unconsumed.
+std::expected<TTypePtr, TError> ParseType(ITokenStream& stream);
+
 } // namespace NCore
 } // namespace NAst
 } // namespace NQumir
