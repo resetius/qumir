@@ -21,6 +21,12 @@ add_library(qumir
     parser/lexer.cpp
     parser/lexer_base.h
     parser/lexer_base.cpp
+    parser/json/lexer.h
+    parser/json/lexer.cpp
+    parser/json/node.h
+    parser/json/node.cpp
+    parser/json/parser.h
+    parser/json/parser.cpp
     parser/core/lexer.h
     parser/core/lexer.cpp
     parser/core/parser.h

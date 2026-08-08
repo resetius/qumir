@@ -294,13 +294,6 @@ TTokenStream::TTokenStream(std::istream& in)
 { }
 
 void TTokenStream::Read() {
-    auto take = [&]() {
-        char ch = 0;
-        In.get(ch);
-        AdvanceLocation(CurrentLocation, ch);
-        return ch;
-    };
-
     auto emitOperator = [&](TOperator op, const std::string& rawValue, TLocation location) {
         AfterOpenParen_ = (rawValue == "(");
         Tokens.emplace_back(TToken {
@@ -321,95 +314,15 @@ void TTokenStream::Read() {
         });
     };
 
-    auto readQuoted = [&](char quote) {
-        std::string value;
-        std::string rawValue;
-        bool escaped = false;
-
-        while (In.peek() != Eof) {
-            char ch = take();
-            rawValue += ch;
-            if (escaped) {
-                value += Unescape(ch);
-                escaped = false;
-            } else if (ch == '\\') {
-                escaped = true;
-            } else if (ch == quote) {
-                rawValue.pop_back();
-                return std::make_pair(value, rawValue);
-            } else {
-                value += ch;
-            }
-        }
-
-        throw std::runtime_error("unterminated literal");
-    };
-
-    auto readNumber = [&](TLocation location) {
-        std::string rawValue;
-        bool isFloat = false;
-
-        if (In.peek() == '-') {
-            rawValue += take();
-        }
-
-        if (In.peek() == '.') {
-            isFloat = true;
-            rawValue += take();
-        }
-
-        while (In.peek() != Eof && std::isdigit(In.peek())) {
-            rawValue += take();
-        }
-
-        if (In.peek() == '.') {
-            isFloat = true;
-            rawValue += take();
-            while (In.peek() != Eof && std::isdigit(In.peek())) {
-                rawValue += take();
-            }
-        }
-
-        if (In.peek() == 'e' || In.peek() == 'E') {
-            isFloat = true;
-            rawValue += take();
-            if (In.peek() == '+' || In.peek() == '-') {
-                rawValue += take();
-            }
-            if (In.peek() == Eof || !std::isdigit(In.peek())) {
-                throw std::runtime_error("expected digit in exponent at " + CurrentLocation.ToString());
-            }
-            while (In.peek() != Eof && std::isdigit(In.peek())) {
-                rawValue += take();
-            }
-        }
-
-        if (isFloat) {
-            Tokens.emplace_back(TToken {
-                .Value = {.f64 = std::stod(rawValue)},
-                .RawValue = rawValue,
-                .Type = TToken::Float,
-                .Location = location,
-            });
-        } else {
-            Tokens.emplace_back(TToken {
-                .Value = {.i64 = std::stoll(rawValue)},
-                .RawValue = rawValue,
-                .Type = TToken::Integer,
-                .Location = location,
-            });
-        }
-    };
-
     while (Tokens.empty() && In.peek() != Eof) {
         auto next = In.peek();
         if (std::isspace(next)) {
-            take();
+            Take();
             continue;
         }
         if (next == ';') {
             while (In.peek() != Eof && In.peek() != '\n') {
-                take();
+                Take();
             }
             continue;
         }
@@ -425,11 +338,11 @@ void TTokenStream::Read() {
         }()) {
             // Two-char operator (>>, >=, <<, <=) only valid as operator head after '('
             std::string name;
-            name += take();
-            name += take();
+            name += Take();
+            name += Take();
             emitIdentifier(name, tokenLocation);
         } else if (Operators.contains(next)) {
-            auto ch = take();
+            auto ch = Take();
             emitOperator(TOperator((uint64_t)ch), std::string(1, ch), tokenLocation);
         } else if (std::isdigit(next) || next == '.' || (next == '-' && [&]() {
             In.get();
@@ -437,23 +350,23 @@ void TTokenStream::Read() {
             In.unget(next);
             return std::isdigit(second) || second == '.';
         }())) {
-            readNumber(tokenLocation);
+            ReadNumber(tokenLocation);
         } else if (next == '|') {
-            take();
+            Take();
             if (In.peek() == '|') {
-                take();
+                Take();
                 emitIdentifier("||", tokenLocation);
             } else if (In.peek() == Eof || std::isspace(In.peek()) || In.peek() == ')') {
                 emitIdentifier("|", tokenLocation);
             } else {
                 std::string name;
                 while (In.peek() != Eof && In.peek() != '|') {
-                    name += take();
+                    name += Take();
                 }
                 if (In.peek() != '|') {
                     throw std::runtime_error("unterminated bar identifier at " + tokenLocation.ToString());
                 }
-                take();
+                Take();
                 emitIdentifier(name, tokenLocation);
             }
         } else if (next == '-' && [&]() {
@@ -462,17 +375,17 @@ void TTokenStream::Read() {
             In.unget(next);
             return second == '>';
         }()) {
-            take(); take();
+            Take(); Take();
             emitIdentifier("->", tokenLocation);
         } else if (IsSymbolicIdentChar(next)) {
             std::string name;
             do {
-                name += take();
+                name += Take();
             } while (In.peek() != Eof && IsSymbolicIdentChar(static_cast<char>(In.peek())));
             emitIdentifier(name, tokenLocation);
         } else if (next == '#') {
-            take();
-            char value = take();
+            Take();
+            char value = Take();
             if (value != 't' && value != 'f') {
                 throw std::runtime_error("expected #t or #f at " + tokenLocation.ToString());
             }
@@ -483,8 +396,8 @@ void TTokenStream::Read() {
                 .Location = tokenLocation,
             });
         } else if (next == '"') {
-            take();
-            auto [value, rawValue] = readQuoted('"');
+            Take();
+            auto [value, rawValue] = ReadQuoted('"');
             Tokens.emplace_back(TToken {
                 .Name = value,
                 .RawValue = rawValue,
@@ -492,8 +405,8 @@ void TTokenStream::Read() {
                 .Location = tokenLocation,
             });
         } else if (next == '\'') {
-            take();
-            auto [value, rawValue] = readQuoted('\'');
+            Take();
+            auto [value, rawValue] = ReadQuoted('\'');
             auto chCode = AsSingleCharCode(value);
             if (!chCode) {
                 throw std::runtime_error("character literal must contain exactly one character at " + tokenLocation.ToString());
@@ -507,7 +420,7 @@ void TTokenStream::Read() {
         } else if (IsIdentStart(next)) {
             std::string name;
             do {
-                name += take();
+                name += Take();
             } while (In.peek() != Eof && IsIdentContinue(static_cast<char>(In.peek())));
             emitIdentifier(name, tokenLocation);
         } else {
