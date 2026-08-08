@@ -53,6 +53,16 @@ std::shared_ptr<TIntegerType> IntegerTypeByName(const std::string& name) {
     return nullptr;
 }
 
+TTypePtr ScalarTypeByName(const std::string& name) {
+    if (auto integerType = IntegerTypeByName(name)) return integerType;
+    if (name == "f64") return std::make_shared<TFloatType>();
+    if (name == "bool") return std::make_shared<TBoolType>();
+    if (name == "string") return std::make_shared<TStringType>();
+    if (name == "char") return std::make_shared<TSymbolType>();
+    if (name == "void") return std::make_shared<TVoidType>();
+    return nullptr;
+}
+
 bool IsOp(const TToken& token, char op) {
     return token.Type == TToken::Operator && token.Value.i64 == static_cast<int64_t>(op);
 }
@@ -475,26 +485,10 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
     auto head = co_await ParseName(context);
 
     // Scalar types wrapped in angle brackets: <i64 (mutable)> etc.
-    {
-        TTypePtr scalar;
-        if (auto integerType = IntegerTypeByName(head)) {
-            scalar = std::move(integerType);
-        } else if (head == "f64") {
-            scalar = std::make_shared<TFloatType>();
-        } else if (head == "bool") {
-            scalar = std::make_shared<TBoolType>();
-        } else if (head == "string") {
-            scalar = std::make_shared<TStringType>();
-        } else if (head == "char") {
-            scalar = std::make_shared<TSymbolType>();
-        } else if (head == "void") {
-            scalar = std::make_shared<TVoidType>();
-        }
-        if (scalar) {
-            co_await ParseTypeAttrs(context, *scalar);
-            co_await Expect(context, '>');
-            co_return scalar;
-        }
+    if (auto scalar = ScalarTypeByName(head)) {
+        co_await ParseTypeAttrs(context, *scalar);
+        co_await Expect(context, '>');
+        co_return scalar;
     }
 
     if (head == "fun") {
@@ -577,12 +571,7 @@ TTypeTask ParseType(TParserContext& context) {
     auto token = context.Stream.Next();
     if (IsNil(token)) co_return TTypePtr{};
     if (token.Type == TToken::Identifier) {
-        if (auto integerType = IntegerTypeByName(token.Name)) co_return integerType;
-        if (token.Name == "f64") co_return std::make_shared<TFloatType>();
-        if (token.Name == "bool") co_return std::make_shared<TBoolType>();
-        if (token.Name == "string") co_return std::make_shared<TStringType>();
-        if (token.Name == "char") co_return std::make_shared<TSymbolType>();
-        if (token.Name == "void") co_return std::make_shared<TVoidType>();
+        if (auto scalar = ScalarTypeByName(token.Name)) co_return scalar;
         co_return std::make_shared<TNamedType>(token.Name, nullptr);
     }
     if (IsOp(token, '<')) {
