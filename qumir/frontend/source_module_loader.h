@@ -36,7 +36,17 @@ public:
 
     std::expected<const TSourceModule*, TError> Load(const std::string& name);
 
-    bool Resolvable(const std::string& name) const { return ResolvePath(name).has_value(); }
+    // Loads an already parsed source module through the same interface and
+    // dependency validation path as a module read from an `.oz` file.
+    std::expected<const TSourceModule*, TError> LoadAst(
+        const std::string& name,
+        NAst::TExprPtr ast,
+        std::vector<NAst::TPragma> pragmas = {},
+        std::filesystem::path origin = {});
+
+    bool Resolvable(const std::string& name) const {
+        return Cache.contains(name) || ResolvePath(name).has_value();
+    }
 
     std::vector<const TSourceModule*> TopologicalOrder() const;
 
@@ -49,10 +59,6 @@ private:
     };
 
     std::optional<std::filesystem::path> ResolvePath(const std::string& name) const;
-
-    std::expected<const TSourceModule*, TError> LoadResolved(
-        const std::string& name,
-        const std::filesystem::path& path);
 
     std::vector<std::filesystem::path> SearchPaths;
     std::map<std::string, std::filesystem::path> ExplicitModules;

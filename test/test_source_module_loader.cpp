@@ -1,10 +1,14 @@
 #include <gtest/gtest.h>
 
+#include <qumir/frontend/compose.h>
 #include <qumir/frontend/source_module_loader.h>
+#include <qumir/parser/core/lexer.h>
+#include <qumir/parser/core/parser.h>
 
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <string>
 
 using namespace NQumir;
@@ -13,6 +17,15 @@ using namespace NQumir::NFrontend;
 namespace fs = std::filesystem;
 
 namespace {
+
+NAst::TExprPtr ParseAst(const std::string& source) {
+    std::istringstream in(source);
+    NAst::NCore::TTokenStream tokens(in);
+    NAst::NCore::TParser parser;
+    auto parsed = parser.Parse(tokens);
+    EXPECT_TRUE(parsed) << (parsed ? "" : parsed.error().ToString());
+    return parsed ? *parsed : nullptr;
+}
 
 class SourceModuleLoaderTest : public ::testing::Test {
 protected:
@@ -64,6 +77,65 @@ TEST_F(SourceModuleLoaderTest, SingleModuleNoDeps) {
     EXPECT_TRUE((*m)->SourceDependencies.empty());
     EXPECT_EQ((*m)->ExportedFunctions(), (std::vector<std::string>{"foo", "bar"}));
     EXPECT_EQ((*m)->ExportedTypes(), (std::vector<std::string>{"t"}));
+}
+
+TEST_F(SourceModuleLoaderTest, LoadAlreadyParsedAst) {
+    auto ast = ParseAst("(block (type t i64) (fun foo () (block)))");
+
+    TSourceModuleLoader loader;
+    auto m = loader.LoadAst("memory", ast);
+    ASSERT_TRUE(m) << m.error().ToString();
+    EXPECT_EQ((*m)->Ast, ast);
+    EXPECT_EQ((*m)->Path, fs::path("<ast:memory>"));
+    EXPECT_EQ((*m)->ExportedFunctions(), (std::vector<std::string>{"foo"}));
+    EXPECT_EQ((*m)->ExportedTypes(), (std::vector<std::string>{"t"}));
+    EXPECT_TRUE(loader.Resolvable("memory"));
+
+    auto loadedByName = loader.Load("memory");
+    ASSERT_TRUE(loadedByName) << loadedByName.error().ToString();
+    EXPECT_EQ(*loadedByName, *m);
+}
+
+TEST_F(SourceModuleLoaderTest, ProgramUseComposesAlreadyParsedAst) {
+    auto moduleAst = ParseAst("(block (fun from_memory () -> i64 (block (return (: 42 i64)))))");
+    auto mainAst = ParseAst("(block (use memory) (fun <main> () (block (call from_memory))))");
+
+    TSourceModuleLoader loader;
+    auto loaded = loader.LoadAst("memory", moduleAst);
+    ASSERT_TRUE(loaded) << loaded.error().ToString();
+
+    auto composed = LoadAndCompose(loader, mainAst, {});
+    ASSERT_TRUE(composed) << composed.error().ToString();
+
+    auto block = NAst::TMaybeNode<NAst::TBlockExpr>(composed->Ast);
+    ASSERT_TRUE(block);
+    ASSERT_EQ(block.Cast()->Stmts.size(), 3u);
+
+    auto use = NAst::TMaybeNode<NAst::TUseExpr>(block.Cast()->Stmts[0]);
+    ASSERT_TRUE(use);
+    EXPECT_EQ(use.Cast()->ModuleName, "memory");
+    EXPECT_TRUE(use.Cast()->Resolved);
+
+    auto imported = NAst::TMaybeNode<NAst::TFunDecl>(block.Cast()->Stmts[2]);
+    ASSERT_TRUE(imported);
+    EXPECT_EQ(imported.Cast()->Name, "from_memory");
+    EXPECT_EQ(imported.Cast()->Origin, "memory");
+}
+
+TEST_F(SourceModuleLoaderTest, ParsedAstUsesRegularSourceDependency) {
+    Write("dep", "(block (fun dependency () (block)))");
+    auto ast = ParseAst("(block (use dep) (fun from_memory () (block)))");
+
+    TSourceModuleLoader loader;
+    loader.AddSearchPath(Dir);
+    auto m = loader.LoadAst("memory", std::move(ast));
+    ASSERT_TRUE(m) << m.error().ToString();
+    EXPECT_EQ((*m)->SourceDependencies, (std::vector<std::string>{"dep"}));
+
+    auto order = loader.TopologicalOrder();
+    ASSERT_EQ(order.size(), 2u);
+    EXPECT_EQ(order[0]->Name, "dep");
+    EXPECT_EQ(order[1]->Name, "memory");
 }
 
 TEST_F(SourceModuleLoaderTest, AliasFromModaliasFile) {

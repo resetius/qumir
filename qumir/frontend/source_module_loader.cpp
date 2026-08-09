@@ -184,24 +184,6 @@ std::optional<fs::path> TSourceModuleLoader::ResolvePath(const std::string& name
 }
 
 std::expected<const TSourceModule*, TError> TSourceModuleLoader::Load(const std::string& name) {
-    auto path = ResolvePath(name);
-    if (!path) {
-        std::string msg = "модуль `" + name + "' не найден";
-        if (!SearchPaths.empty()) {
-            msg += ", искал в:";
-            for (const auto& dir : SearchPaths) {
-                msg += "\n  - " + dir.string();
-            }
-        }
-        return std::unexpected(TError(msg));
-    }
-    return LoadResolved(name, *path);
-}
-
-std::expected<const TSourceModule*, TError> TSourceModuleLoader::LoadResolved(
-    const std::string& name,
-    const fs::path& path)
-{
     if (auto it = Cache.find(name); it != Cache.end()) {
         switch (it->second.State) {
         case ESourceModuleState::Loaded:
@@ -220,6 +202,48 @@ std::expected<const TSourceModule*, TError> TSourceModuleLoader::LoadResolved(
         }
     }
 
+    auto path = ResolvePath(name);
+    if (!path) {
+        std::string msg = "модуль `" + name + "' не найден";
+        if (!SearchPaths.empty()) {
+            msg += ", искал в:";
+            for (const auto& dir : SearchPaths) {
+                msg += "\n  - " + dir.string();
+            }
+        }
+        return std::unexpected(TError(msg));
+    }
+
+    std::vector<TPragma> pragmas;
+    auto parsed = ParseFile(*path, pragmas);
+    if (!parsed) {
+        Cache[name].State = ESourceModuleState::Failed;
+        return std::unexpected(parsed.error());
+    }
+    return LoadAst(name, std::move(*parsed), std::move(pragmas), *path);
+}
+
+std::expected<const TSourceModule*, TError> TSourceModuleLoader::LoadAst(
+    const std::string& name,
+    TExprPtr ast,
+    std::vector<TPragma> pragmas,
+    fs::path origin)
+{
+    if (auto it = Cache.find(name); it != Cache.end()) {
+        switch (it->second.State) {
+        case ESourceModuleState::Loaded:
+            return it->second.Module.get();
+        case ESourceModuleState::Loading:
+            return Load(name);
+        case ESourceModuleState::Failed:
+            return std::unexpected(TError("модуль `" + name + "' ранее не загрузился"));
+        }
+    }
+
+    if (origin.empty()) {
+        origin = "<ast:" + name + ">";
+    }
+
     auto& entry = Cache[name];
     entry.State = ESourceModuleState::Loading;
     LoadStack.push_back(name);
@@ -232,27 +256,22 @@ std::expected<const TSourceModule*, TError> TSourceModuleLoader::LoadResolved(
 
     auto module = std::make_unique<TSourceModule>();
     module->Name = name;
-    module->Path = path;
+    module->Path = std::move(origin);
+    module->Ast = std::move(ast);
+    module->Pragmas = std::move(pragmas);
 
-    auto parsed = ParseFile(path, module->Pragmas);
-    if (!parsed) {
-        return fail(parsed.error());
-    }
-    module->Ast = std::move(*parsed);
-
-    if (auto error = CollectInterface(path, *module)) {
+    if (auto error = CollectInterface(module->Path, *module)) {
         return fail(std::move(*error));
     }
 
     entry.Module = std::move(module);
 
     for (const auto& dep : entry.Module->Dependencies) {
-        auto depPath = ResolvePath(dep);
-        if (!depPath) {
+        if (!Resolvable(dep)) {
             continue; // external (runtime) module, resolved by a later stage
         }
         entry.Module->SourceDependencies.push_back(dep);
-        if (auto loaded = LoadResolved(dep, *depPath); !loaded) {
+        if (auto loaded = Load(dep); !loaded) {
             return fail(loaded.error());
         }
     }
