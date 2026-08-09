@@ -21,6 +21,10 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Intrinsics.h>
+#include <llvm/Bitcode/BitcodeReader.h>
+#include <llvm/Bitcode/BitcodeWriter.h>
+#include <llvm/Linker/Linker.h>
+#include <llvm/Support/MemoryBufferRef.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/Alignment.h>
 #include <llvm/Support/Error.h>
@@ -692,6 +696,26 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
             llvm::ConstantInt::get(i32Ty, 1),
             "__qumir_is_coroutine");
         EmitCoroutineRuntimeHelpers(*LModule, *Ctx);
+    }
+
+    if (Opts.LlvmBitcode) {
+        for (size_t i = 0; i < Opts.LlvmBitcode->size(); ++i) {
+            const auto& blob = (*Opts.LlvmBitcode)[i];
+            auto parsed = llvm::parseBitcodeFile(
+                llvm::MemoryBufferRef(
+                    llvm::StringRef(blob.data(), blob.size()),
+                    "source-module-bitcode-" + std::to_string(i)),
+                *Ctx);
+            if (!parsed) {
+                throw std::runtime_error(
+                    "failed to parse source module LLVM bitcode #" + std::to_string(i)
+                    + ": " + llvm::toString(parsed.takeError()));
+            }
+            if (llvm::Linker::linkModules(*LModule, std::move(*parsed))) {
+                throw std::runtime_error(
+                    "failed to link source module LLVM bitcode #" + std::to_string(i));
+            }
+        }
     }
 
     // Coroutine passes must run before verification: pre-split coroutine IR
@@ -1983,6 +2007,13 @@ void TLLVMModuleArtifacts::PrintModule(std::ostream& os) const {
     Module->print(rso, nullptr);
     rso.flush();
     os << str << "\n";
+}
+
+void TLLVMModuleArtifacts::GenerateBitcode(std::ostream& os) const {
+    llvm::SmallVector<char, 0> buffer;
+    llvm::raw_svector_ostream stream(buffer);
+    llvm::WriteBitcodeToFile(*Module, stream);
+    os.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
 }
 
 } // namespace NQumir::NCodeGen

@@ -2,10 +2,16 @@
 
 #include <qumir/frontend/compose.h>
 #include <qumir/frontend/source_module_loader.h>
+#include <qumir/codegen/llvm/llvm_codegen.h>
+#include <qumir/codegen/llvm/llvm_initializer.h>
+#include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/parser/core/lexer.h>
 #include <qumir/parser/core/parser.h>
+#include <qumir/runner/runner_llvm.h>
+#include <qumir/semantics/transform/transform.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -25,6 +31,37 @@ NAst::TExprPtr ParseAst(const std::string& source) {
     auto parsed = parser.Parse(tokens);
     EXPECT_TRUE(parsed) << (parsed ? "" : parsed.error().ToString());
     return parsed ? *parsed : nullptr;
+}
+
+std::string CompileBitcode(
+    const std::string& source,
+    const std::string& targetTriple = {})
+{
+    auto ast = ParseAst(source);
+    NSemantics::TNameResolver resolver;
+    resolver.GetOrCreateRootScope()->RootLevel = false;
+    if (auto error = resolver.Resolve(ast)) {
+        ADD_FAILURE() << error->ToString();
+        return {};
+    }
+    if (auto transformed = NTransform::Pipeline(ast, resolver); !transformed) {
+        ADD_FAILURE() << transformed.error().ToString();
+        return {};
+    }
+
+    NIR::TModule module;
+    NIR::TBuilder builder(module);
+    NIR::TAstLowerer lowerer(module, builder, resolver);
+    if (auto lowered = lowerer.LowerTop(ast); !lowered) {
+        ADD_FAILURE() << lowered.error().ToString();
+        return {};
+    }
+
+    NCodeGen::TLLVMCodeGen codegen({.TargetTriple = targetTriple});
+    auto artifacts = codegen.Emit(module);
+    std::ostringstream out(std::ios::binary);
+    artifacts->GenerateBitcode(out);
+    return out.str();
 }
 
 class SourceModuleLoaderTest : public ::testing::Test {
@@ -120,6 +157,76 @@ TEST_F(SourceModuleLoaderTest, ProgramUseComposesAlreadyParsedAst) {
     ASSERT_TRUE(imported);
     EXPECT_EQ(imported.Cast()->Name, "from_memory");
     EXPECT_EQ(imported.Cast()->Origin, "memory");
+}
+
+TEST_F(SourceModuleLoaderTest, ProgramUseLinksBitcodeFromAlreadyParsedAst) {
+    auto bitcode = CompileBitcode(
+        "(block (fun memory_add ((var x i64)) -> i64"
+        " (block (return (+ x (: 2 i64))))))");
+    ASSERT_FALSE(bitcode.empty());
+
+    auto moduleAst = ParseAst(
+        "(block (fun add ((var x i64)) -> i64"
+        " (attrs (extern memory_add)) (block)))");
+    auto mainAst = ParseAst(
+        "(block (use memory)"
+        " (fun entry () -> i64 (block (return (call add (: 40 i64))))))");
+
+    TSourceModuleLoader loader;
+    auto loaded = loader.LoadAst("memory", moduleAst, {std::move(bitcode)});
+    ASSERT_TRUE(loaded) << loaded.error().ToString();
+
+    auto composed = LoadAndCompose(loader, mainAst, {});
+    ASSERT_TRUE(composed) << composed.error().ToString();
+    ASSERT_EQ(composed->LlvmBitcode.size(), 1u);
+
+    TLLVMRunner runner({
+        .NativeCode = true,
+        .CoreInput = true,
+        .ResolveCoreInput = true,
+        .OptLevel = 2,
+    });
+    std::string error;
+    auto* entry = reinterpret_cast<int64_t (*)()>(
+        runner.CompileKernelAst(std::move(*composed), "entry", &error));
+    ASSERT_NE(entry, nullptr) << error;
+    EXPECT_EQ(entry(), 42);
+}
+
+TEST_F(SourceModuleLoaderTest, ProgramUseLinksBitcodeForWasmObject) {
+    NCodeGen::TLLVMInitializer llvmInit;
+    auto bitcode = CompileBitcode(
+        "(block (fun memory_add ((var x i64)) -> i64"
+        " (block (return (+ x (: 2 i64))))))",
+        "wasm64-unknown-unknown");
+    ASSERT_FALSE(bitcode.empty());
+
+    auto moduleAst = ParseAst(
+        "(block (fun add ((var x i64)) -> i64"
+        " (attrs (extern memory_add)) (block)))");
+    auto mainAst = ParseAst(
+        "(block (use memory)"
+        " (fun entry () -> i64 (block (return (call add (: 40 i64))))))");
+
+    TSourceModuleLoader loader;
+    auto loaded = loader.LoadAst("memory", moduleAst, {std::move(bitcode)});
+    ASSERT_TRUE(loaded) << loaded.error().ToString();
+
+    auto composed = LoadAndCompose(loader, mainAst, {});
+    ASSERT_TRUE(composed) << composed.error().ToString();
+
+    TLLVMRunner runner({
+        .CoreInput = true,
+        .ResolveCoreInput = true,
+        .OptLevel = 2,
+        .TargetTriple = "wasm64-unknown-unknown",
+    });
+    std::string error;
+    auto object = runner.CompileKernelAstToObject(
+        std::move(*composed), {"entry"}, &error);
+    ASSERT_TRUE(object) << error;
+    ASSERT_GE(object->size(), 4u);
+    EXPECT_EQ(object->substr(0, 4), std::string("\0asm", 4));
 }
 
 TEST_F(SourceModuleLoaderTest, ParsedAstUsesRegularSourceDependency) {

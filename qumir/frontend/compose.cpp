@@ -192,9 +192,16 @@ std::expected<TComposeResult, TError> Compose(
         stmts.insert(stmts.end(), group->begin(), group->end());
     }
 
+    std::vector<std::string> llvmBitcode;
+    for (const auto* module : modules) {
+        llvmBitcode.insert(
+            llvmBitcode.end(), module->LlvmBitcode.begin(), module->LlvmBitcode.end());
+    }
+
     return TComposeResult{
         std::make_shared<TBlockExpr>(mainAst->Location, std::move(stmts)),
         std::move(*pragmas),
+        std::move(llvmBitcode),
     };
 }
 
@@ -216,7 +223,7 @@ std::expected<TComposeResult, TError> LoadAndCompose(
 
     auto modules = loader.TopologicalOrder();
     if (modules.empty()) {
-        return TComposeResult{mainAst, corePragmas};
+        return TComposeResult{mainAst, corePragmas, {}};
     }
     return Compose(modules, mainAst, corePragmas, "<main>");
 }

@@ -48,6 +48,10 @@ struct TSourceModule {
 
     std::vector<TSourceModuleExport> Exports;
     std::vector<NAst::TPragma> Pragmas;
+    // Optional LLVM implementation modules. Each string contains one complete
+    // binary LLVM bitcode blob; the frontend carries them without inspecting
+    // them and the LLVM backend links them before optimization.
+    std::vector<std::string> LlvmBitcode;
 
     std::vector<std::string> ExportedOfKind(EExportKind kind) const {
         std::vector<std::string> result;
