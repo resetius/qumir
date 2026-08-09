@@ -58,6 +58,9 @@ struct TLLVMCodeGenOptions {
     // define everything (default).
     const std::unordered_set<std::string>* RestrictToDefinitions {nullptr};
     const std::unordered_set<std::string>* EmitAsExternal {nullptr};
+    // Binary LLVM bitcode modules linked into the generated module before the
+    // LLVM optimization pipeline. The pointed-to vector must outlive Emit().
+    const std::vector<std::string>* LlvmBitcode {nullptr};
 };
 
 struct ILLVMModuleArtifacts {
@@ -65,6 +68,8 @@ struct ILLVMModuleArtifacts {
     // Expose defined (non-declaration) function names for tests/introspection without LLVM headers
     virtual const std::vector<std::string>& GetDefinedFunctionNames() const = 0;
     virtual void PrintModule(std::ostream& os) const = 0;
+    // Currently used only by tests that build in-memory bitcode fixtures.
+    virtual void GenerateBitcode(std::ostream& os) const = 0;
     virtual void Generate(std::ostream& os, bool generateAsm, bool generateObj) const = 0;
 };
 

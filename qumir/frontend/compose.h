@@ -15,6 +15,7 @@ namespace NFrontend {
 struct TComposeResult {
     NAst::TExprPtr Ast;
     std::vector<NAst::TPragma> Pragmas;
+    std::vector<std::string> LlvmBitcode;
 };
 
 // Builds a single compilation unit from the imported source modules and the

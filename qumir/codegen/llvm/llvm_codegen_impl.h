@@ -13,6 +13,7 @@ struct TLLVMModuleArtifacts : ILLVMModuleArtifacts {
     bool NativeCode = false;
     const std::vector<std::string>& GetDefinedFunctionNames() const override { return FunctionNames; }
     void PrintModule(std::ostream& os) const override;
+    void GenerateBitcode(std::ostream& os) const override;
     void Generate(std::ostream& os, bool generateAsm, bool generateObj) const override;
 };
 

@@ -60,6 +60,9 @@ set(LLVM_COMPONENTS
     instcombine
     passes
     core
+    bitreader
+    bitwriter
+    linker
     support
     mc
     mcparser

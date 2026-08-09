@@ -4,6 +4,7 @@
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
 #include <qumir/modules/module.h>
+#include <qumir/frontend/compose.h>
 
 #include <qumir/ir/builder.h>
 #include <qumir/ir/lowering/lower_ast.h>
@@ -70,8 +71,18 @@ public:
     // stable when generic specializations are appended during type annotation.
     void* CompileKernelAst(
         NAst::TExprPtr ast, const std::string& entryName, std::string* error);
+    // Compiles an AST already processed by LoadAndCompose, including any LLVM
+    // bitcode carried by its source modules.
+    void* CompileKernelAst(
+        NFrontend::TComposeResult composed,
+        const std::string& entryName,
+        std::string* error);
     std::unordered_map<std::string, void*> CompileKernelAst(
         NAst::TExprPtr ast,
+        const std::vector<std::string>& entryNames,
+        std::string* error);
+    std::unordered_map<std::string, void*> CompileKernelAst(
+        NFrontend::TComposeResult composed,
         const std::vector<std::string>& entryNames,
         std::string* error);
 
@@ -79,6 +90,10 @@ public:
     // Options.TargetTriple) instead of JIT-compiling. Returns object bytes.
     std::optional<std::string> CompileKernelAstToObject(
         NAst::TExprPtr ast,
+        const std::vector<std::string>& entryNames,
+        std::string* error);
+    std::optional<std::string> CompileKernelAstToObject(
+        NFrontend::TComposeResult composed,
         const std::vector<std::string>& entryNames,
         std::string* error);
 
@@ -129,20 +144,24 @@ private:
     bool LowerKernelAst(
         NAst::TExprPtr ast,
         const std::vector<std::string>& entryNames,
-        std::string* error);
+        std::string* error,
+        std::vector<NAst::TPragma> mainPragmas = {});
 
     // Codegen the already-lowered Module, optionally partitioned (see
     // TLLVMCodeGenOptions). Returns nullptr on error.
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> EmitLoweredModule(
         const std::unordered_set<std::string>* restrictToDefinitions,
         const std::unordered_set<std::string>* emitAsExternal,
-        std::string* error);
+        std::string* error,
+        const std::vector<std::string>* llvmBitcode = nullptr);
 
     // Shared frontend for both CompileKernelAst overloads: lower then emit.
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> EmitKernelArtifacts(
         NAst::TExprPtr ast,
         const std::vector<std::string>& entryNames,
-        std::string* error);
+        std::string* error,
+        std::vector<NAst::TPragma> mainPragmas = {},
+        const std::vector<std::string>* llvmBitcode = nullptr);
 
     TLLVMRunnerOptions Options;
     // Persistent compiler state across Run() calls (REPL-style session)

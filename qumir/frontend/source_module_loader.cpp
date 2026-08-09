@@ -220,12 +220,13 @@ std::expected<const TSourceModule*, TError> TSourceModuleLoader::Load(const std:
         Cache[name].State = ESourceModuleState::Failed;
         return std::unexpected(parsed.error());
     }
-    return LoadAst(name, std::move(*parsed), std::move(pragmas), *path);
+    return LoadAst(name, std::move(*parsed), {}, std::move(pragmas), *path);
 }
 
 std::expected<const TSourceModule*, TError> TSourceModuleLoader::LoadAst(
     const std::string& name,
     TExprPtr ast,
+    std::vector<std::string> llvmBitcode,
     std::vector<TPragma> pragmas,
     fs::path origin)
 {
@@ -259,6 +260,7 @@ std::expected<const TSourceModule*, TError> TSourceModuleLoader::LoadAst(
     module->Path = std::move(origin);
     module->Ast = std::move(ast);
     module->Pragmas = std::move(pragmas);
+    module->LlvmBitcode = std::move(llvmBitcode);
 
     if (auto error = CollectInterface(module->Path, *module)) {
         return fail(std::move(*error));

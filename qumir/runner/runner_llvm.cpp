@@ -272,17 +272,37 @@ void* TLLVMRunner::CompileKernelAst(
     return it == entries.end() ? nullptr : it->second;
 }
 
+void* TLLVMRunner::CompileKernelAst(
+    NFrontend::TComposeResult composed,
+    const std::string& entryName,
+    std::string* error)
+{
+    auto entries = CompileKernelAst(
+        std::move(composed), std::vector<std::string>{entryName}, error);
+    auto it = entries.find(entryName);
+    return it == entries.end() ? nullptr : it->second;
+}
+
 bool TLLVMRunner::LowerKernelAst(
     NAst::TExprPtr ast,
     const std::vector<std::string>& entryNames,
-    std::string* error)
+    std::string* error,
+    std::vector<NAst::TPragma> mainPragmas)
 {
     if (error) {
         error->clear();
     }
-    std::vector<NAst::TPragma> mainPragmas;
     if (Options.AllowOverloads) {
-        mainPragmas.push_back(NAst::TPragma{"language", {"overloads"}, {}});
+        auto hasOverloads = std::any_of(
+            mainPragmas.begin(), mainPragmas.end(),
+            [](const auto& pragma) {
+                return pragma.Group == "language"
+                    && std::find(pragma.Values.begin(), pragma.Values.end(), "overloads")
+                        != pragma.Values.end();
+            });
+        if (!hasOverloads) {
+            mainPragmas.push_back(NAst::TPragma{"language", {"overloads"}, {}});
+        }
     }
 
     NFrontend::TSourceModuleLoader loader;
@@ -386,7 +406,8 @@ bool TLLVMRunner::LowerKernelAst(
 std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitLoweredModule(
     const std::unordered_set<std::string>* restrictToDefinitions,
     const std::unordered_set<std::string>* emitAsExternal,
-    std::string* error)
+    std::string* error,
+    const std::vector<std::string>* llvmBitcode)
 {
     if (error) {
         error->clear();
@@ -399,6 +420,7 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitLoweredModule(
         .TargetTriple = Options.TargetTriple,
         .RestrictToDefinitions = restrictToDefinitions,
         .EmitAsExternal = emitAsExternal,
+        .LlvmBitcode = llvmBitcode,
     });
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> artifacts;
     try {
@@ -425,12 +447,14 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitLoweredModule(
 std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitKernelArtifacts(
     NAst::TExprPtr ast,
     const std::vector<std::string>& entryNames,
-    std::string* error)
+    std::string* error,
+    std::vector<NAst::TPragma> mainPragmas,
+    const std::vector<std::string>* llvmBitcode)
 {
-    if (!LowerKernelAst(std::move(ast), entryNames, error)) {
+    if (!LowerKernelAst(std::move(ast), entryNames, error, std::move(mainPragmas))) {
         return nullptr;
     }
-    return EmitLoweredModule(nullptr, nullptr, error);
+    return EmitLoweredModule(nullptr, nullptr, error, llvmBitcode);
 }
 
 std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
@@ -454,12 +478,60 @@ std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
     return entries;
 }
 
+std::unordered_map<std::string, void*> TLLVMRunner::CompileKernelAst(
+    NFrontend::TComposeResult composed,
+    const std::vector<std::string>& entryNames,
+    std::string* error)
+{
+    auto llvmBitcode = std::move(composed.LlvmBitcode);
+    auto artifacts = EmitKernelArtifacts(
+        std::move(composed.Ast),
+        entryNames,
+        error,
+        std::move(composed.Pragmas),
+        &llvmBitcode);
+    if (!artifacts) {
+        return {};
+    }
+
+    std::string runErr;
+    auto entries = LlvmRunner_.LookupMany(std::move(artifacts), entryNames, &runErr);
+    if (entries.empty()) {
+        if (error) {
+            *error = runErr.empty() ? "function lookup failed" : runErr;
+        }
+        return {};
+    }
+    return entries;
+}
+
 std::optional<std::string> TLLVMRunner::CompileKernelAstToObject(
     NAst::TExprPtr ast,
     const std::vector<std::string>& entryNames,
     std::string* error)
 {
     auto artifacts = EmitKernelArtifacts(std::move(ast), entryNames, error);
+    if (!artifacts) {
+        return std::nullopt;
+    }
+
+    std::ostringstream obj(std::ios::binary);
+    artifacts->Generate(obj, /*generateAsm=*/false, /*generateObj=*/true);
+    return obj.str();
+}
+
+std::optional<std::string> TLLVMRunner::CompileKernelAstToObject(
+    NFrontend::TComposeResult composed,
+    const std::vector<std::string>& entryNames,
+    std::string* error)
+{
+    auto llvmBitcode = std::move(composed.LlvmBitcode);
+    auto artifacts = EmitKernelArtifacts(
+        std::move(composed.Ast),
+        entryNames,
+        error,
+        std::move(composed.Pragmas),
+        &llvmBitcode);
     if (!artifacts) {
         return std::nullopt;
     }

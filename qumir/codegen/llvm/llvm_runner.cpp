@@ -468,7 +468,9 @@ static std::optional<void*> RunPromisePtrFunction(
 
 TLlvmRunner::TLlvmRunner(TLlvmRunnerOptions options)
     : Options_(std::move(options))
-{}
+{
+    InitializeNativeJitTarget();
+}
 
 std::optional<std::string> TLlvmRunner::Run(
     std::unique_ptr<ILLVMModuleArtifacts> iartifacts,
