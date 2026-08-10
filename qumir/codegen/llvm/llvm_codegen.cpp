@@ -82,15 +82,16 @@ llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx
     }
 }
 
-// Calls into native code must follow the platform C ABI for by-value structs;
-// only x86-64 and AArch64 are coerced (other targets, e.g. wasm, keep the
-// declared types — no struct crosses their import boundary by value).
-enum class EAbiArch { X86_64, AArch64, Other };
+// External calls must follow the target C ABI for by-value structs.
+enum class EAbiArch { X86_64, AArch64, Wasm, Other };
 
 EAbiArch AbiArchOf(const llvm::Triple& triple) {
     switch (triple.getArch()) {
         case llvm::Triple::x86_64: return EAbiArch::X86_64;
         case llvm::Triple::aarch64: return EAbiArch::AArch64;
+        case llvm::Triple::wasm32:
+        case llvm::Triple::wasm64:
+            return EAbiArch::Wasm;
         default: return EAbiArch::Other;
     }
 }
@@ -119,25 +120,28 @@ struct TStructAbi {
 };
 
 // Classifies a by-value struct into the registers the C ABI uses:
-//   >16 bytes           -> Memory.
+//   wasm                -> Memory (byval / sret).
 //   AArch64 all-float   -> one FP register per field (homogeneous float aggregate).
+//   other >16-byte      -> Memory.
 //   AArch64 otherwise   -> one integer register per eightbyte (general registers).
 //   x86-64 SysV         -> per eightbyte, an FP register if every overlapping field
 //                          is floating point, otherwise an integer register.
 TStructAbi ClassifyStructAbi(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx, EAbiArch arch) {
     TStructAbi abi;
     int size = tt.SizeInBytes(typeId);
-    if (size == 0 || size > 16) {
+    const std::vector<int>& fields = tt.GetStructFields(typeId);
+    if (arch == EAbiArch::Wasm) {
         abi.Memory = true;
         return abi;
     }
-    const std::vector<int>& fields = tt.GetStructFields(typeId);
 
     bool allFloat = !fields.empty();
     for (int f : fields) {
         allFloat = allFloat && tt.IsFloat(f);
     }
-    if (arch == EAbiArch::AArch64 && allFloat) {
+    // AArch64 homogeneous floating-point aggregates of up to four members use
+    // FP registers even when their total size exceeds two eightbytes.
+    if (arch == EAbiArch::AArch64 && allFloat && fields.size() <= 4) {
         int offset = 0;
         for (int f : fields) {
             int fieldSize = tt.SizeInBytes(f);
@@ -146,6 +150,10 @@ TStructAbi ClassifyStructAbi(int typeId, const TTypeTable& tt, llvm::LLVMContext
             abi.Offsets.push_back(offset);
             offset += fieldSize;
         }
+        return abi;
+    }
+    if (size == 0 || size > 16) {
+        abi.Memory = true;
         return abi;
     }
 
@@ -188,7 +196,7 @@ void AbiGatherArg(llvm::IRBuilder<>& irb, llvm::Value* structPtr, llvm::Type* st
 {
     if (abi.Memory) {
         paramTys.push_back(structPtr->getType());
-        if (arch == EAbiArch::X86_64) {
+        if (arch == EAbiArch::X86_64 || arch == EAbiArch::Wasm) {
             byval.push_back({(unsigned)args.size(), structTy});
             args.push_back(structPtr);
         } else {
