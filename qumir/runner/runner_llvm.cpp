@@ -352,10 +352,14 @@ bool TLLVMRunner::LowerKernelAst(
         return false;
     }
 
+    NTransform::TPipelineOptions pipelineOptions{
+        .RunDefiniteAssignment = Options.RunDefiniteAssignment,
+    };
+    if (!Options.CoreInput) {
+        pipelineOptions.Extensions = NSemantics::NKumir::PipelineExtensions();
+    }
     auto transformResult = NTransform::Pipeline(
-        ast,
-        Resolver,
-        {.RunDefiniteAssignment = Options.RunDefiniteAssignment});
+        ast, Resolver, std::move(pipelineOptions));
     if (!transformResult) {
         if (error) {
             *error = transformResult.error().ToString();

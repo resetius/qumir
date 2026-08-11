@@ -921,6 +921,15 @@ std::expected<TSymbolId, TError> TNameResolver::RegisterOverloadEntry(
     for (const auto& existingId : overloads) {
         auto existingDecl = NAst::TMaybeNode<NAst::TFunDecl>(GetSymbolNode(existingId)).Cast();
         if (existingDecl && ParamTypesSame(*newDecl, *existingDecl)) {
+            // A source definition may replace an identically-typed function
+            // from the host prelude. This lets a host module specialize its
+            // runtime surface without dropping the rest of the prelude.
+            if (existingDecl->IsExternal() && !newDecl->IsExternal()) {
+                newDecl->Name = existingDecl->Name;
+                newDecl->Mangled = true;
+                Symbols[existingId.Id].Node = node;
+                return existingId;
+            }
             return std::unexpected(TError(
                 newDecl->Location,
                 "overload of '" + canonicalName + "' has identical parameter types"));
