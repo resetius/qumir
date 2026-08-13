@@ -73,12 +73,12 @@ bool TPrinter::ShouldWrapType(const TExprPtr& expr) const {
     if (TMaybeNode<TTypeDeclStmt>(expr)) {
         return false;
     }
+    // A cast already prints its target type; the wrapper would just repeat it.
+    if (TMaybeNode<TCastExpr>(expr) || TMaybeNode<TBitcastExpr>(expr)) {
+        return false;
+    }
     if (Options.TypeMode == ETypePrintMode::All) {
-        if (
-            TMaybeNode<TFunDecl>(expr) ||
-            TMaybeNode<TCastExpr>(expr) ||
-            TMaybeNode<TBitcastExpr>(expr))
-        {
+        if (TMaybeNode<TFunDecl>(expr)) {
             return false;
         }
         if (TMaybeNode<TBlockExpr>(expr) && TMaybeType<TVoidType>(expr->Type)) {
