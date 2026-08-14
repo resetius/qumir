@@ -118,6 +118,12 @@ Unary and binary operators:
 (op left right)
 ```
 
+Associative operators (`+`, `-`, `*`, `/`, `&`, `|`, `^`, `&&`, `||`, `xor`)
+also accept more than two arguments and fold left into a chain of binary
+nodes — `(&& a b c)` is exactly `(&& (&& a b) c)`, so `&&`/`||` keep their
+short-circuit semantics. The other operators (comparisons, shifts, `%`) stay
+strictly binary.
+
 Blocks:
 
 ```core

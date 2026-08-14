@@ -398,6 +398,11 @@ TAstTask ParseList(TParserContext& context, TLocation location) {
         "==", "!=", "<", "<=", ">", ">=", "&&", "||", "<<", ">>",
         "xor",
     };
+    // Associative operators accept more than two arguments and fold left into
+    // a chain of binary nodes: (op a b c) => (op (op a b) c).
+    static const std::unordered_set<std::string> VariadicOps = {
+        "+", "-", "*", "/", "&", "|", "^", "&&", "||", "xor",
+    };
     auto args = co_await ParseExprsUntil(context, ')');
     if (!KnownOps.count(head)) {
         co_return TError(location, "unknown core form: " + head);
@@ -405,13 +410,20 @@ TAstTask ParseList(TParserContext& context, TLocation location) {
     if (args.size() == 1) {
         co_return std::make_shared<TUnaryExpr>(location, TOperator(head), std::move(args[0]));
     }
-    if (args.size() == 2) {
+    if (args.size() > 2 && !VariadicOps.count(head)) {
+        co_return TError(location, "operator is not variadic: " + head);
+    }
+    if (args.size() >= 2) {
         auto op = head == "xor" ? "^" : head;
-        co_return std::make_shared<TBinaryExpr>(
-            location,
-            TOperator(op),
-            std::move(args[0]),
-            std::move(args[1]));
+        auto result = std::move(args[0]);
+        for (size_t i = 1; i < args.size(); ++i) {
+            result = std::make_shared<TBinaryExpr>(
+                location,
+                TOperator(op),
+                std::move(result),
+                std::move(args[i]));
+        }
+        co_return result;
     }
     co_return TError(location, "unknown core form: " + head);
 }
