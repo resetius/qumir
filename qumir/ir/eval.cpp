@@ -80,11 +80,45 @@ TInterpreter::TInterpreter(TModule& module, std::ostream& out, std::istream& in)
 std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<int64_t> args, TInterpreter::TOptions options)
 {
     if (Module.ModuleConstructorFunctionId != -1) {
-        DoEval(Module.Functions[Module.ModuleConstructorFunctionId], {}, options);
+        DoEvalRaw(Module.Functions[Module.ModuleConstructorFunctionId], {}, options);
     }
-    auto ans = DoEval(function, args, options);
+    auto raw = DoEvalRaw(function, std::move(args), options);
+    if (!raw) {
+        if (Module.ModuleDestructorFunctionId != -1) {
+            DoEvalRaw(Module.Functions[Module.ModuleDestructorFunctionId], {}, options);
+        }
+        return std::nullopt;
+    }
+    std::ostringstream out;
+    const int resultTypeId = function.IsCoroutine && function.CoroutineResultTypeId >= 0
+        ? function.CoroutineResultTypeId
+        : function.ReturnTypeId;
+    if (function.ReturnTypeIsString) {
+        // TODO: remove me, clutch: support string returnType
+        char* strPtr = reinterpret_cast<char*>(std::bit_cast<uint64_t>(*raw));
+        out << strPtr;
+        NRuntime::str_release(strPtr);
+    } else if (resultTypeId >= 0) {
+        // Structured results live in Runtime, not in the completed coroutine frame;
+        // format them before the module destructor can invalidate that storage.
+        Module.Types.Format(out, std::bit_cast<uint64_t>(*raw), resultTypeId);
+    } else {
+        out << *raw;
+    }
     if (Module.ModuleDestructorFunctionId != -1) {
-        DoEval(Module.Functions[Module.ModuleDestructorFunctionId], {}, options);
+        DoEvalRaw(Module.Functions[Module.ModuleDestructorFunctionId], {}, options);
+    }
+    return out.str();
+}
+
+std::optional<int64_t> TInterpreter::EvalRaw(TFunction& function, std::vector<int64_t> args, TInterpreter::TOptions options)
+{
+    if (Module.ModuleConstructorFunctionId != -1) {
+        DoEvalRaw(Module.Functions[Module.ModuleConstructorFunctionId], {}, options);
+    }
+    auto ans = DoEvalRaw(function, std::move(args), options);
+    if (Module.ModuleDestructorFunctionId != -1) {
+        DoEvalRaw(Module.Functions[Module.ModuleDestructorFunctionId], {}, options);
     }
     return ans;
 }
@@ -99,8 +133,8 @@ size_t TInterpreter::ProcessAsyncRuntimeEvents() {
     return processed;
 }
 
-std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector<int64_t> args, TOptions options) {
-    auto future = DoEvalAsync(function, args, options);
+std::optional<int64_t> TInterpreter::DoEvalRaw(TFunction& function, std::vector<int64_t> args, TOptions options) {
+    auto future = DoEvalRawAsync(function, std::move(args), options);
     while (!future.done()) {
         bool hasEvents = ProcessAsyncRuntimeEvents() > 0;
         assert(hasEvents && "coroutine suspended with no pending async events");
@@ -109,7 +143,7 @@ std::optional<std::string> TInterpreter::DoEval(TFunction& function, std::vector
     return future.await_resume();
 }
 
-TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& function, std::vector<int64_t> args, TInterpreter::TOptions options) {
+TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function, std::vector<int64_t> args, TInterpreter::TOptions options) {
     if (!function.Exec) {
         function.Exec = &Compiler.Compile(function, options.PrintByteCode);
     }
@@ -151,7 +185,6 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
 
     copyArgsToFrame(Runtime.Stack.data(), execFunc, args.data(), (int)args.size());
 
-    std::optional<std::string> result;
     std::optional<int64_t> retVal;
     auto materializeStructTmp = [&](const TFrame& targetFrame, int32_t tmpIdx, const void* src) -> std::optional<int64_t> {
         const TExecFunc* exec = targetFrame.Exec;
@@ -651,24 +684,7 @@ TFuture<std::optional<std::string>> TInterpreter::DoEvalAsync(TFunction& functio
         }
     }
 
-    if (retVal.has_value()) {
-        std::ostringstream out;
-        const int resultTypeId = function.IsCoroutine && function.CoroutineResultTypeId >= 0
-            ? function.CoroutineResultTypeId
-            : function.ReturnTypeId;
-        if (function.ReturnTypeIsString) {
-            // TODO: remove me, clutch: support string returnType
-            char* strPtr = reinterpret_cast<char*>(std::bit_cast<uint64_t>(*retVal));
-            out << strPtr;
-            NRuntime::str_release(strPtr);
-        } else if (resultTypeId >= 0) {
-            Module.Types.Format(out, std::bit_cast<uint64_t>(*retVal), resultTypeId);
-        } else {
-            out << *retVal;
-        }
-        result = out.str();
-    }
-    co_return result;
+    co_return retVal;
 }
 
 } // namespace NIR

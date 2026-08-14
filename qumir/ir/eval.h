@@ -48,11 +48,14 @@ public:
     };
 
     std::optional<std::string> Eval(TFunction& function, std::vector<int64_t> args, TOptions options);
+    // Returns the VM register bits directly. This is intended for scalar POD
+    // results whose caller already knows the function's return type.
+    std::optional<int64_t> EvalRaw(TFunction& function, std::vector<int64_t> args, TOptions options);
 
 private:
-    std::optional<std::string> DoEval(TFunction& function, std::vector<int64_t> args, TOptions options);
+    std::optional<int64_t> DoEvalRaw(TFunction& function, std::vector<int64_t> args, TOptions options);
 
-    TFuture<std::optional<std::string>> DoEvalAsync(TFunction& function, std::vector<int64_t> args, TOptions options);
+    TFuture<std::optional<int64_t>> DoEvalRawAsync(TFunction& function, std::vector<int64_t> args, TOptions options);
     size_t ProcessAsyncRuntimeEvents();
 
     std::ostream& Out;

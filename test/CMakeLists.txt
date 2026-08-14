@@ -22,6 +22,7 @@ macro(ut name source)
 endmacro()
 
 ut(test_lexer test_lexer.cpp)
+ut(test_ast_clone test_ast_clone.cpp)
 ut(test_core_lexer test_core_lexer.cpp)
 ut(test_json_parser test_json_parser.cpp)
 ut(test_name_resolver test_name_resolver.cpp)

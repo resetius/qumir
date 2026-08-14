@@ -122,7 +122,8 @@ std::expected<TComposeResult, TError> Compose(
     const std::vector<const TSourceModule*>& modules,
     const TExprPtr& mainAst,
     const std::vector<TPragma>& mainPragmas,
-    const std::string& mainLabel)
+    const std::string& mainLabel,
+    bool cloneSourceModules)
 {
     auto mainBlock = TMaybeNode<TBlockExpr>(mainAst);
     if (!mainBlock) {
@@ -157,7 +158,10 @@ std::expected<TComposeResult, TError> Compose(
     std::vector<TExprPtr> uses, types, globals, mainFunctions, moduleFunctions, other;
     std::unordered_set<std::string> seenUses;
     for (const auto& unit : units) {
-        for (const auto& stmt : *unit.Stmts) {
+        for (const auto& sourceStmt : *unit.Stmts) {
+            auto stmt = !unit.IsMain && cloneSourceModules
+                ? DeepCloneExpr(sourceStmt)
+                : sourceStmt;
             if (!unit.IsMain) {
                 stmt->Origin = unit.Origin;
             }
@@ -208,7 +212,8 @@ std::expected<TComposeResult, TError> Compose(
 std::expected<TComposeResult, TError> LoadAndCompose(
     TSourceModuleLoader& loader,
     const TExprPtr& mainAst,
-    const std::vector<TPragma>& corePragmas)
+    const std::vector<TPragma>& corePragmas,
+    bool cloneSourceModules)
 {
     if (auto block = TMaybeNode<TBlockExpr>(mainAst)) {
         for (const auto& stmt : block.Cast()->Stmts) {
@@ -225,7 +230,8 @@ std::expected<TComposeResult, TError> LoadAndCompose(
     if (modules.empty()) {
         return TComposeResult{mainAst, corePragmas, {}};
     }
-    return Compose(modules, mainAst, corePragmas, "<main>");
+    return Compose(
+        modules, mainAst, corePragmas, "<main>", cloneSourceModules);
 }
 
 std::expected<TComposeResult, TError> LoadAndCompose(

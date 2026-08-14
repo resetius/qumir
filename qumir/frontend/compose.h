@@ -25,12 +25,15 @@ struct TComposeResult {
 // functions. `use`s that name a composed source module are dropped — those
 // modules are inlined directly. Pragmas of all units are merged (conflicting
 // values for the same group is an error), and duplicate exported names are
-// reported with their originating files before name resolution runs.
+// reported with their originating files before name resolution runs. Set
+// `cloneSourceModules` when the cached parsed modules will be sent through an
+// independent, mutating semantic pipeline more than once.
 std::expected<TComposeResult, TError> Compose(
     const std::vector<const TSourceModule*>& modules,
     const NAst::TExprPtr& mainAst,
     const std::vector<NAst::TPragma>& mainPragmas,
-    const std::string& mainLabel);
+    const std::string& mainLabel,
+    bool cloneSourceModules = false);
 
 class TSourceModuleLoader;
 
@@ -42,7 +45,8 @@ class TSourceModuleLoader;
 std::expected<TComposeResult, TError> LoadAndCompose(
     TSourceModuleLoader& loader,
     const NAst::TExprPtr& mainAst,
-    const std::vector<NAst::TPragma>& corePragmas);
+    const std::vector<NAst::TPragma>& corePragmas,
+    bool cloneSourceModules = false);
 
 std::expected<TComposeResult, TError> LoadAndCompose(
     const NAst::TExprPtr& mainAst,

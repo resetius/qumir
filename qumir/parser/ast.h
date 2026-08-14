@@ -19,6 +19,12 @@ namespace NAst {
 struct TExpr;
 using TExprPtr = std::shared_ptr<TExpr>;
 
+// Copies one node while sharing its children, or recursively copies a parsed
+// source tree with fresh scope bookkeeping. Used when a cached source module is
+// composed into more than one independent compilation.
+TExprPtr ShallowCloneNode(const TExprPtr& node);
+TExprPtr DeepCloneExpr(const TExprPtr& node);
+
 // Lifetime AST node forward declarations.
 struct TRetainExpr;
 struct TOwnLiteralExpr;
