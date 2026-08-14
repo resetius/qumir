@@ -177,12 +177,27 @@ TStructAbi ClassifyStructAbi(int typeId, const TTypeTable& tt, llvm::LLVMContext
     return abi;
 }
 
+// ABI temporaries (argument spills, byval copies, sret buffers) must live in the
+// entry block. An alloca emitted at the call site is a dynamic stack allocation
+// for backends without a frame pointer (notably wasm), where every loop
+// iteration would push the shadow stack down and never restore it, so a kernel
+// looping over a batch exhausts its 256 KB stack and starts handing out
+// addresses outside linear memory
+llvm::AllocaInst* AbiEntryAlloca(
+    llvm::IRBuilder<>& irb, llvm::Type* type, const char* name)
+{
+    auto* function = irb.GetInsertBlock()->getParent();
+    auto& entry = function->getEntryBlock();
+    llvm::IRBuilder<> entryBuilder(&entry, entry.getFirstInsertionPt());
+    return entryBuilder.CreateAlloca(type, nullptr, name);
+}
+
 // Spills an aggregate value to the stack so its bytes can be read as ABI pieces.
 llvm::Value* AbiAsPointer(llvm::IRBuilder<>& irb, llvm::Value* v, llvm::Type* structTy) {
     if (v->getType()->isPointerTy()) {
         return v;
     }
-    auto* slot = irb.CreateAlloca(structTy, nullptr, "argspill");
+    auto* slot = AbiEntryAlloca(irb, structTy, "argspill");
     irb.CreateStore(v, slot);
     return slot;
 }
@@ -202,7 +217,7 @@ void AbiGatherArg(llvm::IRBuilder<>& irb, llvm::Value* structPtr, llvm::Type* st
         } else {
             auto& dl = irb.GetInsertBlock()->getModule()->getDataLayout();
             auto align = dl.getABITypeAlign(structTy);
-            auto* copy = irb.CreateAlloca(structTy, nullptr, "abi.copy");
+            auto* copy = AbiEntryAlloca(irb, structTy, "abi.copy");
             irb.CreateMemCpy(copy, align, structPtr, align, dl.getTypeAllocSize(structTy));
             args.push_back(copy);
         }
@@ -274,7 +289,7 @@ llvm::Value* EmitCoercedExternalCall(llvm::IRBuilder<>& irb, llvm::Module& lmodu
         retAbi = ClassifyStructAbi(retId, types, ctx, arch);
         retType = AbiReturnType(retAbi, ctx);
         if (retAbi.Memory) {
-            sret = irb.CreateAlloca(declaredRetTy, nullptr, "sret");
+            sret = AbiEntryAlloca(irb, declaredRetTy, "sret");
             paramTys.push_back(sret->getType());
             args.push_back(sret);
         }
@@ -304,7 +319,7 @@ llvm::Value* EmitCoercedExternalCall(llvm::IRBuilder<>& irb, llvm::Module& lmodu
     if (!retIsStruct) {
         return retType->isVoidTy() ? nullptr : ci;
     }
-    llvm::Value* buf = sret ? sret : irb.CreateAlloca(declaredRetTy, nullptr, "retbuf");
+    llvm::Value* buf = sret ? sret : AbiEntryAlloca(irb, declaredRetTy, "retbuf");
     if (!sret) {
         AbiScatterReturn(irb, ci, buf, retAbi);
     }
