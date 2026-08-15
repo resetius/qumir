@@ -3667,7 +3667,7 @@ function setPreviewDockPlacement(placement, { persist = true } = {}) {
   main.classList.toggle('preview-dock-bottom', normalized === 'bottom');
   if (workspace && nextTopSplit) {
     workspace.style.setProperty('--workspace-left-fr', `${nextTopSplit.editor}px`);
-    workspace.style.setProperty('--workspace-output-fr', `${nextTopSplit.output}px`);
+    workspace.style.setProperty('--workspace-output-fr', '1fr');
     try {
       localStorage.setItem(WORKSPACE_SPLITS.editorOutputPreview.storageKey, JSON.stringify({
         before: nextTopSplit.editor,
@@ -3706,13 +3706,19 @@ function createSplitter({ axis, splitter, before, after, storageKey, minBefore, 
       minAfter: dynamic.minAfter || minAfter,
     };
   };
+  // Pixels for the first track, the remainder for the second: two absolute sizes
+  // would stop covering the container as soon as the window is resized.
+  const applySplit = (cfg, beforeValue, afterValue) => {
+    cfg.target.style.setProperty(cfg.beforeVar, `${beforeValue}${cfg.unit}`);
+    cfg.target.style.setProperty(cfg.afterVar, cfg.unit === 'px' ? '1fr' : `${afterValue}${cfg.unit}`);
+  };
+
   const load = () => {
     try {
       const cfg = getConfig();
       const saved = JSON.parse(localStorage.getItem(cfg.storageKey) || 'null');
       if (!saved || typeof saved.before !== 'number' || typeof saved.after !== 'number') return;
-      cfg.target.style.setProperty(cfg.beforeVar, `${saved.before}${cfg.unit}`);
-      cfg.target.style.setProperty(cfg.afterVar, `${saved.after}${cfg.unit}`);
+      applySplit(cfg, saved.before, saved.after);
     } catch {}
   };
   const save = (beforeValue, afterValue) => {
@@ -3763,8 +3769,7 @@ function createSplitter({ axis, splitter, before, after, storageKey, minBefore, 
     const nextAfter = dragging.total - nextBefore;
     const beforeValue = cfg.unit === 'px' || cfg.unit === 'fr' ? nextBefore : (nextBefore / dragging.total) * 100;
     const afterValue = cfg.unit === 'px' || cfg.unit === 'fr' ? nextAfter : (nextAfter / dragging.total) * 100;
-    cfg.target.style.setProperty(cfg.beforeVar, `${beforeValue}${cfg.unit}`);
-    cfg.target.style.setProperty(cfg.afterVar, `${afterValue}${cfg.unit}`);
+    applySplit(cfg, beforeValue, afterValue);
     refreshWorkspaceLayout();
   });
 
