@@ -26,8 +26,9 @@ if(QUMIR_BUILD_SERVICE)
     list(APPEND CPACK_COMPONENTS_ALL service)
     set(CPACK_DEBIAN_SERVICE_PACKAGE_NAME "qumir-service")
     set(CPACK_DEBIAN_SERVICE_PACKAGE_SECTION "web")
-    # The server spawns qumirc from --binary-dir, so the compiler must match exactly.
-    set(CPACK_DEBIAN_SERVICE_PACKAGE_DEPENDS "qumir (= ${QUMIR_DEB_VERSION})")
+    # The server only spawns qumirc as a subprocess, so the upstream version is
+    # enough; pinning the build number would forbid rebuilds of the same release.
+    set(CPACK_DEBIAN_SERVICE_PACKAGE_DEPENDS "qumir (>= ${PROJECT_VERSION})")
     set(CPACK_COMPONENT_SERVICE_DESCRIPTION
         "Qumir playground web service.\n HTTP server backing the browser playground: editor, examples\n and the robot/turtle executors.")
 endif()
