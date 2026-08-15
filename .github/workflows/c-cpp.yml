@@ -30,7 +30,7 @@ jobs:
           -DCMAKE_PREFIX_PATH="$(llvm-config-20 --prefix)" \
           -DCMAKE_CXX_COMPILER=g++-14 \
           -DCMAKE_C_COMPILER=gcc-14 \
-          -DBUILD_SERVICE=ON
+          -DQUMIR_BUILD_TESTS=ON
     - name: make
       run: cmake --build build
     - name: test
