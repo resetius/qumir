@@ -12,6 +12,7 @@ set(QUMIR_DEB_VERSION "${PROJECT_VERSION}-${QUMIR_BUILD_NUMBER}")
 
 # Only major.minor names the install tree, so patch releases replace files in place.
 set(QUMIR_RELEASE "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
+set(QUMIR_DATA_DIR "/usr/lib/qumir-data" CACHE STRING "Writable data directory, created by the administrator")
 set(QUMIR_PRIVATE_DIR "lib/qumir-${QUMIR_RELEASE}")
 set(QUMIR_PRIVATE_BINDIR "${QUMIR_PRIVATE_DIR}/bin")
 set(QUMIR_PRIVATE_LIBDIR "${QUMIR_PRIVATE_DIR}/lib")
