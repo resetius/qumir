@@ -1,6 +1,6 @@
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "qumir")
-set(CPACK_PACKAGE_VERSION "${QUMIR_VERSION}")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_PACKAGE_CONTACT "Alexey Ozeritskiy <aozeritsky@gmail.com>")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://qumir.dev")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Educational programming language with Russian keywords")
@@ -9,6 +9,8 @@ set(CPACK_STRIP_FILES ON)
 set(CPACK_DEB_COMPONENT_INSTALL ON)
 set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+# Yields 1.0.0-42; the hyphen is the Debian revision separator.
+set(CPACK_DEBIAN_PACKAGE_RELEASE "${QUMIR_BUILD_NUMBER}")
 
 set(CPACK_COMPONENTS_ALL compiler)
 
@@ -25,7 +27,7 @@ if(QUMIR_BUILD_SERVICE)
     set(CPACK_DEBIAN_SERVICE_PACKAGE_NAME "qumir-service")
     set(CPACK_DEBIAN_SERVICE_PACKAGE_SECTION "web")
     # The server spawns qumirc from --binary-dir, so the compiler must match exactly.
-    set(CPACK_DEBIAN_SERVICE_PACKAGE_DEPENDS "qumir (= ${QUMIR_VERSION})")
+    set(CPACK_DEBIAN_SERVICE_PACKAGE_DEPENDS "qumir (= ${QUMIR_DEB_VERSION})")
     set(CPACK_COMPONENT_SERVICE_DESCRIPTION
         "Qumir playground web service.\n HTTP server backing the browser playground: editor, examples\n and the robot/turtle executors.")
 endif()

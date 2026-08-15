@@ -73,6 +73,12 @@ jobs:
       contents: write
 
     steps:
+    - uses: actions/checkout@v4
+
+    - name: read version
+      id: version
+      run: sed -n 's/^project(qumir VERSION \([0-9.]*\)).*/version=\1/p' CMakeLists.txt >> "$GITHUB_OUTPUT"
+
     - uses: actions/download-artifact@v4
       with:
         path: packages
@@ -80,6 +86,6 @@ jobs:
 
     - uses: softprops/action-gh-release@v2
       with:
-        tag_name: v1.0.${{ github.run_number }}
-        name: Qumir 1.0.${{ github.run_number }}
+        tag_name: v${{ steps.version.outputs.version }}-${{ github.run_number }}
+        name: Qumir ${{ steps.version.outputs.version }}-${{ github.run_number }}
         files: packages/*.deb
