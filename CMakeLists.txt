@@ -48,6 +48,8 @@ if(QUMIR_BUILD_SERVICE)
     add_subdirectory(service)
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+# Only the standalone build packages itself; embedded in another project its CPack
+# configuration would overwrite the outer one.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND PROJECT_IS_TOP_LEVEL)
     include(cmake/QumirPackaging.cmake)
 endif()
