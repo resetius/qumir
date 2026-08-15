@@ -561,9 +561,7 @@ int main(int argc, char** argv) {
                          "  --help, -h    Show this help message\n";
             return 0;
         } else if (!std::strcmp(argv[i], "--version") || !std::strcmp(argv[i], "-v")) {
-            std::cout << "qumirc version 0.0.1\n";
-            std::cout << "Build Date: " << __DATE__ << "\n";
-            std::cout << "Build Time: " << __TIME__ << "\n";
+            std::cout << QUMIR_VERSION_STRING << "\n";
             return 0;
         } else if (!std::strcmp(argv[i], "--ast")) {
             generateAst = true;

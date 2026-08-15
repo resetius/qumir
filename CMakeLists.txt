@@ -15,8 +15,9 @@ set(QUMIR_RELEASE "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 set(QUMIR_DATA_DIR "/usr/lib/qumir-data" CACHE STRING "Writable data directory, created by the administrator")
 
 # Build number 0 means a working copy; anything else comes from CI and names a package.
+string(TIMESTAMP QUMIR_BUILD_DATE "%Y-%m-%d" UTC)
 if(QUMIR_BUILD_NUMBER STREQUAL "0")
-    set(QUMIR_VERSION_STRING "dev")
+    set(QUMIR_VERSION_STRING "dev,${QUMIR_BUILD_DATE}")
 else()
     execute_process(
         COMMAND git rev-parse --short=7 HEAD
@@ -25,9 +26,9 @@ else()
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_QUIET)
     if(QUMIR_GIT_SHA)
-        set(QUMIR_VERSION_STRING "${PROJECT_VERSION}-${QUMIR_BUILD_NUMBER},${QUMIR_GIT_SHA}")
+        set(QUMIR_VERSION_STRING "${PROJECT_VERSION}-${QUMIR_BUILD_NUMBER},${QUMIR_GIT_SHA},${QUMIR_BUILD_DATE}")
     else()
-        set(QUMIR_VERSION_STRING "${PROJECT_VERSION}-${QUMIR_BUILD_NUMBER}")
+        set(QUMIR_VERSION_STRING "${PROJECT_VERSION}-${QUMIR_BUILD_NUMBER},${QUMIR_BUILD_DATE}")
     endif()
 endif()
 message(STATUS "Qumir version string: ${QUMIR_VERSION_STRING}")

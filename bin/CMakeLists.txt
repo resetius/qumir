@@ -10,6 +10,9 @@ else()
     target_link_libraries(qumirc PUBLIC qumir qumir_runtime qumir_codegen_llvm)
 endif()
 
+target_compile_definitions(qumirc PRIVATE QUMIR_VERSION_STRING="${QUMIR_VERSION_STRING}")
+target_compile_definitions(qumiri PRIVATE QUMIR_VERSION_STRING="${QUMIR_VERSION_STRING}")
+
 install(TARGETS qumiri qumirc
     RUNTIME DESTINATION ${QUMIR_PRIVATE_BINDIR}
     COMPONENT compiler)

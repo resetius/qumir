@@ -149,6 +149,23 @@ private:
         }
     }
 
+    // The version text comes from a separately packaged binary: keep the first
+    // line only and drop anything that would break the JSON string.
+    std::string SanitizeVersion(const std::string& raw) {
+        std::string out;
+        for (char c : raw) {
+            if (c == '\n' || c == '\r') {
+                break;
+            }
+            if (static_cast<unsigned char>(c) < 0x20 || c == '"' || c == '\\') {
+                continue;
+            }
+            out += c;
+        }
+        Trim(out);
+        return out;
+    }
+
     TFuture<void> SendJson(TResponse& response, const std::string& json, int statusCode = 200) {
         response.SetStatus(statusCode);
         response.SetHeader("Content-Type", "application/json; charset=utf-8");
@@ -168,9 +185,17 @@ private:
     TFuture<void> Get(TRequest& request, TResponse& response) {
         auto&& path = request.Uri().Path();
         if (path == "/api/version") {
-            // Baked in at configure time: "dev" for a working copy, otherwise
-            // the package version with the commit, e.g. 1.0.0-2,ff756.
-            co_await SendJson(response, "\"" QUMIR_VERSION_STRING "\"");
+            // The compiler is packaged separately and may be upgraded without
+            // restarting us, so its version is asked for and cached briefly.
+            auto now = std::chrono::steady_clock::now();
+            if (CompilerVersion.empty() || (now - CompilerVersionTime) >= VersionCacheDuration) {
+                auto qumirc = (BinaryBaseCanonical / "qumirc").generic_string();
+                auto [out, code] = co_await ReadPipe(qumirc, {"--version"}, false, false, true);
+                out = SanitizeVersion(out);
+                CompilerVersion = (code == 0 && !out.empty()) ? out : "unknown";
+                CompilerVersionTime = now;
+            }
+            co_await SendJson(response, "\"srv:" QUMIR_VERSION_STRING ";comp:" + CompilerVersion + "\"");
             co_return;
         } else if (path == "/api/examples") {
             std::vector<llvm::json::Value> items;
@@ -773,6 +798,10 @@ private:
     std::string SharedLinksDir;
     std::filesystem::path SharedLinksBaseCanonical = std::filesystem::weakly_canonical(std::filesystem::path(SharedLinksDir));
     std::string Path;
+
+    static constexpr std::chrono::minutes VersionCacheDuration{5};
+    std::string CompilerVersion;
+    std::chrono::steady_clock::time_point CompilerVersionTime;
 
     NQumir::NService::TRouteTable Routes;
     std::vector<void*> PluginHandles;
