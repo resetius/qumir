@@ -12,7 +12,8 @@ endif()
 
 # Headers and defs for using llvm/Support headers directly in server
 target_include_directories(server PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(server PRIVATE ${LLVM_DEFINITIONS})
+target_compile_definitions(server PRIVATE ${LLVM_DEFINITIONS}
+    QUMIR_VERSION_STRING="${QUMIR_VERSION_STRING}")
 
 # Plugins resolve coroio and qumir symbols from the executable itself.
 set_target_properties(server PROPERTIES ENABLE_EXPORTS ON)

@@ -168,27 +168,10 @@ private:
     TFuture<void> Get(TRequest& request, TResponse& response) {
         auto&& path = request.Uri().Path();
         if (path == "/api/version") {
-            auto now = std::chrono::steady_clock::now();
-            if (!VersionCache.empty() && (now - VersionCacheTime) < VersionCacheDuration) {
-                co_await SendJson(response, VersionCache);
-                co_return;
-            }
-
-            // Refresh cache
-            auto [shortOut, shortCode] = co_await ReadPipe("git", {"rev-parse", "--short", "HEAD"}, false, true);
-            auto [dateOut, dateCode] = co_await ReadPipe("git", {"log", "-1", "--date=iso-strict", "--format=%cd"}, false, true);
-            auto [branchOut, branchCode] = co_await ReadPipe("git", {"rev-parse", "--abbrev-ref", "HEAD"}, false, true);
-            if (shortCode != 0 || dateCode != 0 || branchCode != 0) {
-                co_await SendJson(response, "{\"error\":\"git command failed\"}", 500);
-                co_return;
-            } else {
-                Trim(shortOut); Trim(dateOut); Trim(branchOut);
-                std::string json = std::string("{\"hash\":\"") + shortOut + "\",\"date\":\"" + dateOut + "\",\"branch\":\"" + branchOut + "\"}";
-                VersionCache = json;
-                VersionCacheTime = now;
-                co_await SendJson(response, json);
-                co_return;
-            }
+            // Baked in at configure time: "dev" for a working copy, otherwise
+            // the package version with the commit, e.g. 1.0.0-2,ff756.
+            co_await SendJson(response, "\"" QUMIR_VERSION_STRING "\"");
+            co_return;
         } else if (path == "/api/examples") {
             std::vector<llvm::json::Value> items;
             for (auto& p : std::filesystem::recursive_directory_iterator(ExamplesBaseCanonical)) {
@@ -790,10 +773,6 @@ private:
     std::string SharedLinksDir;
     std::filesystem::path SharedLinksBaseCanonical = std::filesystem::weakly_canonical(std::filesystem::path(SharedLinksDir));
     std::string Path;
-
-    static constexpr std::chrono::minutes VersionCacheDuration{5};
-    std::string VersionCache;
-    std::chrono::steady_clock::time_point VersionCacheTime;
 
     NQumir::NService::TRouteTable Routes;
     std::vector<void*> PluginHandles;
