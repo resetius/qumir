@@ -1478,6 +1478,9 @@ function clearErrorHighlights() {
     try { editor.clearGutter('q-error-gutter'); } catch (_) {}
   }
   setErrorsBadge(false);
+  if (window.__hintRemovePopups) {
+    try { window.__hintRemovePopups(); } catch (_) {}
+  }
 }
 
 function addErrorHighlights(errors) {
@@ -1525,13 +1528,27 @@ function addErrorHighlights(errors) {
     __errorMarks.push(mark);
     try { editor.addLineClass(lineIdx, 'background', 'q-error-line'); } catch (_) {}
 
-    // Add gutter marker (red dot) on the line
+    // Add gutter marker (red dot + hint bulb container) on the line
     try {
-      const dot = document.createElement('div');
-      dot.className = 'q-error-dot';
       // Avoid native title to prevent double tooltip; fast tooltip reads data-error
-      dot.setAttribute('data-error', err.text || 'Ошибка');
-      editor.setGutterMarker(lineIdx, 'q-error-gutter', dot);
+      const container = document.createElement('div');
+      container.className = 'q-hint-container';
+      container.setAttribute('data-error', err.text || 'Ошибка');
+      container.setAttribute('data-line', err.line || 1);
+      container.setAttribute('data-col', err.col || 1);
+
+      const dot = document.createElement('div');
+      dot.className = 'q-hint-dot';
+      container.appendChild(dot);
+
+      if (window.__hintCreateBulb) {
+        try {
+          const bulb = window.__hintCreateBulb(err);
+          if (bulb) container.appendChild(bulb);
+        } catch (_) {}
+      }
+
+      editor.setGutterMarker(lineIdx, 'q-error-gutter', container);
     } catch (_) {}
   }
 }
@@ -1609,7 +1626,8 @@ async function show(mode, { clearErrorsOnSuccess = true } = {}) {
     .CodeMirror-gutters { border-right: 1px solid #e0e0e0; }
     /* Make error gutter compact so dot sits close to line number */
     .CodeMirror-gutter.q-error-gutter { width: 10px; }
-    .q-error-dot { width: 8px; height: 8px; border-radius: 50%; background: #e53935; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); margin: 0 auto; margin-top: 4px; }
+    .q-hint-container { display: flex; align-items: center; gap: 2px; margin-top: 2px; }
+    .q-hint-dot { width: 8px; height: 8px; border-radius: 50%; background: #e53935; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); flex-shrink: 0; }
     /* Operator hints - lighter styling */
     .q-hint-mark { border-bottom: 1px dashed rgba(100, 150, 250, 0.5); cursor: help; }
   `;
@@ -1667,12 +1685,29 @@ function ensureErrorGutter() {
     let hoverTimer = null;
     const delay = 120; // faster than default title
     wrap.addEventListener('mousemove', (ev) => {
-      const target = ev.target;
+      let target = ev.target;
+
+      // Hovering the SVG inside a bulb should resolve to the bulb itself
+      if (target.tagName === 'svg' || target.tagName === 'path') {
+        const bulb = target.closest('.q-hint-bulb');
+        if (bulb) target = bulb;
+      }
+
       const isMark = target.classList && target.classList.contains('q-error-mark');
-      const isDot = target.classList && target.classList.contains('q-error-dot');
+      const isDot = target.classList && target.classList.contains('q-hint-dot');
+      const isContainer = target.classList && target.classList.contains('q-hint-container');
       const isHint = target.classList && target.classList.contains('q-hint-mark');
-      if (!(isMark || isDot || isHint)) { hideTip(); return; }
-      const text = target.getAttribute('data-error') || target.getAttribute('data-hint') || '';
+      const isBulb = target.classList && target.classList.contains('q-hint-bulb');
+      if (!(isMark || isDot || isContainer || isHint || isBulb)) { hideTip(); return; }
+
+      let text = '';
+      if (isBulb) {
+        text = target.getAttribute('data-hint') || 'AI-подсказка';
+      } else if (isDot && target.parentElement) {
+        text = target.parentElement.getAttribute('data-error') || '';
+      } else {
+        text = target.getAttribute('data-error') || target.getAttribute('data-hint') || '';
+      }
       clearTimeout(hoverTimer);
       hoverTimer = setTimeout(() => {
         showTip(target, text);
