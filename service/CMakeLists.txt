@@ -14,6 +14,10 @@ endif()
 target_include_directories(server PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(server PRIVATE ${LLVM_DEFINITIONS})
 
+# Plugins resolve coroio and qumir symbols from the executable itself.
+set_target_properties(server PROPERTIES ENABLE_EXPORTS ON)
+target_link_libraries(server PUBLIC ${CMAKE_DL_LIBS})
+
 install(PROGRAMS $<TARGET_FILE:server>
     DESTINATION bin
     RENAME qumir-service

@@ -1,6 +1,7 @@
 #include <chrono>
 #include <iostream>
 #include <fstream>
+#include <optional>
 #include <vector>
 #include <set>
 
@@ -13,6 +14,10 @@
 #include <coroio/http/httpd.hpp>
 #include <coroio/pipe/pipe.hpp>
 #include <coroio/ws/utils.hpp>
+
+#include <dlfcn.h>
+
+#include "plugin.h"
 
 using namespace NNet;
 
@@ -40,6 +45,8 @@ struct TOptions {
     std::string BinaryDir = "bin";
     std::string ExamplesDir = "examples";
     std::string SharedLinksDir = "shared";
+    std::vector<std::string> Plugins;
+    std::vector<std::string> PluginArgs;
 };
 
 class TRouter : public IRouter {
@@ -75,6 +82,8 @@ public:
             // Fallback to lexical normalization if canonicalization fails
             SharedLinksBaseCanonical = std::filesystem::path(SharedLinksDir).lexically_normal();
         }
+
+        LoadPlugins(options.Plugins, options.PluginArgs);
     }
 
     TFuture<void> HandleRequest(TRequest& request, TResponse& response) override {
@@ -99,6 +108,37 @@ public:
     }
 
 private:
+    // Handles are never closed: registered handlers live as long as the process.
+    void LoadPlugins(const std::vector<std::string>& paths, const std::vector<std::string>& args) {
+        if (paths.empty()) {
+            return;
+        }
+
+        NQumir::NService::TPluginContext context{
+            .PipeFactory = PipeFactory,
+            .BinaryDir = BinaryBaseCanonical.generic_string(),
+            .Args = args,
+        };
+
+        for (const auto& path : paths) {
+            void* handle = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+            if (!handle) {
+                throw std::runtime_error("Failed to load plugin " + path + ": " + dlerror());
+            }
+            PluginHandles.push_back(handle);
+
+            auto* registerFn = reinterpret_cast<void (*)(NQumir::NService::TRouteTable&,
+                                                         const NQumir::NService::TPluginContext&)>(
+                dlsym(handle, "QumirPluginRegister"));
+            if (!registerFn) {
+                throw std::runtime_error("Plugin " + path + " exports no QumirPluginRegister");
+            }
+
+            registerFn(Routes, context);
+            std::cerr << "Loaded plugin " << path << "\n";
+        }
+    }
+
     void Trim(std::string& s) {
         size_t first = s.find_first_not_of(" \t\r\n");
         size_t last = s.find_last_not_of(" \t\r\n");
@@ -125,7 +165,7 @@ private:
         co_await response.WriteBodyFull(message);
     }
 
-    TFuture<void> Get(const TRequest& request, TResponse& response) {
+    TFuture<void> Get(TRequest& request, TResponse& response) {
         auto&& path = request.Uri().Path();
         if (path == "/api/version") {
             auto now = std::chrono::steady_clock::now();
@@ -258,6 +298,8 @@ private:
             response.SetHeader("Location", redirectUrl);
             response.SetHeader("Content-Length", "0");
             co_await response.SendHeaders();
+        } else if (auto* handler = Routes.FindGet(path)) {
+            co_await (*handler)(request, response);
         } else {
             co_await ServeStaticFile(response, request.Uri().Path(), StaticBaseCanonical);
         }
@@ -283,6 +325,8 @@ private:
             co_await Compile(request, response, "wasm-text");
         } else if (path == "/api/share") {
             co_await ServeShareCreate(request, response);
+        } else if (auto* handler = Routes.FindPost(path)) {
+            co_await (*handler)(request, response);
         } else {
             co_await Send404(response);
         }
@@ -750,6 +794,9 @@ private:
     static constexpr std::chrono::minutes VersionCacheDuration{5};
     std::string VersionCache;
     std::chrono::steady_clock::time_point VersionCacheTime;
+
+    NQumir::NService::TRouteTable Routes;
+    std::vector<void*> PluginHandles;
 };
 
 int main(int argc, char** argv) {
@@ -767,8 +814,12 @@ int main(int argc, char** argv) {
             options.ExamplesDir = argv[++i];
         } else if (!strcmp(argv[i], "--shared-links-dir") && i < argc-1) {
             options.SharedLinksDir = argv[++i];
+        } else if (!strcmp(argv[i], "--plugin") && i < argc-1) {
+            options.Plugins.push_back(argv[++i]);
+        } else if (!strcmp(argv[i], "--plugin-arg") && i < argc-1) {
+            options.PluginArgs.push_back(argv[++i]);
         } else if (!strcmp(argv[i], "--help")) {
-            std::cout << "Usage: " << argv[0] << " [--port port] [--static-dir dir] [--binary-dir dir] [--examples-dir dir] [--shared-links-dir dir]\n";
+            std::cout << "Usage: " << argv[0] << " [--port port] [--static-dir dir] [--binary-dir dir] [--examples-dir dir] [--shared-links-dir dir] [--plugin path.so] [--plugin-arg value]\n";
             return 0;
         }
     }
@@ -794,8 +845,15 @@ int main(int argc, char** argv) {
 
     options.PipeFactory = pipeFactory;
 
-    TRouter router(options);
-    TWebServer<TSocket> server(std::move(listenSocket), router, logger);
+    std::optional<TRouter> router;
+    try {
+        router.emplace(options);
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << "\n";
+        return 1;
+    }
+
+    TWebServer<TSocket> server(std::move(listenSocket), *router, logger);
     server.Start();
 
     loop.Loop();
