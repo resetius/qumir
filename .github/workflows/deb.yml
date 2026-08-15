@@ -1,0 +1,85 @@
+name: Debian packages
+
+# Manual only: github.run_number then increments once per deliberate build,
+# giving 1.0.1, 1.0.2, 1.0.3 without gaps.
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish a GitHub Release with the packages'
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: apt-get update
+      run: sudo apt-get update
+
+    - name: Install packages
+      run: sudo apt-get install -y cmake ninja-build llvm-20-dev liburing-dev lld g++-14 dpkg-dev
+
+    - name: configure
+      run: |
+        cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=/usr \
+          -DLLVM_DIR="$(llvm-config-20 --cmakedir)" \
+          -DCMAKE_PREFIX_PATH="$(llvm-config-20 --prefix)" \
+          -DCMAKE_CXX_COMPILER=g++-14 \
+          -DCMAKE_C_COMPILER=gcc-14 \
+          -DQUMIR_BUILD_SERVICE=ON \
+          -DQUMIR_BUILD_NUMBER=${{ github.run_number }}
+
+    - name: build
+      run: cmake --build build
+
+    - name: package
+      run: cd build && cpack -G DEB
+
+    - name: verify packages
+      run: |
+        cd build
+        for deb in *.deb; do
+          echo "=== $deb ==="
+          dpkg-deb --info "$deb"
+          dpkg-deb --contents "$deb"
+        done
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: qumir-${{ matrix.arch }}
+        path: build/*.deb
+
+  release:
+    if: inputs.publish
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        path: packages
+        merge-multiple: true
+
+    - uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v1.0.${{ github.run_number }}
+        name: Qumir 1.0.${{ github.run_number }}
+        files: packages/*.deb

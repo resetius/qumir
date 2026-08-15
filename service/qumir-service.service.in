@@ -1,0 +1,17 @@
+[Unit]
+Description=Qumir playground web service
+After=network.target
+
+[Service]
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/qumir-service \
+    --port 8080 \
+    --static-dir @CMAKE_INSTALL_PREFIX@/share/qumir-service/static \
+    --binary-dir @CMAKE_INSTALL_PREFIX@/@QUMIR_PRIVATE_BINDIR@ \
+    --examples-dir @CMAKE_INSTALL_PREFIX@/share/qumir-service/examples \
+    --shared-links-dir /var/lib/qumir-service/shared
+DynamicUser=yes
+StateDirectory=qumir-service
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -13,3 +13,21 @@ endif()
 # Headers and defs for using llvm/Support headers directly in server
 target_include_directories(server PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(server PRIVATE ${LLVM_DEFINITIONS})
+
+install(PROGRAMS $<TARGET_FILE:server>
+    DESTINATION bin
+    RENAME qumir-service
+    COMPONENT service)
+
+install(DIRECTORY static/
+    DESTINATION share/qumir-service/static
+    COMPONENT service)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../examples/
+    DESTINATION share/qumir-service/examples
+    COMPONENT service)
+
+configure_file(qumir-service.service.in qumir-service.service @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/qumir-service.service
+    DESTINATION lib/systemd/system
+    COMPONENT service)

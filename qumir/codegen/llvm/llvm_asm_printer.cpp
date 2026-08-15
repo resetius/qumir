@@ -14,6 +14,9 @@
 #include <llvm/Support/Path.h>
 #include <llvm/TargetParser/Host.h>
 
+#include <llvm/ADT/SmallVector.h>
+
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <utility>
@@ -37,6 +40,35 @@ std::pair<std::string, std::string> GetNativeCpuAndFeatures() {
         features += feature.getKey().str();
     }
     return {std::move(cpu), std::move(features)};
+}
+
+std::string FindRuntimeLibrary() {
+    llvm::SmallVector<llvm::SmallString<256>, 3> candidates;
+
+    if (const char* fromEnv = std::getenv("QUMIR_RUNTIME")) {
+        candidates.emplace_back(fromEnv);
+    }
+
+    // /proc/self/exe resolves the /usr/bin symlink, so this is the versioned tree.
+    std::string selfExePath = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
+    llvm::StringRef exeDir = llvm::sys::path::parent_path(selfExePath);
+
+    // Installed layout: <prefix>/lib/qumir-<release>/{bin,lib}
+    candidates.emplace_back(exeDir);
+    llvm::sys::path::append(candidates.back(), "..", "lib", "libqumir_runtime.a");
+
+    // Build tree layout
+    candidates.emplace_back(exeDir);
+    llvm::sys::path::append(candidates.back(), "..", "qumir", "runtime", "libqumir_runtime.a");
+
+    for (const auto& candidate : candidates) {
+        if (llvm::sys::fs::exists(candidate)) {
+            return std::string(candidate);
+        }
+    }
+
+    throw std::runtime_error(
+        "libqumir_runtime.a not found next to " + selfExePath + "; set QUMIR_RUNTIME to its path");
 }
 
 } // namespace
@@ -110,13 +142,9 @@ void TLLVMModuleArtifacts::Generate(std::ostream& os, bool generateAsm, bool gen
             throw std::runtime_error("Failed to create temporary executable file");
         }
 
-        std::string selfExePath = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
-        llvm::SmallString<256> exeDir = llvm::sys::path::parent_path(selfExePath);
+        std::string runtimePath = FindRuntimeLibrary();
 
-        llvm::SmallString<256> runtimePath(exeDir);
-        llvm::sys::path::append(runtimePath, "..", "qumir", "runtime", "libqumir_runtime.a");
-
-        std::string cmd = "c++ " + std::string(objPath.c_str()) + " -o " + std::string(exePath.c_str()) + " " + std::string(runtimePath.c_str()) + " 2>&1";
+        std::string cmd = "c++ " + std::string(objPath.c_str()) + " -o " + std::string(exePath.c_str()) + " " + runtimePath + " 2>&1";
         FILE* pipe = popen(cmd.c_str(), "r");
         if (!pipe) {
             throw std::runtime_error("Failed to execute c++ compiler");

@@ -9,3 +9,16 @@ else()
     target_link_libraries(qumiri PUBLIC qumir qumir_runtime qumir_codegen_llvm)
     target_link_libraries(qumirc PUBLIC qumir qumir_runtime qumir_codegen_llvm)
 endif()
+
+install(TARGETS qumiri qumirc
+    RUNTIME DESTINATION ${QUMIR_PRIVATE_BINDIR}
+    COMPONENT compiler)
+
+# The real binaries stay in the versioned tree; /proc/self/exe resolves these links,
+# so qumirc still finds libqumir_runtime.a relative to itself.
+install(CODE "
+    set(_bindir \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/bin\")
+    file(MAKE_DIRECTORY \"\${_bindir}\")
+    file(CREATE_LINK \"../${QUMIR_PRIVATE_BINDIR}/qumirc\" \"\${_bindir}/qumirc\" SYMBOLIC)
+    file(CREATE_LINK \"../${QUMIR_PRIVATE_BINDIR}/qumiri\" \"\${_bindir}/qumiri\" SYMBOLIC)
+" COMPONENT compiler)
