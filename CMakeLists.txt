@@ -13,6 +13,24 @@ set(QUMIR_DEB_VERSION "${PROJECT_VERSION}-${QUMIR_BUILD_NUMBER}")
 # Only major.minor names the install tree, so patch releases replace files in place.
 set(QUMIR_RELEASE "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 set(QUMIR_DATA_DIR "/usr/lib/qumir-data" CACHE STRING "Writable data directory, created by the administrator")
+
+# Build number 0 means a working copy; anything else comes from CI and names a package.
+if(QUMIR_BUILD_NUMBER STREQUAL "0")
+    set(QUMIR_VERSION_STRING "dev")
+else()
+    execute_process(
+        COMMAND git rev-parse --short=7 HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE QUMIR_GIT_SHA
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+    if(QUMIR_GIT_SHA)
+        set(QUMIR_VERSION_STRING "${PROJECT_VERSION}-${QUMIR_BUILD_NUMBER},${QUMIR_GIT_SHA}")
+    else()
+        set(QUMIR_VERSION_STRING "${PROJECT_VERSION}-${QUMIR_BUILD_NUMBER}")
+    endif()
+endif()
+message(STATUS "Qumir version string: ${QUMIR_VERSION_STRING}")
 set(QUMIR_PRIVATE_DIR "lib/qumir-${QUMIR_RELEASE}")
 set(QUMIR_PRIVATE_BINDIR "${QUMIR_PRIVATE_DIR}/bin")
 set(QUMIR_PRIVATE_LIBDIR "${QUMIR_PRIVATE_DIR}/lib")
