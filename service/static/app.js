@@ -4315,18 +4315,75 @@ setupPreviewDocking();
   }
 })();
 
-// Populate version from backend git
+// The footer shows only the compiler revision; the full strings live in a dialog.
 (async function showVersion(){
+  // "1.0.0-42,2a77288,2026-08-15" -> "2a77288";  "dev,2026-08-15" -> "dev"
+  const shortRev = (value) => {
+    const parts = String(value || '').split(',');
+    if (!parts[0]) return '—';
+    const rev = parts[0] === 'dev' ? 'dev' : (parts[1] || parts[0]);
+    // An older compiler may report free-form text; the dialog still shows it whole.
+    return rev.length > 14 ? rev.slice(0, 13) + '…' : rev;
+  };
+
+  const parse = (raw) => {
+    const out = { srv: '', comp: '' };
+    String(raw || '').split(';').forEach(chunk => {
+      const at = chunk.indexOf(':');
+      if (at < 0) return;
+      const key = chunk.slice(0, at);
+      if (key === 'srv' || key === 'comp') out[key] = chunk.slice(at + 1);
+    });
+    if (!out.srv && !out.comp) out.comp = String(raw || '');
+    return out;
+  };
+
+  const openDialog = (info) => {
+    let dlg = document.getElementById('version-dialog');
+    if (!dlg) {
+      dlg = document.createElement('dialog');
+      dlg.id = 'version-dialog';
+      dlg.className = 'version-dialog';
+      dlg.innerHTML = '<h3>Версия</h3><dl></dl>'
+        + '<form method="dialog"><button type="submit">Закрыть</button></form>';
+      document.body.appendChild(dlg);
+      dlg.addEventListener('click', ev => { if (ev.target === dlg) dlg.close(); });
+    }
+    const list = dlg.querySelector('dl');
+    list.textContent = '';
+    [['Сервис', info.srv], ['Компилятор', info.comp]].forEach(([label, value]) => {
+      if (!value) return;
+      const dt = document.createElement('dt');
+      dt.textContent = label;
+      const dd = document.createElement('dd');
+      dd.textContent = value;
+      list.append(dt, dd);
+    });
+    dlg.showModal();
+  };
+
   try {
     const v = await apiGet('/api/version');
     const el = document.getElementById('version');
-    if (el) {
-      if (typeof v === 'string') {
-        el.textContent = 'v ' + v;
-      } else if (v && v.hash && v.date) {
-        el.textContent = `v ${v.hash} • ${v.date}`;
-      }
+    if (!el) return;
+
+    let info = null;
+    if (typeof v === 'string') {
+      info = parse(v);
+    } else if (v && v.hash) {
+      info = { srv: '', comp: `${v.hash},${v.date || ''}` };
     }
+    if (!info) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'version-link';
+    btn.textContent = shortRev(info.comp || info.srv);
+    btn.setAttribute('data-tooltip', 'Подробнее о версии');
+    btn.addEventListener('click', () => openDialog(info));
+
+    el.textContent = '';
+    el.appendChild(btn);
   } catch (e) {
     // ignore if endpoint not available
   }

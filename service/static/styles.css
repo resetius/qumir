@@ -259,6 +259,17 @@ footer a:hover { text-decoration: underline; color: #9ed8f3; }
 .bug-icon { font-size: 1.6em; line-height: 1; display: inline-block; }
 footer .beta { color: #ffa726; opacity: 0.95; }
 footer .version { opacity: 0.9; }
+.version-link { background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; border-bottom: 1px dashed currentColor; }
+.version-link:hover { color: #fff; }
+.version-link:focus { outline: 1px solid #666; outline-offset: 2px; }
+.version-dialog { background: #252526; color: #e6e6e6; border: 1px solid #555; border-radius: 6px; padding: 16px 20px; min-width: 320px; }
+.version-dialog::backdrop { background: rgba(0,0,0,0.5); }
+.version-dialog h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+.version-dialog dl { margin: 0 0 14px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13px; }
+.version-dialog dt { opacity: 0.7; }
+.version-dialog dd { margin: 0; font-family: ui-monospace, monospace; word-break: break-all; }
+.version-dialog button { background: #333; color: #ddd; border: 1px solid #555; border-radius: 4px; padding: 4px 12px; cursor: pointer; }
+.version-dialog button:hover { background: #3a3a3a; }
 .bug-button { background: none; border: none; padding: 0; margin: 0; cursor: pointer; color: inherit; display: inline-flex; align-items: center; justify-content: center; }
 .bug-button:focus { outline: 1px solid #666; outline-offset: 2px; }
 .dev-mode-toggle { background: none; border: none; padding: 0; margin: 0; cursor: pointer; font-size: 1.3em; line-height: 1; display: inline-flex; align-items: center; justify-content: center; opacity: 0.4; transition: opacity 0.2s, transform 0.2s; }
