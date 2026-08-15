@@ -117,7 +117,9 @@ std::optional<TError> CollectInterface(const fs::path& path, TSourceModule& modu
 
 TSourceModuleLoader::TSourceModuleLoader() {
     if (auto dir = ExecutableDir()) {
-        // Built-in module dirs: install (../share/qumir/modules) and build tree (../../qumir/modules).
+        // Built-in module dirs: versioned install tree (../modules), prefix install
+        // (../share/qumir/modules) and build tree (../../qumir/modules).
+        AddSearchPath(*dir / ".." / "modules");
         AddSearchPath(*dir / ".." / "share" / "qumir" / "modules");
         AddSearchPath(*dir / ".." / ".." / "qumir" / "modules");
     }
