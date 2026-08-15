@@ -12,7 +12,7 @@ set(QUMIR_DEB_VERSION "${PROJECT_VERSION}-${QUMIR_BUILD_NUMBER}")
 
 # Only major.minor names the install tree, so patch releases replace files in place.
 set(QUMIR_RELEASE "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
-set(QUMIR_DATA_DIR "/usr/lib/qumir-data" CACHE STRING "Writable data directory, created by the administrator")
+set(QUMIR_DATA_DIR "/var/lib/qumir-data" CACHE STRING "Writable data directory, created by the administrator")
 
 # Build number 0 means a working copy; anything else comes from CI and names a package.
 string(TIMESTAMP QUMIR_BUILD_DATE "%Y-%m-%d" UTC)

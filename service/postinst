@@ -6,7 +6,7 @@ set -e
 if [ "$1" = "configure" ]; then
     if ! getent passwd qumir >/dev/null; then
         adduser --system --group --no-create-home \
-                --home /usr/lib/qumir-data \
+                --home /var/lib/qumir-data \
                 --gecos "Qumir playground service" \
                 qumir
     fi
