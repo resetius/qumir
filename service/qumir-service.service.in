@@ -8,9 +8,9 @@ ExecStart=@CMAKE_INSTALL_PREFIX@/bin/qumir-service \
     --static-dir @CMAKE_INSTALL_PREFIX@/share/qumir-service/static \
     --binary-dir @CMAKE_INSTALL_PREFIX@/@QUMIR_PRIVATE_BINDIR@ \
     --examples-dir @CMAKE_INSTALL_PREFIX@/share/qumir-service/examples \
-    --shared-links-dir /var/lib/qumir-service/shared
-DynamicUser=yes
-StateDirectory=qumir-service
+    --shared-links-dir @QUMIR_DATA_DIR@/shared
+User=qumir
+Group=qumir
 Restart=on-failure
 
 [Install]
