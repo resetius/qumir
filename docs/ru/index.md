@@ -84,8 +84,9 @@ cmake --build build -j
 ### Запуск тестов
 
 ```bash
-cd build
-ctest --output-on-failure
+cmake -S . -B build -DQUMIR_BUILD_TESTS=ON
+cmake --build build -j
+ctest --test-dir build --output-on-failure
 ```
 
 ---

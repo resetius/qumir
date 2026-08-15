@@ -80,6 +80,8 @@ A minimal `.kum` program looks like this:
 Run the test suite with:
 
 ```bash
+cmake -S . -B build -DQUMIR_BUILD_TESTS=ON
+cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 

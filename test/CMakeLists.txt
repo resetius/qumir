@@ -52,11 +52,11 @@ ut(test_cached_compile test_cached_compile.cpp)
 ut(test_cacheable_mangle test_cacheable_mangle.cpp)
 
 # JavaScript execution tests (Node.js required)
-find_program(NODE_EXECUTABLE node)
-if(NODE_EXECUTABLE)
+find_program(QUMIR_NODE_EXECUTABLE node)
+if(QUMIR_NODE_EXECUTABLE)
     add_test(
         NAME test_exec_js
-        COMMAND ${NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_exec.js
+        COMMAND ${QUMIR_NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_exec.js
             --root ${CMAKE_SOURCE_DIR}/test/regtest/
             --runtime ${CMAKE_SOURCE_DIR}/service/static/runtime/
             --wasm-dir ${CMAKE_BINARY_DIR}/wasm-output
@@ -65,7 +65,7 @@ if(NODE_EXECUTABLE)
     )
     add_test(
         NAME test_exec_js_core_lifetime
-        COMMAND ${NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_exec.js
+        COMMAND ${QUMIR_NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_exec.js
             --root ${CMAKE_SOURCE_DIR}/test/regtest/
             --runtime ${CMAKE_SOURCE_DIR}/service/static/runtime/
             --wasm-dir ${CMAKE_BINARY_DIR}/wasm-output-core
@@ -76,7 +76,7 @@ if(NODE_EXECUTABLE)
     )
     add_test(
         NAME test_exec_js_core_module
-        COMMAND ${NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_exec.js
+        COMMAND ${QUMIR_NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_exec.js
             --root ${CMAKE_SOURCE_DIR}/test/regtest/
             --runtime ${CMAKE_SOURCE_DIR}/service/static/runtime/
             --wasm-dir ${CMAKE_BINARY_DIR}/wasm-output-core-module
