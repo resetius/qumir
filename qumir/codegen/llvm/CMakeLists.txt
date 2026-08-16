@@ -86,8 +86,19 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND LLVM_COMPONENTS orcdebugging orctargetprocess)
 endif()
 
-llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
-target_link_libraries(qumir_codegen_llvm PRIVATE ${LLVM_LIBS})
+if(QUMIR_LLVM_LINK_SHARED)
+    if(NOT TARGET LLVM)
+        message(FATAL_ERROR
+            "QUMIR_LLVM_LINK_SHARED=ON, but this LLVM installation ships no shared "
+            "libLLVM (check llvm-config --shared-mode)")
+    endif()
+    # The static component archives add ~50 MB of LLVM to every executable that
+    # links the codegen; the shared library keeps one copy per system instead.
+    target_link_libraries(qumir_codegen_llvm PRIVATE LLVM)
+else()
+    llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
+    target_link_libraries(qumir_codegen_llvm PRIVATE ${LLVM_LIBS})
+endif()
 
 if(UNIX AND NOT APPLE)
     target_link_options(qumir_codegen_llvm PUBLIC -rdynamic)
