@@ -4,6 +4,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(QUMIR_BUILD_SERVICE "Build Qumir service component with externals" OFF)
 option(QUMIR_BUILD_TESTS "Build Qumir tests" OFF)
+option(QUMIR_LLVM_LINK_SHARED "Link the shared libLLVM instead of static LLVM archives" OFF)
 set(QUMIR_BUILD_NUMBER "0" CACHE STRING "Build number, becomes the Debian revision after the hyphen")
 
 # The upstream version is bumped by hand above; the build number rides along as the
