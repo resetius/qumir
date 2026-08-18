@@ -2,7 +2,7 @@
 // JS execution test harness for .kum/.oz programs compiled to WebAssembly via `qumirc --wasm`.
 // Focus: execution only (analogous to Exec* tests in test_reg.cpp) comparing return value and stdout against goldens.
 // Usage:
-//   node test/test_exec.js [--root test/regtest] [--update] [--print] [--wasm-dir build/wasm]
+//   node test/test_exec.js [--root test/regtest] [--update] [--print] [--wasm-dir build/wasm] [--opt 0-3]
 // Environment overrides:
 //   QUMIRC   path to qumirc/qumiri compiler (default tries bin/qumirc then bin/qumiri)
 // Notes:
@@ -29,11 +29,13 @@ let runtimeDir = null; // directory with JS runtime host functions
 let filterPattern = null; // optional glob-style filter for case names (similar to gtest_filter)
 let xmlOutputPath = null; // optional path to write JUnit-style XML report
 let coreInput = false;
+let optLevel = 0; // -O level passed to the wasm compile (default matches prior behavior)
 for (let i=2;i<process.argv.length;i++) {
   const arg = process.argv[i];
   if (arg === '--root' && i+1 < process.argv.length) { rootDir = process.argv[++i]; }
   else if (arg === '--update') update = true;
   else if (arg === '--print') printOutput = true;
+  else if (arg === '--opt' && i+1 < process.argv.length) { optLevel = parseInt(process.argv[++i], 10); }
   else if (arg === '--wasm-dir' && i+1 < process.argv.length) { wasmDir = process.argv[++i]; }
   else if (arg === '--runtime' && i+1 < process.argv.length) { runtimeDir = process.argv[++i]; }
   else if (arg === '--filter' && i+1 < process.argv.length) { filterPattern = process.argv[++i]; }
@@ -356,6 +358,7 @@ function compileCase(compiler, caseBase) {
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   const args = [compiler, '--wasm'];
   if (coreInput) args.push('--core');
+  if (optLevel > 0) args.push('-O' + optLevel);
   args.push(srcPath, '-o', outPath);
   const r = cp.spawnSync(args[0], args.slice(1), { stdio: 'inherit' });
   if (r.status !== 0) throw new Error('Compile failed for ' + srcPath);

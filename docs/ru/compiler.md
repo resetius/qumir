@@ -19,7 +19,8 @@ qumirc [опции] <входной_файл.kum>
 | `--ast` | Вывести AST в файл `.ast` |
 | `--ir` | Вывести IR в файл `.ir` |
 | `--llvm` | Вывести LLVM IR в файл `.ll` |
-| `--wasm` | Компиляция в WebAssembly |
+| `--wasm`, `--wasm32` | Компиляция в WebAssembly (wasm32-unknown-unknown) |
+| `--wasm64` | Компиляция в WebAssembly (wasm64-unknown-unknown) |
 | `-v`, `--version` | Показать версию |
 | `-h`, `--help` | Показать справку |
 
@@ -163,7 +164,7 @@ ls -la benchmark_O0 benchmark_O3
 | `--llvm` | `.ll` | LLVM IR (текст) |
 | `--ir` | `.ir` | Внутреннее IR |
 | `--ast` | `.ast` | AST (дерево разбора) |
-| `--wasm` | `.wasm` | WebAssembly модуль |
+| `--wasm`, `--wasm32`, `--wasm64` | `.wasm` | WebAssembly модуль |
 
 ## Коды возврата
 

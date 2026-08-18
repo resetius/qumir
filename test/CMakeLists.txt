@@ -85,4 +85,20 @@ if(QUMIR_NODE_EXECUTABLE)
             --xml ${CMAKE_BINARY_DIR}/test/test_js_core_module.xml
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
+    # Regression for wasm32 struct layout (Ptr field offset must match the
+    # real 4-byte-pointer wasm32 DataLayout, not the 8-byte default). Runs at
+    # -O3 since that is where the pre-fix offset mismatch produced UB that
+    # LLVM's optimizer miscompiled away.
+    add_test(
+        NAME test_exec_js_wasm32_struct_ptr_field
+        COMMAND ${QUMIR_NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_exec.js
+            --root ${CMAKE_SOURCE_DIR}/test/regtest/
+            --runtime ${CMAKE_SOURCE_DIR}/service/static/runtime/
+            --wasm-dir ${CMAKE_BINARY_DIR}/wasm-output-wasm32-struct
+            --core
+            --opt 3
+            --filter corelang/wasm32_struct_ptr_field
+            --xml ${CMAKE_BINARY_DIR}/test/test_js_wasm32_struct_ptr_field.xml
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    )
 endif()
