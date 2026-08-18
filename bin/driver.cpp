@@ -414,7 +414,7 @@ void GenerateObjFromAsm(const std::string& asmCode, std::ostream& objOut) {
 }
 #endif
 
-int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, bool targetWasm, bool coreInput, bool verbose, const TModuleConfig& moduleConfig) {
+int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, int wasmBits, bool coreInput, bool verbose, const TModuleConfig& moduleConfig) {
     if (verbose) {
         std::cerr << "Compiling " << inputFile << " to " << outputFile << "\n";
     }
@@ -442,6 +442,9 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     }
 
     NIR::TModule module;
+    if (wasmBits == 32) {
+        module.Types.SetPointerSize(4);
+    }
     NIR::TBuilder builder(module);
 
     NIR::TAstLowerer lowerer(module, builder, r);
@@ -460,8 +463,10 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     }
 
     NCodeGen::TLLVMCodeGenOptions cgOpts;
-    if (targetWasm) {
+    if (wasmBits == 32) {
         cgOpts.TargetTriple = "wasm32-unknown-unknown";
+    } else if (wasmBits == 64) {
+        cgOpts.TargetTriple = "wasm64-unknown-unknown";
     }
     NCodeGen::TLLVMCodeGen cg(cgOpts);
     auto artifacts = cg.Emit(module, effectiveOptLevel);
@@ -471,7 +476,7 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     }
 
     // Special path: when targeting wasm and linking, produce a final .wasm via wasm-ld
-    if (targetWasm && !generateAsm && !compileOnly) {
+    if (wasmBits != 0 && !generateAsm && !compileOnly) {
         // TODO: move to ->Generate
         const std::string objTmp = outputFile + ".tmp.o";
         {
@@ -482,7 +487,8 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
             }
             artifacts->Generate(objFile, /*asm*/false, /*obj*/true);
         }
-        std::string cmd = std::string("wasm-ld --no-entry --export-all --allow-undefined -o ") + outputFile + " " + objTmp;
+        std::string cmd = std::string("wasm-ld --no-entry --export-all --allow-undefined ")
+            + (wasmBits == 64 ? "-mwasm64 " : "") + "-o " + outputFile + " " + objTmp;
         int rc = std::system(cmd.c_str());
         if (rc != 0) {
             std::cerr << "wasm-ld failed with code " << rc << "\n";
@@ -525,7 +531,7 @@ int main(int argc, char** argv) {
     bool generateLlvm = false;
     bool generateAsm = false;
     int optLevel = 0;
-    bool targetWasm = false;
+    int wasmBits = 0; // 0 = native, 32, 64
     bool coreInput = false;
     bool verbose = false;
     TModuleConfig moduleConfig;
@@ -547,7 +553,9 @@ int main(int argc, char** argv) {
                          "  --ast         Generate parsed AST only (no IR, no codegen)\n"
                          "  --transformed-ast Generate transformed AST only (no IR, no codegen)\n"
                          "  --ir          Generate IR only (no codegen)\n"
-                         "  --wasm        Target WebAssembly (wasm32-unknown-unknown)\n"
+                         "  --wasm        Target WebAssembly, 32-bit (alias for --wasm32)\n"
+                         "  --wasm32      Target wasm32-unknown-unknown\n"
+                         "  --wasm64      Target wasm64-unknown-unknown\n"
                          "  --module-path <dir>  Add a search directory for .oz modules (repeatable)\n"
                          "  --module <file.oz>   Register an explicit .oz module (repeatable)\n"
                          "  -S            Generate assembly only (no linking), implies -c\n"
@@ -571,8 +579,10 @@ int main(int argc, char** argv) {
             generateIr = true;
         } else if (!std::strcmp(argv[i], "--llvm")) {
             generateLlvm = true;
-        } else if (!std::strcmp(argv[i], "--wasm")) {
-            targetWasm = true;
+        } else if (!std::strcmp(argv[i], "--wasm") || !std::strcmp(argv[i], "--wasm32")) {
+            wasmBits = 32;
+        } else if (!std::strcmp(argv[i], "--wasm64")) {
+            wasmBits = 64;
         } else if (!std::strcmp(argv[i], "-S")) {
             generateAsm = true;
             compileOnly = true;
@@ -653,7 +663,7 @@ int main(int argc, char** argv) {
     }
 
     if (!compileOnly && outputFile.empty()) {
-        outputFile = targetWasm ? OutputFilename(inputFile, ".wasm") : A_OUT;
+        outputFile = wasmBits != 0 ? OutputFilename(inputFile, ".wasm") : A_OUT;
     }
 
     std::string finalOutput = outputFile;
@@ -665,5 +675,5 @@ int main(int argc, char** argv) {
             : outputFile;
     }
 
-    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, targetWasm, coreInput, verbose, moduleConfig);
+    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, wasmBits, coreInput, verbose, moduleConfig);
 }

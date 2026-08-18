@@ -370,9 +370,10 @@ int TTypeTable::SizeInBytes(int typeId) const {
     case EKind::I64:
     case EKind::U64:
     case EKind::F64:
+        return 8;
     case EKind::Ptr:
     case EKind::Func:
-        return 8;
+        return PointerSize;
     case EKind::Void:
         return 0;
     case EKind::Struct: {
@@ -407,6 +408,10 @@ int TTypeTable::FieldOffset(int structTypeId, int fieldIndex) const {
         offset += fieldSize;
     }
     return offset;
+}
+
+void TTypeTable::SetPointerSize(int bytes) {
+    PointerSize = bytes;
 }
 
 const std::vector<int>& TTypeTable::GetStructFields(int typeId) const {

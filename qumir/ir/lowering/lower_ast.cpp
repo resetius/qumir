@@ -768,7 +768,18 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             NAst::UnwrapNamedType(bitcast->Operand->Type),
             Module.Types);
         int targetTypeId = FromAstType(NAst::UnwrapNamedType(bitcast->Type), Module.Types);
-        if (Module.Types.SizeInBytes(sourceTypeId) != Module.Types.SizeInBytes(targetTypeId)) {
+        auto isPtrLike = [&](int typeId) {
+            auto kind = Module.Types.GetKind(typeId);
+            return kind == EKind::Ptr || kind == EKind::Func;
+        };
+        // Ptr/Func <-> Integer bitcasts go through inttoptr/ptrtoint at codegen
+        // (see "bitcast"_op in llvm_codegen.cpp), which widens/narrows like any
+        // other integer-pointer conversion, so they are exempt from the
+        // same-size requirement below (pointer size is target-dependent).
+        bool isPtrIntConversion = (isPtrLike(sourceTypeId) && Module.Types.IsInteger(targetTypeId))
+            || (isPtrLike(targetTypeId) && Module.Types.IsInteger(sourceTypeId));
+        if (!isPtrIntConversion
+            && Module.Types.SizeInBytes(sourceTypeId) != Module.Types.SizeInBytes(targetTypeId)) {
             co_return TError(bitcast->Location, "bitcast types must have the same size");
         }
         auto tmp = Builder.Emit1("bitcast"_op, {*operand.Value});

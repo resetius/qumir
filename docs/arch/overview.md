@@ -274,10 +274,11 @@ returns are modelled as ordinary LLVM values.
 
 ### 7.2 Target
 
-| Flag      | Triple                   | Notes                          |
-|-----------|--------------------------|--------------------------------|
-| *(none)*  | host triple              | native AOT or JIT              |
-| `--wasm`  | `wasm32-unknown-unknown` | requires `wasm-ld` for linking |
+| Flag                | Triple                   | Notes                                    |
+|---------------------|--------------------------|-------------------------------------------|
+| *(none)*            | host triple              | native AOT or JIT                        |
+| `--wasm`, `--wasm32` | `wasm32-unknown-unknown` | requires `wasm-ld` for linking           |
+| `--wasm64`          | `wasm64-unknown-unknown` | requires `wasm-ld -mwasm64` for linking  |
 
 ### 7.3 Optimization
 

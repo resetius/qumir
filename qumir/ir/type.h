@@ -73,6 +73,12 @@ public:
     // SizeInBytes, so IR, VM and LLVM agree on field placement.
     int FieldOffset(int structTypeId, int fieldIndex) const;
 
+    // Overrides the size/alignment used for Ptr and Func types (default 8,
+    // i.e. a 64-bit target). Must be called before any lowering that bakes
+    // FieldOffset values into the IR — target width is fixed for the
+    // lifetime of the module.
+    void SetPointerSize(int bytes);
+
 private:
     std::vector<TType> Types;
     std::vector<TFuncSig> FuncSigs;
@@ -82,6 +88,8 @@ private:
     std::unordered_map<int, int> PtrCache;
     std::map<std::tuple<std::vector<int>,int>, int> FuncCache;
     std::map<std::vector<int>, int> StructCache;
+
+    int PointerSize = 8;
 };
 
 int FromAstType(const NAst::TTypePtr& tastType, TTypeTable& tt);
