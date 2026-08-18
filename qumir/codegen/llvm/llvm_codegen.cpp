@@ -326,6 +326,40 @@ llvm::Value* EmitCoercedExternalCall(llvm::IRBuilder<>& irb, llvm::Module& lmodu
     return irb.CreateLoad(declaredRetTy, buf, "retstruct");
 }
 
+// "builtin::" is the always-loaded qumir/modules/builtins prelude
+enum class EBuiltinIntrinsic {
+    Memcpy,
+    Memmove
+};
+
+static const std::unordered_map<std::string, EBuiltinIntrinsic> BuiltinIntrinsics = {
+    {"builtin::memcpy", EBuiltinIntrinsic::Memcpy},
+    {"builtin::memmove", EBuiltinIntrinsic::Memmove},
+};
+
+// dst/src/len, returning dst (the libc memcpy/memmove contract the "builtin::"
+// signatures were declared with).
+template<class TCast>
+llvm::Value* EmitBuiltinIntrinsicCall(llvm::IRBuilder<>& irb, EBuiltinIntrinsic kind,
+    std::vector<llvm::Value*>& pendingArgs, TCast&& cast)
+{
+    if (pendingArgs.size() != 3) {
+        throw std::runtime_error("builtin memcpy/memmove expects 3 arguments");
+    }
+    auto* ptrTy = llvm::PointerType::get(irb.getContext(), 0);
+    auto* i64Ty = llvm::Type::getInt64Ty(irb.getContext());
+    auto* dst = cast(pendingArgs[0], ptrTy);
+    auto* src = cast(pendingArgs[1], ptrTy);
+    auto* len = cast(pendingArgs[2], i64Ty);
+    pendingArgs.clear();
+    if (kind == EBuiltinIntrinsic::Memcpy) {
+        irb.CreateMemCpy(dst, llvm::MaybeAlign(1), src, llvm::MaybeAlign(1), len);
+    } else {
+        irb.CreateMemMove(dst, llvm::MaybeAlign(1), src, llvm::MaybeAlign(1), len);
+    }
+    return dst;
+}
+
 std::pair<std::string, std::string> GetNativeCpuAndFeatures() {
     auto cpu = llvm::sys::getHostCPUName().str();
     std::string features;
@@ -1818,6 +1852,12 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                 auto jt = module.SymIdToExtFuncIdx.find(calleeSymId);
                 if (jt != module.SymIdToExtFuncIdx.end()) {
                     auto& extFun = module.ExternalFunctions[jt->second];
+                    if (auto bit = BuiltinIntrinsics.find(extFun.Name);
+                        bit != BuiltinIntrinsics.end())
+                    {
+                        return storeTmp(EmitBuiltinIntrinsicCall(
+                            *irb, bit->second, CurFun->PendingArgs, cast));
+                    }
                     EAbiArch arch = ModuleAbiArch(*LModule);
                     if (arch != EAbiArch::Other) {
                         auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());

@@ -16,6 +16,7 @@
 #include <qumir/semantics/type_annotation/type_annotation.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
+#include <qumir/modules/builtins/builtins.h>
 #include <qumir/modules/turtle/turtle.h>
 #include <qumir/modules/robot/robot.h>
 #include <qumir/modules/drawer/drawer.h>
@@ -145,6 +146,7 @@ bool printOutput = false;
 
 struct TModuleSet {
     NRegistry::SystemModule system;
+    NRegistry::BuiltinsModule builtins;
     NRegistry::TurtleModule turtle;
     NRegistry::RobotModule robot;
     NRegistry::DrawerModule drawer;
@@ -155,6 +157,7 @@ struct TModuleSet {
 
 void RegisterRuntimeModules(NSemantics::TNameResolver& resolver, TModuleSet& mods) {
     resolver.RegisterModule(&mods.system);
+    resolver.RegisterModule(&mods.builtins);
     resolver.RegisterModule(&mods.turtle);
     resolver.RegisterModule(&mods.robot);
     resolver.RegisterModule(&mods.drawer);
@@ -162,6 +165,8 @@ void RegisterRuntimeModules(NSemantics::TNameResolver& resolver, TModuleSet& mod
     resolver.RegisterModule(&mods.colors);
     resolver.RegisterModule(&mods.keyboard);
     resolver.ImportModule(mods.system.Name());
+    // Always available, independent of prelude (qumir/modules/builtins).
+    resolver.ImportModule(mods.builtins.Name());
 }
 
 std::string ReadAll(const fs::path& p) {

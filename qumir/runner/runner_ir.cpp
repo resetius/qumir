@@ -8,6 +8,7 @@
 #include <qumir/parser/core/printer.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
+#include <qumir/modules/builtins/builtins.h>
 #include <qumir/modules/turtle/turtle.h>
 #include <qumir/modules/robot/robot.h>
 #include <qumir/modules/drawer/drawer.h>
@@ -51,6 +52,13 @@ TIRRunner::TIRRunner(
     for (const auto& mod : AvailableModules) {
         Resolver.RegisterModule(mod.get());
     }
+
+    // Byte primitives (memcpy/memmove/memcmp) every host needs; always
+    // imported, independent of CoreInput/Prelude (qumir/modules/builtins).
+    auto builtins = std::make_shared<NRegistry::BuiltinsModule>();
+    Resolver.RegisterModule(builtins.get());
+    (void)Resolver.ImportModule(builtins->Name());
+    RegisteredModules.push_back(std::move(builtins));
 
     if (!Options.CoreInput) {
         // Kumir prelude: standard runtime modules plus legacy module aliases.
