@@ -1,6 +1,8 @@
 add_library(qumir
     modules/system/system.h
     modules/system/system.cpp
+    modules/builtins/builtins.h
+    modules/builtins/builtins.cpp
     modules/robot/robot.h
     modules/robot/robot.cpp
     modules/colors/colors.h

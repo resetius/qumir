@@ -7,6 +7,7 @@
 #include <qumir/parser/core/printer.h>
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
+#include <qumir/modules/builtins/builtins.h>
 #include <qumir/modules/turtle/turtle.h>
 #include <qumir/modules/robot/robot.h>
 #include <qumir/modules/drawer/drawer.h>
@@ -40,6 +41,9 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     }
 
     RegisterModule(std::make_shared<NRegistry::SystemModule>(), /*import=*/false);
+    // Byte primitives (memcpy/memmove/memcmp) every host needs; always
+    // imported, independent of CoreInput/Prelude (qumir/modules/builtins).
+    RegisterModule(std::make_shared<NRegistry::BuiltinsModule>(), /*import=*/true);
     // TODO: register other modules
 
     AvailableModules.push_back(std::make_shared<NRegistry::TurtleModule>());
