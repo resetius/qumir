@@ -28,6 +28,14 @@ namespace NQumir {
 
 using namespace NIR;
 
+namespace {
+
+bool IsKnown32BitTarget(const std::string& targetTriple) {
+    return targetTriple.starts_with("wasm32-");
+}
+
+} // namespace
+
 TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     : Options(std::move(options))
     , Builder(Module)
@@ -36,6 +44,9 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
         .EnablePerfJitEventListener = Options.EnablePerfJitEventListener,
     })
 {
+    if (IsKnown32BitTarget(Options.TargetTriple)) {
+        Module.Types.SetPointerSize(4);
+    }
     if (Options.AllowOverloads) {
         Resolver.ApplyPragmas({NAst::TPragma{"language", {"overloads"}, {}}});
     }
