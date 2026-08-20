@@ -329,13 +329,38 @@ llvm::Value* EmitCoercedExternalCall(llvm::IRBuilder<>& irb, llvm::Module& lmodu
 // "builtin::" is the always-loaded qumir/modules/builtins prelude
 enum class EBuiltinIntrinsic {
     Memcpy,
-    Memmove
+    Memmove,
+    Cttz,
+    Ctlz,
+    Ctpop
 };
 
 static const std::unordered_map<std::string, EBuiltinIntrinsic> BuiltinIntrinsics = {
     {"builtin::memcpy", EBuiltinIntrinsic::Memcpy},
     {"builtin::memmove", EBuiltinIntrinsic::Memmove},
+    {"builtin::cttz", EBuiltinIntrinsic::Cttz},
+    {"builtin::ctlz", EBuiltinIntrinsic::Ctlz},
+    {"builtin::ctpop", EBuiltinIntrinsic::Ctpop},
 };
+
+template<class TCast>
+llvm::Value* EmitBuiltinBitCountCall(llvm::IRBuilder<>& irb, EBuiltinIntrinsic kind,
+    std::vector<llvm::Value*>& pendingArgs, TCast&& cast)
+{
+    if (pendingArgs.size() != 1) {
+        throw std::runtime_error("builtin cttz/ctlz/ctpop expects 1 argument");
+    }
+    auto* i64Ty = llvm::Type::getInt64Ty(irb.getContext());
+    auto* value = cast(pendingArgs[0], i64Ty);
+    pendingArgs.clear();
+    if (kind == EBuiltinIntrinsic::Ctpop) {
+        return irb.CreateIntrinsic(llvm::Intrinsic::ctpop, {i64Ty}, {value});
+    }
+    auto id = kind == EBuiltinIntrinsic::Cttz
+        ? llvm::Intrinsic::cttz
+        : llvm::Intrinsic::ctlz;
+    return irb.CreateIntrinsic(id, {i64Ty}, {value, irb.getFalse()});
+}
 
 // dst/src/len, returning dst (the libc memcpy/memmove contract the "builtin::"
 // signatures were declared with).
@@ -343,6 +368,11 @@ template<class TCast>
 llvm::Value* EmitBuiltinIntrinsicCall(llvm::IRBuilder<>& irb, EBuiltinIntrinsic kind,
     std::vector<llvm::Value*>& pendingArgs, TCast&& cast)
 {
+    if (kind == EBuiltinIntrinsic::Cttz || kind == EBuiltinIntrinsic::Ctlz ||
+        kind == EBuiltinIntrinsic::Ctpop)
+    {
+        return EmitBuiltinBitCountCall(irb, kind, pendingArgs, cast);
+    }
     if (pendingArgs.size() != 3) {
         throw std::runtime_error("builtin memcpy/memmove expects 3 arguments");
     }
