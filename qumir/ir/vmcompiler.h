@@ -14,6 +14,7 @@ struct TExecFunc {
     std::vector<TInstr> Code;
     std::vector<TVMInstr> VMCode;
     int32_t MaxTmpIdx{0};
+    int32_t MaxTmp128Idx{-1};
     int32_t NumLocals{0};        // frame size in bytes (not variable count)
     std::vector<int> ArgByteOffsets; // byte offset of each argument local in the frame
     std::vector<int> ArgTypeIds;     // IR typeId of each argument (eval uses SizeInBytes to handle struct)

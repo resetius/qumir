@@ -218,10 +218,6 @@ std::string emitRobotCoroutineLLVM(const std::string& src, int optLevel = 0) {
         return {};
     }
 
-    std::optional<NCodeGen::TLLVMInitializer> llvmInit;
-    if (optLevel > 0) {
-        llvmInit.emplace();
-    }
     NCodeGen::TLLVMCodeGen codegen;
     auto artifacts = codegen.Emit(*module, optLevel);
     std::ostringstream out;
@@ -763,6 +759,7 @@ TEST(EditDistance, IntArrayBothEmpty) {
 }
 
 int main(int argc, char** argv) {
+    NQumir::NCodeGen::TLLVMInitializer llvmInit;
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

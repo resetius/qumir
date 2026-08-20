@@ -746,12 +746,55 @@ Primitive types:
 
 | Core | AST type |
 |------|----------|
-| `i64` | `TIntegerType` |
+| `i8`, `i16`, `i32`, `i64`, `i128` | `TIntegerType`, signed |
+| `u8`, `u16`, `u32`, `u64`, `u128` | `TIntegerType`, unsigned |
 | `f64` | `TFloatType` |
 | `bool` | `TBoolType` |
 | `string` | `TStringType` |
 | `char` | `TSymbolType` |
 | `void` | `TVoidType` |
+
+### Integer widths
+
+A bare integer literal has type `i64`. To pick another width, annotate the
+literal with `(: value type)`:
+
+```core
+(: 127 i8)
+(: 4294967295 u32)
+```
+
+An implicit conversion to a wider type is allowed when it keeps every value:
+signed to signed and unsigned to unsigned need `dst >= src` bits, and unsigned
+to signed needs `dst > src` bits. Signed to unsigned is never implicit. Any
+other change of width needs an explicit `cast`.
+
+### 128-bit integers
+
+`i128` and `u128` behave like the narrower widths. Arithmetic, bitwise
+operators, shifts, comparisons and casts all work on them, and structs and
+arrays store them like any other field or element:
+
+```core
+(var wide i128)
+(= wide (* (: 1000000000000 i128) (: 1000000000 i128)))
+(var arr <array u128 1> [0 3])
+(var rec <struct (tag i32) (wide i128)>)
+```
+
+Two limits follow from the representation:
+
+- A literal holds 64 bits. `(: 1000000000000000000000 i128)` does not fit, so
+  build a large constant from smaller ones, as in the example above.
+- An external function cannot take or return a 128-bit value. The FFI packs
+  every scalar argument into one 64-bit slot.
+
+A cast to `f64` loses precision above 2^53, as it does for `i64`.
+
+Inside a struct a 128-bit field aligns to 16 bytes, which matches the C ABI.
+The LLVM backend maps both types to `i128`. The IR interpreter keeps 128-bit
+values in a register file of their own, next to the 64-bit one, so a program
+that never uses them pays nothing.
 
 Composite types:
 

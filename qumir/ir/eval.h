@@ -17,7 +17,10 @@ struct TRuntime {
     std::vector<char> Globals; // byte array; each variable slot is 8 bytes (64-bit aligned)
     std::vector<char> Stack;   // byte array; each variable slot is 8 bytes (64-bit aligned)
     std::vector<int64_t> Args; // call arguments, will be copied on stack on call, TODO: remove
+    std::vector<__int128_t> Args128; // parallel to Args, filled for 128-bit arguments only
+    __int128_t Ret128Value = 0;
     std::vector<int64_t> Regs;
+    std::vector<__int128_t> Regs128; // addressed by the same register index as Regs
     std::vector<int64_t> SavedRegs;
 };
 
@@ -26,6 +29,7 @@ struct TExecFunc;
 struct TFrame {
     const TExecFunc* Exec{nullptr};
     const int UsedRegs = 0;
+    const int Used128Regs = 0;
     const uint64_t StackBase = 0;
     TVMInstr* PC{nullptr};
     std::string_view Name;

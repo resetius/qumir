@@ -66,6 +66,9 @@ llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx
         case EKind::I64: return llvm::Type::getInt64Ty(ctx);
         case EKind::U64:
             return llvm::Type::getInt64Ty(ctx);
+        case EKind::I128:
+        case EKind::U128:
+            return llvm::Type::getInt128Ty(ctx);
         case EKind::F64: return llvm::Type::getDoubleTy(ctx);
         case EKind::Void: return llvm::Type::getVoidTy(ctx);
         case EKind::Ptr: return llvm::PointerType::get(ctx, 0); // use pointer type (i8*) across targets
@@ -410,6 +413,7 @@ bool IsSignedIntegerType(const TTypeTable& tt, int typeId) {
         case EKind::U16:
         case EKind::U32:
         case EKind::U64:
+        case EKind::U128:
             return false;
         default:
             return true;
@@ -625,9 +629,9 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
     LModule->setTargetTriple(llvm::Triple(tripleString));
 #endif
 
-    if (optLevel > 0) {
-        CreateTargetMachine();
-    }
+    // Lowering queries the data layout for struct sizes, so it must be set
+    // before any instruction is emitted, at every optimization level.
+    CreateTargetMachine();
 
     auto builder = std::make_unique<llvm::IRBuilder<>>(*Ctx);
     BuilderBase = std::move(builder);

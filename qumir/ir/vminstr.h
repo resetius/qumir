@@ -84,6 +84,49 @@ enum class EVMOp : uint8_t {
     Copy,        // copy(dst_ptr, src, size_bytes_imm); src may be a pointer or packed value
     StructStore, // struct_store(dst_local, src_tmp, size_imm) — memcpy from Tmp into Local frame slot
     SAlloc,      // salloc(dst_tmp, frame_offset_imm, size_imm) — zero frame storage and return its address
+
+    // 128-bit ops address the Regs128 file by the same register index as Regs.
+    INeg128,
+    INot128,
+    IBitNot128,
+    IAdd128,
+    ISub128,
+    IMul128,
+    IDivS128,
+    IDivU128,
+    IAnd128,
+    IOr128,
+    IXor128,
+    IShl128,
+    IShrS128,
+    IShrU128,
+    ICmpLTS128,
+    ICmpLTU128,
+    ICmpGTS128,
+    ICmpGTU128,
+    ICmpLES128,
+    ICmpLEU128,
+    ICmpGES128,
+    ICmpGEU128,
+    ICmpEQ128,
+    ICmpNE128,
+
+    Load128,
+    Store128,
+    Mov128,   // 128-bit register copy
+    CmovS128, // sign-extend a 64-bit immediate into a 128-bit register
+    CmovU128, // zero-extend a 64-bit immediate into a 128-bit register
+    SExt128,  // sign-extend a 64-bit register into a 128-bit one
+    ZExt128,  // zero-extend a 64-bit register into a 128-bit one
+    Trunc128, // low 64 bits of a 128-bit register into a 64-bit one
+    I2B128,
+    I2F128S,
+    I2F128U,
+    F2I128,
+    Lde128,
+    Ste128,
+    ArgTmp128,
+    Ret128,
 };
 
 std::ostream& operator<<(std::ostream& os, EVMOp op);

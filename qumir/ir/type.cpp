@@ -110,10 +110,12 @@ int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
             case K::I16: return tt.I(EKind::I16);
             case K::I32: return tt.I(EKind::I32);
             case K::I64: return tt.I(EKind::I64);
+            case K::I128: return tt.I(EKind::I128);
             case K::U8: return tt.I(EKind::U8);
             case K::U16: return tt.I(EKind::U16);
             case K::U32: return tt.I(EKind::U32);
             case K::U64: return tt.I(EKind::U64);
+            case K::U128: return tt.I(EKind::U128);
         }
     }
     if (auto f = NAst::TMaybeType<NAst::TFloatType>(t)) {
@@ -178,10 +180,12 @@ void TTypeTable::Print(std::ostream& out, int typeId) const {
         case EKind::I16: out << "i16"; break;
         case EKind::I32: out << "i32"; break;
         case EKind::I64: out << "i64"; break;
+        case EKind::I128: out << "i128"; break;
         case EKind::U8: out << "u8"; break;
         case EKind::U16: out << "u16"; break;
         case EKind::U32: out << "u32"; break;
         case EKind::U64: out << "u64"; break;
+        case EKind::U128: out << "u128"; break;
         case EKind::F32: out << "f32"; break;
         case EKind::F64: out << "f64"; break;
         case EKind::Void: out << "void"; break;
@@ -259,6 +263,14 @@ void TTypeTable::Format(std::ostream& out, uint64_t bitRepr, int typeId) const {
             ss << static_cast<uint64_t>(bitRepr);
             break;
         }
+        case EKind::I128: {
+            ss << static_cast<int64_t>(bitRepr);
+            break;
+        }
+        case EKind::U128: {
+            ss << static_cast<uint64_t>(bitRepr);
+            break;
+        }
         case EKind::F32:
         case EKind::F64: {
             double d = std::bit_cast<double>(bitRepr);
@@ -315,19 +327,23 @@ bool TTypeTable::IsInteger(int typeId) const {
     if (typeId < 0 || typeId >= (int)Types.size()) return false;
     auto k = Types[typeId].Kind;
     return k == EKind::I1 || k == EKind::I8 || k == EKind::I16 || k == EKind::I32 || k == EKind::I64
-        || k == EKind::U8 || k == EKind::U16 || k == EKind::U32 || k == EKind::U64;
+        || k == EKind::I128
+        || k == EKind::U8 || k == EKind::U16 || k == EKind::U32 || k == EKind::U64
+        || k == EKind::U128;
 }
 
 bool TTypeTable::IsSigned(int typeId) const {
     if (typeId < 0 || typeId >= (int)Types.size()) return false;
     auto k = Types[typeId].Kind;
-    return k == EKind::I1 || k == EKind::I8 || k == EKind::I16 || k == EKind::I32 || k == EKind::I64;
+    return k == EKind::I1 || k == EKind::I8 || k == EKind::I16 || k == EKind::I32 || k == EKind::I64
+        || k == EKind::I128;
 }
 
 bool TTypeTable::IsUnsigned(int typeId) const {
     if (typeId < 0 || typeId >= (int)Types.size()) return false;
     auto k = Types[typeId].Kind;
-    return k == EKind::U8 || k == EKind::U16 || k == EKind::U32 || k == EKind::U64;
+    return k == EKind::U8 || k == EKind::U16 || k == EKind::U32 || k == EKind::U64
+        || k == EKind::U128;
 }
 
 bool TTypeTable::IsPointer(int typeId) const {
@@ -371,6 +387,9 @@ int TTypeTable::SizeInBytes(int typeId) const {
     case EKind::U64:
     case EKind::F64:
         return 8;
+    case EKind::I128:
+    case EKind::U128:
+        return 16;
     case EKind::Ptr:
     case EKind::Func:
         return PointerSize;
@@ -383,16 +402,25 @@ int TTypeTable::SizeInBytes(int typeId) const {
         int maxAlign = 1;
         for (int f : Structs[Types[typeId].Aux].FieldTypes) {
             int fieldSize = SizeInBytes(f);
-            int fieldAlign = std::min(fieldSize, 8);
+            int fieldAlign = AlignInBytes(f);
             offset = AlignUp(offset, fieldAlign);
             maxAlign = std::max(maxAlign, fieldAlign);
             offset += fieldSize;
         }
-        int structAlign = std::min(maxAlign, 8);
+        int structAlign = std::min(maxAlign, 16);
         return AlignUp(offset, structAlign);
     }
     }
     return 8;
+}
+
+int TTypeTable::AlignInBytes(int typeId) const {
+    if (typeId < 0 || typeId >= (int)Types.size()) return 8;
+    auto kind = Types[typeId].Kind;
+    // 128-bit integers are the only payload wider than a machine word, and the
+    // C ABI aligns them to their size.
+    int cap = (kind == EKind::I128 || kind == EKind::U128) ? 16 : 8;
+    return std::min(SizeInBytes(typeId), cap);
 }
 
 int TTypeTable::FieldOffset(int structTypeId, int fieldIndex) const {
@@ -400,7 +428,7 @@ int TTypeTable::FieldOffset(int structTypeId, int fieldIndex) const {
     int offset = 0;
     for (int i = 0; i <= fieldIndex && i < (int)fields.size(); ++i) {
         int fieldSize = SizeInBytes(fields[i]);
-        int fieldAlign = std::min(fieldSize, 8);
+        int fieldAlign = AlignInBytes(fields[i]);
         offset = AlignUp(offset, fieldAlign);
         if (i == fieldIndex) {
             return offset;

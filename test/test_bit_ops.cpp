@@ -12,6 +12,7 @@
 #include <qumir/ir/eval.h>
 #include <qumir/ir/passes/transforms/pipeline.h>
 #include <qumir/codegen/llvm/llvm_codegen.h>
+#include <qumir/codegen/llvm/llvm_initializer.h>
 #include <qumir/codegen/llvm/llvm_runner.h>
 
 #include <sstream>
@@ -232,6 +233,7 @@ TEST(BitOps, XorRejectsNonIntegerOperands) {
 }
 
 int main(int argc, char** argv) {
+    NQumir::NCodeGen::TLLVMInitializer llvmInit;
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

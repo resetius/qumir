@@ -16,10 +16,12 @@ enum class EKind : uint8_t {
     I16, // unused
     I32, // unused
     I64,
+    I128,
     U8, // unused
     U16, // unused
     U32, // unused
     U64, // unused
+    U128,
     F32, // unused
     F64,
     Void,
@@ -69,6 +71,7 @@ public:
     const std::vector<int>& GetStructFields(int typeId) const;
     // Size of the type payload in bytes. Stack frames may add their own alignment.
     int SizeInBytes(int typeId) const;
+    int AlignInBytes(int typeId) const;
     // Byte offset of a struct field under the same C-compatible alignment as
     // SizeInBytes, so IR, VM and LLVM agree on field placement.
     int FieldOffset(int structTypeId, int fieldIndex) const;

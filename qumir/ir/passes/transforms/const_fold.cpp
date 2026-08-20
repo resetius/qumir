@@ -120,6 +120,24 @@ void ConstFold(TFunction& function, TModule& module) {
 
         auto destTypeId = function.GetType(instr.Dest);
 
+        // A 128-bit immediate holds its low half only, so folding it in 64 bits
+        // would silently drop the rest.
+        auto is128 = [&](int typeId) {
+            if (typeId < 0) {
+                return false;
+            }
+            auto kind = module.Types.GetKind(typeId);
+            return kind == EKind::I128 || kind == EKind::U128;
+        };
+        if (is128(destTypeId)) {
+            return false;
+        }
+        for (size_t i = 0; i < instr.OperandCount; ++i) {
+            if (is128(operandTypeId(instr.Operands[i]))) {
+                return false;
+            }
+        }
+
         if (op == "~"_op) {
             if (instr.OperandCount != 1 || instr.Operands[0].Type != TOperand::EType::Imm) {
                 return false;

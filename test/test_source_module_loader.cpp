@@ -408,6 +408,7 @@ TEST_F(SourceModuleLoaderTest, ExternalDependencyRecordedNotFollowed) {
 } // namespace
 
 int main(int argc, char** argv) {
+    NQumir::NCodeGen::TLLVMInitializer llvmInit;
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
