@@ -11,6 +11,7 @@
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/ir/eval.h>
 #include <qumir/codegen/llvm/llvm_codegen.h>
+#include <qumir/codegen/llvm/llvm_initializer.h>
 #include <qumir/codegen/llvm/llvm_runner.h>
 
 #include <sstream>
@@ -329,6 +330,7 @@ TEST(SystemInline, FloatMinMaxAbsUseIfExpr) {
 }
 
 int main(int argc, char** argv) {
+    NQumir::NCodeGen::TLLVMInitializer llvmInit;
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

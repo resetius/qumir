@@ -76,10 +76,12 @@ struct TIntegerType : TType {
         I16,
         I32,
         I64,
+        I128,
         U8,
         U16,
         U32,
         U64,
+        U128,
     } Kind = I64;
 
     TIntegerType() = default;
@@ -101,6 +103,9 @@ struct TIntegerType : TType {
             case I64:
             case U64:
                 return 64;
+            case I128:
+            case U128:
+                return 128;
         }
         return 64;
     }
@@ -111,11 +116,13 @@ struct TIntegerType : TType {
             case I16:
             case I32:
             case I64:
+            case I128:
                 return true;
             case U8:
             case U16:
             case U32:
             case U64:
+            case U128:
                 return false;
         }
         return true;
@@ -127,10 +134,12 @@ struct TIntegerType : TType {
             case I16: return "i16";
             case I32: return "i32";
             case I64: return "i64";
+            case I128: return "i128";
             case U8: return "u8";
             case U16: return "u16";
             case U32: return "u32";
             case U64: return "u64";
+            case U128: return "u128";
         }
         return "i64";
     }

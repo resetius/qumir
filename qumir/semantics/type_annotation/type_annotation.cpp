@@ -136,6 +136,7 @@ bool IntegerLiteralFits(int64_t value, const TIntegerType& type) {
             return value >= std::numeric_limits<int32_t>::min()
                 && value <= std::numeric_limits<int32_t>::max();
         case TIntegerType::I64:
+        case TIntegerType::I128:
             return true;
         case TIntegerType::U8:
             return static_cast<uint64_t>(value) <= std::numeric_limits<uint8_t>::max();
@@ -144,6 +145,7 @@ bool IntegerLiteralFits(int64_t value, const TIntegerType& type) {
         case TIntegerType::U32:
             return static_cast<uint64_t>(value) <= std::numeric_limits<uint32_t>::max();
         case TIntegerType::U64:
+        case TIntegerType::U128:
             return true;
     }
     return false;
@@ -676,8 +678,7 @@ TTask AnnotateUnary(std::shared_ptr<TUnaryExpr> unary, NSemantics::TNameResolver
     }
     if (unary->Operator == TOperator("~")) {
         if (TMaybeType<TIntegerType>(unary->Type)) {
-            unary->Type = std::make_shared<TIntegerType>();
-            co_return unary;
+            co_return unary; // keeps the operand's width and signedness
         }
         if (auto m = context.GetUnaryOp("~", UnwrapReferenceType(unary->Type))) {
             co_return co_await AnnotateIfNeeded(MakeModuleOpCall(m->SynthName, {unary->Operand}, m->ReturnType, unary->Location, context), context, scopeId);

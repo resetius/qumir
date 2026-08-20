@@ -71,6 +71,47 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::Copy: return os << "Copy";
     case EVMOp::StructStore: return os << "StructStore";
     case EVMOp::SAlloc: return os << "SAlloc";
+
+    case EVMOp::INeg128: return os << "INeg128";
+    case EVMOp::INot128: return os << "INot128";
+    case EVMOp::IBitNot128: return os << "IBitNot128";
+    case EVMOp::IAdd128: return os << "IAdd128";
+    case EVMOp::ISub128: return os << "ISub128";
+    case EVMOp::IMul128: return os << "IMul128";
+    case EVMOp::IDivS128: return os << "IDivS128";
+    case EVMOp::IDivU128: return os << "IDivU128";
+    case EVMOp::IAnd128: return os << "IAnd128";
+    case EVMOp::IOr128: return os << "IOr128";
+    case EVMOp::IXor128: return os << "IXor128";
+    case EVMOp::IShl128: return os << "IShl128";
+    case EVMOp::IShrS128: return os << "IShrS128";
+    case EVMOp::IShrU128: return os << "IShrU128";
+    case EVMOp::ICmpLTS128: return os << "ICmpLTS128";
+    case EVMOp::ICmpLTU128: return os << "ICmpLTU128";
+    case EVMOp::ICmpGTS128: return os << "ICmpGTS128";
+    case EVMOp::ICmpGTU128: return os << "ICmpGTU128";
+    case EVMOp::ICmpLES128: return os << "ICmpLES128";
+    case EVMOp::ICmpLEU128: return os << "ICmpLEU128";
+    case EVMOp::ICmpGES128: return os << "ICmpGES128";
+    case EVMOp::ICmpGEU128: return os << "ICmpGEU128";
+    case EVMOp::ICmpEQ128: return os << "ICmpEQ128";
+    case EVMOp::ICmpNE128: return os << "ICmpNE128";
+    case EVMOp::Load128: return os << "Load128";
+    case EVMOp::Store128: return os << "Store128";
+    case EVMOp::Mov128: return os << "Mov128";
+    case EVMOp::CmovS128: return os << "CmovS128";
+    case EVMOp::CmovU128: return os << "CmovU128";
+    case EVMOp::SExt128: return os << "SExt128";
+    case EVMOp::ZExt128: return os << "ZExt128";
+    case EVMOp::Trunc128: return os << "Trunc128";
+    case EVMOp::I2B128: return os << "I2B128";
+    case EVMOp::I2F128S: return os << "I2F128S";
+    case EVMOp::I2F128U: return os << "I2F128U";
+    case EVMOp::F2I128: return os << "F2I128";
+    case EVMOp::Lde128: return os << "Lde128";
+    case EVMOp::Ste128: return os << "Ste128";
+    case EVMOp::ArgTmp128: return os << "ArgTmp128";
+    case EVMOp::Ret128: return os << "Ret128";
     default: return os << "EVMOp(" << static_cast<int>(op) << ")";
     }
 }

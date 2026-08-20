@@ -46,10 +46,12 @@ std::shared_ptr<TIntegerType> IntegerTypeByName(const std::string& name) {
     if (name == "i16") return std::make_shared<TIntegerType>(K::I16);
     if (name == "i32") return std::make_shared<TIntegerType>(K::I32);
     if (name == "i64") return std::make_shared<TIntegerType>(K::I64);
+    if (name == "i128") return std::make_shared<TIntegerType>(K::I128);
     if (name == "u8") return std::make_shared<TIntegerType>(K::U8);
     if (name == "u16") return std::make_shared<TIntegerType>(K::U16);
     if (name == "u32") return std::make_shared<TIntegerType>(K::U32);
     if (name == "u64") return std::make_shared<TIntegerType>(K::U64);
+    if (name == "u128") return std::make_shared<TIntegerType>(K::U128);
     return nullptr;
 }
 
