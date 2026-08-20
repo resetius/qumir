@@ -1,0 +1,130 @@
+function <main> () { ; void
+  block {
+    label: label(0)
+    arg imm(1,u64) 
+    call tmp(0,i64) = builtin::cttz 
+    arg tmp(0,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(8,u64) 
+    call tmp(1,i64) = builtin::cttz 
+    arg tmp(1,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(128,u64) 
+    call tmp(2,i64) = builtin::cttz 
+    arg tmp(2,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    << tmp(3,u64) = imm(1,u64) imm(63,u64) 
+    arg tmp(3,u64) 
+    call tmp(4,i64) = builtin::cttz 
+    arg tmp(4,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(0,u64) 
+    call tmp(5,i64) = builtin::cttz 
+    arg tmp(5,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    arg imm(1,u64) 
+    call tmp(6,i64) = builtin::ctlz 
+    arg tmp(6,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(128,u64) 
+    call tmp(7,i64) = builtin::ctlz 
+    arg tmp(7,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    << tmp(8,u64) = imm(1,u64) imm(63,u64) 
+    arg tmp(8,u64) 
+    call tmp(9,i64) = builtin::ctlz 
+    arg tmp(9,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(0,u64) 
+    call tmp(10,i64) = builtin::ctlz 
+    arg tmp(10,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    arg imm(0,u64) 
+    call tmp(11,i64) = builtin::ctpop 
+    arg tmp(11,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(255,u64) 
+    call tmp(12,i64) = builtin::ctpop 
+    arg tmp(12,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    arg imm(1,u64) 
+    call tmp(13,i64) = builtin::ctpop 
+    arg tmp(13,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(2,ptr to i8) 
+    call output_string 
+    stre local(0,i64) imm(0,i64) 
+    jmp label(2) 
+  }
+  block {
+    label: label(2)
+    load tmp(14,i64) = local(0,i64) 
+    < tmp(15,i1) = tmp(14,i64) imm(8,i64) 
+    cmp tmp(15,i1) label(3) label(4) 
+  }
+  block {
+    label: label(3)
+    load tmp(16,i64) = local(0,i64) 
+    mov tmp(17,u64) = tmp(16,i64) 
+    * tmp(18,u64) = tmp(17,u64) imm(8,u64) 
+    << tmp(19,u64) = imm(128,u64) tmp(18,u64) 
+    stre local(1,u64) tmp(19,u64) 
+    load tmp(20,u64) = local(1,u64) 
+    arg tmp(20,u64) 
+    call tmp(21,i64) = builtin::cttz 
+    >> tmp(22,i64) = tmp(21,i64) imm(3,i64) 
+    arg tmp(22,i64) 
+    arg imm(0,i64) 
+    call output_int64 
+    arg imm(1,ptr to i8) 
+    call output_string 
+    load tmp(23,i64) = local(0,i64) 
+    + tmp(24,i64) = tmp(23,i64) imm(1,i64) 
+    stre local(0,i64) tmp(24,i64) 
+    jmp label(2) 
+  }
+  block {
+    label: label(4)
+    arg imm(2,ptr to i8) 
+    call output_string 
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}

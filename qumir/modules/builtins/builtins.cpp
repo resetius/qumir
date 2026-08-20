@@ -12,6 +12,7 @@ BuiltinsModule::BuiltinsModule() {
     auto i64Type = std::make_shared<NAst::TIntegerType>();
     auto i32Type = std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::I32);
     auto u8Type = std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::U8);
+    auto u64Type = std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::U64);
     auto ptrU8Type = std::make_shared<NAst::TPointerType>(u8Type);
 
     ExternalFunctions_ = {
@@ -53,6 +54,33 @@ BuiltinsModule::BuiltinsModule() {
             },
             .ArgTypes = { ptrU8Type, ptrU8Type, i64Type },
             .ReturnType = i32Type,
+        },
+        {
+            .Name = "builtin::cttz",
+            .MangledName = "qumir_builtin_cttz",
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return static_cast<uint64_t>(std::countr_zero(args[0]));
+            },
+            .ArgTypes = { u64Type },
+            .ReturnType = i64Type,
+        },
+        {
+            .Name = "builtin::ctlz",
+            .MangledName = "qumir_builtin_ctlz",
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return static_cast<uint64_t>(std::countl_zero(args[0]));
+            },
+            .ArgTypes = { u64Type },
+            .ReturnType = i64Type,
+        },
+        {
+            .Name = "builtin::ctpop",
+            .MangledName = "qumir_builtin_ctpop",
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                return static_cast<uint64_t>(std::popcount(args[0]));
+            },
+            .ArgTypes = { u64Type },
+            .ReturnType = i64Type,
         },
     };
 }

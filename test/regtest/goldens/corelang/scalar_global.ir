@@ -1,14 +1,14 @@
 function $$module_constructor () { ; void
   block {
     label: label(0)
-    stre slot(79,i64) imm(100,i64) 
+    stre slot(82,i64) imm(100,i64) 
     ret 
   }
 }
 function <main> () { ; void
   block {
     label: label(0)
-    load tmp(0,i64) = slot(79,i64) 
+    load tmp(0,i64) = slot(82,i64) 
     arg tmp(0,i64) 
     arg imm(0,i64) 
     call output_int64 
