@@ -43,7 +43,7 @@ module:name
 Symbolic identifiers are made from operator characters:
 
 ```core
-+ - * / = ! & ^
++ - * / // % = ! & ^
 <= >= << >> || |
 ```
 
@@ -118,11 +118,40 @@ Unary and binary operators:
 (op left right)
 ```
 
-Associative operators (`+`, `-`, `*`, `/`, `&`, `|`, `^`, `&&`, `||`, `xor`)
-also accept more than two arguments and fold left into a chain of binary
+Associative operators (`+`, `-`, `*`, `/`, `//`, `&`, `|`, `^`, `&&`, `||`,
+`xor`) also accept more than two arguments and fold left into a chain of binary
 nodes — `(&& a b c)` is exactly `(&& (&& a b) c)`, so `&&`/`||` keep their
 short-circuit semantics. The other operators (comparisons, shifts, `%`) stay
 strictly binary.
+
+### Division
+
+There are three division operators:
+
+| Operator | Operands | Result |
+|----------|----------|--------|
+| `/` | numbers | always `f64` |
+| `//` | integers only | the common integer type |
+| `%` | integers only | the common integer type |
+
+`/` on two integers converts both to `f64` first, so `(/ 7 2)` is `3.5`. For a
+quotient that stays an integer, use `//`:
+
+```core
+(/ (: 7 i64) (: 2 i64))   ; 3.5
+(// (: 7 i64) (: 2 i64))  ; 3
+(% (: 7 i64) (: 2 i64))   ; 1
+```
+
+`//` truncates toward zero and `%` keeps the sign of the left operand, as in C:
+`(// -7 2)` is `-3` and `(% -7 2)` is `-1`.
+
+Both operators respect the signedness of their type. An unsigned pair divides
+without a sign bit, so `(// u 3)` on a `u64` that holds `2^64 - 1` gives
+`6148914691236517205`, not `0`.
+
+Operands of different integer types widen to their common type first, under the
+rules in [Integer widths](#integer-widths). A division by zero is not checked.
 
 Blocks:
 

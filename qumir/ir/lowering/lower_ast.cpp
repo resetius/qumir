@@ -969,7 +969,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
             default:
                 {
-                    auto tmp = Builder.Emit1((uint64_t)binary->Operator.Value /* ast op to ir op mapping */, {*leftNum, *rightNum});
+                    // IR '/' is type-directed: an integer destination already means
+                    // integer division, so '//' needs no IR opcode of its own.
+                    auto irOp = binary->Operator == "//"_op
+                        ? (uint64_t)'/'
+                        : (uint64_t)binary->Operator.Value;
+                    auto tmp = Builder.Emit1(irOp /* ast op to ir op mapping */, {*leftNum, *rightNum});
                     Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
                     co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
                 }

@@ -972,6 +972,7 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
         case TOperator("+"):
         case TOperator("-"):
         case TOperator("*"):
+        case TOperator("//"):
         case TOperator("/"): {
             // string and symbol concatenation cases
             if (binary->Operator == TOperator("+")) {
@@ -1021,6 +1022,8 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
             if (binary->Operator == TOperator("/")) {
                 // 3/2 -> 1.5 : convert to float division
                 common = std::make_shared<TFloatType>();
+            } else if (binary->Operator == TOperator("//") && !TMaybeType<TIntegerType>(common)) {
+                co_return TError(binary->Location, "binary expression operands must be both integer types");
             }
 
             binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common, &context);
@@ -1031,7 +1034,14 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
         case TOperator("%"):
             // integer remainder
             if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
-                type = std::make_shared<TIntegerType>();
+                RetypeIntegerLiteralOperands(binary->Left, binary->Right, left, right);
+                auto common = CommonNumericType(left, right);
+                if (!common || !TMaybeType<TIntegerType>(common)) {
+                    co_return TError(binary->Location, "binary expression operands must be both integer types");
+                }
+                binary->Left = InsertImplicitCastIfNeeded(binary->Left, common, &context);
+                binary->Right = InsertImplicitCastIfNeeded(binary->Right, common, &context);
+                type = common;
             } else {
                 if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
                     co_return co_await AnnotateIfNeeded(result, context, scopeId);

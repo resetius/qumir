@@ -426,6 +426,14 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
             assert(instr.Operands[0].Tmp.Idx >= 0);
             Runtime.Regs[instr.Operands[0].Tmp.Idx] = EvalAlu<uint64_t>(Runtime.Regs, instr, std::divides<uint64_t>{});
             break;
+        case EVMOp::IRemS:
+            assert(instr.Operands[0].Tmp.Idx >= 0);
+            Runtime.Regs[instr.Operands[0].Tmp.Idx] = EvalAlu<int64_t>(Runtime.Regs, instr, std::modulus<int64_t>{});
+            break;
+        case EVMOp::IRemU:
+            assert(instr.Operands[0].Tmp.Idx >= 0);
+            Runtime.Regs[instr.Operands[0].Tmp.Idx] = EvalAlu<uint64_t>(Runtime.Regs, instr, std::modulus<uint64_t>{});
+            break;
         case EVMOp::FDiv:
             assert(instr.Operands[0].Tmp.Idx >= 0);
             Runtime.Regs[instr.Operands[0].Tmp.Idx] = EvalAlu<double>(Runtime.Regs, instr, std::divides<double>{});
@@ -594,6 +602,13 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
         case EVMOp::IDivU128:
             Runtime.Regs128[instr.Operands[0].Tmp.Idx] = std::bit_cast<__int128_t>(
                 AluU128(Runtime.Regs128, instr, std::divides<__uint128_t>{}));
+            break;
+        case EVMOp::IRemS128:
+            Runtime.Regs128[instr.Operands[0].Tmp.Idx] = Alu128(Runtime.Regs128, instr, std::modulus<__int128_t>{});
+            break;
+        case EVMOp::IRemU128:
+            Runtime.Regs128[instr.Operands[0].Tmp.Idx] = std::bit_cast<__int128_t>(
+                AluU128(Runtime.Regs128, instr, std::modulus<__uint128_t>{}));
             break;
         case EVMOp::IAnd128:
             Runtime.Regs128[instr.Operands[0].Tmp.Idx] = Alu128(Runtime.Regs128, instr, std::bit_and<__int128_t>{});
