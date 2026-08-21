@@ -160,7 +160,15 @@ void ConstFold(TFunction& function, TModule& module) {
                 auto v1 = instr.Operands[0].Imm.Value;
                 auto v2 = instr.Operands[1].Imm.Value;
                 int64_t v;
-                if (auto result = applyBinOp(op, v1, v2)) {
+                if (module.Types.IsUnsigned(destTypeId)) {
+                    // Division and right shift differ by signedness, so an
+                    // unsigned destination must fold in unsigned arithmetic.
+                    auto result = applyBinOp(op, static_cast<uint64_t>(v1), static_cast<uint64_t>(v2));
+                    if (!result) {
+                        return false;
+                    }
+                    v = std::bit_cast<int64_t>(*result);
+                } else if (auto result = applyBinOp(op, v1, v2)) {
                     v = *result;
                 } else {
                     return false;

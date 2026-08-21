@@ -18,6 +18,8 @@ enum class EVMOp : uint8_t {
     IMulU, // * unsigned
     IDivS, // / signed
     IDivU, // / unsigned
+    IRemS, // % signed
+    IRemU, // % unsigned
     IAnd, // &
     IOr,  // |
     IXor, // xor
@@ -94,6 +96,8 @@ enum class EVMOp : uint8_t {
     IMul128,
     IDivS128,
     IDivU128,
+    IRemS128,
+    IRemU128,
     IAnd128,
     IOr128,
     IXor128,

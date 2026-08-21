@@ -396,14 +396,14 @@ TAstTask ParseList(TParserContext& context, TLocation location) {
     }
 
     static const std::unordered_set<std::string> KnownOps = {
-        "+", "-", "*", "/", "%", "^", "&", "|", "~", "!",
+        "+", "-", "*", "/", "//", "%", "^", "&", "|", "~", "!",
         "==", "!=", "<", "<=", ">", ">=", "&&", "||", "<<", ">>",
         "xor",
     };
     // Associative operators accept more than two arguments and fold left into
     // a chain of binary nodes: (op a b c) => (op (op a b) c).
     static const std::unordered_set<std::string> VariadicOps = {
-        "+", "-", "*", "/", "&", "|", "^", "&&", "||", "xor",
+        "+", "-", "*", "/", "//", "&", "|", "^", "&&", "||", "xor",
     };
     auto args = co_await ParseExprsUntil(context, ')');
     if (!KnownOps.count(head)) {

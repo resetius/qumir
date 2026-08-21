@@ -1508,6 +1508,7 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
         case "+"_op:
         case "-"_op:
         case "*"_op:
+        case '%'_op:
         case "/"_op: {
             if (outputType == nullptr) {
                 throw std::runtime_error("arithmetic op needs a typed dest");

@@ -403,6 +403,19 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 }
                 break;
             }
+            case '%'_op: {
+                require(ins, 1, 2);
+                auto t = typeId(out.Operands[0].Tmp);
+                if (Module.Types.IsFloat(t)) {
+                    throw std::runtime_error("Remainder '%' is not defined for float types");
+                }
+                if (is128(t)) {
+                    out.Op = isSignedInteger(t) ? EVMOp::IRemS128 : EVMOp::IRemU128;
+                } else {
+                    out.Op = isSignedInteger(t) ? EVMOp::IRemS : EVMOp::IRemU;
+                }
+                break;
+            }
             case '&'_op: {
                 require(ins, 1, 2);
                 if (Module.Types.IsFloat(typeId(out.Operands[0].Tmp))) {

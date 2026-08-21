@@ -14,6 +14,8 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::IMulU: return os << "IMulU";
     case EVMOp::IDivS: return os << "IDivS";
     case EVMOp::IDivU: return os << "IDivU";
+    case EVMOp::IRemS: return os << "IRemS";
+    case EVMOp::IRemU: return os << "IRemU";
     case EVMOp::IAnd: return os << "IAnd";
     case EVMOp::IOr: return os << "IOr";
     case EVMOp::IXor: return os << "IXor";
@@ -80,6 +82,8 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::IMul128: return os << "IMul128";
     case EVMOp::IDivS128: return os << "IDivS128";
     case EVMOp::IDivU128: return os << "IDivU128";
+    case EVMOp::IRemS128: return os << "IRemS128";
+    case EVMOp::IRemU128: return os << "IRemU128";
     case EVMOp::IAnd128: return os << "IAnd128";
     case EVMOp::IOr128: return os << "IOr128";
     case EVMOp::IXor128: return os << "IXor128";
