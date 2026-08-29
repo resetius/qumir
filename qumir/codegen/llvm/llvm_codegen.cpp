@@ -243,6 +243,65 @@ void AbiScatterReturn(llvm::IRBuilder<>& irb, llvm::Value* call, llvm::Value* bu
     }
 }
 
+// rustc lowers a #[repr(C)] struct of uniform fields to [N x T]; the ABI
+// classifier builds {T, ...}. The two are ABI-identical, but a call whose type
+// differs from the callee's is opaque to the inliner.
+bool AbiEquivalentAggregate(llvm::Type* callee, llvm::Type* classified) {
+    auto* arr = llvm::dyn_cast<llvm::ArrayType>(callee);
+    auto* str = llvm::dyn_cast<llvm::StructType>(classified);
+    if (!arr || !str || arr->getNumElements() != str->getNumElements()) {
+        return false;
+    }
+    for (unsigned i = 0; i < str->getNumElements(); ++i) {
+        if (str->getElementType(i) != arr->getElementType()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Retypes calls that were emitted against the classified {T, ...} return before
+// the defining bitcode was linked in. Without this the call type differs from
+// the callee's and the inliner leaves the boundary in place.
+void ReconcileAggregateReturnCalls(llvm::Module& lmodule) {
+    for (auto& fn : lmodule) {
+        if (fn.isDeclaration()) {
+            continue;
+        }
+        auto* actual = fn.getFunctionType();
+        if (!actual->getReturnType()->isArrayTy()) {
+            continue;
+        }
+        std::vector<llvm::CallBase*> stale;
+        for (auto* user : fn.users()) {
+            auto* call = llvm::dyn_cast<llvm::CallBase>(user);
+            if (!call || call->getCalledOperand() != &fn) {
+                continue;
+            }
+            auto* callTy = call->getFunctionType();
+            if (callTy != actual && callTy->params() == actual->params()
+                && AbiEquivalentAggregate(actual->getReturnType(), callTy->getReturnType()))
+            {
+                stale.push_back(call);
+            }
+        }
+        for (auto* call : stale) {
+            llvm::IRBuilder<> irb(call);
+            std::vector<llvm::Value*> args(call->arg_begin(), call->arg_end());
+            auto* fixed = irb.CreateCall(&fn, args);
+            fixed->setCallingConv(call->getCallingConv());
+            auto* classified = call->getFunctionType()->getReturnType();
+            llvm::Value* repacked = llvm::PoisonValue::get(classified);
+            for (unsigned i = 0; i < actual->getReturnType()->getArrayNumElements(); ++i) {
+                repacked = irb.CreateInsertValue(
+                    repacked, irb.CreateExtractValue(fixed, {i}), {i});
+            }
+            call->replaceAllUsesWith(repacked);
+            call->eraseFromParent();
+        }
+    }
+}
+
 llvm::Type* AbiReturnType(const TStructAbi& abi, llvm::LLVMContext& ctx) {
     if (abi.Memory) {
         return llvm::Type::getVoidTy(ctx);
@@ -808,6 +867,8 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
             }
         }
     }
+
+    ReconcileAggregateReturnCalls(*LModule);
 
     // Coroutine passes must run before verification: pre-split coroutine IR
     // intentionally violates SSA dominance (values live across suspend points
