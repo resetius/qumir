@@ -20,6 +20,10 @@ struct TType {
 
 using TTypePtr = std::shared_ptr<TType>;
 
+template<typename T>
+requires std::is_base_of_v<TType, T>
+using TConcreteTypePtr = std::shared_ptr<T>;
+
 struct TGenericArg {
     enum class EKind {
         Type,
