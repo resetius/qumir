@@ -1,0 +1,12 @@
+(block
+  (use "Чертежник")
+  (fun <main> () -> <future void>
+    (block
+      (var подпись = (bitcast 0 string))
+      (replace подпись (own-literal "мир"))
+      (block
+        (var __lifetime_0 = (own-literal "привет"))
+        (await (call написать 4 (borrow __lifetime_0)))
+        (destroy __lifetime_0))
+      (await (call написать 2.5 (borrow подпись)))
+      (cleanup-exit (return) (destroy подпись)))))
