@@ -761,11 +761,19 @@ private:
         return true;
     }
 
+    // `valueNode' is the node whose value the rewritten block yields, and whose
+    // type the block takes. It is the call itself everywhere except for a
+    // suspending call reached through `await': there the awaited result, not
+    // the future, is the value of the block — see RewriteAwaitedCall.
     std::expected<bool, TError> RewriteCall(
         TExprPtr& expr,
         const std::shared_ptr<TCallExpr>& call,
-        TScopeId scopeId)
+        TScopeId scopeId,
+        TExprPtr valueNode = nullptr)
     {
+        if (!valueNode) {
+            valueNode = call;
+        }
         bool changed = false;
         for (auto& argument : call->Args) {
             auto result = RewriteExpr(argument, scopeId, true);
@@ -869,14 +877,14 @@ private:
         }
 
         std::vector<TExprPtr> statements = std::move(prefix);
-        const bool returnsValue = !TMaybeType<TVoidType>(call->Type);
+        const bool returnsValue = !TMaybeType<TVoidType>(valueNode->Type);
         if (returnsValue) {
             const auto resultName = SyntheticNames_.Next();
             auto result = std::make_shared<TVarStmt>(
                 call->Location,
                 resultName,
-                call->Type);
-            result->Init = call;
+                valueNode->Type);
+            result->Init = valueNode;
             statements.push_back(std::move(result));
             for (auto it = cleanups.rbegin(); it != cleanups.rend(); ++it) {
                 statements.push_back(*it);
@@ -884,8 +892,8 @@ private:
             auto resultStorage = std::make_shared<TIdentExpr>(
                 call->Location,
                 resultName);
-            resultStorage->Type = call->Type;
-            if (IsString(call->Type)) {
+            resultStorage->Type = valueNode->Type;
+            if (IsString(valueNode->Type)) {
                 statements.push_back(std::make_shared<TMoveExpr>(
                     call->Location,
                     std::move(resultStorage)));
@@ -893,7 +901,7 @@ private:
                 statements.push_back(std::move(resultStorage));
             }
         } else {
-            statements.push_back(call);
+            statements.push_back(valueNode);
             for (auto it = cleanups.rbegin(); it != cleanups.rend(); ++it) {
                 statements.push_back(*it);
             }
@@ -902,9 +910,54 @@ private:
         auto wrapper = std::make_shared<TBlockExpr>(
             call->Location,
             std::move(statements));
-        wrapper->Type = call->Type;
+        wrapper->Type = valueNode->Type;
         expr = std::move(wrapper);
         return true;
+    }
+
+    // `await' over a call whose string arguments have to be materialized.
+    //
+    // Rewriting the call alone would leave the await outside the block the
+    // rewrite builds, so the block would have to yield the future through a
+    // local of type Future<T> — and IR lowering has no such type, it throws
+    // "AST Future<T> cannot be lowered as a regular IR type". Rewrite the await
+    // instead: the block then yields the awaited result and the temporaries are
+    // destroyed after the operation has actually completed, which is also the
+    // safer order.
+    //
+    //   (await (block (var s = "…") (var r = (call f (borrow s))) (destroy s) r))
+    //   →  (block (var s = "…") (await (call f (borrow s))) (destroy s))
+    //
+    // The only such function today is `написать' of the Чертёжник module: it is
+    // the one external declaration that combines RequireArgsMaterialization
+    // with a Future return type.
+    std::expected<bool, TError> RewriteAwaitedCall(
+        TExprPtr& expr,
+        const std::shared_ptr<TAwaitExpr>& await,
+        TScopeId scopeId)
+    {
+        auto call = TMaybeNode<TCallExpr>(await->Operand);
+        if (!call) {
+            return RewriteChildren(expr, scopeId);
+        }
+        TExprPtr valueNode = expr;
+        return RewriteCall(expr, call.Cast(), scopeId, std::move(valueNode));
+    }
+
+    std::expected<bool, TError> RewriteChildren(TExprPtr& expr, TScopeId scopeId)
+    {
+        bool changed = false;
+        for (auto* child : expr->MutableChildren()) {
+            if (!*child) {
+                continue;
+            }
+            auto result = RewriteExpr(*child, scopeId, true);
+            if (!result) {
+                return std::unexpected(result.error());
+            }
+            changed = result.value() || changed;
+        }
+        return changed;
     }
 
     std::expected<bool, TError> RewriteExpr(
@@ -979,22 +1032,14 @@ private:
         if (auto assign = TMaybeNode<TFieldAssignExpr>(expr)) {
             return RewriteFieldAssign(expr, assign.Cast(), scopeId);
         }
+        if (auto awaitExpr = TMaybeNode<TAwaitExpr>(expr)) {
+            return RewriteAwaitedCall(expr, awaitExpr.Cast(), scopeId);
+        }
         if (auto call = TMaybeNode<TCallExpr>(expr)) {
             return RewriteCall(expr, call.Cast(), scopeId);
         }
 
-        bool changed = false;
-        for (auto* child : expr->MutableChildren()) {
-            if (!*child) {
-                continue;
-            }
-            auto result = RewriteExpr(*child, scopeId, true);
-            if (!result) {
-                return std::unexpected(result.error());
-            }
-            changed = result.value() || changed;
-        }
-        return changed;
+        return RewriteChildren(expr, scopeId);
     }
 
     TNameResolver& Context_;
