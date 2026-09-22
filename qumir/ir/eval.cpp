@@ -205,7 +205,7 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
             const int typeId = (i < (int)exec->ArgTypeIds.size()) ? exec->ArgTypeIds[i] : -1;
             const int argSize = Module.Types.SizeInBytes(typeId);
             if (typeId >= 0 && Module.Types.GetKind(typeId) == EKind::Struct) {
-                // struct arg: value is a pointer — copy the struct into the frame
+                // struct arg: value is a pointer - copy the struct into the frame
                 std::memcpy(frameBase + byteOff, reinterpret_cast<const void*>(srcArgs[i]), argSize);
             } else if (typeId >= 0 && argSize == 16 && i < (int)Runtime.Args128.size()) {
                 std::memcpy(frameBase + byteOff, &Runtime.Args128[i], 16);

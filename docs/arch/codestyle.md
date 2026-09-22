@@ -63,6 +63,9 @@ case "<<"_op:
 - Comment only the **why**, not the what
 - `// TODO:` for known gaps; include a short description of what is missing
 - No multi-line block comments for explanations; use short single-line comments
+- Comments in C++ and `.kum` files use only what an English or Russian keyboard types: ASCII, Russian letters and `№`. Write `-`, `->`, `<=`, `...`, `"`, `pi` instead of dashes, arrows, math signs, guillemets and Greek letters
+- Invisible characters (NBSP, zero-width, BOM, bidi controls, variation selectors) are forbidden in every file
+- Both rules are checked by `tools/check_text.py` in CI; the same check runs as a pre-commit hook after `git config core.hooksPath .githooks`
 
 ## Error handling
 

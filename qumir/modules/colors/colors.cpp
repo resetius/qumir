@@ -599,7 +599,7 @@ ColorsModule::ColorsModule() {
 
     ExternalFunctions_ = {
 
-        // ── Color constants ───────────────────────────────────────────────────
+        // -- Color constants ---------------------------------------------------
         {
             .Name = "прозрачный",
             .MangledName = "color_transparent",
@@ -699,7 +699,7 @@ ColorsModule::ColorsModule() {
             .Inline = colorConst(PackRGB(255, 0, 0)),
         },
 
-        // ── Color construction ────────────────────────────────────────────────
+        // -- Color construction ------------------------------------------------
         {
             .Name = "RGB",
             .MangledName = "color_rgb",
@@ -762,7 +762,7 @@ ColorsModule::ColorsModule() {
             .Inline = inlineHsv(true),
         },
 
-        // ── Color decomposition ───────────────────────────────────────────────
+        // -- Color decomposition -----------------------------------------------
         {
             .Name = "разложить в RGB",
             .MangledName = "color_decompose_rgb",
@@ -792,7 +792,7 @@ ColorsModule::ColorsModule() {
             .Inline = decomposeHsv,
         },
 
-        // ── Output operator ───────────────────────────────────────────────────
+        // -- Output operator ---------------------------------------------------
         {
             .Name = "print",
             .MangledName = "color_print",

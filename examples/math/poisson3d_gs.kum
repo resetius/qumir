@@ -40,7 +40,7 @@
   вещ tol
   tol := 1e-3
 
-  | Gauss-Seidel (in-place) для -Δu = f: u = (соседи + h^2 f)/6
+  | Gauss-Seidel (in-place) для -Delta u = f: u = (соседи + h^2 f)/6
   нц для it от 0 до iters-1 шаг 1
     нц для i от 1 до Nx-2 шаг 1
       нц для j от 1 до Ny-2 шаг 1

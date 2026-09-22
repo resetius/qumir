@@ -52,8 +52,8 @@ struct TLLVMCodeGenOptions {
     // If empty, defaults are used.
     std::string TargetTriple;
     // Module partitioning for the object cache (mutually exclusive):
-    //   RestrictToDefinitions — only these get bodies (dependency-only object).
-    //   EmitAsExternal        — these become external decls (kernel object).
+    //   RestrictToDefinitions - only these get bodies (dependency-only object).
+    //   EmitAsExternal        - these become external decls (kernel object).
     // Others are external declarations / definitions respectively. Both null =
     // define everything (default).
     const std::unordered_set<std::string>* RestrictToDefinitions {nullptr};

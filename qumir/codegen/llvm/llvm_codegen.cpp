@@ -581,7 +581,7 @@ std::vector<std::string> CollectCacheableSymbols(const NIR::TModule& module) {
     // A cache object must be self-contained: reference only cacheable or runtime
     // symbols. Demote (to fixpoint) any candidate that calls a defined
     // non-candidate (a query-specific function like jt_residual_filter, or an
-    // already-demoted candidate) — its object could not link into a kernel that
+    // already-demoted candidate) - its object could not link into a kernel that
     // lacks that symbol.
     bool changed = true;
     while (changed) {

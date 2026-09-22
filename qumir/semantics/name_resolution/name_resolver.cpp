@@ -1216,7 +1216,7 @@ std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& 
     auto* module = it->second;
 
     for (const auto& fn : module->ExternalFunctions()) {
-        if (fn.IsOp) continue; // operators allow overloading — no conflict check
+        if (fn.IsOp) continue; // operators allow overloading - no conflict check
         auto conflict = ImportedModuleSymbols.find(fn.Name);
         if (conflict != ImportedModuleSymbols.end()) {
             return std::unexpected(

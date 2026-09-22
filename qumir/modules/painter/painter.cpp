@@ -25,7 +25,7 @@ PainterModule::PainterModule() {
 
     ExternalFunctions_ = {
 
-        // ── Sheet info ────────────────────────────────────────────────────────
+        // -- Sheet info --------------------------------------------------------
         {
             .Name = "высота листа",
             .MangledName = "painter_sheet_height",
@@ -82,7 +82,7 @@ PainterModule::PainterModule() {
             .ReturnType = colorType,
         },
 
-        // ── Drawing parameters ────────────────────────────────────────────────
+        // -- Drawing parameters ------------------------------------------------
         {
             .Name = "перо",
             .MangledName = "painter_pen",
@@ -138,7 +138,7 @@ PainterModule::PainterModule() {
             .RequireArgsMaterialization = true,
         },
 
-        // ── Drawing commands ──────────────────────────────────────────────────
+        // -- Drawing commands --------------------------------------------------
         {
             .Name = "в точку",
             .MangledName = "painter_move_to",
@@ -243,7 +243,7 @@ PainterModule::PainterModule() {
             .ReturnType = voidType,
         },
 
-        // ── Sheet management ──────────────────────────────────────────────────
+        // -- Sheet management --------------------------------------------------
         {
             .Name = "новый лист",
             .MangledName = "painter_new_sheet",

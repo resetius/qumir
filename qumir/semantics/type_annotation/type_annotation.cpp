@@ -282,7 +282,7 @@ bool CanImplicit(TTypePtr S, TTypePtr D, NSemantics::TNameResolver* ctx) {
 }
 
 // Returns the inline replacement if the function has an InlineFactory, nullptr otherwise.
-// The replacement has no Type set — callers that are coroutines must DoAnnotate it.
+// The replacement has no Type set - callers that are coroutines must DoAnnotate it.
 TExprPtr TryApplyInlineFactory(const std::shared_ptr<TFunDecl>& funDecl, std::vector<TExprPtr> args) {
     if (funDecl->InlineFactory) {
         return (*funDecl->InlineFactory)(std::move(args));
@@ -723,7 +723,7 @@ TTask AnnotateFunDecl(std::shared_ptr<TFunDecl> funDecl, NSemantics::TNameResolv
 
     if (HasGenericParams(*funDecl)) {
         // Generic function: its body refers to
-        // placeholder types and cannot be type-checked on its own — only
+        // placeholder types and cannot be type-checked on its own - only
         // monomorphized clones (created at call sites by
         // InstantiateGenericFunction) get annotated.
         co_return funDecl;
@@ -1161,10 +1161,10 @@ TTask AnnotateBlock(std::shared_ptr<TBlockExpr> block, NSemantics::TNameResolver
         }
     }
     // Generic function declarations are blueprints,
-    // not real functions — their bodies mention placeholder types and were
+    // not real functions - their bodies mention placeholder types and were
     // never body-annotated (see the HasGenericParams guard in
     // AnnotateFunDecl). Only their monomorphized clones, synthesized at call
-    // sites and registered separately, should reach lowering/codegen — drop
+    // sites and registered separately, should reach lowering/codegen - drop
     // the generic declarations themselves here so lowering never encounters
     // unresolved type parameters.
     std::erase_if(block->Stmts, [](const TExprPtr& s) {
@@ -1409,7 +1409,7 @@ bool HasGenericParams(const TFunDecl& decl) {
 }
 
 // Rebuilds a fresh TType instance with the same derived "shape" (kind, name,
-// nested types...) as `shape`, but default base TType attributes — the
+// nested types...) as `shape`, but default base TType attributes - the
 // starting point for substituting a generic type parameter: the result must
 // structurally equal the bound concrete type, while the parameter usage
 // site's own attributes get overlaid on top (see SubstituteGenericType).
@@ -1836,7 +1836,7 @@ std::optional<std::string> InferGenericBindings(
 // ...) and resetting scope bookkeeping (TBlockExpr/TFunDecl/TLetExpr
 // ::Scope, TLetExpr::TBinding::Symbol) so the clone gets fresh symbol-table
 // entries on the next name-resolution pass: a cloned body cannot share scopes
-// with its generic declaration — Symbols bind scope entries to specific AST node
+// with its generic declaration - Symbols bind scope entries to specific AST node
 // identities, and sharing would make lookups resolve to the generic declaration's
 // (wrongly-typed) original nodes instead of this clone's.
 TExprPtr CloneAndSubstituteExpr(
@@ -2261,7 +2261,7 @@ TGenericBindingsTask InferCompleteGenericBindings(
 // Clones+substitutes a generic TFunDecl for the concrete types inferred from
 // `args`, registers the result under a synthetic mangled name and
 // (re-)resolves+annotates its body. Caching by that name (via a root-scope
-// symbol lookup — DeclareFunction inside ResolveInstantiatedFunDecl registers
+// symbol lookup - DeclareFunction inside ResolveInstantiatedFunDecl registers
 // it there) both deduplicates repeat instantiations and guards against
 // infinite recursion for mutually-recursive generics: the symbol is
 // look-up-able before its body gets annotated, so a recursive call resolves
@@ -2338,7 +2338,7 @@ TFunDeclTask InstantiateGenericFunction(
     }
 
     // Body must either yield the function's return value directly (no
-    // trailing `return` — hand-written core lang) or be void-typed (every
+    // trailing `return` - hand-written core lang) or be void-typed (every
     // path ends in an explicit `return`). Mirrors AnnotateFunDecl.
     if (!TMaybeType<TVoidType>(funcScope->RetType)) {
         auto bodyType = UnwrapReferenceType(cloned->Body->Type);
@@ -2595,7 +2595,7 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
         if (overloads.size() > 1) {
             co_return co_await AnnotateOverloadedCall(call, overloads, context, scopeId);
         }
-        // The single candidate has generic parameters — instantiate it
+        // The single candidate has generic parameters - instantiate it
         // for the call's argument types and re-target the callee at the
         // synthesized clone, registered in the root scope under a mangled
         // name that ordinary identifier resolution can find.
@@ -2702,7 +2702,7 @@ TTask AnnotateAwait(std::shared_ptr<TAwaitExpr> awaitExpr, NSemantics::TNameReso
 // Type of an `если' branch as it will be AFTER the implied `await'.
 //
 // Executor commands (Робот, Черепаха, Чертёжник, Рисователь) are declared as
-// future<void> — they suspend the coroutine. The `await' around them is added
+// future<void> - they suspend the coroutine. The `await' around them is added
 // by CoroutineAnnotationTransform, which runs AFTER the first type annotation
 // pass, so on that first pass a `то' branch ending in an executor command is
 // seen here as future<void>. It is still a statement, not a value, hence the
@@ -2756,7 +2756,7 @@ TTask AnnotateIfExpr(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver&
     auto thenType = UnwrapReferenceType(ifExpr->Then->Type);
     auto elseType = UnwrapReferenceType(ifExpr->Else->Type);
 
-    // Both branches void → statement context
+    // Both branches void -> statement context
     if (TMaybeType<TVoidType>(SettledBranchType(thenType))
         && TMaybeType<TVoidType>(SettledBranchType(elseType))) {
         ifExpr->Type = std::make_shared<TVoidType>();
@@ -3130,7 +3130,7 @@ std::expected<TExprPtr, TError> TTypeAnnotator::Annotate(TExprPtr expr)
         return result;
     }
     // Append monomorphized generic-function clones to the top-level block so
-    // lowering compiles them exactly like ordinary top-level functions — see
+    // lowering compiles them exactly like ordinary top-level functions - see
     // GetGenericInstantiations' comment for why. Drained (not just read):
     // Annotate runs repeatedly during the source fixpoint and once after final
     // AST rewrites, so a non-draining read would re-splice already-spliced

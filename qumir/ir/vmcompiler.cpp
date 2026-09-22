@@ -305,7 +305,7 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                     out.Operands[i + offset] = ins.Operands[i].Slot;
                     break;
                 case TOperand::EType::Local: {
-                    // Translate var index → byte offset in frame
+                    // Translate var index -> byte offset in frame
                     int varIdx = ins.Operands[i].Local.Idx;
                     int byteOffset = (varIdx >= 0 && varIdx < (int)localByteOffsets.size())
                         ? localByteOffsets[varIdx] : varIdx * 8;

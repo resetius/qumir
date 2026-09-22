@@ -210,7 +210,7 @@ std::optional<TArgCost> ArgCost(
     }
 
     // Generic type parameter: matches any concrete argument type, but at a
-    // higher cost than any concrete overload — the actual type bound to the
+    // higher cost than any concrete overload - the actual type bound to the
     // parameter is determined once this overload is chosen as the best match.
     if (IsGenericTypeParam(to, genericTypeParams)) {
         return GenericParamCost(true);

@@ -45,3 +45,5 @@
 Testing
 build
 node_modules
+__pycache__
+docs/issues

@@ -764,7 +764,7 @@ private:
     // `valueNode' is the node whose value the rewritten block yields, and whose
     // type the block takes. It is the call itself everywhere except for a
     // suspending call reached through `await': there the awaited result, not
-    // the future, is the value of the block — see RewriteAwaitedCall.
+    // the future, is the value of the block - see RewriteAwaitedCall.
     std::expected<bool, TError> RewriteCall(
         TExprPtr& expr,
         const std::shared_ptr<TCallExpr>& call,
@@ -919,14 +919,14 @@ private:
     //
     // Rewriting the call alone would leave the await outside the block the
     // rewrite builds, so the block would have to yield the future through a
-    // local of type Future<T> — and IR lowering has no such type, it throws
+    // local of type Future<T> - and IR lowering has no such type, it throws
     // "AST Future<T> cannot be lowered as a regular IR type". Rewrite the await
     // instead: the block then yields the awaited result and the temporaries are
     // destroyed after the operation has actually completed, which is also the
     // safer order.
     //
-    //   (await (block (var s = "…") (var r = (call f (borrow s))) (destroy s) r))
-    //   →  (block (var s = "…") (await (call f (borrow s))) (destroy s))
+    //   (await (block (var s = "...") (var r = (call f (borrow s))) (destroy s) r))
+    //   ->  (block (var s = "...") (await (call f (borrow s))) (destroy s))
     //
     // The only such function today is `написать' of the Чертёжник module: it is
     // the one external declaration that combines RequireArgsMaterialization

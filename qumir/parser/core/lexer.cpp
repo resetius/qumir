@@ -34,7 +34,7 @@ AST node forms:
       TBlockExpr, NodeId = "Block", introduces a nested lexical scope.
 
   (pragma group value1 value2 ...)
-      Virtual node — not represented in the AST. Pragmas are collected into
+      Virtual node - not represented in the AST. Pragmas are collected into
       TParser::Pragmas and applied by the caller after Parse() returns.
       Pragmas are only valid at the start of the outermost (first) block,
       before any non-pragma statements:

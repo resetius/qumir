@@ -82,7 +82,7 @@ bool TPrinter::ShouldWrapType(const TExprPtr& expr) const {
             return false;
         }
         if (TMaybeNode<TBlockExpr>(expr) && TMaybeType<TVoidType>(expr->Type)) {
-            return false; // void blocks are statements — don't annotate type
+            return false; // void blocks are statements - don't annotate type
         }
         return true;
     }

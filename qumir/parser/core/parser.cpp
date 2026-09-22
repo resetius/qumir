@@ -376,7 +376,7 @@ TExpectedTask<TFunAttrs, TError, TLocation> ParseFunAttrs(TParserContext& contex
             }
             // unknown attrs silently ignored for forward compat
         } else if (token.Type == TToken::Identifier) {
-            // simple attr: inline, etc. — ignored for now
+            // simple attr: inline, etc. - ignored for now
         } else {
             co_return Error(token, "expected function attribute");
         }
@@ -551,7 +551,7 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
         if (IsOp(tok, '>')) {
             co_return type;
         }
-        // "<named Name (attrs)>" — a reference with no inline underlying type,
+        // "<named Name (attrs)>" - a reference with no inline underlying type,
         // as opposed to "<named Name UnderlyingType (attrs)>".
         if (IsOp(tok, '(')) {
             context.Stream.Unget(tok);
@@ -806,7 +806,7 @@ TListHandlerMap MakeDefaultHandlers() {
             auto name = co_await ParseName(ctx);
             auto peek = ctx.Stream.Next();
             if (peek.Type == TToken::Identifier && peek.Name == "=") {
-                // (var name = expr) — type inferred from init expression
+                // (var name = expr) - type inferred from init expression
                 auto init = co_await ParseExpr(ctx);
                 co_await Expect(ctx, ')');
                 auto var = std::make_shared<TVarStmt>(loc, std::move(name), nullptr);
@@ -882,7 +882,7 @@ TListHandlerMap MakeDefaultHandlers() {
                             // `print`: the function is its argument type's printer
                             // (a unary "print" operator, dispatched by `вывод`).
                             // `extern`: external function bound to its own name.
-                            // Other simple attrs (inline etc.) — ignored for now.
+                            // Other simple attrs (inline etc.) - ignored for now.
                             if (attrTok.Name == "print") {
                                 operatorName = "print";
                             } else if (attrTok.Name == "extern") {

@@ -12,7 +12,7 @@
 using namespace NQumir;
 
 // Two cacheable overloads sharing a source name but differing in parameter type
-// must resolve independently (distinct signature-mangled symbols) — the string
+// must resolve independently (distinct signature-mangled symbols) - the string
 // key scenario where rh_hash exists for both the lookup and stored key types.
 TEST(CacheableMangle, OverloadedCacheableResolveByType) {
     std::istringstream in(

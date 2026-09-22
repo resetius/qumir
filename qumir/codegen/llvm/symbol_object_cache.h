@@ -56,7 +56,7 @@ public:
 
     // First-writer-wins: writes objectBytes and maps every provided symbol only
     // if none is already cached; otherwise discards and returns AlreadyPresent.
-    // AlreadyPresent does not return the winner's path — the caller must still
+    // AlreadyPresent does not return the winner's path - the caller must still
     // make the symbols available in the current JIT (load its own object).
     std::expected<ERegisterResult, TError> Register(
         std::string_view objectBytes,

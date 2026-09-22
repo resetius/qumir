@@ -153,7 +153,7 @@ std::expected<TComposeResult, TError> Compose(
     }
 
     // Kumir's entry point is the first function in the program (any name, no
-    // args — see TModule::GetEntryPoint). The main program's functions must
+    // args - see TModule::GetEntryPoint). The main program's functions must
     // therefore precede module functions so the entry stays first.
     std::vector<TExprPtr> uses, types, globals, mainFunctions, moduleFunctions, other;
     std::unordered_set<std::string> seenUses;

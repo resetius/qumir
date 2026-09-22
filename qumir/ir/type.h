@@ -78,7 +78,7 @@ public:
 
     // Overrides the size/alignment used for Ptr and Func types (default 8,
     // i.e. a 64-bit target). Must be called before any lowering that bakes
-    // FieldOffset values into the IR — target width is fixed for the
+    // FieldOffset values into the IR - target width is fixed for the
     // lifetime of the module.
     void SetPointerSize(int bytes);
 

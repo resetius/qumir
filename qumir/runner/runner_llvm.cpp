@@ -345,7 +345,7 @@ bool TLLVMRunner::LowerKernelAst(
     }
 
     // Contract: an entrypoint is looked up by its source name, so its emit symbol
-    // must equal that name — never mangle/cache it, whatever flags it carries.
+    // must equal that name - never mangle/cache it, whatever flags it carries.
     if (auto block = NAst::TMaybeNode<NAst::TBlockExpr>(ast)) {
         std::unordered_set<std::string> entrySet(entryNames.begin(), entryNames.end());
         for (auto& stmt : block.Cast()->Stmts) {

@@ -7,6 +7,14 @@ on:
     branches: [ master ]
 
 jobs:
+  text-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check comments and invisible characters
+      run: python3 tools/check_text.py
+
   build:
     permissions:
       checks: write

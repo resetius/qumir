@@ -22,7 +22,7 @@ struct TComposeResult {
 // main program. `modules` is in dependency-first order; the main program is
 // appended last. The result root block orders declarations as the IR lowering
 // requires: external (runtime) `use`s, then types, then globals, then
-// functions. `use`s that name a composed source module are dropped — those
+// functions. `use`s that name a composed source module are dropped - those
 // modules are inlined directly. Pragmas of all units are merged (conflicting
 // values for the same group is an error), and duplicate exported names are
 // reported with their originating files before name resolution runs. Set

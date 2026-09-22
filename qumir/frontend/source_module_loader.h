@@ -19,7 +19,7 @@ namespace NFrontend {
 // dependency-first order. A module's name is its file stem (`math.oz` ->
 // `math`). A `use` that resolves to a `.oz` file is followed as a source
 // dependency; any other `use` is recorded as external and left to a later
-// runtime-import stage. The loader parses and validates only — no name
+// runtime-import stage. The loader parses and validates only - no name
 // resolution, lowering or codegen.
 class TSourceModuleLoader {
 public:

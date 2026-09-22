@@ -165,7 +165,7 @@ TEST(FieldAccess, ReadWriteSecondField) {
     EXPECT_NE(result.output.find("7.25"), std::string::npos) << "output: " << result.output;
 }
 
-// Assign to one field, read both — the other field must stay zero.
+// Assign to one field, read both - the other field must stay zero.
 TEST(FieldAccess, UnwrittenFieldIsZero) {
     const std::string src = "использовать Комплексные числа\nалг\nнач\n  компл c\n  вещ x\n  вывод x, нс\nкон\n";
     auto loc = TLocation{};

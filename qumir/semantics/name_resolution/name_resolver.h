@@ -155,7 +155,7 @@ public:
     // Registers and resolves a synthetic TFunDecl produced by generic
     // instantiation: declares it in the root scope under its (already
     // mangled) name, creates a fresh function scope, declares its params and
-    // resolves its body — mirroring what ResolveTopFuncDecl +
+    // resolves its body - mirroring what ResolveTopFuncDecl +
     // Resolve(TFunDecl) do for ordinary top-level functions. Cloned function
     // bodies cannot reuse the generic declaration's scopes: Symbols bind scope entries
     // to specific AST node identities, so a shared scope would make lookups
@@ -166,11 +166,11 @@ public:
 
     // All generic-function clones registered via ResolveInstantiatedFunDecl
     // since the last TakeGenericInstantiations() call, in creation order
-    // (transitive instantiations included — a clone's body gets annotated,
+    // (transitive instantiations included - a clone's body gets annotated,
     // and any further instantiations it triggers are appended before the
     // recursive call returns). The type annotator appends these to the
     // top-level block's statement list so lowering finds and compiles them
-    // exactly like ordinary top-level functions — no changes to
+    // exactly like ordinary top-level functions - no changes to
     // lower_ast.cpp are needed.
     const std::vector<std::shared_ptr<NAst::TFunDecl>>& GetGenericInstantiations() const {
         return GenericInstantiations;
@@ -178,11 +178,11 @@ public:
 
     // Returns the accumulated clones and clears the list. The annotation
     // source pipeline runs to a fixed point and re-invokes
-    // TTypeAnnotator::Annotate on the same top-level block — without draining
+    // TTypeAnnotator::Annotate on the same top-level block - without draining
     // the list here, every later annotation
     // would re-append the same already-spliced-in clones, leaving duplicate
     // TFunDecl nodes in Stmts (harmless for lowering, which keys functions
-    // by symbol id and simply overwrites — but wasted work and AST bloat).
+    // by symbol id and simply overwrites - but wasted work and AST bloat).
     std::vector<std::shared_ptr<NAst::TFunDecl>> TakeGenericInstantiations() {
         return std::exchange(GenericInstantiations, {});
     }

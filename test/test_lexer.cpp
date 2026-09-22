@@ -192,7 +192,7 @@ TEST(LexerTest, InputOutputListsWithMultiWordIdentifiers) {
     ExpectKeyword(tokens.Next(), EKeyword::Output);
     ExpectIdent(tokens.Next(), "длина отрезка");
     ExpectOp(tokens.Next(), EOperator::Comma);
-    // "нс" как keyword переноса строки (если у тебя так заведено) — иначе можно ожидать Identifier("нс")
+    // "нс" как keyword переноса строки (если у тебя так заведено) - иначе можно ожидать Identifier("нс")
     auto t = tokens.Next();
     EXPECT_EQ(t.Type, TToken::Keyword) << "ожидался keyword 'нс'";
     ExpectOp(tokens.Next(), EOperator::Eol);
@@ -245,7 +245,7 @@ TEST(LexerTest, StringLiteralAndComments) {
     EXPECT_EQ(t.Type, TToken::String);
     EXPECT_EQ(t.Name, std::string("Привет"));
     ExpectOp(tokens.Next(), EOperator::Comma);
-    // "нс" — как keyword (или идентификатор — см. реализацию)
+    // "нс" - как keyword (или идентификатор - см. реализацию)
     t = tokens.Next();
     EXPECT_EQ(t.Type, TToken::Keyword) << "ожидался keyword 'нс'";
     ExpectOp(tokens.Next(), EOperator::Eol); // comment 1

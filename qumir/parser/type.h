@@ -343,7 +343,7 @@ struct TNamedType : TType {
     }
 
     const std::string_view TypeName() const override {
-        return TNamedType::TypeId; // "Named" — consistent with TMaybeType contract
+        return TNamedType::TypeId; // "Named" - consistent with TMaybeType contract
     }
 };
 

@@ -437,7 +437,7 @@ struct TSSABuilder {
 } // anonymous namespace
 
 // Simple and Efficient Construction of Static Single Assignment Form
-// Matthias Braun1, Sebastian Buchwald1, Sebastian Hack2, Roland Leißa2, Christoph Mallon2, and Andreas Zwinkau
+// Matthias Braun1, Sebastian Buchwald1, Sebastian Hack2, Roland Leissa2, Christoph Mallon2, and Andreas Zwinkau
 void PromoteLocalsToSSA(TFunction& function, TModule& module)
 {
     TSSABuilder(module, function).Run();

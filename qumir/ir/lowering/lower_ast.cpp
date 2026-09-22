@@ -1708,7 +1708,7 @@ void TAstLowerer::ImportExternalFunction(int symbolId, const NAst::TFunDecl& fun
         // already imported
         return;
     }
-    // Pure inline functions have no physical implementation — skip registration
+    // Pure inline functions have no physical implementation - skip registration
     // so backends (LLVM, WASM) don't emit imports or declarations for them.
     if (funcDecl.InlineFactory.has_value()) {
         return;
@@ -1909,7 +1909,7 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
                     }
                 } else if (var->Init) {
                     // Scalar global with an initializer: emit its store in the
-                    // module constructor (otherwise the slot is never written —
+                    // module constructor (otherwise the slot is never written -
                     // the VM grows global storage lazily on store, so a read
                     // would access an unbacked slot).
                     switchToConstructorFunction();

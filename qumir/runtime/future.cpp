@@ -36,7 +36,7 @@ struct TWrappedLLVMCoro : ITypeErasedFuture {
         if (!Handle.done()) {
             Handle.resume();
         }
-        return nullptr; // noop — parent suspends and re-checks await_ready
+        return nullptr; // noop - parent suspends and re-checks await_ready
     }
 
     void await_resume(void* /*result*/) override {

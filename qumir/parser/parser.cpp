@@ -256,7 +256,7 @@ TExpectedTask<std::shared_ptr<TVarStmt>, TError, TLocation> var_decl(TParserCont
     auto& stream = context.Stream;
     auto nameTok = stream.Next();
     if (nameTok.Type != TToken::Identifier) {
-        // Если здесь пошёл новый тип — пусть внешняя логика разрулит (мы вернём ошибку)
+        // Если здесь пошёл новый тип - пусть внешняя логика разрулит (мы вернём ошибку)
         co_return TError(nameTok.Location, "ожидался идентификатор переменной");
     }
 
@@ -446,7 +446,7 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TParserCon
                 }
             }
             if (op == EOperator::Comma) {
-                // после запятой может идти либо следующее имя, либо новый базовый тип —
+                // после запятой может идти либо следующее имя, либо новый базовый тип -
                 // в последнем случае завершаем текущий стейтмент
                 auto look = stream.Next();
                 if (look.Type == TToken::Keyword && IsTypeKeyword(static_cast<EKeyword>(look.Value.i64))) {
@@ -469,7 +469,7 @@ TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TParserCon
             // Unexpected operator
             co_return TError(t.Location, "ожидалась ',' или перевод строки после имени переменной");
         } else {
-            // Something else after name — error for now
+            // Something else after name - error for now
             co_return TError(t.Location, "недопустимый токен после имени переменной");
         }
     }
@@ -781,7 +781,7 @@ TAstTask repeat_until_loop( TParserContext& context) {
 выбор
   при условие 1 : серия 1
   при условие 2 : серия 2
-  …
+  ...
   при условие n : серия n
   иначе серия n+1
 все
@@ -791,7 +791,7 @@ or
 выбор
   при условие 1 : серия 1
   при условие 2 : серия 2
-  …
+  ...
   при условие n : серия n
 все
 
@@ -859,7 +859,7 @@ TAstTask switch_expr(TParserContext& context) {
 
 /*
 If ::= 'если' Expr EOL* 'то' EOL* StmtList OptElse 'все'
-OptElse ::= EOL* 'иначе' EOL* StmtList | ε
+OptElse ::= EOL* 'иначе' EOL* StmtList | eps
 // Примечания:
 // - Expr, StmtList не раскрываются здесь (используются как чёрные ящики).
 // - EOL* означает, что между элементами могут быть пустые строки/переводы строк.
@@ -940,7 +940,7 @@ TExpectedTask<std::vector<TIoArg>, TError, TLocation> parse_io_arg_list_opt(TPar
 
     // In classic KuMir a statement ends not only at a line break: a keyword
     // that closes a block ends it too. That is what makes the single-line form
-    // `если a > 0 то вывод "да" все' legal — textbooks and the sample programs
+    // `если a > 0 то вывод "да" все' legal - textbooks and the sample programs
     // shipped with KuMir itself are written that way.
     //
     // The set matches the reference implementation (kumir2, lexer.cpp,
@@ -948,7 +948,7 @@ TExpectedTask<std::vector<TIoArg>, TError, TLocation> parse_io_arg_list_opt(TPar
     // which closes a block in this grammar exactly the same way; no program
     // valid in the original changes meaning because of it.
     //
-    // Only keywords that really close a block belong here — "any keyword" would
+    // Only keywords that really close a block belong here - "any keyword" would
     // not do, since `нс' in `вывод a, нс' is a keyword as well.
     auto endsBlock = [](const TToken& t) {
         if (t.Type != TToken::Keyword) {
@@ -1076,7 +1076,7 @@ TAstTask call_expr(TParserContext& context) {
     TToken tok;
     while (!isEof(tok = stream.Next())) {
         if (isOp(tok, EOperator::LParen)) {
-            // Разрешаем вызов функции только если базовое выражение — идентификатор
+            // Разрешаем вызов функции только если базовое выражение - идентификатор
             if (!TMaybeNode<TIdentExpr>(base)) {
                 co_return TError(tok.Location, "ожидалось имя функции перед '('");
             }

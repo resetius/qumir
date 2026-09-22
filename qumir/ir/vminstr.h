@@ -84,8 +84,8 @@ enum class EVMOp : uint8_t {
     Lde, // load by address (a = *i)
     Lea, // load effective address (a = &i)
     Copy,        // copy(dst_ptr, src, size_bytes_imm); src may be a pointer or packed value
-    StructStore, // struct_store(dst_local, src_tmp, size_imm) — memcpy from Tmp into Local frame slot
-    SAlloc,      // salloc(dst_tmp, frame_offset_imm, size_imm) — zero frame storage and return its address
+    StructStore, // struct_store(dst_local, src_tmp, size_imm) - memcpy from Tmp into Local frame slot
+    SAlloc,      // salloc(dst_tmp, frame_offset_imm, size_imm) - zero frame storage and return its address
 
     // 128-bit ops address the Regs128 file by the same register index as Regs.
     INeg128,

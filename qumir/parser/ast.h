@@ -666,7 +666,7 @@ struct TFunDecl : TExpr {
     // A mangled/link symbol marks an external function, except a cacheable one
     // which carries a MangledName (its emit symbol) yet still has a body.
     // Bodyless but NOT external: inline/intrinsic builtins (InlineFactory/Packed,
-    // no MangledName) — expanded at the call site, so nothing to lower or link.
+    // no MangledName) - expanded at the call site, so nothing to lower or link.
     bool IsExternal() const {
         return !MangledName.empty() && !(Cacheable && Body);
     }
