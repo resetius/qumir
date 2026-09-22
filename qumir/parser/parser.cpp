@@ -937,6 +937,36 @@ template<typename TIoArg>
 TExpectedTask<std::vector<TIoArg>, TError, TLocation> parse_io_arg_list_opt(TParserContext& context) {
     auto& stream = context.Stream;
     std::vector<TIoArg> args;
+
+    // In classic KuMir a statement ends not only at a line break: a keyword
+    // that closes a block ends it too. That is what makes the single-line form
+    // `если a > 0 то вывод "да" все' legal — textbooks and the sample programs
+    // shipped with KuMir itself are written that way.
+    //
+    // The set matches the reference implementation (kumir2, lexer.cpp,
+    // popLexemsUntilSemicolonOrBlockClose: `;', иначе, кц, при, все) plus `кон',
+    // which closes a block in this grammar exactly the same way; no program
+    // valid in the original changes meaning because of it.
+    //
+    // Only keywords that really close a block belong here — "any keyword" would
+    // not do, since `нс' in `вывод a, нс' is a keyword as well.
+    auto endsBlock = [](const TToken& t) {
+        if (t.Type != TToken::Keyword) {
+            return false;
+        }
+        switch (static_cast<EKeyword>(t.Value.i64)) {
+            case EKeyword::EndIf:       // все
+            case EKeyword::Else:        // иначе
+            case EKeyword::Case:        // при
+            case EKeyword::LoopEnd:     // кц
+            case EKeyword::LoopEndWhen: // кц_при
+            case EKeyword::End:         // кон
+                return true;
+            default:
+                return false;
+        }
+    };
+
     auto tok = stream.Next();
     if (isOp(tok, EOperator::Eol)) {
         co_return args; // empty
@@ -961,21 +991,24 @@ TExpectedTask<std::vector<TIoArg>, TError, TLocation> parse_io_arg_list_opt(TPar
                 }
             }
         }
-        if (t.Type == TToken::Operator) {
-            if ((EOperator)t.Value.i64 == EOperator::Comma || (EOperator)t.Value.i64 == EOperator::Eol) {
-                if constexpr(std::is_same_v<TIoArg, TOutputArg>) {
-                    args.push_back(TIoArg{ std::move(e), std::move(width), std::move(prec) });
-                } else {
-                    args.push_back(std::move(e));
-                }
-                if ((EOperator)t.Value.i64 == EOperator::Eol) {
-                    break;
-                }
-                continue;
-            }
+        const bool comma = t.Type == TToken::Operator && (EOperator)t.Value.i64 == EOperator::Comma;
+        const bool eol = t.Type == TToken::Operator && (EOperator)t.Value.i64 == EOperator::Eol;
+        const bool blockEnd = endsBlock(t);
+        if (!comma && !eol && !blockEnd) {
+            stream.Unget(t);
+            co_return TError(t.Location, "ожидается ',' или конец строки в списке аргументов ввода/вывода");
         }
-        stream.Unget(t);
-        co_return TError(t.Location, "ожидается ',' или конец строки в списке аргументов ввода/вывода");
+        if (blockEnd) {
+            stream.Unget(t); // the keyword closes the block; stmt_list reads it
+        }
+        if constexpr(std::is_same_v<TIoArg, TOutputArg>) {
+            args.push_back(TIoArg{ std::move(e), std::move(width), std::move(prec) });
+        } else {
+            args.push_back(std::move(e));
+        }
+        if (!comma) {
+            break;
+        }
     }
     co_return args;
 }

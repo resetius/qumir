@@ -2699,6 +2699,26 @@ TTask AnnotateAwait(std::shared_ptr<TAwaitExpr> awaitExpr, NSemantics::TNameReso
     co_return awaitExpr;
 }
 
+// Type of an `если' branch as it will be AFTER the implied `await'.
+//
+// Executor commands (Робот, Черепаха, Чертёжник, Рисователь) are declared as
+// future<void> — they suspend the coroutine. The `await' around them is added
+// by CoroutineAnnotationTransform, which runs AFTER the first type annotation
+// pass, so on that first pass a `то' branch ending in an executor command is
+// seen here as future<void>. It is still a statement, not a value, hence the
+// unwrap when deciding "statement or value context".
+//
+// Not used for the common-type computation below: there a future is meaningful
+// on its own, and unwrapping it would make `если c то <future<цел>> иначе <цел>
+// все' insert a bogus cast.
+TTypePtr SettledBranchType(const TTypePtr& type) {
+    auto unwrapped = UnwrapReferenceType(type);
+    if (auto awaited = FutureResultType(unwrapped)) {
+        return awaited;
+    }
+    return unwrapped;
+}
+
 TTask AnnotateIfExpr(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     ifExpr->Cond = co_await DoAnnotate(ifExpr->Cond, context, scopeId);
     if (!ifExpr->Cond->Type) {
@@ -2720,7 +2740,7 @@ TTask AnnotateIfExpr(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver&
 
     if (!ifExpr->Else) {
         // No else branch: then must be void, overall type is void
-        auto thenType = UnwrapReferenceType(ifExpr->Then->Type);
+        auto thenType = SettledBranchType(ifExpr->Then->Type);
         if (!TMaybeType<TVoidType>(thenType)) {
             co_return TError(ifExpr->Then->Location, "if-expression без ветви `иначе': ветвь `то' должна иметь тип void.");
         }
@@ -2737,7 +2757,8 @@ TTask AnnotateIfExpr(std::shared_ptr<TIfExpr> ifExpr, NSemantics::TNameResolver&
     auto elseType = UnwrapReferenceType(ifExpr->Else->Type);
 
     // Both branches void → statement context
-    if (TMaybeType<TVoidType>(thenType) && TMaybeType<TVoidType>(elseType)) {
+    if (TMaybeType<TVoidType>(SettledBranchType(thenType))
+        && TMaybeType<TVoidType>(SettledBranchType(elseType))) {
         ifExpr->Type = std::make_shared<TVoidType>();
         co_return ifExpr;
     }

@@ -1,0 +1,18 @@
+(block
+  (fun <main> ()
+    (block
+      (var a i64)
+      (= a 5)
+      (if (> a 0) (block (block (call output_string "плюс") (call output_string "\n"))))
+      (if
+        (< a 0)
+        (block
+          (block
+            (call output_string "минус")
+            (call output_string "\n")))
+        (block
+          (block
+            (call output_string "не минус")
+            (call output_string "\n"))))
+      (times 2 (block (block (call output_int64 a 0) (call output_string "\n"))))
+      (cleanup-exit (return)))))

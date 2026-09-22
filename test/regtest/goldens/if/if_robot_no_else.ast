@@ -1,0 +1,6 @@
+(block
+  (use "Робот")
+  (fun <main> () -> <future void>
+    (block
+      (if (call |справа свободно|) (block (await (call вправо)) (await (call закрасить))))
+      (cleanup-exit (return)))))

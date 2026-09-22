@@ -1,0 +1,27 @@
+function <main> () { ; ptr to void coroutine result void
+  block {
+    label: label(0)
+    call tmp(0,i1) = справа свободно 
+    cmp tmp(0,i1) label(2) label(3) 
+  }
+  block {
+    label: label(2)
+    call tmp(1,ptr to void) = вправо 
+    await tmp(1,ptr to void) 
+    call tmp(2,ptr to void) = закрасить 
+    await tmp(2,ptr to void) 
+    jmp label(4) 
+  }
+  block {
+    label: label(3)
+    jmp label(4) 
+  }
+  block {
+    label: label(4)
+    jmp label(1) 
+  }
+  block {
+    label: label(1)
+    ret 
+  }
+}
