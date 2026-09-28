@@ -7,6 +7,8 @@
 //   __bindStringRuntime(stringEnv)
 //   __resetPainter()
 //   __onCanvasShown()
+//   __zoomPainterView(factor, cx, cy), __panPainterView(dx, dy), __resetPainterView()
+//   __savePainterPng(filename)
 
 import { argbToStyle } from './colors.js';
 
@@ -26,6 +28,11 @@ let dpr = 1;
 let currentOx = 0;
 let currentOy = 0;
 let currentScale = 1;
+
+// User zoom/pan of the preview on top of the fit-to-canvas scale
+let viewZoom = 1;
+let viewPanX = 0;
+let viewPanY = 0;
 
 let rafScheduled = false;
 let rafId = 0;
@@ -120,14 +127,22 @@ function draw() {
   const cssW = canvas.width / dpr;
   const cssH = canvas.height / dpr;
   ctx.clearRect(0, 0, cssW, cssH);
-  // Fit sheet into canvas preserving aspect ratio
-  const scale = Math.min(cssW / state.sheetW, cssH / state.sheetH);
+  const scale = fitScale(cssW, cssH) * viewZoom;
   const dw = state.sheetW * scale;
   const dh = state.sheetH * scale;
-  const ox = (cssW - dw) / 2;
-  const oy = (cssH - dh) / 2;
+  const ox = (cssW - dw) / 2 + viewPanX;
+  const oy = (cssH - dh) / 2 + viewPanY;
+  ctx.imageSmoothingEnabled = scale < 1;
   ctx.drawImage(offscreen, ox, oy, dw, dh);
   currentOx = ox; currentOy = oy; currentScale = scale;
+}
+
+function fitScale(cssW, cssH) {
+  return Math.min(cssW / state.sheetW, cssH / state.sheetH);
+}
+
+function resetView() {
+  viewZoom = 1; viewPanX = 0; viewPanY = 0;
 }
 
 function fitCanvas() {
@@ -157,6 +172,7 @@ function makeOffscreen(w, h) {
 function applySheet(w, h, color) {
   const sw = Number(w), sh = Number(h);
   if (sw <= 0 || sh <= 0 || sw > 32767 || sh > 32767) return false;
+  if (sw !== state.sheetW || sh !== state.sheetH) resetView();
   state.sheetW = sw; state.sheetH = sh;
   offscreen = makeOffscreen(sw, sh);
   offCtx = offscreen ? offscreen.getContext('2d') : null;
@@ -278,6 +294,7 @@ export function __resetPainter() {
   state.fontBold = false; state.fontItalic = false;
   state.curX = 0; state.curY = 0;
   pendingSheet = null;
+  resetView();
   applySheet(state.sheetW, state.sheetH, 0xFFFFFFFFn);
   scheduleDraw();
 }
@@ -292,6 +309,42 @@ export function __fitPainterView() {
   if (!canvas) return;
   fitCanvas();
   scheduleDraw();
+}
+
+// Zoom by `factor` keeping the sheet point under canvas CSS point (cx, cy) fixed.
+export function __zoomPainterView(factor, cx, cy) {
+  if (!canvas || !offscreen) return;
+  const cssW = canvas.width / dpr;
+  const cssH = canvas.height / dpr;
+  const fit = fitScale(cssW, cssH);
+  const zoom = Math.min(Math.max(viewZoom * factor, 1), Math.max(1, 64 / fit));
+  if (zoom === viewZoom) return;
+  const sx = (cx - currentOx) / currentScale;
+  const sy = (cy - currentOy) / currentScale;
+  const scale = fit * zoom;
+  viewZoom = zoom;
+  if (zoom === 1) {
+    viewPanX = 0; viewPanY = 0;
+  } else {
+    viewPanX = cx - sx * scale - (cssW - state.sheetW * scale) / 2;
+    viewPanY = cy - sy * scale - (cssH - state.sheetH * scale) / 2;
+  }
+  drawNow();
+}
+
+export function __panPainterView(dx, dy) {
+  if (viewZoom === 1) return;
+  viewPanX += dx; viewPanY += dy;
+  drawNow();
+}
+
+export function __resetPainterView() {
+  resetView();
+  drawNow();
+}
+
+export function __savePainterPng(filename) {
+  saveOffscreen(filename || 'sheet.png');
 }
 
 let __painterAnimDelay = 0;
@@ -534,12 +587,22 @@ export function painter_load_sheet(charPtr) {
 
 export function painter_save_sheet(charPtr) {
   if (!offscreen) return;
-  const filename = readCString(charPtr) || 'sheet.png';
-  offscreen.convertToBlob({ type: 'image/png' }).then(blob => {
+  saveOffscreen(readCString(charPtr) || 'sheet.png');
+}
+
+function saveOffscreen(filename) {
+  if (!offscreen) return;
+  const download = (blob) => {
+    if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename;
     a.click();
-    URL.revokeObjectURL(url);
-  });
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+  if (typeof offscreen.convertToBlob === 'function') {
+    offscreen.convertToBlob({ type: 'image/png' }).then(download);
+  } else {
+    offscreen.toBlob(download, 'image/png');
+  }
 }

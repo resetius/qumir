@@ -2463,6 +2463,32 @@ function ensurePainterUI() {
     speedContainer.appendChild(speedSlider);
     speedContainer.appendChild(speedLabelFast);
     __turtleToggle.appendChild(speedContainer);
+
+    const fitBtn = document.createElement('button');
+    fitBtn.type = 'button';
+    fitBtn.className = 'robot-edit-toggle';
+    fitBtn.textContent = 'вписать';
+    fitBtn.title = 'Вписать лист в окно (колесо мыши - масштаб, перетаскивание - сдвиг)';
+    fitBtn.addEventListener('click', () => {
+      if (__painterModule && typeof __painterModule.__resetPainterView === 'function') {
+        __painterModule.__resetPainterView();
+        updatePainterRulers(-1, -1);
+      }
+    });
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'robot-edit-toggle';
+    saveBtn.textContent = 'PNG';
+    saveBtn.title = 'Сохранить лист в исходном размере';
+    saveBtn.addEventListener('click', () => {
+      if (__painterModule && typeof __painterModule.__savePainterPng === 'function') {
+        __painterModule.__savePainterPng('sheet.png');
+      }
+    });
+
+    __turtleToggle.appendChild(fitBtn);
+    __turtleToggle.appendChild(saveBtn);
   }
 
   updatePainterDelay();
@@ -2568,6 +2594,37 @@ function ensurePainterUI() {
     cnv.addEventListener('mouseleave', () => {
       updatePainterRulers(-1, -1);
       if (__painterStatus) __painterStatus.textContent = '';
+    });
+
+    cnv.addEventListener('wheel', (e) => {
+      if (!__painterModule || typeof __painterModule.__zoomPainterView !== 'function') return;
+      e.preventDefault();
+      __painterModule.__zoomPainterView(Math.exp(-e.deltaY * 0.0015), e.offsetX, e.offsetY);
+      cnv.dispatchEvent(new MouseEvent('mousemove', { clientX: e.clientX, clientY: e.clientY }));
+    }, { passive: false });
+
+    let dragX = 0, dragY = 0, dragging = false;
+    cnv.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      dragging = true;
+      dragX = e.clientX; dragY = e.clientY;
+      cnv.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging || !__painterModule || typeof __painterModule.__panPainterView !== 'function') return;
+      __painterModule.__panPainterView(e.clientX - dragX, e.clientY - dragY);
+      dragX = e.clientX; dragY = e.clientY;
+    });
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      cnv.style.cursor = '';
+    });
+    cnv.addEventListener('dblclick', () => {
+      if (__painterModule && typeof __painterModule.__resetPainterView === 'function') {
+        __painterModule.__resetPainterView();
+      }
     });
   }
 }
