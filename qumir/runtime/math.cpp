@@ -43,7 +43,7 @@ int64_t div_qum(int64_t a, int64_t b) {
         return 0;
     }
     // Mathematical division: round toward -infinity so that
-    // a = div_qum(a,b) * b + mod_qum(a,b) with 0 <= mod < |b|.
+    // a = div_qum(a,b) * b + mod_qum(a,b), mod has the sign of b.
     int64_t q = a / b;
     int64_t r = a % b;
     if (r != 0 && ((r > 0) != (b > 0))) {
@@ -58,7 +58,7 @@ int64_t mod_qum(int64_t a, int64_t b) {
         return 0;
     }
     // Remainder consistent with mathematical division above:
-    // 0 <= mod_qum(a,b) < |b| and a = div_qum(a,b) * b + mod_qum(a,b).
+    // |mod_qum(a,b)| < |b|, mod has the sign of b, and a = div_qum(a,b) * b + mod_qum(a,b).
     int64_t r = a % b;
     if (r != 0 && ((r > 0) != (b > 0))) {
         r += b;

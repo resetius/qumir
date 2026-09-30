@@ -3120,8 +3120,8 @@ async function runWasm() {
         const rawArgs = ($('#args').value || '').trim();
         const argv = rawArgs.length ? rawArgs.split(',').map(s => s.trim()) : [];
         const parsed = argv.map(s => {
-          if (s === 'истина' || s.toLowerCase() === 'true') return 1;
-          if (s === 'ложь' || s.toLowerCase() === 'false') return 0;
+          if (s === 'да' || s === 'истина' || s.toLowerCase() === 'true') return 1;
+          if (s === 'нет' || s === 'ложь' || s.toLowerCase() === 'false') return 0;
           if (/^[-+]?\d+$/.test(s)) return BigInt(s);
           if (/^[-+]?\d*\.\d+(e[-+]?\d+)?$/i.test(s) || /^[-+]?\d+\.\d*(e[-+]?\d+)?$/i.test(s)) return Number(s);
           if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) return s.slice(1, -1);

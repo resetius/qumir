@@ -65,7 +65,9 @@ NAst::TExprPtr ScanCodeConst(NAst::TTypePtr scanCodeType, int64_t value) {
 }
 
 NAst::TExprPtr MakeScanCodeCast(NAst::TExprPtr value, NAst::TTypePtr targetType) {
-    return std::make_shared<NAst::TCastExpr>(value->Location, std::move(value), std::move(targetType));
+    // A plain TCastExpr would be dispatched back to the module's own `cast`
+    // operator by type annotation, looping forever; bitcast bypasses operators.
+    return std::make_shared<NAst::TBitcastExpr>(value->Location, std::move(value), std::move(targetType));
 }
 
 NAst::TExprPtr MakeBinary(const char* op, NAst::TExprPtr left, NAst::TExprPtr right, NAst::TTypePtr type) {
