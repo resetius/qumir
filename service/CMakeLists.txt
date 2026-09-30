@@ -34,6 +34,10 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../docs/ru/
     DESTINATION share/qumir-service/static/docs
     COMPONENT service)
 
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../docs/arch/
+    DESTINATION share/qumir-service/static/docs/arch
+    COMPONENT service)
+
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../examples/
     DESTINATION share/qumir-service/examples
     COMPONENT service)
