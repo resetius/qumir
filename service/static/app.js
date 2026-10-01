@@ -4185,13 +4185,17 @@ initProjectsUI();
   try {
     const data = await apiGet('/api/examples');
     const sel = $('#examples');
-    if (sel && data && Array.isArray(data.examples)) {
-      // Fill options grouped by folder prefix
-      data.examples.forEach(it => {
-        const opt = document.createElement('option');
-        opt.value = it.path;
-        opt.textContent = it.path;
-        sel.appendChild(opt);
+    if (sel && data && Array.isArray(data.groups)) {
+      data.groups.forEach(group => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = group.title;
+        group.examples.forEach(it => {
+          const opt = document.createElement('option');
+          opt.value = it.path;
+          opt.textContent = it.title;
+          optgroup.appendChild(opt);
+        });
+        sel.appendChild(optgroup);
       });
     } else {
       console.warn('examples: unexpected response format', data);
@@ -4357,7 +4361,7 @@ setupPreviewDocking();
 
     requestStopRunningProgram();
     const data = await apiGet('/api/example?path=' + encodeURIComponent(examplePath));
-    const displayName = deriveExampleProjectName(examplePath);
+    const displayName = data.title || deriveExampleProjectName(examplePath);
     const code = data.code || '';
     const args = data.args || '';
 
@@ -4380,7 +4384,7 @@ setupPreviewDocking();
 
     debounceShow();
     const statusEl = document.getElementById('status');
-    if (statusEl) statusEl.textContent = `Пример: ${examplePath}`;
+    if (statusEl) statusEl.textContent = `Пример: ${displayName}`;
     // A link to an example is a request to see it working; the run refreshes the views itself.
     clearTimeout(showTimer);
     await runWasm();
@@ -4494,7 +4498,7 @@ if (examplesSel) examplesSel.addEventListener('change', async () => {
   try {
     // Load example (code + optional metadata + files)
     const data = await apiGet('/api/example?path=' + encodeURIComponent(path));
-    const displayName = deriveExampleProjectName(path);
+    const displayName = data.title || deriveExampleProjectName(path);
 
     const code = data.code || '';
     const args = data.args || '';

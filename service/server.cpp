@@ -3,6 +3,7 @@
 #include <fstream>
 #include <optional>
 #include <vector>
+#include <map>
 #include <set>
 
 #include <filesystem>
@@ -18,6 +19,8 @@
 #include <dlfcn.h>
 
 #include "plugin.h"
+
+#include <qumir/parser/json/parser.h>
 
 using namespace NNet;
 
@@ -194,6 +197,94 @@ private:
         co_await response.WriteBodyFull(message);
     }
 
+    struct TExampleGroup {
+        std::string Title;
+        std::vector<std::pair<std::string, std::string>> Examples; // path, title
+    };
+
+    // examples/index.json lists the groups and titles in the order shown;
+    // .kum files missing from it go to a trailing "Другое" group.
+    std::vector<TExampleGroup> ExampleGroups() {
+        using namespace NQumir::NAst::NJson;
+        std::vector<TExampleGroup> groups;
+        std::set<std::string> listed;
+        auto stringOf = [](IValue* value) -> const std::string* {
+            auto* str = value ? value->As<TString>() : nullptr;
+            return str ? &str->Value : nullptr;
+        };
+        std::ifstream ifs(ExamplesBaseCanonical / "index.json", std::ios::binary);
+        TTokenStream stream(ifs);
+        auto json = TParser().Parse(stream);
+        if (!json && std::filesystem::exists(ExamplesBaseCanonical / "index.json")) {
+            std::cerr << "examples/index.json: " << json.error().ToString() << "\n";
+        }
+        auto* root = json && json->Root() ? json->Root()->As<TObject>() : nullptr;
+        auto* groupsArr = root && root->Get("groups") ? root->Get("groups")->As<TArray>() : nullptr;
+        for (auto* groupVal : groupsArr ? groupsArr->Elements : std::vector<IValue*>{}) {
+            auto* groupObj = groupVal->As<TObject>();
+            if (!groupObj) continue;
+            auto* title = stringOf(groupObj->Get("title"));
+            TExampleGroup group{.Title = title ? *title : ""};
+            auto* examples = groupObj->Get("examples") ? groupObj->Get("examples")->As<TArray>() : nullptr;
+            for (auto* exampleVal : examples ? examples->Elements : std::vector<IValue*>{}) {
+                auto* exampleObj = exampleVal->As<TObject>();
+                auto* examplePath = exampleObj ? stringOf(exampleObj->Get("path")) : nullptr;
+                if (!examplePath || !std::filesystem::is_regular_file(ExamplesBaseCanonical / *examplePath)) {
+                    continue;
+                }
+                auto* exampleTitle = stringOf(exampleObj->Get("title"));
+                listed.insert(*examplePath);
+                group.Examples.emplace_back(*examplePath, exampleTitle ? *exampleTitle : *examplePath);
+            }
+            if (!group.Examples.empty()) {
+                groups.push_back(std::move(group));
+            }
+        }
+
+        TExampleGroup other{.Title = "Другое"};
+        for (auto& p : std::filesystem::recursive_directory_iterator(ExamplesBaseCanonical)) {
+            if (!p.is_regular_file()) continue;
+            auto ext = p.path().extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext != ".kum") continue;
+            auto relPath = std::filesystem::relative(p.path(), ExamplesBaseCanonical).generic_string();
+            if (!listed.contains(relPath)) {
+                other.Examples.emplace_back(relPath, relPath);
+            }
+        }
+        std::sort(other.Examples.begin(), other.Examples.end());
+        if (!other.Examples.empty()) {
+            groups.push_back(std::move(other));
+        }
+        return groups;
+    }
+
+    std::map<std::string, std::string> ExampleTitles() {
+        std::map<std::string, std::string> titles;
+        for (const auto& group : ExampleGroups()) {
+            for (const auto& [examplePath, title] : group.Examples) {
+                titles.emplace(examplePath, title);
+            }
+        }
+        return titles;
+    }
+
+    std::string ExamplesListJson() {
+        llvm::json::Array groups;
+        for (const auto& group : ExampleGroups()) {
+            llvm::json::Array examples;
+            for (const auto& [examplePath, title] : group.Examples) {
+                examples.push_back(llvm::json::Object{{"path", examplePath}, {"title", title}});
+            }
+            groups.push_back(llvm::json::Object{{"title", group.Title}, {"examples", std::move(examples)}});
+        }
+        std::string jsonStr;
+        llvm::raw_string_ostream os(jsonStr);
+        os << llvm::json::Value(llvm::json::Object{{"groups", std::move(groups)}});
+        os.flush();
+        return jsonStr;
+    }
+
     TFuture<void> Get(TRequest& request, TResponse& response) {
         auto&& path = request.Uri().Path();
         if (path == "/api/version") {
@@ -210,28 +301,7 @@ private:
             co_await SendJson(response, "\"srv:" QUMIR_VERSION_STRING ";comp:" + CompilerVersion + "\"");
             co_return;
         } else if (path == "/api/examples") {
-            std::vector<llvm::json::Value> items;
-            for (auto& p : std::filesystem::recursive_directory_iterator(ExamplesBaseCanonical)) {
-                if (p.is_regular_file()) {
-                    auto ext = p.path().extension().string();
-                    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-                    if (ext == ".kum") {
-                        std::filesystem::path relPath = std::filesystem::relative(p.path(), ExamplesBaseCanonical);
-                        items.push_back(llvm::json::Object{
-                            {"path", relPath.generic_string()},
-                            {"name", p.path().filename().string()}
-                        });
-                    }
-                }
-            }
-            llvm::json::Object root{
-                {"examples", llvm::json::Array(std::move(items))}
-            };
-            std::string jsonStr;
-            llvm::raw_string_ostream os(jsonStr);
-            os << llvm::json::Value(std::move(root));
-            os.flush();
-            co_await SendJson(response, jsonStr);
+            co_await SendJson(response, ExamplesListJson());
         } else if (path == "/api/example") {
             auto queryParams = request.Uri().QueryParameters();
             auto it = queryParams.find("path");
@@ -253,6 +323,10 @@ private:
 
             llvm::json::Object result;
             result["code"] = code;
+            auto titles = ExampleTitles();
+            if (auto title = titles.find(it->second); title != titles.end()) {
+                result["title"] = title->second;
+            }
 
             // Check for metadata .json file
             auto jsonPath = kumPath;
