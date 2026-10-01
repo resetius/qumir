@@ -87,11 +87,12 @@ inline bool isKeyword(const TToken& tok, EKeyword kw) {
 
 using TAstTask = TExpectedTask<TExprPtr, TError, TLocation>;
 TAstTask stmt(TParserContext& context);
-TAstTask stmt_list(TParserContext& context, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts = {});
+// `opener` is where the block starts, for the message about a block left open.
+TAstTask stmt_list(TParserContext& context, std::set<EKeyword> terminators, TLocation opener, std::vector<TExprPtr> stmts = {});
 TExpectedTask<std::vector<TExprPtr>, TError, TLocation> var_decl_list(TParserContext& context, bool parseAttributes);
 TAstTask expr(TParserContext& context);
-TAstTask for_loop(TParserContext& context);
-TAstTask for_times(TParserContext& context, TExprPtr countExpr, TLocation loopLoc);
+TAstTask for_loop(TParserContext& context, TLocation location);
+TAstTask for_times(TParserContext& context, TExprPtr countExpr, TLocation location);
 TError unexpectedOperator(TWrappedTokenStream& stream);
 
 void SkipEols(TWrappedTokenStream& stream) {
@@ -190,7 +191,7 @@ inline bool IsTypeKeyword(EKeyword kw) {
 /*
 StmtList ::= Stmt*
 */
-TAstTask stmt_list(TParserContext& context, std::set<EKeyword> terminators, std::vector<TExprPtr> stmts) {
+TAstTask stmt_list(TParserContext& context, std::set<EKeyword> terminators, TLocation opener, std::vector<TExprPtr> stmts) {
     auto& stream = context.Stream;
     auto loc = stream.GetLocation();
     while (true) {
@@ -216,6 +217,19 @@ TAstTask stmt_list(TParserContext& context, std::set<EKeyword> terminators, std:
         if (t.Type == TToken::Keyword && terminators.contains(static_cast<EKeyword>(t.Value.i64))) {
             stream.Unget(t);
             break;
+        }
+        // A closing keyword of an outer block means this block was left open:
+        // `кон' right after a loop body is a missing `кц', not a stray `кон'.
+        // A function body is the outermost block, there a stray keyword is just stray.
+        if (!terminators.empty() && !terminators.contains(EKeyword::End) && t.Type == TToken::Keyword) {
+            auto kw = static_cast<EKeyword>(t.Value.i64);
+            if (kw == EKeyword::End || kw == EKeyword::EndIf || kw == EKeyword::LoopEnd
+                || kw == EKeyword::LoopEndWhen || kw == EKeyword::Else)
+            {
+                const char* expected = terminators.contains(EKeyword::LoopEnd) ? "'кц'" : "'все'";
+                co_return TError(t.Location, std::string("не хватает ") + expected + ": встретилось '" + t.RawValue
+                    + "', а блок, начатый в строке " + std::to_string(opener.Line) + ", не закрыт");
+            }
         }
         stream.Unget(t);
         auto s = co_await stmt(context);
@@ -489,7 +503,7 @@ TypeKw ::= 'цел' | 'вещ' | 'лог' | 'лит'
 ArrayMark ::= 'таб'  [массивные параметры, если используются]
 IdentList ::= Ident (',' Ident)*
 */
-TAstTask fun_decl(TParserContext& context) {
+TAstTask fun_decl(TParserContext& context, TLocation location) {
     auto& stream = context.Stream;
     auto* mm = context.ModuleManager;
     auto next = stream.Next();
@@ -584,7 +598,7 @@ TAstTask fun_decl(TParserContext& context) {
     context.LoopDepth = 0;
     context.CurrentFunctionReturnsVoid = TMaybeType<TVoidType>(returnType);
 
-    auto body = co_await stmt_list(context, { EKeyword::End }, std::move(bodyStmts));
+    auto body = co_await stmt_list(context, { EKeyword::End }, location, std::move(bodyStmts));
 
     context.LoopDepth = savedLoopDepth;
     context.CurrentFunctionReturnsVoid = savedReturnsVoid;
@@ -606,7 +620,7 @@ TAstTask fun_decl(TParserContext& context) {
             block->Stmts.push_back(std::make_shared<TReturnExpr>(next.Location, ident(next.Location, "знач")));
         }
 
-        auto funDecl = std::make_shared<TFunDecl>(next.Location,
+        auto funDecl = std::make_shared<TFunDecl>(location,
             name, std::vector<TGenericParam>{}, std::move(args),
             std::move(maybeBlock.Cast()),
             returnType);
@@ -628,11 +642,10 @@ TAstTask fun_decl(TParserContext& context) {
 /*
     ForLoop ::= identifier 'от' expr 'до' expr ('шаг' expr)?
 */
-TAstTask for_loop(TParserContext& context) {
+TAstTask for_loop(TParserContext& context, TLocation location) {
     auto& stream = context.Stream;
     auto* mm = context.ModuleManager;
 
-    auto location = stream.GetLocation();
 
     auto varTok = stream.Next();
     if (varTok.Type != TToken::Identifier) {
@@ -663,7 +676,7 @@ TAstTask for_loop(TParserContext& context) {
     }
 
     context.LoopDepth++;
-    auto body = co_await stmt_list(context, { EKeyword::LoopEnd } );
+    auto body = co_await stmt_list(context, { EKeyword::LoopEnd }, location);
     context.LoopDepth--;
 
     auto endTok = stream.Next();
@@ -687,13 +700,12 @@ TAstTask for_loop(TParserContext& context) {
 
     sugar for: for i from 1 to expr
 */
-TAstTask for_times(TParserContext& context, TExprPtr countExpr, TLocation loopLoc) {
+TAstTask for_times(TParserContext& context, TExprPtr countExpr, TLocation location) {
     auto& stream = context.Stream;
     auto* mm = context.ModuleManager;
-    auto location = loopLoc;
 
     context.LoopDepth++;
-    auto body = co_await stmt_list(context, { EKeyword::LoopEnd } );
+    auto body = co_await stmt_list(context, { EKeyword::LoopEnd }, location);
     context.LoopDepth--;
 
     auto endTok = stream.Next();
@@ -709,15 +721,14 @@ TAstTask for_times(TParserContext& context, TExprPtr countExpr, TLocation loopLo
     body
   кц
  */
-TAstTask while_loop(TParserContext& context) {
+TAstTask while_loop(TParserContext& context, TLocation location) {
     auto& stream = context.Stream;
     auto* mm = context.ModuleManager;
-    auto location = stream.GetLocation();
 
     auto cond = co_await expr(context);
 
     context.LoopDepth++;
-    auto body = co_await stmt_list(context, { EKeyword::LoopEnd } );
+    auto body = co_await stmt_list(context, { EKeyword::LoopEnd }, location);
     context.LoopDepth--;
 
     auto endTok = stream.Next();
@@ -737,13 +748,12 @@ TAstTask while_loop(TParserContext& context) {
     body
   кц при условие
 */
-TAstTask repeat_until_loop( TParserContext& context) {
+TAstTask repeat_until_loop(TParserContext& context, TLocation location) {
     auto& stream = context.Stream;
     auto* mm = context.ModuleManager;
-    auto location = stream.GetLocation();
 
     context.LoopDepth++;
-    auto body = co_await stmt_list(context, { EKeyword::LoopEndWhen, EKeyword::LoopEnd } );
+    auto body = co_await stmt_list(context, { EKeyword::LoopEndWhen, EKeyword::LoopEnd }, location);
     context.LoopDepth--;
 
     auto untilTok = stream.Next();
@@ -796,11 +806,10 @@ or
 все
 
 */
-TAstTask switch_expr(TParserContext& context) {
+TAstTask switch_expr(TParserContext& context, TLocation location) {
     auto& stream = context.Stream;
 
     SkipEols(stream);
-    auto location = stream.GetLocation();
     // collect cases
     std::vector<std::pair<TExprPtr, TExprPtr>> cases;
     TExprPtr elseBranch = nullptr;
@@ -811,7 +820,7 @@ TAstTask switch_expr(TParserContext& context) {
             break;
         }
         if (isKeyword(caseTok, EKeyword::Else)) {
-            elseBranch = co_await stmt_list(context, { EKeyword::EndIf } );
+            elseBranch = co_await stmt_list(context, { EKeyword::EndIf }, location);
 
             auto endTok = stream.Next();
             if (!isKeyword(endTok, EKeyword::EndIf)) {
@@ -830,7 +839,7 @@ TAstTask switch_expr(TParserContext& context) {
             co_return TError(colonTok.Location, "ожидался ':' после условия в операторе 'выбор'");
         }
 
-        auto body = co_await stmt_list(context, { EKeyword::Case, EKeyword::Else, EKeyword::EndIf } );
+        auto body = co_await stmt_list(context, { EKeyword::Case, EKeyword::Else, EKeyword::EndIf }, location);
         cases.emplace_back(std::move(cond), std::move(body));
     }
 
@@ -865,9 +874,8 @@ OptElse ::= EOL* 'иначе' EOL* StmtList | eps
 // - EOL* означает, что между элементами могут быть пустые строки/переводы строк.
 // - Примеры допускают как серию на той же строке после 'то'/'иначе', так и на следующих строках.
 */
-TAstTask if_expr(TParserContext& context) {
+TAstTask if_expr(TParserContext& context, TLocation location) {
     auto& stream = context.Stream;
-    auto location = stream.GetLocation();
     auto cond = co_await expr(context);
     SkipEols(stream);
 
@@ -876,7 +884,7 @@ TAstTask if_expr(TParserContext& context) {
         co_return TError(thenTok.Location, "ожидалось 'то' после условия в операторе 'если'");
     }
 
-    auto thenBranch = co_await stmt_list(context, { EKeyword::Else, EKeyword::EndIf } );
+    auto thenBranch = co_await stmt_list(context, { EKeyword::Else, EKeyword::EndIf }, location);
 
     SkipEols(stream);
     auto elseTok = stream.Next();
@@ -889,7 +897,7 @@ TAstTask if_expr(TParserContext& context) {
         co_return TError(elseTok.Location, "ожидалось 'иначе' или 'все' после ветки 'то' в операторе 'если'");
     }
 
-    auto elseBranch = co_await stmt_list(context, { EKeyword::EndIf } );
+    auto elseBranch = co_await stmt_list(context, { EKeyword::EndIf }, location);
 
     auto endTok = stream.Next();
     if (!isKeyword(endTok, EKeyword::EndIf)) {
@@ -1632,9 +1640,9 @@ TAstTask stmt(TParserContext& context) {
         auto decls = co_await var_decl_list(context, false);
         co_return std::make_shared<TVarsBlockExpr>(first.Location, decls);
     } else if (isKeyword(first, EKeyword::Alg)) {
-        co_return co_await fun_decl(context);
+        co_return co_await fun_decl(context, first.Location);
     } else if (isKeyword(first, EKeyword::If)) {
-        co_return co_await if_expr(context);
+        co_return co_await if_expr(context, first.Location);
     } else if (isKeyword(first, EKeyword::Return)) {
         // skip ':='
         auto next = stream.Next();
@@ -1647,11 +1655,11 @@ TAstTask stmt(TParserContext& context) {
     } else if (isKeyword(first, EKeyword::LoopStart)) {
         auto next = stream.Next();
         if (isKeyword(next, EKeyword::For)) {
-            co_return co_await for_loop(context);
+            co_return co_await for_loop(context, first.Location);
         } else if (isKeyword(next, EKeyword::While)) {
-            co_return co_await while_loop(context);
+            co_return co_await while_loop(context, first.Location);
         } else if (isOp(next, EOperator::Eol)) {
-            co_return co_await repeat_until_loop(context);
+            co_return co_await repeat_until_loop(context, first.Location);
         } else {
             stream.Unget(next);
             auto countExpr = co_await expr(context);
@@ -1663,7 +1671,7 @@ TAstTask stmt(TParserContext& context) {
             co_return co_await for_times(context, std::move(countExpr), first.Location);
         }
     } else if (isKeyword(first, EKeyword::Switch)) {
-        co_return co_await switch_expr(context);
+        co_return co_await switch_expr(context, first.Location);
     } else if (isKeyword(first, EKeyword::Input)) {
         auto args = co_await parse_io_arg_list_opt<TExprPtr>(context);
         co_return std::make_shared<TInputExpr>(first.Location, std::move(args));
@@ -1788,7 +1796,7 @@ std::expected<TExprPtr, TError> TParser::parse(
 {
     TWrappedTokenStream wrappedStream(stream, /*windowSize = */ 10);
     TParserContext context(wrappedStream, mm, stream.GetContext(), loader);
-    auto task = stmt_list(context, {});
+    auto task = stmt_list(context, {}, context.Stream.GetLocation());
     auto result = task.result();
     if (result && mm) {
         mm->ApplyPragmas(stream.GetContext()->GetPragmas());

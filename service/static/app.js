@@ -4537,12 +4537,12 @@ ${indent}| then
 ${indent}| else
 все`,
     switch:
-`выбор выражение
-${indent}при 1:
+`выбор
+${indent}при x = 1:
 ${indent}${indent}| ветка 1
-${indent}при 2:
+${indent}при x = 2:
 ${indent}${indent}| ветка 2
-${indent}иначе:
+${indent}иначе
 ${indent}${indent}| иначе
 все`,
     func:
@@ -4554,12 +4554,21 @@ ${indent}знач := a
   `цел x, y
   | табличный тип: цел таб A[0:9]`
   };
+  // Selected after insertion so that typing replaces it; left as is it does not compile.
+  const placeholders = { while: 'условие', if: 'условие', switch: 'x = 1', func: 'имя' };
   const text = snippets[kind] || '';
   if (!text) return;
+  const placeholder = placeholders[kind];
+  const selOffset = placeholder ? text.indexOf(placeholder) : -1;
   if (editor) {
     const doc = editor.getDoc();
     const cur = doc.getCursor();
+    const startIndex = doc.indexFromPos(cur);
     doc.replaceRange(text, cur);
+    if (selOffset >= 0) {
+      doc.setSelection(doc.posFromIndex(startIndex + selOffset),
+                       doc.posFromIndex(startIndex + selOffset + placeholder.length));
+    }
     editor.focus();
   } else {
     const ta = document.getElementById('code');
@@ -4569,7 +4578,12 @@ ${indent}знач := a
     const before = ta.value.slice(0, start);
     const after = ta.value.slice(end);
     ta.value = before + text + after;
-    ta.selectionStart = ta.selectionEnd = start + text.length;
+    if (selOffset >= 0) {
+      ta.selectionStart = start + selOffset;
+      ta.selectionEnd = start + selOffset + placeholder.length;
+    } else {
+      ta.selectionStart = ta.selectionEnd = start + text.length;
+    }
     ta.focus();
   }
   saveState();
@@ -4593,7 +4607,7 @@ ${indent}знач := a
     if:
 `Вставить: условие\n\nесли условие то\n${indent}| then\nиначе\n${indent}| else\nвсе`,
     switch:
-`Вставить: выбор\n\nвыбор выражение\n${indent}при 1:\n${indent}${indent}| ветка 1\n${indent}при 2:\n${indent}${indent}| ветка 2\n${indent}иначе:\n${indent}${indent}| иначе\nвсе`,
+`Вставить: выбор\n\nвыбор\n${indent}при x = 1:\n${indent}${indent}| ветка 1\n${indent}при x = 2:\n${indent}${indent}| ветка 2\n${indent}иначе\n${indent}${indent}| иначе\nвсе`,
     func:
 `Вставить: функция\n\nалг цел имя(цел a)\nнач\n${indent}знач := a\nкон`,
     decl:
