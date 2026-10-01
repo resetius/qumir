@@ -16,17 +16,16 @@ void SignErrorsIfMarked(std::string_view source, std::string signature) {
 }
 
 std::string TError::ToString() const {
-    auto result = ToString(0);
-    if (!Signature.empty() && !result.empty()) {
-        result += " " + Signature + "\n";
-    }
-    return result;
+    return ToString(0);
 }
 
 std::string TError::ToString(int indent) const {
     std::string result;
     if (!Msg.empty()) {
         result += "Error: " + Msg;
+        if (!Signature.empty()) {
+            result += " (" + Signature + ")";
+        }
         if (Location) {
             result += " @ " + Location->ToString();
         }
