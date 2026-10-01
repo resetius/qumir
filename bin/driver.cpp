@@ -17,6 +17,7 @@
 #include <qumir/frontend/source_module_loader.h>
 #include <qumir/codegen/llvm/llvm_codegen.h>
 #include <qumir/codegen/llvm/llvm_initializer.h>
+#include <qumir/modules/builtins/builtins.h>
 #include <qumir/modules/system/system.h>
 #include <qumir/modules/turtle/turtle.h>
 #include <qumir/modules/robot/robot.h>
@@ -107,6 +108,7 @@ NTransform::TPipelineOptions PipelineOptions(bool coreInput) {
 std::vector<std::shared_ptr<NRegistry::IModule>> SetupModules(
     NSemantics::TNameResolver& r, bool coreInput) {
     std::vector<std::shared_ptr<NRegistry::IModule>> modules = {
+        std::make_shared<NRegistry::BuiltinsModule>(),
         std::make_shared<NRegistry::SystemModule>(),
         std::make_shared<NRegistry::TurtleModule>(),
         std::make_shared<NRegistry::RobotModule>(),
@@ -118,6 +120,8 @@ std::vector<std::shared_ptr<NRegistry::IModule>> SetupModules(
     for (const auto& mod : modules) {
         r.RegisterModule(mod.get());
     }
+    // Like the runners: Builtins is always imported, independent of the frontend.
+    (void)r.ImportModule(NRegistry::BuiltinsModule::ModuleName);
     (void)r.ImportModule("System");
     if (!coreInput) {
         for (const auto& [alias, canonical] : NSemantics::NKumir::ModuleAliases()) {

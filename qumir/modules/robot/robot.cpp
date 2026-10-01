@@ -23,6 +23,7 @@ RobotModule::RobotModule()
             },
             .ArgTypes = {},
             .ReturnType = futureVoidType,
+            .NeedsLocator = true,
         },
         {
             .Name = "вправо",
@@ -32,6 +33,7 @@ RobotModule::RobotModule()
             },
             .ArgTypes = {},
             .ReturnType = futureVoidType,
+            .NeedsLocator = true,
         },
         {
             .Name = "вверх",
@@ -41,6 +43,7 @@ RobotModule::RobotModule()
             },
             .ArgTypes = {},
             .ReturnType = futureVoidType,
+            .NeedsLocator = true,
         },
         {
             .Name = "вниз",
@@ -50,6 +53,7 @@ RobotModule::RobotModule()
             },
             .ArgTypes = {},
             .ReturnType = futureVoidType,
+            .NeedsLocator = true,
         },
         {
             .Name = "закрасить",

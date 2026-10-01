@@ -18,6 +18,8 @@ function caller () { ; ptr to void coroutine result i64
 function value () { ; ptr to void coroutine result i64
   block {
     label: label(0)
+    arg imm(11,i64) 
+    call builtin::record_locator 
     call tmp(0,ptr to void) = вверх 
     await tmp(0,ptr to void) 
     stre local(0,i64) imm(12,i64) 

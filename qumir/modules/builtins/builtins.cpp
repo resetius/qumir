@@ -1,5 +1,7 @@
 #include "builtins.h"
 
+#include <qumir/runtime/runtime.h>
+
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -14,6 +16,7 @@ BuiltinsModule::BuiltinsModule() {
     auto u8Type = std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::U8);
     auto u64Type = std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::U64);
     auto ptrU8Type = std::make_shared<NAst::TPointerType>(u8Type);
+    auto voidType = std::make_shared<NAst::TVoidType>();
 
     ExternalFunctions_ = {
         {
@@ -81,6 +84,16 @@ BuiltinsModule::BuiltinsModule() {
             },
             .ArgTypes = { u64Type },
             .ReturnType = i64Type,
+        },
+        {
+            .Name = "builtin::record_locator",
+            .MangledName = "__record_locator",
+            .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
+                __record_locator(static_cast<int64_t>(args[0]));
+                return 0;
+            },
+            .ArgTypes = { i64Type },
+            .ReturnType = voidType,
         },
     };
 }

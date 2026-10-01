@@ -2803,19 +2803,41 @@ function renderRobotField() {
     ctx.stroke();
   }
 
+  // The wall the robot ran into, drawn red; the robot is red too.
+  const crash = field.crash;
+  if (crash) {
+    const cx = offsetX + crash.x * cellSize;
+    const cy = offsetY + crash.y * cellSize;
+    const segment = {
+      left:  [cx, cy, cx, cy + cellSize],
+      right: [cx + cellSize, cy, cx + cellSize, cy + cellSize],
+      up:    [cx, cy, cx + cellSize, cy],
+      down:  [cx, cy + cellSize, cx + cellSize, cy + cellSize],
+    }[crash.side];
+    ctx.save();
+    ctx.strokeStyle = '#d32f2f';
+    ctx.lineWidth = Math.max(5, cellSize * 0.12);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(segment[0], segment[1]);
+    ctx.lineTo(segment[2], segment[3]);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Draw robot
   const rx = offsetX + field.robotX * cellSize + cellSize / 2;
   const ry = offsetY + field.robotY * cellSize + cellSize / 2;
   const robotRadius = cellSize * 0.35;
 
-  // Robot body (blue circle)
-  ctx.fillStyle = '#4a90d9';
+  // Robot body (blue circle, red after a crash)
+  ctx.fillStyle = crash ? '#d32f2f' : '#4a90d9';
   ctx.beginPath();
   ctx.arc(rx, ry, robotRadius, 0, Math.PI * 2);
   ctx.fill();
 
   // Robot outline
-  ctx.strokeStyle = '#2563a0';
+  ctx.strokeStyle = crash ? '#9a1c1c' : '#2563a0';
   ctx.lineWidth = 2;
   ctx.stroke();
 

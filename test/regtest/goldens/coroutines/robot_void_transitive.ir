@@ -13,6 +13,8 @@ function caller () { ; ptr to void coroutine result void
 function helper () { ; ptr to void coroutine result void
   block {
     label: label(0)
+    arg imm(11,i64) 
+    call builtin::record_locator 
     call tmp(0,ptr to void) = вверх 
     await tmp(0,ptr to void) 
     jmp label(1) 

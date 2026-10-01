@@ -1367,6 +1367,7 @@ std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& 
         funDecl->Type = funType;
         funDecl->Packed = fn.Packed;
         funDecl->RequireArgsMaterialization = fn.RequireArgsMaterialization;
+        funDecl->NeedsLocator = fn.NeedsLocator;
         funDecl->InlineFactory = fn.Inline;
 
         if (fn.IsOp) {

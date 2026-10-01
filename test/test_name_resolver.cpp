@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <qumir/modules/builtins/builtins.h>
 #include <qumir/modules/robot/robot.h>
 #include <qumir/modules/system/system.h>
 #include <qumir/modules/turtle/turtle.h>
@@ -118,8 +119,12 @@ TExprPtr annotateWithRobotCoroutines(const std::string& src) {
 }
 
 std::optional<NIR::TModule> buildRobotCoroutineModule(const std::string& src) {
+    BuiltinsModule builtins;
     RobotModule robot;
     TNameResolver resolver;
+    // Every host imports Builtins; the lowering calls builtin::record_locator from it.
+    resolver.RegisterModule(&builtins);
+    (void)resolver.ImportModule(builtins.Name());
     resolver.RegisterModule(&robot);
     auto importResult = resolver.ImportModule(robot.Name());
     if (!importResult) {

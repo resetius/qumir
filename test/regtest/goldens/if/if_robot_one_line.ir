@@ -6,6 +6,8 @@ function <main> () { ; ptr to void coroutine result void
   }
   block {
     label: label(2)
+    arg imm(8,i64) 
+    call builtin::record_locator 
     call tmp(1,ptr to void) = вправо 
     await tmp(1,ptr to void) 
     jmp label(4) 
@@ -21,6 +23,8 @@ function <main> () { ; ptr to void coroutine result void
   }
   block {
     label: label(5)
+    arg imm(9,i64) 
+    call builtin::record_locator 
     call tmp(3,ptr to void) = вверх 
     await tmp(3,ptr to void) 
     call tmp(4,ptr to void) = закрасить 

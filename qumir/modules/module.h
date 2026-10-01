@@ -15,6 +15,9 @@ struct TExternalFunction {
     NAst::TTypePtr ReturnType;
     bool RequireArgsMaterialization = false; // if true, arguments must be materialized before calling, used for strings
     bool IsOp = false; // if true, Name is an operator symbol; no name conflict check on import
+    // The compiler calls builtin::record_locator(line of the call) right before
+    // each call, so that a runtime error of this command can point at its line.
+    bool NeedsLocator = false;
     // Optional inline factory: receives annotated argument ASTs, returns replacement AST.
     // If set, the IR interpreter replaces the call with the returned AST.
     // Other backends (LLVM, WASM) use the packed thunk / mangled symbol.
