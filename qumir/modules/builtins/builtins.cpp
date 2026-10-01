@@ -89,10 +89,10 @@ BuiltinsModule::BuiltinsModule() {
             .Name = "builtin::record_locator",
             .MangledName = "__record_locator",
             .Packed = +[](const uint64_t* args, size_t argCount) -> uint64_t {
-                __record_locator(static_cast<int64_t>(args[0]));
+                __record_locator(static_cast<int64_t>(args[0]), static_cast<int64_t>(args[1]), static_cast<int64_t>(args[2]));
                 return 0;
             },
-            .ArgTypes = { i64Type },
+            .ArgTypes = { i64Type, i64Type, i64Type },
             .ReturnType = voidType,
         },
     };

@@ -6,10 +6,13 @@
 
 static thread_local jmp_buf* tls_jmp_buf = nullptr;
 static thread_local char tls_error_buf[4096];
-static thread_local int64_t tls_locator = 0;
+static thread_local int64_t tls_locator[3] = {0, 0, 0};
 
-void __record_locator(int64_t line) { tls_locator = line; }
-int64_t __current_locator(void) { return tls_locator; }
+void __record_locator(int64_t line, int64_t byte, int64_t column) {
+    tls_locator[0] = line;
+    tls_locator[1] = byte;
+    tls_locator[2] = column;
+}
 
 void __set_jmp_target(jmp_buf* buf) { tls_jmp_buf = buf; }
 void __clear_jmp_target(void) { tls_jmp_buf = nullptr; }

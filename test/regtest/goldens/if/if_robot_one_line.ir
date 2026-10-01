@@ -7,6 +7,8 @@ function <main> () { ; ptr to void coroutine result void
   block {
     label: label(2)
     arg imm(8,i64) 
+    arg imm(49,i64) 
+    arg imm(29,i64) 
     call builtin::record_locator 
     call tmp(1,ptr to void) = вправо 
     await tmp(1,ptr to void) 
@@ -24,6 +26,8 @@ function <main> () { ; ptr to void coroutine result void
   block {
     label: label(5)
     arg imm(9,i64) 
+    arg imm(50,i64) 
+    arg imm(30,i64) 
     call builtin::record_locator 
     call tmp(3,ptr to void) = вверх 
     await tmp(3,ptr to void) 

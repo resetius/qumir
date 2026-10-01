@@ -637,7 +637,7 @@ struct TFunDecl : TExpr {
     using TInlineFactory = std::function<TExprPtr(std::vector<TExprPtr>)>;
     std::optional<TInlineFactory> InlineFactory; // if set, call is replaced by the returned AST
     bool RequireArgsMaterialization = false; // if true, arguments must be materialized before calling, used for strings
-    bool NeedsLocator = false; // external function: calls are preceded by builtin::record_locator(line)
+    bool NeedsLocator = false; // external function: calls are preceded by builtin::record_locator(line, byte, column)
     NAst::TTypePtr RetType; // ret type different from TExpr::Type which is the function value type
     int32_t Scope = -1; // Function internal scope, filled in by name resolver, -1 - unscoped
     // (operator "X") attribute: this function implements operator/cast "X"
