@@ -1244,7 +1244,9 @@ std::optional<std::string> TNameResolver::ClosestModuleName(const std::string& n
         }
     };
     for (const auto& [moduleName, module] : Modules) {
-        consider(moduleName);
+        if (module && !module->IsImplicit()) {
+            consider(moduleName);
+        }
     }
     for (const auto& [alias, canonical] : ModuleAliases) {
         consider(alias);
@@ -1273,7 +1275,9 @@ std::string TNameResolver::ModulesList() const
     // Sorted: the message must not depend on the hash map order of the standard library.
     std::vector<std::string> names;
     for (const auto& [name, module] : Modules) {
-        names.push_back(name);
+        if (module && !module->IsImplicit()) {
+            names.push_back(name);
+        }
     }
     for (const auto& [alias, canonical] : ModuleAliases) {
         names.push_back(alias);

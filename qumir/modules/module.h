@@ -38,6 +38,8 @@ public:
     virtual const std::vector<TExternalType>& ExternalTypes() const = 0;
     virtual const std::vector<TLiteralSuffix>& LiteralSuffixes() const = 0;
     virtual const std::vector<std::string>& Dependencies() const = 0;
+    // Imported by every host itself; programs never name it in a use statement.
+    virtual bool IsImplicit() const { return false; }
 };
 
 } // namespace NRegistry
