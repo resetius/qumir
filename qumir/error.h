@@ -4,6 +4,7 @@
 
 #include <list>
 #include <string>
+#include <string_view>
 #include <exception>
 #include <format>
 
@@ -184,5 +185,7 @@ private:
     std::optional<TLocation> Location;
     std::list<TError> Children;
 };
+
+void SignErrorsIfMarked(std::string_view source, std::string signature);
 
 } // namespace NQumir

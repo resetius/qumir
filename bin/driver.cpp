@@ -132,15 +132,17 @@ std::vector<std::shared_ptr<NRegistry::IModule>> SetupModules(
 }
 
 std::shared_ptr<std::istream> OpenInputFile(const std::string& filename) {
-    if (filename == "-") {
-        return std::make_shared<std::istream>(std::cin.rdbuf());
-    } else {
-        auto fileStream = std::make_shared<std::ifstream>(filename);
-        if (!fileStream->is_open()) {
+    std::ifstream file;
+    if (filename != "-") {
+        file.open(filename);
+        if (!file.is_open()) {
             return nullptr;
         }
-        return fileStream;
     }
+    std::istream& in = filename == "-" ? std::cin : file;
+    std::string source((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    SignErrorsIfMarked(source, "Qumir " QUMIR_VERSION_STRING ", https://github.com/resetius/qumir");
+    return std::make_shared<std::istringstream>(std::move(source));
 }
 
 std::shared_ptr<std::ostream> OpenOutputFile(const std::string& filename, bool randomAccess = false) {

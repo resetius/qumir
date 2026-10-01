@@ -139,6 +139,9 @@ int main(int argc, char ** argv) {
         }
         in = &infile;
     }
+    std::istringstream source(std::string((std::istreambuf_iterator<char>(*in)), std::istreambuf_iterator<char>()));
+    SignErrorsIfMarked(source.str(), "Qumir " QUMIR_VERSION_STRING ", https://github.com/resetius/qumir");
+    in = &source;
 
     // The directory of the main source file is searched before explicit paths.
     if (!inputFile.empty() && inputFile != "-") {
