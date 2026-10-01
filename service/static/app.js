@@ -3187,6 +3187,7 @@ async function runWasm() {
 
     // Show success info in errors pane
     let successMsg = 'Успешно';
+    const missingInput = runtime.stdinStream ? runtime.stdinStream.missingReads() : 0;
     if (window.__lastRunInfo) {
       const info = window.__lastRunInfo;
       if (info.hasReturn) {
@@ -3195,7 +3196,14 @@ async function runWasm() {
       successMsg += `\nВремя работы программы: ${info.elapsedUs} мкс`;
       delete window.__lastRunInfo;
     }
-    setErrorsPaneContent(successMsg);
+    if (missingInput) {
+      successMsg += '\n\nПрограмма читала данные командой «ввод», но во вкладке «Ввод» их не хватило: '
+        + 'вместо недостающих значений прочитаны нули. Введите данные во вкладке «Ввод» и запустите программу снова.';
+    }
+    setErrorsPaneContent(successMsg, { isError: missingInput > 0 });
+    // Show what the run produced: its output, otherwise the result and timing above.
+    const hasOutput = stdoutEl.textContent.trim() !== '';
+    setActiveIoPane(hasOutput && !missingInput ? 'stdout' : 'errors', { persistCookie: false });
 
     // Celebration for successful runs
     // ========================================
@@ -3217,6 +3225,7 @@ async function runWasm() {
 
     // Show error in errors pane (not stdout)
     setErrorsPaneContent(errMsg, { isError: true });
+    setActiveIoPane('errors', { persistCookie: false });
 
     // If we have a line number, highlight it like compilation errors
     if (lineNum !== null && lineNum > 0) {
@@ -4372,6 +4381,10 @@ setupPreviewDocking();
     debounceShow();
     const statusEl = document.getElementById('status');
     if (statusEl) statusEl.textContent = `Пример: ${examplePath}`;
+    // A link to an example is a request to see it working; the run refreshes the views itself.
+    clearTimeout(showTimer);
+    await runWasm();
+    show($('#view').value, { clearErrorsOnSuccess: false });
   } catch (e) {
     console.warn('failed to load example from query:', e);
   }
@@ -5075,6 +5088,9 @@ if (btnShare) {
   });
 
   if (window.innerWidth <= 900) return;
+  // Visitors who came by a link to a program came for that program.
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('example') || params.has('share') || window.location.pathname.startsWith('/s/')) return;
 
   const initTour = async () => {
     try {

@@ -1,4 +1,4 @@
-let browserIoBound = false;
+let browserIo = null;
 
 function usesImport(imports, prefix) {
   return imports.some(item => (
@@ -54,9 +54,8 @@ export async function loadRuntime(bytes) {
     optionalImport('./keyboard.js', usesImport(imports, 'keyboard_')),
   ]);
 
-  if (!browserIoBound) {
-    ioWrapper.bindBrowserIO(ioEnv);
-    browserIoBound = true;
+  if (!browserIo) {
+    browserIo = ioWrapper.bindBrowserIO(ioEnv);
   }
 
   const env = {
@@ -90,5 +89,6 @@ export async function loadRuntime(bytes) {
     painterModule,
     colorsModule,
     keyboardModule,
+    stdinStream: browserIo.inputStream,
   };
 }

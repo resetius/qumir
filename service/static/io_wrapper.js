@@ -17,11 +17,14 @@ function createTokenizingInputStream(resolveFn) {
   const WHITESPACE = new Set([9, 10, 11, 12, 13, 32, 160]); // \t \n \v \f \r space nbsp
   let raw = '';
   let cursor = 0;
+  // Reads past the end of the input: they get 0 / '' instead of data.
+  let missing = 0;
 
   const reload = () => {
     const el = resolveFn();
     raw = el ? String(el.value || '') : '';
     cursor = 0;
+    missing = 0;
   };
 
   const isWhitespace = (code) => WHITESPACE.has(code);
@@ -34,7 +37,10 @@ function createTokenizingInputStream(resolveFn) {
 
   const readToken = () => {
     skipWhitespace();
-    if (cursor >= raw.length) return '0';
+    if (cursor >= raw.length) {
+      missing++;
+      return '0';
+    }
     const start = cursor;
     while (cursor < raw.length && !isWhitespace(raw.charCodeAt(cursor))) {
       cursor++;
@@ -44,7 +50,10 @@ function createTokenizingInputStream(resolveFn) {
   };
 
   const readLine = () => {
-    if (cursor >= raw.length) return '';
+    if (cursor >= raw.length) {
+      missing++;
+      return '';
+    }
     const newlineIndex = raw.indexOf('\n', cursor);
     let line;
     if (newlineIndex === -1) {
@@ -67,6 +76,9 @@ function createTokenizingInputStream(resolveFn) {
     readLine,
     hasMore() {
       return cursor < raw.length;
+    },
+    missingReads() {
+      return missing;
     },
     reset() {
       reload();
