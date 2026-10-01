@@ -30,6 +30,10 @@ public:
         return Dependencies_;
     }
 
+    bool IsImplicit() const override {
+        return true;
+    }
+
 private:
     std::vector<TExternalFunction> ExternalFunctions_;
     std::vector<TExternalType> ExternalTypes_;

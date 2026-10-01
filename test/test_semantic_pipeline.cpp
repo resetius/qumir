@@ -2,6 +2,7 @@
 
 #include <qumir/modules/module.h>
 #include <qumir/modules/system/system.h>
+#include <qumir/modules/turtle/turtle.h>
 #include <qumir/parser/core/lexer.h>
 #include <qumir/parser/core/parser.h>
 #include <qumir/parser/core/printer.h>
@@ -355,11 +356,13 @@ TEST(ModuleAliases, SameUseDiffersBetweenCoreAndKumirSessions) {
     EXPECT_TRUE(kumir.ImportModule("Файлы").has_value());
 }
 
-TEST(ModulesList, IncludesRegisteredSystemModule) {
+TEST(ModulesList, ListsOnlyModulesProgramsImport) {
     NRegistry::SystemModule system;
+    NRegistry::TurtleModule turtle;
     TNameResolver resolver;
     resolver.RegisterModule(&system);
-    EXPECT_NE(resolver.ModulesList().find("System"), std::string::npos);
+    resolver.RegisterModule(&turtle);
+    EXPECT_EQ(resolver.ModulesList(), "Черепаха");
 }
 
 TEST(KumirPipeline, ExpandsPowerWithoutReusingCoreOperator) {
