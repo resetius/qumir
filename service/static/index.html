@@ -79,7 +79,13 @@
     кц
 кон
 </textarea>
-          <div id="status" class="status"></div>
+          <div class="pane-footer">
+            <span class="pane-footer-run">
+              <button id="btn-run" type="button" data-tooltip="Запустить программу (Ctrl+Enter)">▶ Запустить</button>
+              <button id="btn-stop" type="button" data-tooltip="Остановить выполнение" style="display:none">■ Стоп</button>
+            </span>
+            <div id="status" class="status"></div>
+          </div>
         </section>
         <div id="output-anchor"></div>
         <div id="splitter-editor-output" class="splitter splitter-vertical" role="separator" aria-orientation="vertical" aria-label="Размер редактора и вывода"></div>
@@ -133,8 +139,6 @@
           <span class="io-toolbar-separator"></span>
           <label for="args">Аргументы:</label>
           <input id="args" type="text" placeholder="например: 1, 2.5, да, нет" data-tooltip="Параметры, которые программа получит при запуске" />
-          <button id="btn-run" data-tooltip="Запустить программу (Ctrl+Enter)">Запустить</button>
-          <button id="btn-stop" data-tooltip="Остановить выполнение" style="display:none">Стоп</button>
       </div>
       <div class="io-pane-container">
         <div class="io-pane io-pane-stdout active" data-io-pane="stdout">
