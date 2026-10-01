@@ -118,6 +118,9 @@ private:
             .PipeFactory = PipeFactory,
             .BinaryDir = BinaryBaseCanonical.generic_string(),
             .Args = args,
+            .AddCompileObserver = [this](NQumir::NService::TCompileObserver observer) {
+                CompileObservers.push_back(std::move(observer));
+            },
         };
 
         for (const auto& path : paths) {
@@ -126,6 +129,15 @@ private:
                 throw std::runtime_error("Failed to load plugin " + path + ": " + dlerror());
             }
             PluginHandles.push_back(handle);
+
+            // A plugin from another release must not take the playground down with it.
+            auto* versionFn = reinterpret_cast<int (*)()>(dlsym(handle, "QumirPluginApiVersion"));
+            int version = versionFn ? versionFn() : 1;
+            if (version != NQumir::NService::PluginApiVersion) {
+                std::cerr << "Skipping plugin " << path << ": built for plugin API version " << version
+                          << ", the service provides " << NQumir::NService::PluginApiVersion << "\n";
+                continue;
+            }
 
             auto* registerFn = reinterpret_cast<void (*)(NQumir::NService::TRouteTable&,
                                                          const NQumir::NService::TPluginContext&)>(
@@ -340,6 +352,21 @@ private:
         }
     }
 
+    void NotifyCompile(const std::string& target, std::string code, std::string output, int exitCode) {
+        if (CompileObservers.empty()) {
+            return;
+        }
+        const NQumir::NService::TCompileEvent event{
+            .Target = target,
+            .Code = std::move(code),
+            .Output = std::move(output),
+            .ExitCode = exitCode,
+        };
+        for (const auto& observer : CompileObservers) {
+            observer(event);
+        }
+    }
+
     TFuture<void> Compile(TRequest& request, TResponse& response, const std::string& target) {
         int olevel = 0;
         auto it = request.Headers().find("X-Qumir-O");
@@ -398,11 +425,15 @@ private:
             printCmd();
             auto pipe = PipeFactory(qumirc, args, /* stderr to stdout */ true);
 
+            const bool observed = !CompileObservers.empty();
+            std::string code;
+            std::string output;
             {
                 char ibuf[1024];
                 while (true) {
                     ssize_t n = co_await request.ReadBodySome(ibuf, sizeof(ibuf));
                     if (n <= 0) break;
+                    if (observed) code.append(ibuf, n);
                     co_await TByteWriter(pipe).Write(ibuf, n);
                 }
                 pipe.CloseWrite();
@@ -419,10 +450,12 @@ private:
             while (true) {
                 ssize_t r = co_await reader.ReadSome(obuf, sizeof(obuf));
                 if (r <= 0) break;
+                if (observed) output.append(obuf, r);
                 co_await response.WriteBodyChunk(obuf, r);
             }
             co_await response.WriteBodyChunk("", 0);
-            pipe.Wait();
+            int exitCode = pipe.Wait();
+            NotifyCompile(target, std::move(code), std::move(output), exitCode);
             co_return;
         }
 
@@ -443,6 +476,7 @@ private:
 
         printCmd();
         auto [output, exitCode] = co_await ReadPipe(qumirc, args, /*stderr*/ false, /*searchExe*/ false, /*stderrToStdout*/ true);
+        NotifyCompile(target, code, output, exitCode);
         if (exitCode != 0) {
             std::string errBody;
             llvm::json::Object obj;
@@ -804,6 +838,7 @@ private:
     std::chrono::steady_clock::time_point CompilerVersionTime;
 
     NQumir::NService::TRouteTable Routes;
+    std::vector<NQumir::NService::TCompileObserver> CompileObservers;
     std::vector<void*> PluginHandles;
 };
 
