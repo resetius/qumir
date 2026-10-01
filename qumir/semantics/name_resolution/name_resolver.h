@@ -60,7 +60,7 @@ struct TSuggestion {
 
     std::string ToString() const {
         if (Distance == 0 && RequiredModuleName) {
-            return "\n Возможно вы забыли импортировать модуль `" + *RequiredModuleName + "',\n добавьте строку `использовать " + *RequiredModuleName + "' в начало программы.";
+            return "\n `" + Name + "' - команда модуля `" + *RequiredModuleName + "',\n чтобы её использовать, добавьте строку `использовать " + *RequiredModuleName + "' в начало программы.";
         }
         std::string result = "\n Возможно вы имели в виду `" + Name + "'";;
         if (RequiredModuleName) {
@@ -147,6 +147,8 @@ public:
     // Returns all overloads for name. If non-overloaded single function, returns {id}. Empty if not found.
     std::vector<TSymbolId> LookupOverloads(const std::string& name, TScopeId scope) const;
     std::optional<TSuggestion> Suggest(const std::string& name, TScopeId scope, bool includeFunctions);
+    // Modules, not imported yet, that have a command `name` taking `argCount` arguments.
+    std::vector<std::string> ModulesWithFunction(const std::string& name, size_t argCount) const;
 
     TSymbolId DeclareFunction(const std::string& name, NAst::TExprPtr node);
     NAst::TExprPtr GetSymbolNode(TSymbolId id) const;
@@ -201,6 +203,7 @@ public:
     std::vector<std::string> GetAllImportedTypeNames() const override;
     std::vector<NRegistry::TLiteralSuffix> GetAllImportedLiteralSuffixes() const override;
     std::string ModulesList() const;
+    std::optional<std::string> ClosestModuleName(const std::string& name);
 
     // For testing/debugging
     const std::vector<TSymbol>& GetSymbols() const {

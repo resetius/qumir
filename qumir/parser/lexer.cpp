@@ -606,5 +606,16 @@ void TTokenStream::Read() {
     flush();
 }
 
+const std::vector<std::string>& KeywordNames() {
+    static const std::vector<std::string> names = [] {
+        std::vector<std::string> result;
+        for (const auto& [name, keyword] : KeywordMapRu) {
+            result.push_back(name);
+        }
+        return result;
+    }();
+    return names;
+}
+
 } // namespace NAst
 } // namespace NQumir

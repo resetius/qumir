@@ -151,5 +151,8 @@ private:
     TLexerContext Context;
 };
 
+// Keywords of the Russian syntax: "алг", "использовать", ...
+const std::vector<std::string>& KeywordNames();
+
 } // namespace NAst
 } // namespace NQumir

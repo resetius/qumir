@@ -2626,7 +2626,17 @@ TTask AnnotateCall(std::shared_ptr<TCallExpr> call, NSemantics::TNameResolver& c
     if (maybeFunType) {
         auto funT = maybeFunType.Cast();
         if (funT->ParamTypes.size() != call->Args.size()) {
-            co_return TError(call->Location, "Неверное количество аргументов при вызове функции: ожидается " + std::to_string(funT->ParamTypes.size()) + ", передано " + std::to_string(call->Args.size()) + ".");
+            auto callee = TMaybeNode<TIdentExpr>(call->Callee);
+            std::string message = "Неверное количество аргументов при вызове "
+                + (callee ? "`" + callee.Cast()->Name + "'" : std::string("функции"))
+                + ": ожидается " + std::to_string(funT->ParamTypes.size()) + ", передано " + std::to_string(call->Args.size()) + ".";
+            // "вправо(60)" with Робот means the Черепаха command.
+            if (callee) {
+                for (const auto& module : context.ModulesWithFunction(callee.Cast()->Name, call->Args.size())) {
+                    message += "\n `" + callee.Cast()->Name + "' с таким числом аргументов есть в модуле `" + module + "'.";
+                }
+            }
+            co_return TError(call->Location, message);
         }
         for (size_t i = 0; i < call->Args.size(); ++i) {
             auto& paramT = funT->ParamTypes[i];

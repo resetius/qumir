@@ -1,6 +1,7 @@
 #include "name_resolver.h"
 
 #include <qumir/modules/module.h>
+#include <qumir/parser/lexer.h>
 #include <qumir/parser/type.h>
 
 #include <algorithm>
@@ -642,6 +643,63 @@ std::optional<TSymbolInfo> TNameResolver::Lookup(const std::string& name, TScope
     return std::nullopt;
 }
 
+namespace {
+
+std::vector<uint32_t> CodePoints(const std::string& s) {
+    // parse utf-8 to code points
+    std::vector<uint32_t>  cp;
+    uint32_t codepoint = 0;
+    for (char c : s) {
+        if ((c & 0x80) == 0) {
+            // 1-byte
+            if (codepoint != 0) {
+                cp.push_back(codepoint);
+                codepoint = 0;
+            }
+            cp.push_back(c);
+        } else if ((c & 0xC0) == 0x80) {
+            // continuation byte
+            codepoint = (codepoint << 6) | (c & 0x3F);
+        } else if ((c & 0xE0) == 0xC0) {
+            // 2-byte
+            if (codepoint != 0) {
+                cp.push_back(codepoint);
+            }
+            codepoint = c & 0x1F;
+        } else if ((c & 0xF0) == 0xE0) {
+            // 3-byte
+            if (codepoint != 0) {
+                cp.push_back(codepoint);
+            }
+            codepoint = c & 0x0F;
+        } else if ((c & 0xF8) == 0xF0) {
+            // 4-byte
+            if (codepoint != 0) {
+                cp.push_back(codepoint);
+            }
+            codepoint = c & 0x07;
+        }
+    }
+    if (codepoint != 0) {
+        cp.push_back(codepoint);
+    }
+    return cp;
+}
+
+uint32_t ToLower(uint32_t cp) {
+    if (cp >= 'A' && cp <= 'Z') return cp + ('a' - 'A');
+    if (cp >= 0x410 && cp <= 0x42F) return cp + 0x20; // А-Я
+    if (cp == 0x401) return 0x451;                     // Ё
+    return cp;
+}
+
+// Short names get fewer edits, otherwise a single letter matches any two-letter name.
+int MaxSuggestionDistance(size_t length) {
+    return length <= 3 ? 1 : 2;
+}
+
+} // namespace
+
 std::optional<TSuggestion> TNameResolver::Suggest(const std::string& name, TScopeId scopeId, bool includeFunctions) {
     TScopePtr scope = nullptr;
     if (scopeId.Id < 0 || static_cast<size_t>(scopeId.Id) >= Scopes.size()) {
@@ -649,51 +707,48 @@ std::optional<TSuggestion> TNameResolver::Suggest(const std::string& name, TScop
     }
     scope = Scopes[scopeId.Id];
 
-    static constexpr int MAX_DISTANCE = 2;
     TSuggestion bestSuggestion;
     bestSuggestion.Distance = INT32_MAX;
     bestSuggestion.OriginalName = name;
     std::unordered_set<std::string> checkedNames;
 
-    auto calcCodePoint = [](const std::string& s) {
-        // parse utf-8 to code points
-        std::vector<uint32_t>  cp;
-        uint32_t codepoint = 0;
-        for (char c : s) {
-            if ((c & 0x80) == 0) {
-                // 1-byte
-                if (codepoint != 0) {
-                    cp.push_back(codepoint);
-                    codepoint = 0;
+    auto nameCodePoints = CodePoints(name);
+    const int maxDistance = MaxSuggestionDistance(nameCodePoints.size());
+
+    // A keyword with a capital letter is lexed as part of an identifier,
+    // e.g. "Использовать Черепаха".
+    {
+        auto space = name.find(' ');
+        auto firstWord = CodePoints(name.substr(0, space));
+        if (!firstWord.empty() && ToLower(firstWord[0]) != firstWord[0]) {
+            firstWord[0] = ToLower(firstWord[0]);
+            for (const auto& keyword : NAst::KeywordNames()) {
+                if (CodePoints(keyword) == firstWord) {
+                    bestSuggestion.Name = keyword + (space == std::string::npos ? "" : name.substr(space));
+                    bestSuggestion.Distance = 1;
+                    return bestSuggestion;
                 }
-                cp.push_back(c);
-            } else if ((c & 0xC0) == 0x80) {
-                // continuation byte
-                codepoint = (codepoint << 6) | (c & 0x3F);
-            } else if ((c & 0xE0) == 0xC0) {
-                // 2-byte
-                if (codepoint != 0) {
-                    cp.push_back(codepoint);
-                }
-                codepoint = c & 0x1F;
-            } else if ((c & 0xF0) == 0xE0) {
-                // 3-byte
-                if (codepoint != 0) {
-                    cp.push_back(codepoint);
-                }
-                codepoint = c & 0x0F;
-            } else if ((c & 0xF8) == 0xF0) {
-                // 4-byte
-                if (codepoint != 0) {
-                    cp.push_back(codepoint);
-                }
-                codepoint = c & 0x07;
             }
         }
-        return cp;
-    };
+    }
 
-    auto nameCodePoints = calcCodePoint(name);
+    // The exact name of a command from a module that is not imported beats any
+    // similar local name: "вперед" with Робот is a Черепаха command, not "вверх".
+    if (includeFunctions) {
+        for (const auto& [moduleName, module] : Modules) {
+            if (!module || ImportedModules.contains(moduleName)) {
+                continue;
+            }
+            for (const auto& extFunc : module->ExternalFunctions()) {
+                if (!extFunc.IsOp && extFunc.Name == name) {
+                    bestSuggestion.Name = name;
+                    bestSuggestion.Distance = 0;
+                    bestSuggestion.RequiredModuleName = moduleName;
+                    return bestSuggestion;
+                }
+            }
+        }
+    }
 
     while (scope) {
         for (auto symbolId : scope->Symbols) {
@@ -708,16 +763,16 @@ std::optional<TSuggestion> TNameResolver::Suggest(const std::string& name, TScop
             }
             checkedNames.insert(symbol.Name);
             if (symbol.CodePoints.empty()) {
-                symbol.CodePoints = calcCodePoint(symbol.Name);
+                symbol.CodePoints = CodePoints(symbol.Name);
             }
-            if ( (int)symbol.CodePoints.size() - (int)nameCodePoints.size() > MAX_DISTANCE ) {
+            if ( (int)symbol.CodePoints.size() - (int)nameCodePoints.size() > maxDistance) {
                 continue;
             }
             int distance = EditDistanceCalculator.Calc(
                 std::span<const uint32_t>(nameCodePoints.data(), nameCodePoints.size()),
                 std::span<const uint32_t>(symbol.CodePoints.data(), symbol.CodePoints.size())
             );
-            if (distance < bestSuggestion.Distance && distance <= MAX_DISTANCE) {
+            if (distance < bestSuggestion.Distance && distance <= maxDistance) {
                 bestSuggestion.Name = symbol.Name;
                 bestSuggestion.Distance = distance;
             }
@@ -739,16 +794,16 @@ std::optional<TSuggestion> TNameResolver::Suggest(const std::string& name, TScop
                 checkedNames.insert(symbolName);
                 auto& symbolCodePoints = extFunc.NameCodePoints;
                 if (symbolCodePoints.empty()) {
-                    symbolCodePoints = calcCodePoint(symbolName);
+                    symbolCodePoints = CodePoints(symbolName);
                 }
-                if ( (int)symbolCodePoints.size() - (int)nameCodePoints.size() > MAX_DISTANCE ) {
+                if ( (int)symbolCodePoints.size() - (int)nameCodePoints.size() > maxDistance) {
                     continue;
                 }
                 int distance = EditDistanceCalculator.Calc(
                     std::span<const uint32_t>(nameCodePoints.data(), nameCodePoints.size()),
                     std::span<const uint32_t>(symbolCodePoints.data(), symbolCodePoints.size())
                 );
-                if (distance < bestSuggestion.Distance && distance <= MAX_DISTANCE) {
+                if (distance < bestSuggestion.Distance && distance <= maxDistance) {
                     bestSuggestion.Name = symbolName;
                     bestSuggestion.Distance = distance;
                     bestSuggestion.RequiredModuleName = moduleName;
@@ -1170,16 +1225,65 @@ void TNameResolver::RegisterModuleAlias(const std::string& alias, const std::str
     }
 }
 
-std::string TNameResolver::ModulesList() const
-{
-    std::ostringstream oss;
-    for (const auto& [name, module] : Modules) {
-        oss << name << ",";
+std::optional<std::string> TNameResolver::ClosestModuleName(const std::string& name) {
+    auto lower = [](std::vector<uint32_t> cps) {
+        for (auto& cp : cps) cp = ToLower(cp);
+        return cps;
+    };
+    auto target = lower(CodePoints(name));
+    std::optional<std::string> best;
+    int bestDistance = MaxSuggestionDistance(target.size()) + 1;
+    auto consider = [&](const std::string& candidate) {
+        auto cps = lower(CodePoints(candidate));
+        int distance = EditDistanceCalculator.Calc(
+            std::span<const uint32_t>(target.data(), target.size()),
+            std::span<const uint32_t>(cps.data(), cps.size()));
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            best = candidate;
+        }
+    };
+    for (const auto& [moduleName, module] : Modules) {
+        consider(moduleName);
     }
     for (const auto& [alias, canonical] : ModuleAliases) {
-        oss << alias << ",";
+        consider(alias);
     }
-    return oss.str().substr(0, oss.str().size() - 1); // remove last comma
+    return best;
+}
+
+std::vector<std::string> TNameResolver::ModulesWithFunction(const std::string& name, size_t argCount) const {
+    std::vector<std::string> result;
+    for (const auto& [moduleName, module] : Modules) {
+        if (!module || ImportedModules.contains(moduleName)) {
+            continue;
+        }
+        for (const auto& extFunc : module->ExternalFunctions()) {
+            if (!extFunc.IsOp && extFunc.Name == name && extFunc.ArgTypes.size() == argCount) {
+                result.push_back(moduleName);
+                break;
+            }
+        }
+    }
+    return result;
+}
+
+std::string TNameResolver::ModulesList() const
+{
+    // Sorted: the message must not depend on the hash map order of the standard library.
+    std::vector<std::string> names;
+    for (const auto& [name, module] : Modules) {
+        names.push_back(name);
+    }
+    for (const auto& [alias, canonical] : ModuleAliases) {
+        names.push_back(alias);
+    }
+    std::sort(names.begin(), names.end());
+    std::ostringstream oss;
+    for (size_t i = 0; i < names.size(); ++i) {
+        oss << (i ? "," : "") << names[i];
+    }
+    return oss.str();
 }
 
 std::vector<std::string> TNameResolver::GetAllImportedTypeNames() const {
@@ -1211,7 +1315,11 @@ std::expected<bool, std::string> TNameResolver::ImportModule(const std::string& 
     }
     auto it = Modules.find(name);
     if (it == Modules.end()) {
-        return std::unexpected("Неизвестный модуль: " + aliasOrName + ", доступные модули: " + ModulesList());
+        std::string message = "Неизвестный модуль: " + aliasOrName + ", доступные модули: " + ModulesList();
+        if (auto closest = ClosestModuleName(aliasOrName)) {
+            message += "\n Возможно вы имели в виду `" + *closest + "'.";
+        }
+        return std::unexpected(message);
     }
     auto* module = it->second;
 
