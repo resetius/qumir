@@ -48,6 +48,7 @@ button.project-toggle:hover { background: #3a3a3a; }
 .controls { display: flex; gap: 8px; align-items: center; }
 .controls label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; user-select: none; }
 .controls label input[type="checkbox"] { cursor: pointer; width: 16px; height: 16px; }
+#examples { max-width: 280px; text-overflow: ellipsis; }
 .controls .icon-control { width: 28px; height: 28px; padding: 0; line-height: 26px; text-align: center; }
 .workspace {
   --workspace-main-fr: 1fr;
@@ -429,8 +430,10 @@ body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 			.pane.right { min-height: 24vh; }
 			pre.scroll { max-height: 28vh; }
 
-		/* Wrap controls/buttons in header */
-		.controls { flex-wrap: wrap; row-gap: 6px; }
+		/* One header row: the examples list takes the room left by the buttons */
+		header { gap: 8px; }
+		.controls { flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+		#examples { flex: 1 1 auto; min-width: 0; width: 0; max-width: none; padding-left: 6px; padding-right: 2px; }
 		#btn-reset-layout { display: none; }
 	.toolbar { flex-wrap: wrap; gap: 6px; }
 		/* Hide snippet toolbar on mobile to reduce clutter */

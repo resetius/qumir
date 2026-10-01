@@ -2984,6 +2984,8 @@ async function runWasm() {
   const { type: algType } = parseAlgHeader(code);
   const O = $('#opt').value;
   window.__hasRuntimeErrors = false;
+  // A run that fails to compile must not leave the previous program's output behind.
+  $('#stdout').textContent = '';
   resetCoroStopSignal();
   let runAsCoroutine = false;
   try {
