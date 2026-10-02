@@ -727,6 +727,7 @@ body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 .docs-content h2 { font-size: 18px; margin: 24px 0 12px; color: #fff; }
 .docs-content h3 { font-size: 15px; margin: 20px 0 10px; color: #eee; }
 .docs-content p { margin: 0 0 12px; }
+.docs-content img { max-width: 100%; height: auto; border: 1px solid #333; border-radius: 4px; }
 .docs-content ul, .docs-content ol { margin: 0 0 12px; padding-left: 24px; }
 .docs-content li { margin-bottom: 4px; }
 .docs-content code {

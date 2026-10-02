@@ -27,6 +27,8 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
+        # the documentation screenshots shipped in qumir-service
+        lfs: true
 
     - name: apt-get update
       run: sudo apt-get update

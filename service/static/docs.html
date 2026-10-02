@@ -106,6 +106,7 @@
     .docs-page-main h2 { font-size: 20px; margin: 28px 0 14px; color: #fff; }
     .docs-page-main h3 { font-size: 16px; margin: 22px 0 10px; color: #eee; }
     .docs-page-main p { margin: 0 0 14px; line-height: 1.7; }
+    .docs-page-main img { max-width: 100%; height: auto; border: 1px solid #333; border-radius: 4px; }
     .docs-page-main ul, .docs-page-main ol { margin: 0 0 14px; padding-left: 28px; }
     .docs-page-main li { margin-bottom: 6px; }
     .docs-page-main code {
@@ -219,6 +220,7 @@
       </div>
       <div id="docs-nav-docs">
         <a href="#" data-doc="index.md" class="active">Введение</a>
+        <a href="#" data-doc="ui.md">Как пользоваться песочницей</a>
         <a href="#" data-doc="syntax.md">Синтаксис языка</a>
         <a href="#" data-doc="standard-functions.md">Стандартные функции</a>
         <a href="#" data-doc="interpreter.md">Интерпретатор</a>
@@ -256,6 +258,13 @@
   <script>
     // SPA DOCS SCRIPT — removed in static build
     const DOCS_BASE = '/docs/';
+
+    // Image paths in the markdown are relative to the .md file.
+    function resolveDocImages(html, filename) {
+      const dir = DOCS_BASE + filename.replace(/[^/]*$/, '');
+      return html.replace(/(<img[^>]*\ssrc=")(?!https?:|\/)/g, `$1${dir}`);
+    }
+
     const sidebar = document.getElementById('docs-sidebar');
     const main = document.getElementById('docs-main');
     let currentDoc = 'index.md';
@@ -314,7 +323,7 @@
 
         if (typeof marked !== 'undefined') {
           marked.setOptions({ breaks: false, gfm: true, headerIds: true, mangle: false });
-          main.innerHTML = marked.parse(md);
+          main.innerHTML = resolveDocImages(marked.parse(md), filename);
           if (window.renderMathInElement) {
             renderMathInElement(main, {
               delimiters: [

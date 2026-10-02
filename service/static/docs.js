@@ -6,6 +6,12 @@
 
 const DOCS_BASE = '/docs/';
 
+// Image paths in the markdown are relative to the .md file.
+function resolveDocImages(html, filename) {
+  const dir = DOCS_BASE + filename.replace(/[^/]*$/, '');
+  return html.replace(/(<img[^>]*\ssrc=")(?!https?:|\/)/g, `$1${dir}`);
+}
+
 let docsDrawer = null;
 let docsContent = null;
 let docsNav = null;
@@ -97,7 +103,7 @@ async function loadDoc(filename, addToHistory = true) {
         headerIds: true,
         mangle: false
       });
-      docsContent.innerHTML = marked.parse(markdown);
+      docsContent.innerHTML = resolveDocImages(marked.parse(markdown), filename);
     } else {
       // Fallback: show raw markdown
       docsContent.innerHTML = `<pre>${escapeHtml(markdown)}</pre>`;
