@@ -4,6 +4,7 @@ const $ = sel => document.querySelector(sel);
 let currentAbort = null;
 // Set to true by the Stop button; cleared at the start of each run.
 let __coroStopRequested = false;
+let __coroRunning = false;
 let __coroStopSignal = null;
 // Output view selection for the compiler pane (text or turtle)
 let __compilerOutputMode = 'text';
@@ -1592,8 +1593,9 @@ async function show(mode, { clearErrorsOnSuccess = true } = {}) {
         if (!window.__hasRuntimeErrors) {
           clearErrorHighlights();
         }
-        // Clear errors pane on successful compilation only if explicitly requested
-        if (clearErrorsOnSuccess) {
+        // Clear errors pane on successful compilation only if explicitly requested;
+        // while a program runs the pane belongs to that run.
+        if (clearErrorsOnSuccess && !__coroRunning) {
           setErrorsPaneContent('Успешно');
         }
       }
@@ -3210,7 +3212,8 @@ async function runWasm() {
     }
 
     // Show success info in errors pane
-    let successMsg = 'Успешно';
+    const stopped = __coroStopRequested;
+    let successMsg = stopped ? 'Остановлено' : 'Успешно';
     const missingInput = runtime.stdinStream ? runtime.stdinStream.missingReads() : 0;
     if (window.__lastRunInfo) {
       const info = window.__lastRunInfo;
@@ -3231,10 +3234,12 @@ async function runWasm() {
 
     // Celebration for successful runs
     // ========================================
-    __successfulRunsCount++;
-    setCookie('q_runs_count', String(__successfulRunsCount), 365);
-    if (__successfulRunsCount === 1 || __successfulRunsCount % 10 === 0) {
-      showCelebration();
+    if (!stopped) {
+      __successfulRunsCount++;
+      setCookie('q_runs_count', String(__successfulRunsCount), 365);
+      if (__successfulRunsCount === 1 || __successfulRunsCount % 10 === 0) {
+        showCelebration();
+      }
     }
     // ========================================
   } catch (e) {
@@ -3268,6 +3273,7 @@ async function runWasm() {
 }
 
 function setCoroRunning(running) {
+  __coroRunning = running;
   const stopBtn = document.getElementById('btn-stop');
   const runBtn = document.getElementById('btn-run');
   if (stopBtn) stopBtn.style.display = running ? '' : 'none';

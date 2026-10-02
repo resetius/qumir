@@ -77,6 +77,13 @@ inline bool isEof(const TToken& tok) {
     return tok.Type == TToken::Operator && (EOperator)tok.Value.i64 == EOperator::Eof;
 }
 
+// A block is left open: `got` stands where its closing keyword was expected.
+TError unclosedBlock(const TToken& got, const std::string& expected, TLocation opener) {
+    std::string found = isEof(got) ? "программа закончилась" : "встретилось '" + got.RawValue + "'";
+    return TError(got.Location, "не хватает " + expected + ": " + found
+        + ", а блок, начатый в строке " + std::to_string(opener.Line) + ", не закрыт");
+}
+
 inline bool isOp(const TToken& tok, EOperator op) {
     return tok.Type == TToken::Operator && (EOperator)tok.Value.i64 == op;
 }
@@ -226,9 +233,7 @@ TAstTask stmt_list(TParserContext& context, std::set<EKeyword> terminators, TLoc
             if (kw == EKeyword::End || kw == EKeyword::EndIf || kw == EKeyword::LoopEnd
                 || kw == EKeyword::LoopEndWhen || kw == EKeyword::Else)
             {
-                const char* expected = terminators.contains(EKeyword::LoopEnd) ? "'кц'" : "'все'";
-                co_return TError(t.Location, std::string("не хватает ") + expected + ": встретилось '" + t.RawValue
-                    + "', а блок, начатый в строке " + std::to_string(opener.Line) + ", не закрыт");
+                co_return unclosedBlock(t, terminators.contains(EKeyword::LoopEnd) ? "'кц'" : "'все'", opener);
             }
         }
         stream.Unget(t);
@@ -605,7 +610,7 @@ TAstTask fun_decl(TParserContext& context, TLocation location) {
 
     next = stream.Next();
     if (!isKeyword(next, EKeyword::End)) {
-        co_return TError(next.Location, "ожидалось 'кон' в конце функции");
+        co_return unclosedBlock(next, "'кон'", location);
     }
 
     if (auto maybeBlock = TMaybeNode<TBlockExpr>(body)) {
@@ -681,7 +686,7 @@ TAstTask for_loop(TParserContext& context, TLocation location) {
 
     auto endTok = stream.Next();
     if (!isKeyword(endTok, EKeyword::LoopEnd)) {
-        co_return TError(endTok.Location, "ожидалось 'кц' в конце оператора 'для'");
+        co_return unclosedBlock(endTok, "'кц'", location);
     }
 
     co_return std::make_shared<TForStmtExpr>(
@@ -710,7 +715,7 @@ TAstTask for_times(TParserContext& context, TExprPtr countExpr, TLocation locati
 
     auto endTok = stream.Next();
     if (!isKeyword(endTok, EKeyword::LoopEnd)) {
-        co_return TError(endTok.Location, "ожидалось 'кц' в конце оператора 'нц'");
+        co_return unclosedBlock(endTok, "'кц'", location);
     }
 
     co_return std::make_shared<TTimesStmtExpr>(location, std::move(countExpr), body);
@@ -733,7 +738,7 @@ TAstTask while_loop(TParserContext& context, TLocation location) {
 
     auto endTok = stream.Next();
     if (!isKeyword(endTok, EKeyword::LoopEnd)) {
-        co_return TError(endTok.Location, "ожидалось 'кц' в конце оператора 'пока'");
+        co_return unclosedBlock(endTok, "'кц'", location);
     }
 
     co_return std::make_shared<TWhileStmtExpr>(location, cond, body);
@@ -759,7 +764,7 @@ TAstTask repeat_until_loop(TParserContext& context, TLocation location) {
     auto untilTok = stream.Next();
     // кц при or кц_при
     if (!isKeyword(untilTok, EKeyword::LoopEndWhen) && !isKeyword(untilTok, EKeyword::LoopEnd)) {
-        co_return TError(untilTok.Location, "ожидалось 'кц' или 'кц_при' в конце оператора 'нц'");
+        co_return unclosedBlock(untilTok, "'кц' или 'кц_при'", location);
     }
     // one more token if 'кц'
     TExprPtr condExpr;
@@ -824,7 +829,7 @@ TAstTask switch_expr(TParserContext& context, TLocation location) {
 
             auto endTok = stream.Next();
             if (!isKeyword(endTok, EKeyword::EndIf)) {
-                co_return TError(endTok.Location, "ожидалось 'все' в конце оператора 'выбор'");
+                co_return unclosedBlock(endTok, "'все'", location);
             }
 
             break;
@@ -894,14 +899,14 @@ TAstTask if_expr(TParserContext& context, TLocation location) {
     }
 
     if (!isKeyword(elseTok, EKeyword::Else)) {
-        co_return TError(elseTok.Location, "ожидалось 'иначе' или 'все' после ветки 'то' в операторе 'если'");
+        co_return unclosedBlock(elseTok, "'все'", location);
     }
 
     auto elseBranch = co_await stmt_list(context, { EKeyword::EndIf }, location);
 
     auto endTok = stream.Next();
     if (!isKeyword(endTok, EKeyword::EndIf)) {
-        co_return TError(endTok.Location, "ожидалось 'все' в конце оператора 'если'");
+        co_return unclosedBlock(endTok, "'все'", location);
     }
 
     co_return std::make_shared<TIfExpr>(location, cond, thenBranch, elseBranch);
@@ -1737,7 +1742,7 @@ TAstTask stmt(TParserContext& context) {
         }
         auto moduleName = next.Name;
         next = stream.Next();
-        if (!isOp(next, EOperator::Eol)) {
+        if (!isOp(next, EOperator::Eol) && !isEof(next)) {
             co_return TError(next.Location, "ожидается новая строка после имени модуля");
         }
         // A `.oz` source module is inlined during post-parse composition. Its
