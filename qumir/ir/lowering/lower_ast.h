@@ -47,7 +47,12 @@ private:
     };
 
     TExpectedTask<TValueWithBlock, TError, TLocation> Lower(const NAst::TExprPtr& expr, TBlockScope scope);
-    TExpectedTask<TOperand, TError, TLocation> EnsureStructAddress(TOperand value, int structTypeId, const std::string& name, const TLocation& loc);
+    TExpectedTask<TOperand, TError, TLocation> EnsureStructAddress(
+        TOperand value,
+        int structTypeId,
+        const std::string& name,
+        const TLocation& loc,
+        int32_t scopeId);
 
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerWhile(std::shared_ptr<NAst::TWhileStmtExpr> loop, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerFor(std::shared_ptr<NAst::TForStmtExpr> loop, TBlockScope scope);

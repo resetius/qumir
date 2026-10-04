@@ -219,7 +219,7 @@ struct TExternalFunction {
 struct TLocalVarDebugInfo {
     std::string Name; // from ast name
     TLocation Location; // source location (declaration)
-    int32_t ScopeId = -1; // declaration scope, -1 when no source scope applies
+    int32_t ScopeId; // owning lexical scope
 };
 
 struct TFunction {
