@@ -98,11 +98,17 @@ ITypeErasedFuture* MakeCompletedValueFuture(uint64_t value) {
 
 } // namespace
 
-TInterpreter::TInterpreter(TModule& module, std::ostream& out, std::istream& in)
-    : Module(module)
-    , Compiler(module)
-    , Out(out)
+TInterpreter::TInterpreter(
+    TModule& module,
+    TVMCompiler& compiler,
+    std::ostream& out,
+    std::istream& in,
+    IDebugger* debugger)
+    : Out(out)
     , In(in)
+    , Module(module)
+    , Compiler(compiler)
+    , Debugger(debugger)
 { }
 
 std::optional<std::string> TInterpreter::Eval(TFunction& function, std::vector<int64_t> args, TInterpreter::TOptions options)
@@ -162,7 +168,17 @@ size_t TInterpreter::ProcessAsyncRuntimeEvents() {
 }
 
 std::optional<int64_t> TInterpreter::DoEvalRaw(TFunction& function, std::vector<int64_t> args, TOptions options) {
-    auto future = DoEvalRawAsync(function, std::move(args), options);
+    if (!function.Exec) {
+        function.Exec = &Compiler.Compile(function, options.PrintByteCode);
+    }
+    TFuture<std::optional<int64_t>> future = [&]() -> TFuture<std::optional<int64_t>> {
+        if (Debugger) {
+            Debugger->SetRuntime(Runtime);
+            return DoEvalRawAsync<true>(function, std::move(args), options);
+        } else {
+            return DoEvalRawAsync<false>(function, std::move(args), options);
+        }
+    }();
     while (!future.done()) {
         bool hasEvents = ProcessAsyncRuntimeEvents() > 0;
         assert(hasEvents && "coroutine suspended with no pending async events");
@@ -171,6 +187,7 @@ std::optional<int64_t> TInterpreter::DoEvalRaw(TFunction& function, std::vector<
     return future.await_resume();
 }
 
+template<bool EnableDebug>
 TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function, std::vector<int64_t> args, TInterpreter::TOptions options) {
     if (!function.Exec) {
         function.Exec = &Compiler.Compile(function, options.PrintByteCode);
@@ -249,6 +266,11 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
         auto& frame = callStack.back();
         assert(frame.PC <= &frame.Exec->VMCode[frame.Exec->VMCode.size()-1]);
         assert(frame.PC >= &frame.Exec->VMCode[0]);
+
+        if constexpr (EnableDebug) {
+            Debugger->OnInstruction(frame);
+        }
+
         const auto& instr = *frame.PC++;
 
         switch (instr.Op) {

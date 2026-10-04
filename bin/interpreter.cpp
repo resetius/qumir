@@ -25,6 +25,32 @@ void PrintResultIR(const std::optional<std::string>& v) {
 
 } // namespace
 
+struct TInteractiveDebugger : public NIR::IDebugger {
+    void SetRuntime(const NIR::TRuntime& runtime) override {
+        Runtime = &runtime;
+    }
+
+    void SetModule(const NIR::TModule& module) override {
+        Module = &module;
+    }
+
+    void OnFunctionCompilationFinished(const NIR::TFunction& function) override {
+        std::cout << "Function compiled: " << function.Name << std::endl;
+    }
+
+    void OnModuleCompilationFinished() override {
+        std::cout << "Module compilation finished." << std::endl;
+    }
+
+    void OnInstruction(const NIR::TFrame& frame) override {
+        const NIR::TVMInstr& instr = *frame.PC;
+        std::cout << "Executing instruction: " << instr << " in function: " << frame.Name << std::endl;
+    }
+
+    const NIR::TRuntime* Runtime{nullptr};
+    const NIR::TModule* Module{nullptr};
+};
+
 int main(int argc, char ** argv) {
     NQumir::NCodeGen::TLLVMInitializer llvmInit;
 
@@ -42,6 +68,7 @@ int main(int argc, char ** argv) {
     std::string inputFile; // stdin by default if empty
     std::vector<std::string> modulePaths;
     std::vector<std::string> moduleFiles;
+    std::unique_ptr<TInteractiveDebugger> debugger;
 
     for (int i = 1; i < argc; ++i) {
         if (!std::strcmp(argv[i], "--jit")) {
@@ -102,6 +129,8 @@ int main(int argc, char ** argv) {
             optLevel = 2;
         } else if (!std::strcmp(argv[i], "-O3")) {
             optLevel = 3;
+        } else if (!std::strcmp(argv[i], "--debug")) {
+            debugger = std::make_unique<TInteractiveDebugger>();
         } else if (!std::strcmp(argv[i], "--help") || !std::strcmp(argv[i], "-h")) {
             std::cout << "qumiri [options]\n"
                          "Options:\n"
@@ -116,6 +145,7 @@ int main(int argc, char ** argv) {
                          "  --module-path <dir>  Add a search directory for .oz modules (repeatable)\n"
                          "  --module <file.oz>   Register an explicit .oz module (repeatable)\n"
                          "  --input-file|-i <file>  Input file (default: stdin)\n"
+                         "  --debug              Enable interactive debugging\n"
                          "  -O <level>           Optimization level (0-3), default 0\n"
                          "  -O0                  Optimization level 0 (no optimizations)\n"
                          "  -O1                  Optimization level 1 (some optimizations)\n"
@@ -168,6 +198,7 @@ int main(int argc, char ** argv) {
             .Prelude = corePrelude,
             .ModuleSearchPaths = modulePaths,
             .ModuleFiles = moduleFiles,
+            .Debugger = debugger.get(),
         }
     );
 

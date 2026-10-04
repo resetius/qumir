@@ -31,10 +31,11 @@ TIRRunner::TIRRunner(
     std::ostream& out,
     std::istream& in,
     TIRRunnerOptions options)
-    : Builder(Module)
+    : Compiler(Module)
+    , Builder(Module)
     , Lowerer(Module, Builder, Resolver)
     , Options(std::move(options))
-    , Interpreter(Module, out, in)
+    , Interpreter(Module, Compiler, out, in, Options.Debugger)
 {
     RegisteredModules.push_back(std::make_shared<NRegistry::SystemModule>());
     // TODO: register other modules
@@ -184,6 +185,17 @@ std::expected<std::optional<std::string>, TError> TIRRunner::Run(std::istream& i
 
     // Interpret
     try {
+        auto debugger = Options.Debugger;
+        if (debugger) {
+            debugger->SetModule(Module);
+            for (auto& f : Module.Functions) {
+                if (!f.Exec) {
+                    f.Exec = &Compiler.Compile(f, Options.PrintByteCode);
+                    debugger->OnFunctionCompilationFinished(f);
+                }
+            }
+            debugger->OnModuleCompilationFinished();
+        }
         auto res = Interpreter.Eval(*mainFun, {}, TInterpreter::TOptions{.PrintByteCode = Options.PrintByteCode});
         return res;
     } catch (const std::exception& e) {

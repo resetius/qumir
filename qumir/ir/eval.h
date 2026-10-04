@@ -43,13 +43,29 @@ struct TReturnLink {
     bool CalleeReturnsVoid = false;
 };
 
+struct IDebugger {
+    virtual ~IDebugger() = default;
+    virtual void SetRuntime(const TRuntime& runtime) = 0;
+    virtual void SetModule(const TModule& module) = 0;
+    virtual void OnFunctionCompilationFinished(const TFunction& function) = 0;
+    virtual void OnModuleCompilationFinished() = 0;
+    virtual void OnInstruction(const TFrame& frame) = 0;
+};
+
 class TInterpreter {
 public:
-    TInterpreter(TModule& module, std::ostream& out, std::istream& in);
+    TInterpreter(
+        TModule& module,
+        TVMCompiler& compiler,
+        std::ostream& out,
+        std::istream& in,
+        IDebugger* debugger = nullptr);
 
     struct TOptions {
         bool PrintByteCode = false;
     };
+
+    TRuntime& GetRuntime() { return Runtime; }
 
     std::optional<std::string> Eval(TFunction& function, std::vector<int64_t> args, TOptions options);
     // Returns the VM register bits directly. This is intended for scalar POD
@@ -59,6 +75,7 @@ public:
 private:
     std::optional<int64_t> DoEvalRaw(TFunction& function, std::vector<int64_t> args, TOptions options);
 
+    template<bool EnableDebug = false>
     TFuture<std::optional<int64_t>> DoEvalRawAsync(TFunction& function, std::vector<int64_t> args, TOptions options);
     size_t ProcessAsyncRuntimeEvents();
 
@@ -66,8 +83,9 @@ private:
     std::istream& In;
     TModule& Module;
     TRuntime Runtime;
-    TVMCompiler Compiler;
+    TVMCompiler& Compiler;
     std::vector<TReturnLink> ReturnLinks;
+    IDebugger* Debugger{nullptr};
 };
 
 } // namespace NIR

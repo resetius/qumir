@@ -93,7 +93,8 @@ TRunResult RunWithInjection(
     NRuntime::SetOutputStream(&out);
     std::istringstream stdin_in;
     NRuntime::SetInputStream(&stdin_in);
-    NIR::TInterpreter interp(module, out, stdin_in);
+    NIR::TVMCompiler compiler(module);
+    NIR::TInterpreter interp(module, compiler, out, stdin_in);
     try {
         interp.Eval(*mainFun, {}, {});
     } catch (const std::exception& e) {

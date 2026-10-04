@@ -11,7 +11,6 @@ namespace NIR {
 
 struct TExecFunc {
     int UniqueId;
-    std::vector<TInstr> Code;
     std::vector<TVMInstr> VMCode;
     int32_t MaxTmpIdx{0};
     int32_t MaxTmp128Idx{-1};

@@ -93,7 +93,8 @@ TRunResult RunWithInjection(
     NRuntime::SetInputStream(&stdinIn);
     try {
         if (backend == EBackend::VM) {
-            NIR::TInterpreter interp(module, out, stdinIn);
+            NIR::TVMCompiler compiler(module);
+            NIR::TInterpreter interp(module, compiler, out, stdinIn);
             interp.Eval(*mainFun, {}, {});
         } else {
             NCodeGen::TLLVMCodeGen cg({});

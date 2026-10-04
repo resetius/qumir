@@ -35,6 +35,7 @@ struct TIRRunnerOptions {
     std::vector<std::string> ModuleSearchPaths;
     // Explicitly registered `.oz` module files (bound by file stem).
     std::vector<std::string> ModuleFiles;
+    NIR::IDebugger* Debugger = nullptr;
 };
 
 class TIRRunner {
@@ -50,11 +51,12 @@ public:
 
 private:
     NIR::TModule Module;
+    NIR::TVMCompiler Compiler;
     NIR::TRuntime Runtime;
     NIR::TBuilder Builder;
     NIR::TAstLowerer Lowerer;
-    NIR::TInterpreter Interpreter;
     TIRRunnerOptions Options;
+    NIR::TInterpreter Interpreter;
     std::unordered_set<int> PrintedChunks;
 
     NSemantics::TNameResolver Resolver;
