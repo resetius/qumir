@@ -460,7 +460,7 @@ void TBuilder::SetType(TTmp tmp, int typeId) {
     CurrentFunction->TmpTypes[tmp.Idx] = typeId;
 }
 
-void TBuilder::SetType(TLocal local, int typeId) {
+void TBuilder::SetType(TLocal local, int typeId, const TLocalVarDebugInfo& debugInfo) {
     if (!CurrentFunction) {
         throw std::runtime_error("No current function");
     }
@@ -471,6 +471,10 @@ void TBuilder::SetType(TLocal local, int typeId) {
         CurrentFunction->LocalTypes.resize(local.Idx + 1, -1);
     }
     CurrentFunction->LocalTypes[local.Idx] = typeId;
+    if (local.Idx >= CurrentFunction->LocalDebugInfo.size()) {
+        CurrentFunction->LocalDebugInfo.resize(local.Idx + 1);
+    }
+    CurrentFunction->LocalDebugInfo[local.Idx] = debugInfo;
 }
 
 void TBuilder::ReserveLocals(int count) {
@@ -483,11 +487,14 @@ void TBuilder::ReserveLocals(int count) {
     if (count > CurrentFunction->LocalTypes.size()) {
         CurrentFunction->LocalTypes.resize(count, -1);
     }
+    if (count > CurrentFunction->LocalDebugInfo.size()) {
+        CurrentFunction->LocalDebugInfo.resize(count);
+    }
 }
 
-TLocal TBuilder::AllocLocal(int typeId) {
+TLocal TBuilder::AllocLocal(int typeId, const TLocalVarDebugInfo& debugInfo) {
     int idx = (int)CurrentFunction->LocalTypes.size();
-    SetType(TLocal{idx}, typeId);
+    SetType(TLocal{idx}, typeId, debugInfo);
     return TLocal{idx};
 }
 

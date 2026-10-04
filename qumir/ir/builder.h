@@ -12,6 +12,8 @@
 #include <set>
 #include <list>
 
+#include <qumir/location.h>
+
 #include "type.h"
 
 namespace NQumir {
@@ -213,6 +215,13 @@ struct TExternalFunction {
     int SymId;
 };
 
+// LocalId -> DebugInfo
+struct TLocalVarDebugInfo {
+    std::string Name; // from ast name
+    TLocation Location; // source location (declaration)
+    int32_t ScopeId = -1; // declaration scope, -1 when no source scope applies
+};
+
 struct TFunction {
     std::string Name;
     std::vector<TLocal> ArgLocals;
@@ -233,6 +242,10 @@ struct TFunction {
     int32_t NextLabelIdx;
     TExecFunc* Exec{nullptr};
     std::map<TLabel, int> LabelToBlockIdx;
+
+    // debug info {
+    std::vector<TLocalVarDebugInfo> LocalDebugInfo; // LocalIdx -> DebugInfo
+    // debug info }
 
     int GetTmpType(int tmpId) const;
     int GetType(TTmp tmp) const;
@@ -283,9 +296,9 @@ public:
     TTmp Emit1(TOp op, std::initializer_list<TOperand> operands);
     void SetType(TTmp tmp, int typeId);
     int GetType(TTmp tmp) const;
-    void SetType(TLocal local, int typeId);
+    void SetType(TLocal local, int typeId, const TLocalVarDebugInfo& debugInfo);
     void ReserveLocals(int count);
-    TLocal AllocLocal(int typeId); // allocates a new unnamed local and returns its index
+    TLocal AllocLocal(int typeId, const TLocalVarDebugInfo& debugInfo); // allocates a new unnamed local and returns its index
     void UnifyTypes(TTmp left, TTmp right);
     void SetReturnType(int typeId);
     void Emit0(TOp op, std::initializer_list<TOperand> operands);
