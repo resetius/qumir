@@ -37,7 +37,7 @@ std::string BuildIR(NAst::TTokenStream& ts, NIR::TModule& module, bool emitDebug
     }
 
     NIR::TBuilder builder(module);
-    NIR::TAstLowerer lowerer(module, builder, resolver, emitDebugInfo);
+    NIR::TAstLowerer lowerer(module, builder, resolver, {.EmitDebugInfo = emitDebugInfo});
     auto lowerRes = lowerer.LowerTop(expr);
     if (!lowerRes) {
         return "Error: " + lowerRes.error().ToString() + "\n";

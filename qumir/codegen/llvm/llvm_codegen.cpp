@@ -3,6 +3,7 @@
 #include "llvm_debug_info.h"
 
 #include <qumir/ir/builder.h>
+#include <qumir/ir/debug_data.h>
 #include <qumir/align.h>
 
 #include <memory>
@@ -692,7 +693,7 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
             throw std::runtime_error("function already declared");
         }
         MarkPointerArgsNoAlias(lfun);
-        if (f.Name.find("__repl") == 0) { // repl functions should not be optimized
+        if (module.DebugOptions.EmitDebugPoints || f.Name.find("__repl") == 0) { // repl functions should not be optimized
             lfun->addFnAttr(llvm::Attribute::NoInline);
             lfun->addFnAttr(llvm::Attribute::OptimizeNone);
             lfun->addFnAttr("disable-tail-calls", "true");
@@ -704,10 +705,16 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
         }
     }
 
+    if (module.DebugOptions.EmitDebugPoints) {
+        auto data = SerializeDebugData(module);
+        LModule->getOrInsertNamedMetadata("wasm.custom_sections")->addOperand(llvm::MDNode::get(*Ctx, {
+            llvm::MDString::get(*Ctx, "qumir.debug"), llvm::MDString::get(*Ctx, data)}));
+    }
+
     // Pass 2: lower function bodies
     std::unique_ptr<TLLVMDebugInfo> debugInfo;
     if (
-        optLevel == 0 && !module.HasSourceModules && std::any_of(
+        module.DebugOptions.EmitDebugInfo && optLevel == 0 && !module.HasSourceModules && std::any_of(
             module.Functions.begin(), module.Functions.end(),
             [&](const TFunction& f) {
                 return f.DebugInfo && !f.IsCoroutine && newSymIds.count(f.SymId);

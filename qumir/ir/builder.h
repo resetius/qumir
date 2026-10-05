@@ -13,6 +13,7 @@
 #include <list>
 
 #include <qumir/location.h>
+#include <qumir/ir/debug_options.h>
 
 #include "type.h"
 
@@ -284,6 +285,21 @@ struct TFunction {
     }
 };
 
+struct TDebugPoint {
+    std::string Kind;
+    int FunctionIdx;
+    TInstrDebugInfo Info;
+    int LocalId = -1;
+    std::string Op;
+};
+
+struct TDebugBinding {
+    int FunctionIdx;
+    TLocation Location;
+    int LocalId;
+    std::string Name;
+};
+
 struct TModule {
     std::vector<TFunction> Functions;
     std::vector<TExternalFunction> ExternalFunctions;
@@ -303,6 +319,9 @@ struct TModule {
     TTypeTable Types;
     std::string SourceFilePath; // empty for stdin
     bool HasSourceModules = false;
+    TDebugOptions DebugOptions;
+    std::vector<TDebugPoint> DebugPoints;
+    std::vector<TDebugBinding> DebugBindings;
 
     TFunction* GetFunctionByName(const std::string& name);
     TFunction* GetEntryPoint();

@@ -205,7 +205,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     return 0;
 }
 
-int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, bool emitDebugInfo) {
+int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, NIR::TDebugOptions debugOptions) {
     if (verbose) {
         std::cerr << "Generating IR from " << inputFile << " to " << outputFile << "\n";
     }
@@ -239,7 +239,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     };
     NIR::TBuilder builder(module);
 
-    NIR::TAstLowerer lowerer(module, builder, r, emitDebugInfo && optLevel == 0);
+    NIR::TAstLowerer lowerer(module, builder, r, debugOptions);
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
         std::cerr << lowerResult.error().ToString() << "\n";
@@ -259,7 +259,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     return 0;
 }
 
-int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, bool emitDebugInfo) {
+int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, NIR::TDebugOptions debugOptions) {
     if (verbose) {
         std::cerr << "Generating LLVM IR from " << inputFile << " to " << outputFile << "\n";
     }
@@ -293,7 +293,7 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     };
     NIR::TBuilder builder(module);
 
-    NIR::TAstLowerer lowerer(module, builder, r, emitDebugInfo && optLevel == 0);
+    NIR::TAstLowerer lowerer(module, builder, r, debugOptions);
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
         std::cerr << lowerResult.error().ToString() << "\n";
@@ -428,7 +428,7 @@ void GenerateObjFromAsm(const std::string& asmCode, std::ostream& objOut) {
 }
 #endif
 
-int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, int wasmBits, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, bool emitDebugInfo) {
+int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, int wasmBits, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, NIR::TDebugOptions debugOptions) {
     if (verbose) {
         std::cerr << "Compiling " << inputFile << " to " << outputFile << "\n";
     }
@@ -465,7 +465,7 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     }
     NIR::TBuilder builder(module);
 
-    NIR::TAstLowerer lowerer(module, builder, r, emitDebugInfo && optLevel == 0);
+    NIR::TAstLowerer lowerer(module, builder, r, debugOptions);
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
         std::cerr << lowerResult.error().ToString() << "\n";
@@ -473,6 +473,10 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     }
     const bool hasCoroutines = std::any_of(module.Functions.begin(), module.Functions.end(),
         [](const NIR::TFunction& function) { return function.IsCoroutine; });
+    if (debugOptions.EmitDebugPoints && (hasCoroutines || module.HasSourceModules)) {
+        std::cerr << "debug points currently require ordinary functions in one source file\n";
+        return 1;
+    }
     // coro-split requires at least O1; bump automatically when coroutines are present
     const int effectiveOptLevel = (hasCoroutines && optLevel == 0) ? 1 : optLevel;
 
@@ -552,13 +556,15 @@ int main(int argc, char** argv) {
     int wasmBits = 0; // 0 = native, 32, 64
     bool coreInput = false;
     bool verbose = false;
-    bool emitDebugInfo = false;
+    NIR::TDebugOptions debugOptions;
     TModuleConfig moduleConfig;
     for (int i = 1; i < argc; ++i) {
         if (!std::strcmp(argv[i], "-c")) {
             compileOnly = true;
         } else if (!std::strcmp(argv[i], "-g")) {
-            emitDebugInfo = true;
+            debugOptions.EmitDebugInfo = true;
+        } else if (!std::strcmp(argv[i], "--debug-points")) {
+            debugOptions.EmitDebugPoints = true;
         } else if (!std::strcmp(argv[i], "-o")) {
             if (i + 1 < argc) {
                 outputFile = argv[++i];
@@ -571,6 +577,7 @@ int main(int argc, char** argv) {
                          "Options:\n"
                          "  -c            Compile only, do not link\n"
                          "  -g            Collect debug info (O0 only)\n"
+                         "  --debug-points Emit browser debug points (O0 only)\n"
                          "  -o <file>     Write output to <file> (default: " << (compileOnly ? "N/A" : A_OUT) << ")\n"
                          "  --ast         Generate parsed AST only (no IR, no codegen)\n"
                          "  --transformed-ast Generate transformed AST only (no IR, no codegen)\n"
@@ -659,6 +666,12 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    debugOptions.EmitDebugInfo = debugOptions.EmitDebugInfo && optLevel == 0;
+    if (debugOptions.EmitDebugPoints && (optLevel != 0 || (!generateIr && !generateLlvm && wasmBits != 32))) {
+        std::cerr << "--debug-points requires O0 and wasm32, --ir or --llvm\n";
+        return 1;
+    }
+
     // The directory of the main source file is searched before explicit paths.
     {
         auto dir = std::filesystem::path(inputFile).parent_path();
@@ -676,14 +689,14 @@ int main(int argc, char** argv) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ir");
         }
-        return GenerateIr(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig, emitDebugInfo);
+        return GenerateIr(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig, debugOptions);
     }
 
     if (generateLlvm) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ll");
         }
-        return GenerateLlvm(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig, emitDebugInfo);
+        return GenerateLlvm(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig, debugOptions);
     }
 
     if (!compileOnly && outputFile.empty()) {
@@ -699,5 +712,5 @@ int main(int argc, char** argv) {
             : outputFile;
     }
 
-    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, wasmBits, coreInput, verbose, moduleConfig, emitDebugInfo);
+    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, wasmBits, coreInput, verbose, moduleConfig, debugOptions);
 }

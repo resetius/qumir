@@ -1,6 +1,7 @@
 #pragma once
 
 #include <qumir/ir/builder.h>
+#include <qumir/ir/lowering/debug_point_emitter.h>
 #include <qumir/parser/ast.h>
 #include <qumir/parser/parser.h>
 #include <qumir/semantics/name_resolution/name_resolver.h>
@@ -17,9 +18,14 @@ using namespace NLiterals;
 
 class TAstLowerer {
 public:
-    TAstLowerer(TModule& module, TBuilder& builder, NSemantics::TNameResolver& ctx, bool emitDebugInfo = false)
-        : Module(module), Builder(builder), Context(ctx), EmitDebugInfo(emitDebugInfo)
-    {}
+    TAstLowerer(TModule& module, TBuilder& builder, NSemantics::TNameResolver& ctx, TDebugOptions options = {})
+        : Module(module)
+        , Builder(builder)
+        , Context(ctx)
+        , DebugPoints_(module, builder)
+    {
+        Module.DebugOptions = options;
+    }
 
     std::expected<std::monostate, TError> LowerTop(const NAst::TExprPtr& expr);
 
@@ -79,6 +85,9 @@ private:
     TTmp LoadLayoutOperand(TOperand operand, const TLocation& loc, int32_t scopeId);
     TOperand AllocLayoutStorage(NSemantics::TSymbolInfo symbol, int typeId, const std::string& name, const TLocation& loc);
 
+    void SetLocalType(TLocal local, int typeId, const TLocalVarDebugInfo& info, bool declare = false);
+    void Statement(const NAst::TExprPtr& expr, int scopeId);
+
     void ImportExternalFunction(int symbolId, const NAst::TFunDecl& funcDecl);
     void ImportExternalFunctions();
     TExpectedTask<int, TError, TLocation> GlobalSymbolId(const std::string& name);
@@ -86,7 +95,7 @@ private:
     TModule& Module;
     TBuilder& Builder;
     NSemantics::TNameResolver& Context;
-    bool EmitDebugInfo;
+    TDebugPointEmitter DebugPoints_;
 
     std::unordered_map<int32_t, TArrayLayout> ArrayLayouts;
     int32_t NextHiddenGlobalSlot = -1;

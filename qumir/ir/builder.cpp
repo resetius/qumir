@@ -1,4 +1,5 @@
 #include "builder.h"
+#include "debug_data.h"
 
 #include <iostream>
 
@@ -232,6 +233,9 @@ void TFunction::SetType(TTmp tmp, int typeId) {
 
 void TModule::Print(std::ostream& out) const
 {
+    if (DebugOptions.EmitDebugPoints) {
+        out << "; qumir.debug " << SerializeDebugData(*this) << "\n";
+    }
     for (const auto& f : Functions) {
         f.Print(out, *this);
     }

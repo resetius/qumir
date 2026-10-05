@@ -34,7 +34,7 @@ TIRRunner::TIRRunner(
     : Module{.SourceFilePath = options.SourceFilePath}
     , Compiler(Module)
     , Builder(Module)
-    , Lowerer(Module, Builder, Resolver, options.Debugger != nullptr)
+    , Lowerer(Module, Builder, Resolver, {.EmitDebugInfo = options.Debugger != nullptr})
     , Options(std::move(options))
     , Interpreter(Module, Compiler, out, in, Options.Debugger)
 {

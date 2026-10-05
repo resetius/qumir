@@ -40,7 +40,7 @@ TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     : Options(std::move(options))
     , Module{.SourceFilePath = Options.SourceFilePath}
     , Builder(Module)
-    , Lowerer(Module, Builder, Resolver, Options.EmitDebugInfo && Options.OptLevel == 0)
+    , Lowerer(Module, Builder, Resolver, {.EmitDebugInfo = Options.EmitDebugInfo && Options.OptLevel == 0})
     , LlvmRunner_({
         .EnablePerfJitEventListener = Options.EnablePerfJitEventListener,
     })

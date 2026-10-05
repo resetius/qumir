@@ -4,6 +4,8 @@
 #include <qumir/ir/lowering/lower_ast.h>
 #include <qumir/parser/core/lexer.h>
 #include <qumir/parser/core/parser.h>
+#include <qumir/parser/parser.h>
+#include <qumir/modules/system/system.h>
 #include <qumir/semantics/transform/transform.h>
 
 #include <gtest/gtest.h>
@@ -26,6 +28,7 @@ using namespace NQumir::NIR::NLiterals;
 namespace {
 
 void BuildModule(TModule& module, bool withDebugInfo = true) {
+    module.DebugOptions.EmitDebugInfo = withDebugInfo;
     TBuilder builder(module);
     auto integer = std::make_shared<NAst::TIntegerType>();
     const int i64 = FromAstType(integer, module.Types);
@@ -186,6 +189,7 @@ TEST(LLVMDebugInfo, PrimitiveTypesReferencesAndOpaqueFallback) {
     });
     for (unsigned pointerBits : {32, 64}) {
         TModule source;
+        source.DebugOptions.EmitDebugInfo = true;
         source.SourceFilePath = "build/types.oz";
         source.Types.SetPointerSize(pointerBits / 8);
         TBuilder builder(source);
@@ -248,6 +252,56 @@ TEST(LLVMDebugInfo, PrimitiveTypesReferencesAndOpaqueFallback) {
     }
 }
 
+TEST(LLVMDebugInfo, DebugPointsAndNativeInfoAreIndependent) {
+    for (bool info : {false, true}) {
+        for (bool points : {false, true}) {
+            std::istringstream input(
+                "алг цел main\nнач\n  знач := add(21, 23)\nкон\n"
+                "алг цел add(цел x, цел y)\nнач\n  знач := x + y\nкон\n");
+            NSemantics::TNameResolver resolver;
+            NRegistry::SystemModule system;
+            resolver.RegisterModule(&system);
+            ASSERT_TRUE(resolver.ImportModule(system.Name()));
+            NAst::TTokenStream tokens(input);
+            NAst::TParser parser;
+            auto parsed = parser.parse(tokens, &resolver);
+            ASSERT_TRUE(parsed);
+            auto ast = *parsed;
+            ASSERT_TRUE(NTransform::Pipeline(ast, resolver));
+            TModule source;
+            TBuilder builder(source);
+            TAstLowerer lowerer(source, builder, resolver, {info, points});
+            ASSERT_TRUE(lowerer.LowerTop(ast));
+            EXPECT_EQ(source.DebugPoints.empty(), !points);
+            EXPECT_EQ(source.Functions[0].DebugInfo.has_value(), info || points);
+            for (const auto& f : source.Functions) {
+                for (const auto& block : f.Blocks) {
+                    EXPECT_EQ(block.InstrDebugInfo.empty(), !info);
+                }
+            }
+            llvm::LLVMContext context;
+            auto module = Emit(source, context);
+            ASSERT_TRUE(module);
+            EXPECT_EQ(module->getNamedMetadata("llvm.dbg.cu") != nullptr, info);
+            EXPECT_EQ(module->getNamedMetadata("wasm.custom_sections") != nullptr, points);
+            unsigned calls = 0;
+            for (const auto& block : *module->getFunction("main")) {
+                for (const auto& instruction : block) {
+                    if (auto* call = llvm::dyn_cast<llvm::CallInst>(&instruction);
+                        call && call->getCalledFunction()->getName() == "add")
+                    {
+                        ++calls;
+                        ASSERT_EQ(call->arg_size(), 2);
+                        EXPECT_EQ(llvm::cast<llvm::ConstantInt>(call->getArgOperand(0))->getSExtValue(), 21);
+                        EXPECT_EQ(llvm::cast<llvm::ConstantInt>(call->getArgOperand(1))->getSExtValue(), 23);
+                    }
+                }
+            }
+            EXPECT_EQ(calls, 1);
+        }
+    }
+}
+
 TEST(LLVMDebugInfo, LoweringRetainsSourceModulePresence) {
     std::istringstream input(
         "(block (fun <main> () -> i64 (block (return (call helper))))"
@@ -262,7 +316,7 @@ TEST(LLVMDebugInfo, LoweringRetainsSourceModulePresence) {
     ASSERT_TRUE(NTransform::Pipeline(ast, resolver));
     TModule source;
     TBuilder builder(source);
-    TAstLowerer lowerer(source, builder, resolver, true);
+    TAstLowerer lowerer(source, builder, resolver, {.EmitDebugInfo = true});
     ASSERT_TRUE(lowerer.LowerTop(ast));
     EXPECT_TRUE(source.HasSourceModules);
     ASSERT_EQ(source.Functions.size(), 2);

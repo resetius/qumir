@@ -52,6 +52,8 @@ add_library(qumir
     runner/runner_llvm.cpp
     ir/lowering/lower_ast.h
     ir/lowering/lower_ast.cpp
+    ir/lowering/debug_point_emitter.cpp
+    ir/debug_data.cpp
     ir/passes/analysis/cfg.h
     ir/passes/analysis/cfg.cpp
     ir/passes/transforms/const_fold.h
