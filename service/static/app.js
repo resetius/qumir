@@ -3728,6 +3728,9 @@ function normalizeWorkspaceAfterDevModeToggle(isDevMode) {
 }
 
 function getIoDockPlacement() {
+  if (debuggerUI && !debuggerUI.panel.hidden) {
+    return 'bottom';
+  }
   const workspace = document.getElementById('workspace');
   if (!workspace) return 'bottom';
   if (workspace.classList.contains('io-dock-left')) return 'left';
@@ -4769,7 +4772,7 @@ ${indent}знач := a
     attachTooltip(el);
   });
   // Attach default (below) tooltips to IO toolbar controls
-  ['io-select', 'io-add-file', 'args', 'btn-run'].forEach(id => {
+  ['io-select', 'io-add-file', 'args', 'btn-run', 'btn-debug', 'btn-stop'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     attachTooltip(el);
@@ -4979,7 +4982,12 @@ $('#btn-run').addEventListener('click', async () => {
 if (editor) debuggerUI = new DebuggerUI(editor, document.getElementById('debug-panel'));
 $('#btn-debug').disabled = !supportsJspi() || !debuggerUI;
 if (!supportsJspi()) $('#btn-debug').title = 'Этот браузер не поддерживает JSPI';
-$('#btn-debug').addEventListener('click', async () => { await runWasm(true); });
+$('#btn-debug').addEventListener('click', async () => {
+  if (window.__runHintOnRun) {
+    window.__runHintOnRun();
+  }
+  await runWasm(true);
+});
 
 $('#btn-stop').addEventListener('click', () => {
   signalCoroStop();

@@ -86,20 +86,6 @@
             </span>
             <div id="status" class="status"></div>
           </div>
-        <section id="debug-panel" class="q-debug-panel" hidden aria-label="Отладчик">
-          <div class="q-debug-controls">
-            <strong data-debug-status></strong>
-            <button type="button" data-debug-action="continue">Продолжить</button>
-            <button type="button" data-debug-action="pause">Пауза</button>
-            <button type="button" data-debug-action="over">Шаг</button>
-            <button type="button" data-debug-action="in">Войти</button>
-            <button type="button" data-debug-action="out">Выйти</button>
-          </div>
-          <div class="q-debug-values">
-            <div><strong>Стек вызовов</strong><div data-debug-stack></div></div>
-            <div><strong>Локальные переменные</strong><table><thead><tr><th>Имя</th><th>Тип</th><th>Значение</th></tr></thead><tbody data-debug-locals></tbody></table></div>
-          </div>
-        </section>
         </section>
         <div id="output-anchor"></div>
         <div id="splitter-editor-output" class="splitter splitter-vertical" role="separator" aria-orientation="vertical" aria-label="Размер редактора и вывода"></div>
@@ -133,6 +119,23 @@
       </main>
     </div>
     <div id="splitter-main-io" class="splitter splitter-horizontal" role="separator" aria-orientation="horizontal" aria-label="Размер рабочей зоны и ввода/вывода"></div>
+    <section id="debug-panel" class="pane q-debug-panel" hidden aria-label="Отладчик">
+      <div class="pane-title">
+        <span class="pane-title-label">Отладчик</span>
+        <div class="q-debug-controls">
+          <button class="pane-title-btn" type="button" data-debug-action="continue" data-tooltip="Продолжить" aria-label="Продолжить"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z" fill="currentColor" stroke="none"/></svg></button>
+          <button class="pane-title-btn" type="button" data-debug-action="pause" data-tooltip="Пауза" aria-label="Пауза"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" stroke-width="3"/></svg></button>
+          <button class="pane-title-btn" type="button" data-debug-action="over" data-tooltip="Шаг с обходом" aria-label="Шаг с обходом"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 16 0M16 8l4 4 3-4"/><circle cx="12" cy="19" r="2" fill="currentColor" stroke="none"/></svg></button>
+          <button class="pane-title-btn" type="button" data-debug-action="in" data-tooltip="Шаг с заходом" aria-label="Шаг с заходом"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m-4-4 4 4 4-4"/><circle cx="12" cy="20" r="2" fill="currentColor" stroke="none"/></svg></button>
+          <button class="pane-title-btn" type="button" data-debug-action="out" data-tooltip="Шаг с выходом" aria-label="Шаг с выходом"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14V3m-4 4 4-4 4 4"/><circle cx="12" cy="20" r="2" fill="currentColor" stroke="none"/></svg></button>
+        </div>
+        <span data-debug-status></span>
+      </div>
+      <div class="q-debug-values">
+        <div><strong>Стек вызовов</strong><div data-debug-stack></div></div>
+        <div><strong>Локальные переменные</strong><table><thead><tr><th>Имя</th><th>Тип</th><th>Значение</th></tr></thead><tbody data-debug-locals></tbody></table></div>
+      </div>
+    </section>
     <section class="io" data-pane-id="io">
       <div class="pane-title" id="title-io">
         <span class="pane-title-label">Ввод/Вывод</span>

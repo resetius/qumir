@@ -56,6 +56,7 @@ export class DebuggerUI {
     this.previousReadOnly = this.editor.getOption('readOnly');
     this.editor.setOption('readOnly', true);
     this.panel.hidden = false;
+    this.editor.refresh();
     this.update();
     return this.debugger;
   }
@@ -145,6 +146,7 @@ export class DebuggerUI {
     this.selected = null;
     this.clearHover();
     this.panel.hidden = true;
+    this.editor.refresh();
     this.editor.setOption('readOnly', this.previousReadOnly ?? false);
   }
 }

@@ -74,12 +74,44 @@ async function finished(page) {
 try {
   browser = await puppeteer.launch({ headless: true, args: ['--ignore-certificate-errors'] });
   const page = await openPage();
+  const compilations = [];
+  page.on('response', response => {
+    if (!response.url().endsWith('/api/compile-wasm') || !response.ok()) return;
+    compilations.push(response.buffer().then(bytes => {
+      const module = new WebAssembly.Module(bytes);
+      return {
+        flag: response.request().headers()['x-qumir-debug-points'],
+        metadata: WebAssembly.Module.customSections(module, 'qumir.debug').length,
+        checkpoint: WebAssembly.Module.imports(module).some(imported => imported.name === '__qumir_debug_point'),
+      };
+    }));
+  });
   assert.equal(await page.evaluate(() => typeof WebAssembly.Suspending), 'function');
   const simple = 'алг цел main\nнач\n  цел x\n  x := twice(21)\n  вывод x, нс\n  знач := x\nкон\n\n'
     + 'алг цел twice(цел n)\nнач\n  цел next\n  next := n + 1\n  знач := next * 2\nкон\n';
   await code(page, simple);
+  await page.click('[data-pane-action="dock"][data-pane-target="io"]');
+  await page.waitForSelector('.run-hint-arrow.show', { timeout: 15000 });
   await page.click('#btn-debug');
   await paused(page, 3);
+  assert.equal(await page.$('.run-hint-arrow.show'), null);
+  assert.deepEqual(await compilations.at(-1), { flag: '1', metadata: 1, checkpoint: true });
+  const bottomLayout = await page.evaluate(() => {
+    const debug = document.querySelector('#debug-panel').getBoundingClientRect();
+    const io = document.querySelector('section.io').getBoundingClientRect();
+    const editor = document.querySelector('.pane.left').getBoundingClientRect();
+    const controls = document.querySelector('.q-debug-controls').getBoundingClientRect();
+    const label = document.querySelector('#debug-panel .pane-title-label').getBoundingClientRect();
+    const button = document.querySelector('[data-debug-action="over"]');
+    return debug.top >= editor.bottom && debug.right <= io.left && debug.top === io.top && debug.bottom === io.bottom
+      && controls.left - label.right <= 10 && getComputedStyle(button).backgroundColor !== getComputedStyle(button.parentElement.parentElement).backgroundColor;
+  });
+  assert.equal(bottomLayout, true);
+  assert.equal(await page.$$eval('[data-debug-action]', buttons => buttons.every(button =>
+    button.querySelector('svg') && button.dataset.tooltip && button.getAttribute('aria-label'))), true);
+  await page.hover('[data-debug-action="over"]');
+  await page.waitForFunction(() => [...document.querySelectorAll('.q-tooltip')].some(el =>
+    el.style.display === 'block' && el.textContent === 'Шаг с обходом'));
   await action(page, 'over', 4);
   await action(page, 'in', 11);
   assert.equal((await locals(page)).n, '21');
@@ -102,6 +134,10 @@ try {
   await finished(page);
   assert.equal((await page.$eval('#stdout', el => el.textContent)).trim(), '44');
   assert.equal(await page.$eval('.q-debug-tooltip', el => el.hidden), true);
+  assert.equal(await page.evaluate(() => document.querySelector('section.io').getBoundingClientRect().left
+    >= document.querySelector('.workspace-main-row').getBoundingClientRect().right), true);
+  await page.click('[data-pane-action="dock"][data-pane-target="io"]');
+  await page.click('[data-pane-action="dock"][data-pane-target="io"]');
 
   const demo = readFileSync('test/debugger_demo.kum', 'utf8');
   await code(page, demo);
@@ -185,6 +221,8 @@ try {
   await page.click('#btn-run');
   await finished(page);
   assert.match(await page.$eval('#stdout', el => el.textContent), /async/);
+  assert.deepEqual(await compilations.at(-1), { flag: undefined, metadata: 0, checkpoint: false });
+  assert.equal(await page.$('.run-hint-arrow.show'), null);
 
   const waitingKeyboard = 'использовать Клавиатура\nалг main\nнач\n  цел key\n  key := код клав\n  вывод key, нс\nкон\n';
   await code(page, waitingKeyboard);
