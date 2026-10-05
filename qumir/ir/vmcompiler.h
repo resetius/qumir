@@ -15,10 +15,13 @@ struct TExecFunc {
     int32_t MaxTmpIdx{0};
     int32_t MaxTmp128Idx{-1};
     int32_t NumLocals{0};        // frame size in bytes (not variable count)
-    std::vector<int> ArgByteOffsets; // byte offset of each argument local in the frame
+    std::vector<int> ArgByteOffsets; // byte offset of each argument local in the frame (for func args only!)
     std::vector<int> ArgTypeIds;     // IR typeId of each argument (eval uses SizeInBytes to handle struct)
     std::vector<int> TmpTypeIds;     // IR typeId of each tmp (eval uses it for VM-only packed ABI)
     std::vector<int> TmpFrameOffsets; // optional frame storage for address-backed tmp values
+
+    // debug
+    std::vector<int> LocalByteOffsets; // byte offset of each local in the frame (for debug only)
 };
 
 class TVMCompiler {

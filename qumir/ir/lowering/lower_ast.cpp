@@ -259,7 +259,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     if (sidOpt->FunctionLevelIdx >= 0) {
         auto declaration = Context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id});
         Builder.SetType(TLocal{sidOpt->FunctionLevelIdx}, i64,
-            TLocalVarDebugInfo{loop->VarName, declaration->Location, sidOpt->DeclScopeId});
+            TLocalVarDebugInfo{loop->VarName, declaration->Location, sidOpt->DeclScopeId, declaration->Type});
     }
 
     auto toLocal = Builder.AllocLocal(i64, TLocalVarDebugInfo{"$to", loop->Location, scope.Id.Id});
@@ -1430,7 +1430,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto storeSlot = TSlot{sidOpt->Id};
         auto localSlot = TLocal{sidOpt->FunctionLevelIdx};
         if (localSlot.Idx >= 0) {
-            Builder.SetType(localSlot, slotType, TLocalVarDebugInfo{asg->Name, node->Location, sidOpt->DeclScopeId});
+            Builder.SetType(
+                localSlot,
+                slotType,
+                TLocalVarDebugInfo{asg->Name, node->Location, sidOpt->DeclScopeId, node->Type});
         }
         TOperand storeOperand = (localSlot.Idx >= 0) ? TOperand{localSlot} : TOperand{storeSlot};
         // slot type was set on variable declaration
@@ -1504,7 +1507,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (sidOpt->FunctionLevelIdx >= 0) {
             Builder.SetType(TLocal{sidOpt->FunctionLevelIdx},
                 FromAstType(var->Type, Module.Types),
-                TLocalVarDebugInfo{var->Name, var->Location, sidOpt->DeclScopeId});
+                TLocalVarDebugInfo{var->Name, var->Location, sidOpt->DeclScopeId, var->Type});
         }
         if (var->Init) {
             auto assign = std::make_shared<NAst::TAssignExpr>(var->Location, var->Name, var->Init);
@@ -1587,7 +1590,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto astType = type->ParamTypes[index];
             auto name = params[index]->Name;
             Builder.SetType(a,
-                FromAstType(astType, Module.Types), TLocalVarDebugInfo{name, params[index]->Location, functionScope});
+                FromAstType(astType, Module.Types),
+                TLocalVarDebugInfo{name, params[index]->Location, functionScope, params[index]->Type});
         }
         int localCount = 0;
         for (const auto& symbol : Context.GetSymbols()) {
@@ -1610,7 +1614,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         std::optional<int> retTypeId;
         if (!NAst::TMaybeType<NAst::TVoidType>(retAstType)) {
             retTypeId = FromAstType(retAstType, Module.Types);
-            retLocal = Builder.AllocLocal(*retTypeId, TLocalVarDebugInfo{"$return", fun->Location, functionScope});
+            retLocal = Builder.AllocLocal(
+                *retTypeId,
+                TLocalVarDebugInfo{"$return", fun->Location, functionScope, retAstType});
         }
 
         // Create a dedicated final return block label beforehand and pass it

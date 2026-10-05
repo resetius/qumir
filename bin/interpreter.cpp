@@ -7,9 +7,13 @@
 #include <sstream>
 #include <fstream>
 #include <filesystem>
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <chrono>
+#include <cstdint>
+#include <iomanip>
+#include <unordered_map>
 
 using namespace NQumir;
 
@@ -22,6 +26,90 @@ void PrintResultIR(const std::optional<std::string>& v) {
         std::cout << *v << std::endl;
     }
 }
+
+class TValuePrinter {
+public:
+    explicit TValuePrinter(const NIR::TTypeTable& types)
+        : Types(types)
+    {}
+
+    void Print(std::ostream& out, const char* data, int typeId, NAst::TTypePtr astType) const {
+        const auto kind = Types.GetKind(typeId);
+        while (auto named = NAst::TMaybeType<NAst::TNamedType>(astType)) {
+            astType = named.Cast()->UnderlyingType;
+        }
+        if (kind == NIR::EKind::Struct) {
+            const auto& fields = Types.GetStructFields(typeId);
+            auto astStruct = NAst::TMaybeType<NAst::TStructType>(astType).Cast();
+            out << "{";
+            for (size_t i = 0; i < fields.size(); ++i) {
+                if (i != 0) {
+                    out << ", ";
+                }
+                NAst::TTypePtr fieldAstType;
+                if (astStruct && i < astStruct->Fields.size()) {
+                    out << astStruct->Fields[i].first;
+                    fieldAstType = astStruct->Fields[i].second;
+                } else {
+                    out << "#" << i;
+                }
+                out << ": ";
+                Print(out, data + Types.FieldOffset(typeId, i), fields[i], fieldAstType);
+            }
+            out << "}";
+            return;
+        }
+        if (kind == NIR::EKind::Undef) {
+            out << "<undef>";
+            return;
+        }
+        if (kind == NIR::EKind::I128 || kind == NIR::EKind::U128) {
+            __uint128_t bits;
+            std::memcpy(&bits, data, sizeof(bits));
+            if (kind == NIR::EKind::I128 && static_cast<__int128_t>(bits) < 0) {
+                out << "-";
+                bits = ~bits + 1;
+            }
+            PrintUnsigned128(out, bits);
+            return;
+        }
+        if (kind == NIR::EKind::F32) {
+            float value;
+            std::memcpy(&value, data, sizeof(value));
+            out << value;
+            return;
+        }
+        uint64_t bits = 0;
+        int valueSize = Types.SizeInBytes(typeId);
+        if (valueSize > 0) {
+            std::memcpy(&bits, data, std::min(static_cast<size_t>(valueSize), sizeof(bits)));
+        }
+        if (NAst::TMaybeType<NAst::TStringType>(astType)) {
+            if (bits == 0) {
+                out << "null";
+            } else {
+                out << std::quoted(reinterpret_cast<const char*>(bits));
+            }
+        } else if (NAst::TMaybeType<NAst::TSymbolType>(astType)) {
+            out << "U+" << std::hex << static_cast<uint32_t>(bits) << std::dec;
+        } else {
+            Types.Format(out, bits, typeId);
+        }
+    }
+
+private:
+    static void PrintUnsigned128(std::ostream& out, __uint128_t value) {
+        char digits[40];
+        size_t pos = sizeof(digits);
+        do {
+            digits[--pos] = '0' + value % 10;
+            value /= 10;
+        } while (value != 0);
+        out.write(digits + pos, sizeof(digits) - pos);
+    }
+
+    const NIR::TTypeTable& Types;
+};
 
 } // namespace
 
@@ -36,6 +124,7 @@ struct TInteractiveDebugger : public NIR::IDebugger {
 
     void OnFunctionCompilationFinished(const NIR::TFunction& function) override {
         std::cout << "Function compiled: " << function.Name << std::endl;
+        FunctionMap[function.Name] = &function;
     }
 
     void OnModuleCompilationFinished() override {
@@ -45,10 +134,61 @@ struct TInteractiveDebugger : public NIR::IDebugger {
     void OnInstruction(const NIR::TFrame& frame) override {
         const NIR::TVMInstr& instr = *frame.PC;
         std::cout << "Executing instruction: " << instr << " in function: " << frame.Name << std::endl;
+        PrintNamedLocals(frame);
+    }
+
+private:
+    void PrintNamedLocals(const NIR::TFrame& frame) {
+        if (!Runtime || !Module) {
+            return;
+        }
+        auto funcIt = FunctionMap.find(std::string(frame.Name));
+        if (funcIt == FunctionMap.end()) {
+            return;
+        }
+        auto func = funcIt->second;
+        TValuePrinter printer(Module->Types);
+        std::cout << "Locals:\n";
+        for (size_t i = 0; i < func->LocalDebugInfo.size()
+            && i < func->LocalTypes.size()
+            && i < frame.Exec->LocalByteOffsets.size(); ++i) {
+            const auto& debugInfo = func->LocalDebugInfo[i];
+            if (debugInfo.Name.empty()) {
+                continue;
+            }
+            int typeId = func->LocalTypes[i];
+            std::cout << "  " << debugInfo.Name << " (";
+            if (debugInfo.AstType) {
+                std::cout << NAst::TypeDiagnosticName(debugInfo.AstType);
+            } else {
+                Module->Types.Print(std::cout, typeId);
+            }
+            std::cout << ") = ";
+            if (typeId < 0) {
+                std::cout << "<unknown>\n";
+                continue;
+            }
+            int offset = frame.Exec->LocalByteOffsets[i];
+            size_t size = static_cast<size_t>(Module->Types.SizeInBytes(typeId));
+            if (offset < 0 || frame.StackBase > Runtime->Stack.size()
+                || static_cast<size_t>(offset) > Runtime->Stack.size() - frame.StackBase
+                || size > Runtime->Stack.size() - frame.StackBase - offset)
+            {
+                std::cout << "<unavailable>\n";
+                continue;
+            }
+            const char* value = size == 0
+                ? nullptr
+                : Runtime->Stack.data() + frame.StackBase + offset;
+            printer.Print(std::cout, value, typeId, debugInfo.AstType);
+            std::cout << "\n";
+        }
     }
 
     const NIR::TRuntime* Runtime{nullptr};
     const NIR::TModule* Module{nullptr};
+
+    std::unordered_map<std::string, const NIR::TFunction*> FunctionMap;
 };
 
 int main(int argc, char ** argv) {

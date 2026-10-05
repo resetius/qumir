@@ -220,6 +220,7 @@ struct TLocalVarDebugInfo {
     std::string Name; // from ast name
     TLocation Location; // source location (declaration)
     int32_t ScopeId; // owning lexical scope
+    NAst::TTypePtr AstType = nullptr;
 };
 
 struct TFunction {

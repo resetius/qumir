@@ -171,12 +171,11 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
     // Compute byte offset for each local variable and address-backed temporary.
     // VM pointers must refer to memory owned by the current call frame; allocating
     // per instruction would make struct-heavy loops grow runtime-owned buffers.
-    std::vector<int> localByteOffsets;
     {
         int offset = 0;
         for (int typeId : function.LocalTypes) {
             offset = AlignUp(offset, 8);
-            localByteOffsets.push_back(offset);
+            funcOut.LocalByteOffsets.push_back(offset);
             offset += Module.Types.SizeInBytes(typeId);
         }
 
@@ -212,8 +211,8 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
 
     // Populate ArgByteOffsets and ArgTypeIds for eval
     for (const auto& argLocal : function.ArgLocals) {
-        if (argLocal.Idx >= 0 && argLocal.Idx < (int)localByteOffsets.size()) {
-            funcOut.ArgByteOffsets.push_back(localByteOffsets[argLocal.Idx]);
+        if (argLocal.Idx >= 0 && argLocal.Idx < (int)funcOut.LocalByteOffsets.size()) {
+            funcOut.ArgByteOffsets.push_back(funcOut.LocalByteOffsets[argLocal.Idx]);
             int typeId = (argLocal.Idx < (int)function.LocalTypes.size())
                 ? function.LocalTypes[argLocal.Idx] : -1;
             funcOut.ArgTypeIds.push_back(typeId);
@@ -307,8 +306,10 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 case TOperand::EType::Local: {
                     // Translate var index -> byte offset in frame
                     int varIdx = ins.Operands[i].Local.Idx;
-                    int byteOffset = (varIdx >= 0 && varIdx < (int)localByteOffsets.size())
-                        ? localByteOffsets[varIdx] : varIdx * 8;
+                    if (varIdx < 0 || varIdx >= (int)function.LocalTypes.size()) {
+                        throw std::runtime_error("Local variable index out of bounds");
+                    }
+                    int byteOffset = funcOut.LocalByteOffsets[varIdx];
                     out.Operands[i + offset] = TLocal{byteOffset};
                     break;
                 }
