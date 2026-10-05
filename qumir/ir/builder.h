@@ -241,6 +241,13 @@ struct TLocalVarDebugInfo {
     }
 };
 
+struct TFunctionDebugInfo {
+    std::string Name;
+    TLocation Location;
+    int32_t ScopeId = -1;
+    NAst::TTypePtr AstType = nullptr;
+};
+
 struct TFunction {
     std::string Name;
     std::vector<TLocal> ArgLocals;
@@ -263,6 +270,7 @@ struct TFunction {
     std::map<TLabel, int> LabelToBlockIdx;
 
     // debug info {
+    std::optional<TFunctionDebugInfo> DebugInfo;
     std::vector<TLocalVarDebugInfo> LocalDebugInfo; // LocalIdx -> DebugInfo
     std::vector<int> ScopeParents;
     // debug info }

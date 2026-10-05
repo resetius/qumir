@@ -205,7 +205,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     return 0;
 }
 
-int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig) {
+int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, bool emitDebugInfo) {
     if (verbose) {
         std::cerr << "Generating IR from " << inputFile << " to " << outputFile << "\n";
     }
@@ -239,7 +239,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     };
     NIR::TBuilder builder(module);
 
-    NIR::TAstLowerer lowerer(module, builder, r);
+    NIR::TAstLowerer lowerer(module, builder, r, emitDebugInfo && optLevel == 0);
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
         std::cerr << lowerResult.error().ToString() << "\n";
@@ -259,7 +259,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     return 0;
 }
 
-int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig) {
+int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, bool emitDebugInfo) {
     if (verbose) {
         std::cerr << "Generating LLVM IR from " << inputFile << " to " << outputFile << "\n";
     }
@@ -293,7 +293,7 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     };
     NIR::TBuilder builder(module);
 
-    NIR::TAstLowerer lowerer(module, builder, r);
+    NIR::TAstLowerer lowerer(module, builder, r, emitDebugInfo && optLevel == 0);
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
         std::cerr << lowerResult.error().ToString() << "\n";
@@ -428,7 +428,7 @@ void GenerateObjFromAsm(const std::string& asmCode, std::ostream& objOut) {
 }
 #endif
 
-int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, int wasmBits, bool coreInput, bool verbose, const TModuleConfig& moduleConfig) {
+int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, int wasmBits, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, bool emitDebugInfo) {
     if (verbose) {
         std::cerr << "Compiling " << inputFile << " to " << outputFile << "\n";
     }
@@ -465,7 +465,7 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     }
     NIR::TBuilder builder(module);
 
-    NIR::TAstLowerer lowerer(module, builder, r);
+    NIR::TAstLowerer lowerer(module, builder, r, emitDebugInfo && optLevel == 0);
     auto lowerResult = lowerer.LowerTop(ast);
     if (!lowerResult.has_value()) {
         std::cerr << lowerResult.error().ToString() << "\n";
@@ -552,10 +552,13 @@ int main(int argc, char** argv) {
     int wasmBits = 0; // 0 = native, 32, 64
     bool coreInput = false;
     bool verbose = false;
+    bool emitDebugInfo = false;
     TModuleConfig moduleConfig;
     for (int i = 1; i < argc; ++i) {
         if (!std::strcmp(argv[i], "-c")) {
             compileOnly = true;
+        } else if (!std::strcmp(argv[i], "-g")) {
+            emitDebugInfo = true;
         } else if (!std::strcmp(argv[i], "-o")) {
             if (i + 1 < argc) {
                 outputFile = argv[++i];
@@ -567,6 +570,7 @@ int main(int argc, char** argv) {
             std::cout << "qumirc [options] <input file>\n"
                          "Options:\n"
                          "  -c            Compile only, do not link\n"
+                         "  -g            Collect debug info (O0 only)\n"
                          "  -o <file>     Write output to <file> (default: " << (compileOnly ? "N/A" : A_OUT) << ")\n"
                          "  --ast         Generate parsed AST only (no IR, no codegen)\n"
                          "  --transformed-ast Generate transformed AST only (no IR, no codegen)\n"
@@ -672,14 +676,14 @@ int main(int argc, char** argv) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ir");
         }
-        return GenerateIr(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig);
+        return GenerateIr(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig, emitDebugInfo);
     }
 
     if (generateLlvm) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ll");
         }
-        return GenerateLlvm(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig);
+        return GenerateLlvm(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig, emitDebugInfo);
     }
 
     if (!compileOnly && outputFile.empty()) {
@@ -695,5 +699,5 @@ int main(int argc, char** argv) {
             : outputFile;
     }
 
-    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, wasmBits, coreInput, verbose, moduleConfig);
+    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, wasmBits, coreInput, verbose, moduleConfig, emitDebugInfo);
 }

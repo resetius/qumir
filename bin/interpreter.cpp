@@ -131,6 +131,7 @@ struct TInteractiveDebugger : public NIR::IDebugger {
     void OnFunctionCompilationFinished(const NIR::TFunction& function) override {
         std::cout << "Function compiled: " << function.Name << std::endl;
         FunctionMap[function.Name] = &function;
+        FunctionNameMap.emplace(function.DebugInfo ? function.DebugInfo->Name : function.Name, &function);
         for (size_t i = 0; i < function.Exec->InstrDebugInfo.size(); ++i) {
             const auto& debugInfo = function.Exec->InstrDebugInfo[i];
             if (debugInfo) {
@@ -210,13 +211,18 @@ private:
                         std::cout << "No instruction found for " << fileName << ":" << lineNumber << std::endl;
                     }
                 } else {
-                    auto it = FunctionMap.find(arg);
-                    if (it != FunctionMap.end()) {
-                        std::cout << "Breakpoint set at function: " << arg << std::endl;
+                    auto [first, last] = FunctionNameMap.equal_range(arg);
+                    if (first == last) {
+                        std::cout << "No function found for: " << arg << std::endl;
+                        continue;
                     }
-                    auto& func = *it->second;
-                    auto& exec = func.Exec;
-                    Breakpoints.insert(exec->VMCode.data());
+                    for (auto it = first; it != last; ++it) {
+                        const auto& code = it->second->Exec->VMCode;
+                        if (!code.empty()) {
+                            Breakpoints.insert(code.data());
+                        }
+                    }
+                    std::cout << "Breakpoint set at function: " << arg << std::endl;
                 }
             }
         }
@@ -392,6 +398,7 @@ private:
     const NIR::TModule* Module{nullptr};
 
     std::unordered_map<std::string, const NIR::TFunction*> FunctionMap;
+    std::unordered_multimap<std::string, const NIR::TFunction*> FunctionNameMap;
     std::unordered_set<const void*> Breakpoints;
     std::unordered_map<int, const void*> LineMap;
 };
@@ -569,6 +576,7 @@ int main(int argc, char ** argv) {
         .SourceFilePath = inputFile == "-"
             ? ""
             : inputFile,
+        .EmitDebugInfo = debugger != nullptr,
     });
 
     long long lastEvalUs = 0;

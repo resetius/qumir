@@ -2314,6 +2314,9 @@ TFunDeclTask InstantiateGenericFunction(
     auto body = TMaybeNode<TBlockExpr>(CloneAndSubstituteExpr(genericDecl->Body, genericParams, bindings)).Cast();
 
     auto cloned = std::make_shared<TFunDecl>(genericDecl->Location, mangledName, std::vector<TGenericParam>{}, std::move(params), body, retType);
+    cloned->OriginalName = genericDecl->OriginalName.empty()
+        ? genericDecl->Name
+        : genericDecl->OriginalName;
     cloned->LastAssert = CloneAndSubstituteExpr(genericDecl->LastAssert, genericParams, bindings);
     cloned->Type = std::make_shared<TFunctionType>(std::move(paramTypes), cloned->RetType);
 

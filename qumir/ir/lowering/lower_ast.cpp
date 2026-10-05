@@ -1629,6 +1629,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         // auto currentFuncIdx = Builder.CurrentFunctionIdx(); // needed for nested functions
         auto funcIdx = Builder.NewFunction(name, args, sidOpt->Id);
+        if (EmitDebugInfo) {
+            Module.Functions[funcIdx].DebugInfo = TFunctionDebugInfo{
+                .Name = fun->OriginalName.empty() ? fun->Name : fun->OriginalName,
+                .Location = fun->Location,
+                .ScopeId = functionScope,
+                .AstType = fun->Type,
+            };
+        }
         auto coroutineResultType = NAst::FutureResultType(fun->RetType);
         const bool isCoroutine = static_cast<bool>(coroutineResultType);
         auto physicalReturnAstType = isCoroutine

@@ -51,13 +51,14 @@ std::string BuildIR(NAst::TTokenStream& ts, NIR::TModule& module, bool emitDebug
 } // namespace
 
 TEST(CfgTest, InstructionDebugInfoIsOptional) {
-    const std::string source = "алг\nнач\n  цел x\n  x := 7\nкон\n";
+    const std::string source = "алг main\nнач\n  цел x\n  x := 7\nкон\n";
 
     std::istringstream plainInput(source);
     NAst::TTokenStream plainTokens(plainInput);
     NIR::TModule plainModule;
     BuildIR(plainTokens, plainModule);
     ASSERT_EQ(plainModule.Functions.size(), 1);
+    EXPECT_FALSE(plainModule.Functions[0].DebugInfo);
     EXPECT_TRUE(plainModule.Functions[0].LocalDebugInfo.empty());
     for (const auto& block : plainModule.Functions[0].Blocks) {
         EXPECT_TRUE(block.InstrDebugInfo.empty());
@@ -68,6 +69,12 @@ TEST(CfgTest, InstructionDebugInfoIsOptional) {
     NIR::TModule debugModule;
     BuildIR(debugTokens, debugModule, true);
     ASSERT_EQ(debugModule.Functions.size(), 1);
+    const auto& functionInfo = debugModule.Functions[0].DebugInfo;
+    ASSERT_TRUE(functionInfo);
+    EXPECT_EQ(functionInfo->Name, "main");
+    EXPECT_EQ(functionInfo->Location.Line, 1);
+    EXPECT_GE(functionInfo->ScopeId, 0);
+    EXPECT_TRUE(NAst::TMaybeType<NAst::TFunctionType>(functionInfo->AstType));
     bool hasSourceLocation = false;
     bool hasNamedLocal = false;
     for (const auto& info : debugModule.Functions[0].LocalDebugInfo) {

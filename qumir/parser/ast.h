@@ -627,6 +627,7 @@ struct TFunDecl : TExpr {
     static constexpr const char* NodeId = "FunDecl";
 
     std::string Name;
+    std::string OriginalName; // retained for debug info when Name becomes a synthetic symbol
     std::string MangledName;
     std::vector<TGenericParam> GenericParams;
     std::vector<TParam> Params;

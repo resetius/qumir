@@ -973,6 +973,9 @@ std::expected<TSymbolId, TError> TNameResolver::RegisterOverloadEntry(
     std::vector<TSymbolId>& overloads)
 {
     auto newDecl = NAst::TMaybeNode<NAst::TFunDecl>(node).Cast();
+    if (newDecl->OriginalName.empty()) {
+        newDecl->OriginalName = canonicalName;
+    }
     for (const auto& existingId : overloads) {
         auto existingDecl = NAst::TMaybeNode<NAst::TFunDecl>(GetSymbolNode(existingId)).Cast();
         if (existingDecl && ParamTypesSame(*newDecl, *existingDecl)) {
