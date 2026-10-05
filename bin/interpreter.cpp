@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <chrono>
+#include <csignal>
 #include <cstdint>
 #include <iomanip>
 #include <unordered_map>
@@ -21,6 +22,8 @@
 using namespace NQumir;
 
 namespace {
+
+volatile std::sig_atomic_t StopOnNextInstruction = 0;
 
 void PrintResultIR(const std::optional<std::string>& v) {
     if (v.has_value()) {
@@ -137,14 +140,18 @@ struct TInteractiveDebugger : public NIR::IDebugger {
     }
 
     void OnModuleCompilationFinished() override {
+        std::signal(SIGINT, [](int) { StopOnNextInstruction = 1; });
         std::cout << "Module compilation finished." << std::endl;
         UserInput(nullptr);
     }
 
     void OnInstruction(const NIR::TFrame& frame) override {
         const NIR::TVMInstr& instr = *frame.PC;
-        if (Breakpoints.find(frame.PC) != Breakpoints.end()) {
-            std::cout << "Breakpoint hit at instruction: " << instr << " in function: " << frame.Name << std::endl;
+        const bool interrupted = StopOnNextInstruction != 0;
+        if (interrupted || Breakpoints.find(frame.PC) != Breakpoints.end()) {
+            StopOnNextInstruction = 0;
+            std::cout << (interrupted ? "Interrupted at instruction: " : "Breakpoint hit at instruction: ")
+                << instr << " in function: " << frame.Name << std::endl;
             UserInput(&frame);
         }
     }
@@ -173,6 +180,7 @@ private:
             if (input.empty()) {
                 continue;
             } else if (input == "c" || input == "continue") {
+                StopOnNextInstruction = 0;
                 break;
             } else if (input == "bt") {
                 if (frame) {
