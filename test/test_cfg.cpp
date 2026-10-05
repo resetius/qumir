@@ -18,7 +18,7 @@ using namespace NQumir::NIR::NPasses;
 namespace {
 
 // TODO: move to utils
-std::string BuildIR(NAst::TTokenStream& ts, NIR::TModule& module) {
+std::string BuildIR(NAst::TTokenStream& ts, NIR::TModule& module, bool emitDebugInfo = false) {
     NSemantics::TNameResolver resolver;
     NRegistry::SystemModule sys;
     resolver.RegisterModule(&sys);
@@ -37,7 +37,7 @@ std::string BuildIR(NAst::TTokenStream& ts, NIR::TModule& module) {
     }
 
     NIR::TBuilder builder(module);
-    NIR::TAstLowerer lowerer(module, builder, resolver);
+    NIR::TAstLowerer lowerer(module, builder, resolver, emitDebugInfo);
     auto lowerRes = lowerer.LowerTop(expr);
     if (!lowerRes) {
         return "Error: " + lowerRes.error().ToString() + "\n";
@@ -49,6 +49,82 @@ std::string BuildIR(NAst::TTokenStream& ts, NIR::TModule& module) {
 }
 
 } // namespace
+
+TEST(CfgTest, InstructionDebugInfoIsOptional) {
+    const std::string source = "алг\nнач\n  цел x\n  x := 7\nкон\n";
+
+    std::istringstream plainInput(source);
+    NAst::TTokenStream plainTokens(plainInput);
+    NIR::TModule plainModule;
+    BuildIR(plainTokens, plainModule);
+    ASSERT_EQ(plainModule.Functions.size(), 1);
+    EXPECT_TRUE(plainModule.Functions[0].LocalDebugInfo.empty());
+    for (const auto& block : plainModule.Functions[0].Blocks) {
+        EXPECT_TRUE(block.InstrDebugInfo.empty());
+    }
+
+    std::istringstream debugInput(source);
+    NAst::TTokenStream debugTokens(debugInput);
+    NIR::TModule debugModule;
+    BuildIR(debugTokens, debugModule, true);
+    ASSERT_EQ(debugModule.Functions.size(), 1);
+    bool hasSourceLocation = false;
+    bool hasNamedLocal = false;
+    for (const auto& info : debugModule.Functions[0].LocalDebugInfo) {
+        hasNamedLocal |= info.Name == "x";
+    }
+    EXPECT_TRUE(hasNamedLocal);
+    for (const auto& block : debugModule.Functions[0].Blocks) {
+        ASSERT_EQ(block.InstrDebugInfo.size(), block.Instrs.size());
+        for (const auto& info : block.InstrDebugInfo) {
+            EXPECT_GE(info.ScopeId, 0);
+            hasSourceLocation |= info.Location.Line > 0;
+        }
+    }
+    EXPECT_TRUE(hasSourceLocation);
+}
+
+TEST(CfgTest, DeSSAPreservesInstructionDebugInfo) {
+    using namespace NIR::NLiterals;
+
+    NIR::TModule module;
+    NIR::TBuilder builder(module);
+    builder.NewFunction("f", {}, 0);
+    const int i64 = module.Types.I(EKind::I64);
+    const TLabel entryLabel = builder.CurrentBlockLabel();
+    const TLabel thenLabel = builder.NewLabel();
+    const TLabel joinLabel = builder.NewLabel();
+    const TInstrDebugInfo entryInfo{TLocation{1, 0, 0}, 1};
+    const TInstrDebugInfo thenInfo{TLocation{2, 0, 0}, 1};
+    const TInstrDebugInfo joinInfo{TLocation{3, 0, 0}, 1};
+
+    builder.Emit0("cmp"_op, {TImm{1, i64}, thenLabel, joinLabel}, entryInfo);
+    builder.NewBlock(thenLabel);
+    builder.Emit0("jmp"_op, {joinLabel}, thenInfo);
+    builder.NewBlock(joinLabel);
+    auto phi = builder.Emit1(
+        "phi"_op,
+        {TImm{11, i64}, entryLabel, TImm{22, i64}, thenLabel},
+        joinInfo);
+    builder.SetType(phi, i64);
+    builder.Emit0("ret"_op, {phi}, joinInfo);
+
+    auto& function = module.Functions.front();
+    BuildCfg(function);
+    DeSSA(function, module);
+
+    ASSERT_EQ(function.Blocks.size(), 4);
+    for (const auto& block : function.Blocks) {
+        ASSERT_EQ(block.InstrDebugInfo.size(), block.Instrs.size());
+    }
+    EXPECT_EQ(function.Blocks[1].InstrDebugInfo.back().Location.Line, 2);
+    EXPECT_EQ(function.Blocks[2].InstrDebugInfo.back().Location.Line, 3);
+    const auto& splitBlock = function.Blocks.back();
+    ASSERT_EQ(splitBlock.Instrs.size(), 3);
+    EXPECT_FALSE(splitBlock.InstrDebugInfo[0]);
+    EXPECT_FALSE(splitBlock.InstrDebugInfo[1]);
+    EXPECT_EQ(splitBlock.InstrDebugInfo.back().Location.Line, 1);
+}
 
 TEST(CfgTest, Basic) {
     std::string s = R"(

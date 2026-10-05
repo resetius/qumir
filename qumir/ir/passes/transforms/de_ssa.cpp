@@ -1,6 +1,7 @@
 #include "de_ssa.h"
 
 #include <iostream>
+#include <utility>
 
 namespace NQumir {
 namespace NIR {
@@ -18,6 +19,13 @@ void DeSSA(TFunction& function, TModule& module) {
             if (predBlock.Succ.size() > 1 && block.Pred.size() > 1) {
                 // critical edge, need to split
                 TLabel newLabel = {function.NextLabelIdx++};
+                std::vector<TInstrDebugInfo> debugInfo;
+                if (!predBlock.InstrDebugInfo.empty()) {
+                    const size_t termIndex = predBlock.Instrs.size() - 1;
+                    debugInfo.push_back(termIndex < predBlock.InstrDebugInfo.size()
+                        ? predBlock.InstrDebugInfo[termIndex]
+                        : TInstrDebugInfo{});
+                }
                 newBlocks.push_back(TBlock {
                     .Label = newLabel,
                     .Instrs = {
@@ -29,6 +37,7 @@ void DeSSA(TFunction& function, TModule& module) {
                     },
                     .Succ = {block.Label},
                     .Pred = {predLabel},
+                    .InstrDebugInfo = std::move(debugInfo),
                 });
                 remap[{predLabel, block.Label}] = newLabel;
                 auto& termInstr = predBlock.Instrs.back();
@@ -104,6 +113,13 @@ void DeSSA(TFunction& function, TModule& module) {
                 });
             }
             // Insert before the terminator, first all pre-copies then all post-copies
+            if (!predBlock.InstrDebugInfo.empty()) {
+                predBlock.InstrDebugInfo.resize(predBlock.Instrs.size());
+                predBlock.InstrDebugInfo.insert(
+                    predBlock.InstrDebugInfo.end() - 1,
+                    preCopies.size() + postCopies.size(),
+                    TInstrDebugInfo{});
+            }
             auto termIt = predBlock.Instrs.end() - 1;
             predBlock.Instrs.insert(termIt, preCopies.begin(), preCopies.end());
             termIt = predBlock.Instrs.end() - 1; // iterator invalidated; recompute

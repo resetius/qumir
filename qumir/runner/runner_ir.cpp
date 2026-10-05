@@ -33,7 +33,7 @@ TIRRunner::TIRRunner(
     TIRRunnerOptions options)
     : Compiler(Module)
     , Builder(Module)
-    , Lowerer(Module, Builder, Resolver)
+    , Lowerer(Module, Builder, Resolver, options.Debugger != nullptr)
     , Options(std::move(options))
     , Interpreter(Module, Compiler, out, in, Options.Debugger)
 {

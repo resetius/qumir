@@ -193,12 +193,25 @@ struct TPhi {
     }
 };
 
+struct TInstrDebugInfo {
+    TLocation Location = {}; // source location (instruction)
+    int32_t ScopeId = -1; // owning lexical scope
+
+    operator bool() const {
+        return Location.Line != 0 || Location.Byte != 0 || Location.Column != 0 || ScopeId != -1;
+    }
+};
+
 struct TBlock {
     TLabel Label;
     std::vector<TPhi> Phis;
     std::vector<TInstr> Instrs;
     std::list<TLabel> Succ;
     std::list<TLabel> Pred;
+
+    /* debug {*/
+    std::vector<TInstrDebugInfo> InstrDebugInfo;
+    /* debug }*/
 };
 
 struct TExecFunc;
@@ -219,8 +232,13 @@ struct TExternalFunction {
 struct TLocalVarDebugInfo {
     std::string Name; // from ast name
     TLocation Location; // source location (declaration)
-    int32_t ScopeId; // owning lexical scope
+    int32_t ScopeId = -1; // owning lexical scope
     NAst::TTypePtr AstType = nullptr;
+
+    operator bool() const {
+        return !Name.empty() || Location.Line != 0 || Location.Byte != 0
+            || Location.Column != 0 || ScopeId != -1 || AstType != nullptr;
+    }
 };
 
 struct TFunction {
@@ -294,7 +312,7 @@ public:
     void SetCurrentBlock(TLabel label);
     void SetCurrentFunction(int idx = -1); // -1 = last
 
-    TTmp Emit1(TOp op, std::initializer_list<TOperand> operands);
+    TTmp Emit1(TOp op, std::initializer_list<TOperand> operands, const TInstrDebugInfo& debugInfo = {});
     void SetType(TTmp tmp, int typeId);
     int GetType(TTmp tmp) const;
     void SetType(TLocal local, int typeId, const TLocalVarDebugInfo& debugInfo);
@@ -302,7 +320,7 @@ public:
     TLocal AllocLocal(int typeId, const TLocalVarDebugInfo& debugInfo); // allocates a new unnamed local and returns its index
     void UnifyTypes(TTmp left, TTmp right);
     void SetReturnType(int typeId);
-    void Emit0(TOp op, std::initializer_list<TOperand> operands);
+    void Emit0(TOp op, std::initializer_list<TOperand> operands, const TInstrDebugInfo& debugInfo = {});
     int StringLiteral(const std::string& str); // string -> id, adds to current function's StringLiterals
 
     // Returns true if the last instruction in the current block unconditionally

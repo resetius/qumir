@@ -395,7 +395,7 @@ TLabel TBuilder::NewLabel() {
     return TLabel{CurrentFunction->NextLabelIdx++};
 }
 
-TTmp TBuilder::Emit1(TOp op, std::initializer_list<TOperand> operands) {
+TTmp TBuilder::Emit1(TOp op, std::initializer_list<TOperand> operands, const TInstrDebugInfo& debugInfo) {
     if (!CurrentBlock) {
         throw std::runtime_error("No current block");
     }
@@ -419,11 +419,17 @@ TTmp TBuilder::Emit1(TOp op, std::initializer_list<TOperand> operands) {
             instr.Operands[i] = *(operands.begin() + i);
             instr.OperandCount++;
         }
+        if (debugInfo) {
+            if (CurrentBlock->InstrDebugInfo.size() < CurrentBlock->Instrs.size()) {
+                CurrentBlock->InstrDebugInfo.resize(CurrentBlock->Instrs.size());
+            }
+            CurrentBlock->InstrDebugInfo[CurrentBlock->Instrs.size() - 1] = debugInfo;
+        }
     }
     return t;
 }
 
-void TBuilder::Emit0(TOp op, std::initializer_list<TOperand> operands) {
+void TBuilder::Emit0(TOp op, std::initializer_list<TOperand> operands, const TInstrDebugInfo& debugInfo) {
     if (!CurrentBlock) {
         throw std::runtime_error("No current block");
     }
@@ -435,6 +441,13 @@ void TBuilder::Emit0(TOp op, std::initializer_list<TOperand> operands) {
     for (size_t i = 0; i < operands.size() && i < instr.Operands.size(); ++i) {
         instr.Operands[i] = *(operands.begin() + i);
         instr.OperandCount++;
+    }
+
+    if (debugInfo) {
+        if (CurrentBlock->InstrDebugInfo.size() < CurrentBlock->Instrs.size()) {
+            CurrentBlock->InstrDebugInfo.resize(CurrentBlock->Instrs.size());
+        }
+        CurrentBlock->InstrDebugInfo[CurrentBlock->Instrs.size() - 1] = debugInfo;
     }
 }
 
@@ -471,10 +484,12 @@ void TBuilder::SetType(TLocal local, int typeId, const TLocalVarDebugInfo& debug
         CurrentFunction->LocalTypes.resize(local.Idx + 1, -1);
     }
     CurrentFunction->LocalTypes[local.Idx] = typeId;
-    if (local.Idx >= CurrentFunction->LocalDebugInfo.size()) {
-        CurrentFunction->LocalDebugInfo.resize(local.Idx + 1);
+    if (debugInfo) {
+        if (local.Idx >= CurrentFunction->LocalDebugInfo.size()) {
+            CurrentFunction->LocalDebugInfo.resize(local.Idx + 1);
+        }
+        CurrentFunction->LocalDebugInfo[local.Idx] = debugInfo;
     }
-    CurrentFunction->LocalDebugInfo[local.Idx] = debugInfo;
 }
 
 void TBuilder::ReserveLocals(int count) {
@@ -486,9 +501,6 @@ void TBuilder::ReserveLocals(int count) {
     }
     if (count > CurrentFunction->LocalTypes.size()) {
         CurrentFunction->LocalTypes.resize(count, -1);
-    }
-    if (count > CurrentFunction->LocalDebugInfo.size()) {
-        CurrentFunction->LocalDebugInfo.resize(count);
     }
 }
 

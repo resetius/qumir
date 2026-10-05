@@ -7,6 +7,7 @@
 
 #include <qumir/optional.h>
 
+#include <string_view>
 #include <unordered_map>
 
 namespace NQumir {
@@ -16,13 +17,20 @@ using namespace NLiterals;
 
 class TAstLowerer {
 public:
-    TAstLowerer(TModule& module, TBuilder& builder, NSemantics::TNameResolver& ctx)
-        : Module(module), Builder(builder), Context(ctx)
+    TAstLowerer(TModule& module, TBuilder& builder, NSemantics::TNameResolver& ctx, bool emitDebugInfo = false)
+        : Module(module), Builder(builder), Context(ctx), EmitDebugInfo(emitDebugInfo)
     {}
 
     std::expected<std::monostate, TError> LowerTop(const NAst::TExprPtr& expr);
 
 private:
+    TInstrDebugInfo InstDebugInfo(const TLocation& location, int32_t scopeId) const;
+    TLocalVarDebugInfo LocalDebugInfo(
+        std::string_view name,
+        const TLocation& location,
+        int32_t scopeId,
+        const NAst::TTypePtr& astType = {}) const;
+
     struct TBlockScope {
         int64_t FuncIdx;
         NSemantics::TScopeId Id;
@@ -65,9 +73,10 @@ private:
         TOperand value,
         const NAst::TTypePtr& type,
         std::optional<TOperand> aux,
-        const TLocation& loc);
+        const TLocation& loc,
+        int32_t scopeId);
     TExpectedTask<TTmp, TError, TLocation> LoadVar(const std::string& name, TBlockScope scope, const TLocation& loc, bool ref = false);
-    TTmp LoadLayoutOperand(TOperand operand);
+    TTmp LoadLayoutOperand(TOperand operand, const TLocation& loc, int32_t scopeId);
     TOperand AllocLayoutStorage(NSemantics::TSymbolInfo symbol, int typeId, const std::string& name, const TLocation& loc);
 
     void ImportExternalFunction(int symbolId, const NAst::TFunDecl& funcDecl);
@@ -77,6 +86,7 @@ private:
     TModule& Module;
     TBuilder& Builder;
     NSemantics::TNameResolver& Context;
+    bool EmitDebugInfo;
 
     std::unordered_map<int32_t, TArrayLayout> ArrayLayouts;
     int32_t NextHiddenGlobalSlot = -1;

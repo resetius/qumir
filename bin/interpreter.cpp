@@ -299,6 +299,11 @@ int main(int argc, char ** argv) {
         }
     }
 
+    if (optLevel > 0) {
+        // TODO: unsupported
+        debugger.reset();
+    }
+
     std::istream* in = &std::cin;
     std::ifstream infile;
     if (!inputFile.empty() && inputFile != "-") {

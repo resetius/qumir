@@ -20,6 +20,19 @@ using namespace NLiterals;
 
 namespace {
 
+struct TInstrEmitter {
+    TBuilder& Builder;
+    TInstrDebugInfo DebugInfo;
+
+    TTmp Emit1(TOp op, std::initializer_list<TOperand> operands) {
+        return Builder.Emit1(op, operands, DebugInfo);
+    }
+
+    void Emit0(TOp op, std::initializer_list<TOperand> operands) {
+        Builder.Emit0(op, operands, DebugInfo);
+    }
+};
+
 NAst::TTypePtr PhysicalCallResultType(NAst::TTypePtr type)
 {
     if (auto futureResult = NAst::FutureResultType(type)) {
@@ -60,10 +73,29 @@ std::string RootVariableName(const NAst::TExprPtr& node)
 
 } // namespace
 
+TInstrDebugInfo TAstLowerer::InstDebugInfo(const TLocation& location, int32_t scopeId) const {
+    if (!EmitDebugInfo) {
+        return {};
+    }
+    return TInstrDebugInfo{location, scopeId};
+}
+
+TLocalVarDebugInfo TAstLowerer::LocalDebugInfo(
+    std::string_view name,
+    const TLocation& location,
+    int32_t scopeId,
+    const NAst::TTypePtr& astType) const
+{
+    if (!EmitDebugInfo) {
+        return {};
+    }
+    return TLocalVarDebugInfo{std::string(name), location, scopeId, astType};
+}
+
 TOperand TAstLowerer::AllocLayoutStorage(NSemantics::TSymbolInfo symbol, int typeId, const std::string& name, const TLocation& loc)
 {
     if (symbol.FunctionLevelIdx >= 0) {
-        return TOperand{Builder.AllocLocal(typeId, TLocalVarDebugInfo{name, loc, symbol.DeclScopeId})};
+        return TOperand{Builder.AllocLocal(typeId, LocalDebugInfo(name, loc, symbol.DeclScopeId))};
     }
 
     if (NextHiddenGlobalSlot < 0) {
@@ -86,6 +118,7 @@ TExpectedTask<TOperand, TError, TLocation> TAstLowerer::EnsureStructAddress(
     const TLocation& loc,
     int32_t scopeId)
 {
+    TInstrEmitter emitter{Builder, InstDebugInfo(loc, scopeId)};
     if (Module.Types.GetKind(structTypeId) != EKind::Struct) {
         co_return TError(loc, "Внутренняя ошибка: ожидается структурный тип.");
     }
@@ -99,7 +132,7 @@ TExpectedTask<TOperand, TError, TLocation> TAstLowerer::EnsureStructAddress(
         co_return value;
     }
     if (Module.Types.GetKind(valueTypeId) == EKind::Ptr) {
-        auto typedPtr = Builder.Emit1("mov"_op, {value});
+        auto typedPtr = emitter.Emit1("mov"_op, {value});
         Builder.SetType(typedPtr, ptrTypeId);
         co_return TOperand{typedPtr};
     }
@@ -107,16 +140,17 @@ TExpectedTask<TOperand, TError, TLocation> TAstLowerer::EnsureStructAddress(
         co_return TError(loc, "Внутренняя ошибка: значение структуры имеет несовместимый IR-тип.");
     }
 
-    auto local = Builder.AllocLocal(structTypeId, TLocalVarDebugInfo{name, loc, scopeId});
-    Builder.Emit0("stre"_op, {TOperand{local}, value});
-    auto addr = Builder.Emit1("lea"_op, {TOperand{local}});
+    auto local = Builder.AllocLocal(structTypeId, LocalDebugInfo(name, loc, scopeId));
+    emitter.Emit0("stre"_op, {TOperand{local}, value});
+    auto addr = emitter.Emit1("lea"_op, {TOperand{local}});
     Builder.SetType(addr, ptrTypeId);
     co_return TOperand{addr};
 }
 
-TTmp TAstLowerer::LoadLayoutOperand(TOperand operand)
+TTmp TAstLowerer::LoadLayoutOperand(TOperand operand, const TLocation& loc, int32_t scopeId)
 {
-    auto tmp = Builder.Emit1("load"_op, {operand});
+    TInstrEmitter emitter{Builder, InstDebugInfo(loc, scopeId)};
+    auto tmp = emitter.Emit1("load"_op, {operand});
     Builder.SetType(tmp, Module.Types.I(EKind::I64));
     return tmp;
 }
@@ -128,6 +162,7 @@ TExpectedTask<TAstLowerer::TArrayLayout, TError, TLocation> TAstLowerer::LowerAr
     const std::string& name,
     const TLocation& loc)
 {
+    TInstrEmitter emitter{Builder, InstDebugInfo(loc, scope.Id.Id)};
     if (bounds.empty()) {
         co_return TError(loc, TErrorString::Get<EErrorId::UNDEFINED_NAME>());
     }
@@ -154,17 +189,17 @@ TExpectedTask<TAstLowerer::TArrayLayout, TError, TLocation> TAstLowerer::LowerAr
         auto dimSizeStorage = AllocLayoutStorage(symbol, i64, "$dimSize" + std::to_string(i) + "_" + name, loc);
         auto strideStorage = AllocLayoutStorage(symbol, i64, "$stride" + std::to_string(i) + "_" + name, loc);
 
-        Builder.Emit0("stre"_op, {lboundStorage, *lboundValue.Value});
+        emitter.Emit0("stre"_op, {lboundStorage, *lboundValue.Value});
 
-        auto dimDiff = Builder.Emit1("-"_op, {*rboundValue.Value, *lboundValue.Value});
+        auto dimDiff = emitter.Emit1("-"_op, {*rboundValue.Value, *lboundValue.Value});
         Builder.SetType(dimDiff, i64);
-        auto dimSize = Builder.Emit1("+"_op, {dimDiff, TImm{1, i64}});
+        auto dimSize = emitter.Emit1("+"_op, {dimDiff, TImm{1, i64}});
         Builder.SetType(dimSize, i64);
-        Builder.Emit0("stre"_op, {dimSizeStorage, dimSize});
+        emitter.Emit0("stre"_op, {dimSizeStorage, dimSize});
 
-        auto stride = Builder.Emit1("*"_op, {prevStride, dimSize});
+        auto stride = emitter.Emit1("*"_op, {prevStride, dimSize});
         Builder.SetType(stride, i64);
-        Builder.Emit0("stre"_op, {strideStorage, stride});
+        emitter.Emit0("stre"_op, {strideStorage, stride});
 
         layout.LBounds[i] = lboundStorage;
         layout.DimSizes[i] = dimSizeStorage;
@@ -179,18 +214,19 @@ TExpectedTask<TAstLowerer::TArrayLayout, TError, TLocation> TAstLowerer::LowerAr
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerWhile(std::shared_ptr<NAst::TWhileStmtExpr> loop, TBlockScope scope)
 {
+    TInstrEmitter emitter{Builder, InstDebugInfo(loop->Location, scope.Id.Id)};
     auto entryId = Builder.CurrentBlockIdx();
     auto [condLabel, condId] = Builder.NewBlock();
     auto [bodyLabel, bodyId] = Builder.NewBlock();
     auto endLabel = Builder.NewLabel();
 
     Builder.SetCurrentBlock(entryId);
-    Builder.Emit0("jmp"_op, {condLabel});
+    emitter.Emit0("jmp"_op, {condLabel});
 
     Builder.SetCurrentBlock(condId);
     auto cond = co_await Lower(loop->Cond, scope);
     if (!cond.Value) co_return TError(loop->Cond->Location, TErrorString::Get<EErrorId::WHILE_CONDITION_NOT_NUMBER>());
-    Builder.Emit0("cmp"_op, {*cond.Value, bodyLabel, endLabel});
+    emitter.Emit0("cmp"_op, {*cond.Value, bodyLabel, endLabel});
 
     Builder.SetCurrentBlock(bodyId);
     co_await Lower(loop->Body, TBlockScope {
@@ -204,7 +240,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
-        Builder.Emit0("jmp"_op, {condLabel});
+        emitter.Emit0("jmp"_op, {condLabel});
     }
 
     Builder.NewBlock(endLabel);
@@ -213,13 +249,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerRepeat(std::shared_ptr<NAst::TRepeatStmtExpr> loop, TBlockScope scope)
 {
+    TInstrEmitter emitter{Builder, InstDebugInfo(loop->Location, scope.Id.Id)};
     auto entryId = Builder.CurrentBlockIdx();
     auto [bodyLabel, bodyId] = Builder.NewBlock();
     auto [condLabel, condId] = Builder.NewBlock();
     auto endLabel = Builder.NewLabel();
 
     Builder.SetCurrentBlock(entryId);
-    Builder.Emit0("jmp"_op, {bodyLabel});
+    emitter.Emit0("jmp"_op, {bodyLabel});
 
     Builder.SetCurrentBlock(bodyId);
     co_await Lower(loop->Body, TBlockScope {
@@ -233,13 +270,13 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
-        Builder.Emit0("jmp"_op, {condLabel});
+        emitter.Emit0("jmp"_op, {condLabel});
     }
 
     Builder.SetCurrentBlock(condId);
     auto cond = co_await Lower(loop->Cond, scope);
     if (!cond.Value) co_return TError(loop->Cond->Location, TErrorString::Get<EErrorId::REPEAT_CONDITION_NOT_NUMBER>());
-    Builder.Emit0("cmp"_op, {*cond.Value, bodyLabel, endLabel});
+    emitter.Emit0("cmp"_op, {*cond.Value, bodyLabel, endLabel});
 
     Builder.NewBlock(endLabel);
     co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
@@ -247,6 +284,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerFor(std::shared_ptr<NAst::TForStmtExpr> loop, TBlockScope scope)
 {
+    TInstrEmitter emitter{Builder, InstDebugInfo(loop->Location, scope.Id.Id)};
     const auto i64 = Module.Types.I(EKind::I64);
 
     auto sidOpt = Context.Lookup(loop->VarName, scope.Id);
@@ -259,25 +297,25 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     if (sidOpt->FunctionLevelIdx >= 0) {
         auto declaration = Context.GetSymbolNode(NSemantics::TSymbolId{sidOpt->Id});
         Builder.SetType(TLocal{sidOpt->FunctionLevelIdx}, i64,
-            TLocalVarDebugInfo{loop->VarName, declaration->Location, sidOpt->DeclScopeId, declaration->Type});
+            LocalDebugInfo(loop->VarName, declaration->Location, sidOpt->DeclScopeId, declaration->Type));
     }
 
-    auto toLocal = Builder.AllocLocal(i64, TLocalVarDebugInfo{"$to", loop->Location, scope.Id.Id});
-    auto stepLocal = Builder.AllocLocal(i64, TLocalVarDebugInfo{"$step", loop->Location, scope.Id.Id});
-    auto nextLocal = Builder.AllocLocal(i64, TLocalVarDebugInfo{"$next", loop->Location, scope.Id.Id});
+    auto toLocal = Builder.AllocLocal(i64, LocalDebugInfo("$to", loop->Location, scope.Id.Id));
+    auto stepLocal = Builder.AllocLocal(i64, LocalDebugInfo("$step", loop->Location, scope.Id.Id));
+    auto nextLocal = Builder.AllocLocal(i64, LocalDebugInfo("$next", loop->Location, scope.Id.Id));
 
     auto storeLocal = [&](TLocal local, TOperand value) {
-        Builder.Emit0("stre"_op, {TOperand{local}, value});
+        emitter.Emit0("stre"_op, {TOperand{local}, value});
     };
     auto loadLocal = [&](TLocal local) {
-        auto tmp = Builder.Emit1("load"_op, {TOperand{local}});
+        auto tmp = emitter.Emit1("load"_op, {TOperand{local}});
         Builder.SetType(tmp, i64);
         return tmp;
     };
 
     auto from = co_await Lower(loop->From, scope);
     if (!from.Value) co_return TError(loop->From->Location, TErrorString::Get<EErrorId::RIGHT_HAND_SIDE_NOT_NUMBER>());
-    Builder.Emit0("stre"_op, {varOperand, *from.Value});
+    emitter.Emit0("stre"_op, {varOperand, *from.Value});
 
     if (loop->Step) {
         auto step = co_await Lower(loop->Step, scope);
@@ -287,7 +325,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         storeLocal(stepLocal, TImm{1, i64});
     }
 
-    auto initialNext = Builder.Emit1("load"_op, {varOperand});
+    auto initialNext = emitter.Emit1("load"_op, {varOperand});
     Builder.SetType(initialNext, i64);
     storeLocal(nextLocal, initialNext);
 
@@ -302,23 +340,23 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     auto endLabel = Builder.NewLabel();
 
     Builder.SetCurrentBlock(entryId);
-    Builder.Emit0("jmp"_op, {condLabel});
+    emitter.Emit0("jmp"_op, {condLabel});
 
     Builder.SetCurrentBlock(condId);
     auto toValue = loadLocal(toLocal);
     auto nextValue = loadLocal(nextLocal);
     auto stepValue = loadLocal(stepLocal);
-    auto diff = Builder.Emit1("-"_op, {toValue, nextValue});
+    auto diff = emitter.Emit1("-"_op, {toValue, nextValue});
     Builder.SetType(diff, i64);
-    auto product = Builder.Emit1("*"_op, {diff, stepValue});
+    auto product = emitter.Emit1("*"_op, {diff, stepValue});
     Builder.SetType(product, i64);
-    auto condValue = Builder.Emit1(">="_op, {product, TImm{0, i64}});
+    auto condValue = emitter.Emit1(">="_op, {product, TImm{0, i64}});
     Builder.SetType(condValue, Module.Types.I(EKind::I1));
-    Builder.Emit0("cmp"_op, {condValue, bodyLabel, endLabel});
+    emitter.Emit0("cmp"_op, {condValue, bodyLabel, endLabel});
 
     Builder.SetCurrentBlock(bodyId);
     auto current = loadLocal(nextLocal);
-    Builder.Emit0("stre"_op, {varOperand, current});
+    emitter.Emit0("stre"_op, {varOperand, current});
     co_await Lower(loop->Body, TBlockScope{
         .FuncIdx = scope.FuncIdx,
         .Id = scope.Id,
@@ -330,17 +368,17 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
-        Builder.Emit0("jmp"_op, {postLabel});
+        emitter.Emit0("jmp"_op, {postLabel});
     }
 
     Builder.SetCurrentBlock(postId);
     auto postNext = loadLocal(nextLocal);
     auto postStep = loadLocal(stepLocal);
-    auto updated = Builder.Emit1("+"_op, {postNext, postStep});
+    auto updated = emitter.Emit1("+"_op, {postNext, postStep});
     Builder.SetType(updated, i64);
     storeLocal(nextLocal, updated);
     if (!Builder.IsCurrentBlockTerminated()) {
-        Builder.Emit0("jmp"_op, {condLabel});
+        emitter.Emit0("jmp"_op, {condLabel});
     }
 
     Builder.NewBlock(endLabel);
@@ -349,20 +387,21 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerTimes(std::shared_ptr<NAst::TTimesStmtExpr> loop, TBlockScope scope)
 {
+    TInstrEmitter emitter{Builder, InstDebugInfo(loop->Location, scope.Id.Id)};
     const auto i64 = Module.Types.I(EKind::I64);
 
-    auto toLocal = Builder.AllocLocal(i64, TLocalVarDebugInfo{"$to", loop->Location, scope.Id.Id});
-    auto nextLocal = Builder.AllocLocal(i64, TLocalVarDebugInfo{"$next", loop->Location, scope.Id.Id});
+    auto toLocal = Builder.AllocLocal(i64, LocalDebugInfo("$to", loop->Location, scope.Id.Id));
+    auto nextLocal = Builder.AllocLocal(i64, LocalDebugInfo("$next", loop->Location, scope.Id.Id));
 
     auto count = co_await Lower(loop->Count, scope);
     if (!count.Value) co_return TError(loop->Count->Location, TErrorString::Get<EErrorId::RIGHT_HAND_SIDE_NOT_NUMBER>());
-    Builder.Emit0("stre"_op, {TOperand{nextLocal}, TImm{1, i64}});
-    auto toValue = Builder.Emit1("+"_op, {*count.Value, TImm{1, i64}});
+    emitter.Emit0("stre"_op, {TOperand{nextLocal}, TImm{1, i64}});
+    auto toValue = emitter.Emit1("+"_op, {*count.Value, TImm{1, i64}});
     Builder.SetType(toValue, i64);
-    Builder.Emit0("stre"_op, {TOperand{toLocal}, toValue});
+    emitter.Emit0("stre"_op, {TOperand{toLocal}, toValue});
 
     auto loadLocal = [&](TLocal local) {
-        auto tmp = Builder.Emit1("load"_op, {TOperand{local}});
+        auto tmp = emitter.Emit1("load"_op, {TOperand{local}});
         Builder.SetType(tmp, i64);
         return tmp;
     };
@@ -374,14 +413,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     auto endLabel = Builder.NewLabel();
 
     Builder.SetCurrentBlock(entryId);
-    Builder.Emit0("jmp"_op, {condLabel});
+    emitter.Emit0("jmp"_op, {condLabel});
 
     Builder.SetCurrentBlock(condId);
     auto nextValue = loadLocal(nextLocal);
     auto limitValue = loadLocal(toLocal);
-    auto condValue = Builder.Emit1("!="_op, {nextValue, limitValue});
+    auto condValue = emitter.Emit1("!="_op, {nextValue, limitValue});
     Builder.SetType(condValue, Module.Types.I(EKind::I1));
-    Builder.Emit0("cmp"_op, {condValue, bodyLabel, endLabel});
+    emitter.Emit0("cmp"_op, {condValue, bodyLabel, endLabel});
 
     Builder.SetCurrentBlock(bodyId);
     co_await Lower(loop->Body, TBlockScope{
@@ -395,16 +434,16 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         .LastAssert = scope.LastAssert
     });
     if (!Builder.IsCurrentBlockTerminated()) {
-        Builder.Emit0("jmp"_op, {postLabel});
+        emitter.Emit0("jmp"_op, {postLabel});
     }
 
     Builder.SetCurrentBlock(postId);
     auto postNext = loadLocal(nextLocal);
-    auto updated = Builder.Emit1("+"_op, {postNext, TImm{1, i64}});
+    auto updated = emitter.Emit1("+"_op, {postNext, TImm{1, i64}});
     Builder.SetType(updated, i64);
-    Builder.Emit0("stre"_op, {TOperand{nextLocal}, updated});
+    emitter.Emit0("stre"_op, {TOperand{nextLocal}, updated});
     if (!Builder.IsCurrentBlockTerminated()) {
-        Builder.Emit0("jmp"_op, {condLabel});
+        emitter.Emit0("jmp"_op, {condLabel});
     }
 
     Builder.NewBlock(endLabel);
@@ -413,6 +452,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
 TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& name, TBlockScope scope, const TLocation& loc, bool takeRefOfNotRef)
 {
+    TInstrEmitter emitter{Builder, InstDebugInfo(loc, scope.Id.Id)};
     auto var = Context.Lookup(name, scope.Id);
     if (!var) {
         co_return TError(loc, TErrorString::Get<EErrorId::UNDEFINED_VARIABLE>(name));
@@ -437,7 +477,7 @@ TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& n
 
     // Struct rvalues are address-backed in IR; scalar values are loaded.
     TOp opcode = (takeRefOfNotRef || loadStructByAddress) ? "lea"_op : "load"_op;
-    auto tmp = Builder.Emit1(opcode, { op });
+    auto tmp = emitter.Emit1(opcode, { op });
     Builder.SetType(tmp,
         (takeRefOfNotRef || loadStructByAddress) ? Module.Types.Ptr(valueTypeId) : valueTypeId);
     co_return tmp;
@@ -445,6 +485,9 @@ TExpectedTask<TTmp, TError, TLocation> TAstLowerer::LoadVar(const std::string& n
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerIndices(NSemantics::TSymbolInfo symbol, const std::vector<NAst::TExprPtr>& indices, TBlockScope scope, int elemSize)
 {
+    TInstrEmitter emitter{
+        Builder,
+        InstDebugInfo(indices.empty() ? TLocation{} : indices.front()->Location, scope.Id.Id)};
     int n = indices.size() - 1;
     int i = n;
     auto i64 = Module.Types.I(EKind::I64);
@@ -466,29 +509,31 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         // stride_n = 1
         // stride_{n-1} = mulAccName_{n}
 
-        auto tmp = LoadLayoutOperand(layout.LBounds[i]);
-        tmp = Builder.Emit1("-"_op, {*indexRes.Value, tmp});
+        emitter.DebugInfo = InstDebugInfo(indices[i]->Location, scope.Id.Id);
+        auto tmp = LoadLayoutOperand(layout.LBounds[i], indices[i]->Location, scope.Id.Id);
+        tmp = emitter.Emit1("-"_op, {*indexRes.Value, tmp});
         Builder.SetType(tmp, i64);
         if (i != n) {
-            auto stride = LoadLayoutOperand(layout.Strides[i + 1]);
-            tmp = Builder.Emit1("*"_op, {tmp, stride});
+            auto stride = LoadLayoutOperand(layout.Strides[i + 1], indices[i]->Location, scope.Id.Id);
+            tmp = emitter.Emit1("*"_op, {tmp, stride});
             Builder.SetType(tmp, i64);
         }
 
         if (prev) {
-            tmp = Builder.Emit1("+"_op, {tmp, *prev});
+            tmp = emitter.Emit1("+"_op, {tmp, *prev});
             Builder.SetType(tmp, i64);
         }
 
         prev = tmp;
     }
-    *prev = Builder.Emit1("*"_op, {*prev, TImm{elemSize, i64}}); // byte offset
+    *prev = emitter.Emit1("*"_op, {*prev, TImm{elemSize, i64}}); // byte offset
     Builder.SetType(*prev, i64);
     co_return TValueWithBlock{ *prev, Builder.CurrentBlockLabel() };
 }
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerLValueAddress(const NAst::TExprPtr& expr, TBlockScope scope)
 {
+    TInstrEmitter emitter{Builder, InstDebugInfo(expr->Location, scope.Id.Id)};
     if (auto maybeIdent = NAst::TMaybeNode<NAst::TIdentExpr>(expr)) {
         auto addr = co_await LoadVar(maybeIdent.Cast()->Name, scope, expr->Location, true /*address*/);
         co_return TValueWithBlock{addr, Builder.CurrentBlockLabel()};
@@ -528,7 +573,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         TOperand byteOffset;
         auto collectionType = NAst::UnwrapReferenceType(NAst::UnwrapNamedType(index->Collection->Type));
         if (NAst::TMaybeType<NAst::TPointerType>(collectionType) || IsRawArraySymbol(symbolNode)) {
-            auto offset = Builder.Emit1("*"_op, {*indexValue.Value, TImm{elemByteSize, i64}});
+            auto offset = emitter.Emit1("*"_op, {*indexValue.Value, TImm{elemByteSize, i64}});
             Builder.SetType(offset, i64);
             byteOffset = offset;
         } else {
@@ -536,15 +581,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             if (layoutIt == ArrayLayouts.end()) {
                 co_return TError(index->Collection->Location, TErrorString::Get<EErrorId::UNDEFINED_NAME>());
             }
-            auto lbound0 = LoadLayoutOperand(layoutIt->second.LBounds[0]);
-            auto zeroBasedIndex = Builder.Emit1("-"_op, {*indexValue.Value, lbound0});
+            auto lbound0 = LoadLayoutOperand(layoutIt->second.LBounds[0], expr->Location, scope.Id.Id);
+            auto zeroBasedIndex = emitter.Emit1("-"_op, {*indexValue.Value, lbound0});
             Builder.SetType(zeroBasedIndex, i64);
-            auto offset = Builder.Emit1("*"_op, {zeroBasedIndex, TImm{elemByteSize, i64}});
+            auto offset = emitter.Emit1("*"_op, {zeroBasedIndex, TImm{elemByteSize, i64}});
             Builder.SetType(offset, i64);
             byteOffset = offset;
         }
 
-        auto destPtr = Builder.Emit1("+"_op, {arrayPtr, byteOffset});
+        auto destPtr = emitter.Emit1("+"_op, {arrayPtr, byteOffset});
         Builder.SetType(destPtr, arrayType);
         co_return TValueWithBlock{destPtr, Builder.CurrentBlockLabel()};
     }
@@ -573,7 +618,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (!indices.Value) {
             co_return TError(multiIndex->Location, TErrorString::Get<EErrorId::FAILED_LOWER_ARRAY_INDICES>());
         }
-        auto destPtr = Builder.Emit1("+"_op, {arrayPtr, *indices.Value});
+        auto destPtr = emitter.Emit1("+"_op, {arrayPtr, *indices.Value});
         Builder.SetType(destPtr, arrayType);
         co_return TValueWithBlock{destPtr, Builder.CurrentBlockLabel()};
     }
@@ -599,7 +644,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto i64 = Module.Types.I(EKind::I64);
         int fieldTypeId = FromAstType(field->Type, Module.Types);
         int ptrTypeId = Module.Types.Ptr(fieldTypeId);
-        auto fieldPtr = Builder.Emit1("+"_op, {objAddr, TImm{fieldByteOffset, i64}});
+        auto fieldPtr = emitter.Emit1("+"_op, {objAddr, TImm{fieldByteOffset, i64}});
         Builder.SetType(fieldPtr, ptrTypeId);
         co_return TValueWithBlock{fieldPtr, Builder.CurrentBlockLabel()};
     }
@@ -630,8 +675,10 @@ TExpectedTask<std::monostate, TError, TLocation> TAstLowerer::EmitLifetimeDestro
     TOperand value,
     const NAst::TTypePtr& inputType,
     std::optional<TOperand> aux,
-    const TLocation& loc)
+    const TLocation& loc,
+    int32_t scopeId)
 {
+    TInstrEmitter emitter{Builder, InstDebugInfo(loc, scopeId)};
     auto type = NAst::UnwrapReferenceType(NAst::UnwrapNamedType(inputType));
     std::string destructorName;
     bool usesAux = false;
@@ -654,16 +701,17 @@ TExpectedTask<std::monostate, TError, TLocation> TAstLowerer::EmitLifetimeDestro
     }
 
     auto destructorId = co_await GlobalSymbolId(destructorName);
-    Builder.Emit0("arg"_op, {value});
+    emitter.Emit0("arg"_op, {value});
     if (usesAux) {
-        Builder.Emit0("arg"_op, {*aux});
+        emitter.Emit0("arg"_op, {*aux});
     }
-    Builder.Emit0("call"_op, {TImm{destructorId}});
+    emitter.Emit0("call"_op, {TImm{destructorId}});
     co_return std::monostate{};
 }
 
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& inputExpr, TBlockScope scope) {
     NAst::TExprPtr expr = inputExpr;
+    TInstrEmitter emitter{Builder, InstDebugInfo(expr->Location, scope.Id.Id)};
 
     if (auto maybeRetain = NAst::TMaybeNode<NAst::TRetainExpr>(expr)) {
         auto retain = maybeRetain.Cast();
@@ -672,8 +720,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(retain->Location, "retain operand must produce a value");
         }
         auto retainId = co_await GlobalSymbolId("str_retain");
-        Builder.Emit0("arg"_op, {*value.Value});
-        Builder.Emit0("call"_op, {TImm{retainId}});
+        emitter.Emit0("arg"_op, {*value.Value});
+        emitter.Emit0("call"_op, {TImm{retainId}});
         co_return value;
     } else if (auto maybeLiteral = NAst::TMaybeNode<NAst::TOwnLiteralExpr>(expr)) {
         auto literal = maybeLiteral.Cast();
@@ -682,8 +730,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(literal->Location, "own-literal operand must produce a value");
         }
         auto constructorId = co_await GlobalSymbolId("str_from_lit");
-        Builder.Emit0("arg"_op, {*value.Value});
-        auto owned = Builder.Emit1("call"_op, {TImm{constructorId}});
+        emitter.Emit0("arg"_op, {*value.Value});
+        auto owned = emitter.Emit1("call"_op, {TImm{constructorId}});
         Builder.SetType(owned, FromAstType(literal->Type, Module.Types));
         co_return TValueWithBlock{owned, Builder.CurrentBlockLabel()};
     } else if (auto maybeMove = NAst::TMaybeNode<NAst::TMoveExpr>(expr)) {
@@ -711,7 +759,8 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             *value.Value,
             destroy->Value->Type,
             aux,
-            destroy->Location);
+            destroy->Location,
+            scope.Id.Id);
         co_return TValueWithBlock{std::nullopt, Builder.CurrentBlockLabel()};
     } else if (auto maybeReplace = NAst::TMaybeNode<NAst::TReplaceExpr>(expr)) {
         auto replace = maybeReplace.Cast();
@@ -728,14 +777,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto targetType = NAst::UnwrapReferenceType(
             NAst::UnwrapNamedType(replace->Target->Type));
         auto targetTypeId = FromAstType(targetType, Module.Types);
-        auto oldValue = Builder.Emit1("lde"_op, {*address.Value});
+        auto oldValue = emitter.Emit1("lde"_op, {*address.Value});
         Builder.SetType(oldValue, targetTypeId);
         co_await EmitLifetimeDestroy(
             oldValue,
             targetType,
             std::nullopt,
-            replace->Location);
-        Builder.Emit0("ste"_op, {*address.Value, *value.Value});
+            replace->Location,
+            scope.Id.Id);
+        emitter.Emit0("ste"_op, {*address.Value, *value.Value});
         co_return TValueWithBlock{std::nullopt, Builder.CurrentBlockLabel()};
     } else if (auto maybeExit = NAst::TMaybeNode<NAst::TCleanupExitExpr>(expr)) {
         auto exit = maybeExit.Cast();
@@ -757,7 +807,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                         exit->Value->Location,
                         scope.Id.Id);
                 }
-                Builder.Emit0("stre"_op, {TOperand{*scope.RetLocal}, returnValue});
+                emitter.Emit0("stre"_op, {TOperand{*scope.RetLocal}, returnValue});
             }
             if (scope.LastAssert) {
                 co_await Lower(scope.LastAssert, scope);
@@ -765,7 +815,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             for (const auto& cleanup : exit->Cleanups) {
                 co_await Lower(cleanup, scope);
             }
-            Builder.Emit0("jmp"_op, {*scope.ReturnLabel});
+            emitter.Emit0("jmp"_op, {*scope.ReturnLabel});
             co_return TValueWithBlock{std::nullopt, Builder.CurrentBlockLabel()};
         }
 
@@ -781,7 +831,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         for (const auto& cleanup : exit->Cleanups) {
             co_await Lower(cleanup, scope);
         }
-        Builder.Emit0("jmp"_op, {*target});
+        emitter.Emit0("jmp"_op, {*target});
         co_return TValueWithBlock{std::nullopt, Builder.CurrentBlockLabel()};
     } else if (auto maybeGlobal = NAst::TMaybeNode<NAst::TGlobalCleanupExpr>(expr)) {
         for (const auto& cleanup : maybeGlobal.Cast()->Cleanups) {
@@ -812,7 +862,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             && Module.Types.SizeInBytes(sourceTypeId) != Module.Types.SizeInBytes(targetTypeId)) {
             co_return TError(bitcast->Location, "bitcast types must have the same size");
         }
-        auto tmp = Builder.Emit1("bitcast"_op, {*operand.Value});
+        auto tmp = emitter.Emit1("bitcast"_op, {*operand.Value});
         Builder.SetType(tmp, targetTypeId);
         co_return TValueWithBlock{tmp, Builder.CurrentBlockLabel()};
     } else if (auto maybeCast = NAst::TMaybeNode<NAst::TCastExpr>(expr)) {
@@ -829,45 +879,45 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 == FromAstType(NAst::UnwrapNamedType(targetPtrForArrayCast.Cast()->PointeeType), Module.Types);
         if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TBoolType>(cast->Operand->Type)) {
             // bool to int cast
-            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+            tmp = emitter.Emit1("mov"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TFloatType>(expr->Type) && NAst::TMaybeType<NAst::TBoolType>(cast->Operand->Type)) {
             // bool to float cast
-            tmp = Builder.Emit1("i2f"_op, {*operand.Value});
+            tmp = emitter.Emit1("i2f"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TFloatType>(cast->Operand->Type)) {
             // float to int cast
-            tmp = Builder.Emit1("f2i"_op, {*operand.Value});
+            tmp = emitter.Emit1("f2i"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TFloatType>(expr->Type) && NAst::TMaybeType<NAst::TIntegerType>(cast->Operand->Type)) {
             // int to float cast
-            tmp = Builder.Emit1("i2f"_op, {*operand.Value});
+            tmp = emitter.Emit1("i2f"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TBoolType>(expr->Type) && NAst::TMaybeType<NAst::TIntegerType>(cast->Operand->Type)) {
-            tmp = Builder.Emit1("i2b"_op, {*operand.Value});
+            tmp = emitter.Emit1("i2b"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TBoolType>(expr->Type) && NAst::TMaybeType<NAst::TFloatType>(cast->Operand->Type)) {
-            tmp = Builder.Emit1("f2b"_op, {*operand.Value});
+            tmp = emitter.Emit1("f2b"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TSymbolType>(expr->Type) && NAst::TMaybeType<NAst::TIntegerType>(cast->Operand->Type)) {
-            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+            tmp = emitter.Emit1("mov"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TIntegerType>(expr->Type) && NAst::TMaybeType<NAst::TSymbolType>(cast->Operand->Type)) {
             // oposite of above: int to symbol
-            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+            tmp = emitter.Emit1("mov"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TIntegerType>(NAst::UnwrapNamedType(expr->Type))
             && NAst::TMaybeType<NAst::TIntegerType>(NAst::UnwrapNamedType(cast->Operand->Type))) {
-            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+            tmp = emitter.Emit1("mov"_op, {*operand.Value});
         } else if (arrayToPtrCast) {
-            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+            tmp = emitter.Emit1("mov"_op, {*operand.Value});
         } else if (FromAstType(NAst::UnwrapNamedType(expr->Type), Module.Types)
             == FromAstType(NAst::UnwrapNamedType(cast->Operand->Type), Module.Types)) {
             if (NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(expr->Type))) {
                 co_return TValueWithBlock{operand.Value, Builder.CurrentBlockLabel()};
             }
-            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+            tmp = emitter.Emit1("mov"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TPointerType>(NAst::UnwrapNamedType(expr->Type))
             && NAst::TMaybeType<NAst::TPointerType>(NAst::UnwrapNamedType(cast->Operand->Type))) {
-            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+            tmp = emitter.Emit1("mov"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TIntegerType>(NAst::UnwrapNamedType(expr->Type))
             && NAst::TMaybeType<NAst::TPointerType>(NAst::UnwrapNamedType(cast->Operand->Type))) {
-            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+            tmp = emitter.Emit1("mov"_op, {*operand.Value});
         } else if (NAst::TMaybeType<NAst::TPointerType>(NAst::UnwrapNamedType(expr->Type))
             && NAst::TMaybeType<NAst::TIntegerType>(NAst::UnwrapNamedType(cast->Operand->Type))) {
-            tmp = Builder.Emit1("mov"_op, {*operand.Value});
+            tmp = emitter.Emit1("mov"_op, {*operand.Value});
         } else {
             co_return TError(cast->Location, TErrorString::Get<EErrorId::UNSUPPORTED_CAST_TYPES>(
                 NAst::TypeDiagnosticName(cast->Operand->Type),
@@ -918,15 +968,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto operand = co_await Lower(unary->Operand, scope);
         if (!operand.Value) co_return TError(unary->Operand->Location, TErrorString::Get<EErrorId::OPERAND_OF_UNARY_NOT_NUMBER>());
         if (unary->Operator == '-') {
-            auto tmp = Builder.Emit1("neg"_op, {*operand.Value});
+            auto tmp = emitter.Emit1("neg"_op, {*operand.Value});
             Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
             co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
         } else if (unary->Operator == '!'_op) {
-            auto tmp = Builder.Emit1("!"_op, {*operand.Value});
+            auto tmp = emitter.Emit1("!"_op, {*operand.Value});
             Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
             co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
         } else if (unary->Operator == '~'_op) {
-            auto tmp = Builder.Emit1("~"_op, {*operand.Value});
+            auto tmp = emitter.Emit1("~"_op, {*operand.Value});
             Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
             co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
         }
@@ -958,7 +1008,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
                 // Emit branch on left: if true -> rhs; if false -> end.
                 Builder.SetCurrentBlock(leftProducingLabel);
-                Builder.Emit0("cmp"_op, {*leftNum, rhsLabel, endLabel});
+                emitter.Emit0("cmp"_op, {*leftNum, rhsLabel, endLabel});
                 auto leftEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left is false
 
                 // RHS path
@@ -966,12 +1016,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 auto r = co_await Lower(binary->Right, scope);
                 if (!r.Value) co_return TError(binary->Right->Location, TErrorString::Get<EErrorId::BINARY_OPERANDS_NOT_NUMBERS>());
                 // Record truth of RHS (both edges go to end)
-                Builder.Emit0("jmp"_op, {endLabel});
+                emitter.Emit0("jmp"_op, {endLabel});
                 auto rightEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was true
 
                 // End/merge block and phi2 selecting left(on false) vs right(on true)
                 Builder.NewBlock(endLabel);
-                auto res = Builder.Emit1("phi"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
+                auto res = emitter.Emit1("phi"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
                 Builder.SetType(res, FromAstType(expr->Type, Module.Types));
                 co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
             }
@@ -983,17 +1033,17 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
                 // If left is true -> end; else -> rhs
                 Builder.SetCurrentBlock(leftProducingLabel);
-                Builder.Emit0("cmp"_op, {*leftNum, endLabel, rhsLabel});
+                emitter.Emit0("cmp"_op, {*leftNum, endLabel, rhsLabel});
                 auto leftEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was true
 
                 Builder.SetCurrentBlock(rhsId);
                 auto r = co_await Lower(binary->Right, scope);
                 if (!r.Value) co_return TError(binary->Right->Location, TErrorString::Get<EErrorId::BINARY_OPERANDS_NOT_NUMBERS>());
-                Builder.Emit0("jmp"_op, {endLabel});
+                emitter.Emit0("jmp"_op, {endLabel});
                 auto rightEdgeLabel = Builder.CurrentBlockLabel(); // predecessor into end when left was false
 
                 Builder.NewBlock(endLabel);
-                auto res = Builder.Emit1("phi"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
+                auto res = emitter.Emit1("phi"_op, {*leftNum, leftEdgeLabel, *r.Value, rightEdgeLabel});
                 Builder.SetType(res, FromAstType(expr->Type, Module.Types));
                 co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
             }
@@ -1004,7 +1054,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     auto irOp = binary->Operator == "//"_op
                         ? (uint64_t)'/'
                         : (uint64_t)binary->Operator.Value;
-                    auto tmp = Builder.Emit1(irOp /* ast op to ir op mapping */, {*leftNum, *rightNum});
+                    auto tmp = emitter.Emit1(irOp /* ast op to ir op mapping */, {*leftNum, *rightNum});
                     Builder.SetType(tmp, FromAstType(expr->Type, Module.Types));
                     co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
                 }
@@ -1021,7 +1071,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto [elseLabel, elseId] = Builder.NewBlock();
 
         Builder.SetCurrentBlock(entryId);
-        Builder.Emit0("cmp"_op, {*cond.Value, thenLabel, elseLabel});
+        emitter.Emit0("cmp"_op, {*cond.Value, thenLabel, elseLabel});
 
         Builder.SetCurrentBlock(thenId);
         auto thenRes = co_await Lower(ife->Then, scope);
@@ -1042,7 +1092,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto endLabel = Builder.NewLabel();
             if (isVoid && !thenTerminated) {
                 Builder.SetCurrentBlock(thenEdgeLabel);
-                Builder.Emit0("jmp"_op, {endLabel});
+                emitter.Emit0("jmp"_op, {endLabel});
             }
 
             if (!isVoid) {
@@ -1067,7 +1117,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                         ife->Then->Location,
                         scope.Id.Id);
                     thenEdgeLabel = Builder.CurrentBlockLabel();
-                    Builder.Emit0("jmp"_op, {endLabel});
+                    emitter.Emit0("jmp"_op, {endLabel});
 
                     auto elseEdgeLabel = elseRes.ProducingLabel;
                     Builder.SetCurrentBlock(elseEdgeLabel);
@@ -1078,23 +1128,23 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                         ife->Else->Location,
                         scope.Id.Id);
                     elseEdgeLabel = Builder.CurrentBlockLabel();
-                    Builder.Emit0("jmp"_op, {endLabel});
+                    emitter.Emit0("jmp"_op, {endLabel});
 
                     Builder.NewBlock(endLabel);
-                    auto res = Builder.Emit1("phi"_op, {thenAddress, thenEdgeLabel, elseAddress, elseEdgeLabel});
+                    auto res = emitter.Emit1("phi"_op, {thenAddress, thenEdgeLabel, elseAddress, elseEdgeLabel});
                     Builder.SetType(res, Module.Types.Ptr(resultTypeId));
                     co_return TValueWithBlock{ res, Builder.CurrentBlockLabel() };
                 }
 
                 if (!thenTerminated) {
                     Builder.SetCurrentBlock(thenEdgeLabel);
-                    Builder.Emit0("jmp"_op, {endLabel});
+                    emitter.Emit0("jmp"_op, {endLabel});
                 }
                 auto elseEdgeLabel = elseRes.ProducingLabel;
                 Builder.SetCurrentBlock(elseEdgeLabel);
-                Builder.Emit0("jmp"_op, {endLabel});
+                emitter.Emit0("jmp"_op, {endLabel});
                 Builder.NewBlock(endLabel);
-                auto res = Builder.Emit1("phi"_op, {*thenRes.Value, thenEdgeLabel, *elseRes.Value, elseEdgeLabel});
+                auto res = emitter.Emit1("phi"_op, {*thenRes.Value, thenEdgeLabel, *elseRes.Value, elseEdgeLabel});
                 Builder.SetType(res, resultTypeId);
                 if (thenRes.Value->Type == TOperand::EType::Tmp) {
                     Builder.UnifyTypes(res, thenRes.Value->Tmp);
@@ -1107,7 +1157,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
             if (!elseTerminated) {
                 Builder.SetCurrentBlock(elseRes.ProducingLabel);
-                Builder.Emit0("jmp"_op, {endLabel});
+                emitter.Emit0("jmp"_op, {endLabel});
             }
             Builder.NewBlock(endLabel);
             co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
@@ -1115,10 +1165,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto endLabel = Builder.NewLabel();
             if (!thenTerminated) {
                 Builder.SetCurrentBlock(thenEdgeLabel);
-                Builder.Emit0("jmp"_op, {endLabel});
+                emitter.Emit0("jmp"_op, {endLabel});
             }
             Builder.SetCurrentBlock(elseId);
-            Builder.Emit0("jmp"_op, {endLabel});
+            emitter.Emit0("jmp"_op, {endLabel});
             Builder.NewBlock(endLabel);
             co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
         }
@@ -1161,7 +1211,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 co_return TError(asg->Indices[0]->Location, TErrorString::Get<EErrorId::ARRAY_INDEX_NOT_NUMBER>());
             }
             auto i64 = Module.Types.I(EKind::I64);
-            auto offset = Builder.Emit1("*"_op, {*indexValue.Value, TImm{elemByteSize, i64}});
+            auto offset = emitter.Emit1("*"_op, {*indexValue.Value, TImm{elemByteSize, i64}});
             Builder.SetType(offset, i64);
             totalIndex = offset;
         } else {
@@ -1171,7 +1221,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
             totalIndex = *indices.Value;
         }
-        auto destPtr = Builder.Emit1("+"_op, {arrayPtr, totalIndex});
+        auto destPtr = emitter.Emit1("+"_op, {arrayPtr, totalIndex});
         Builder.SetType(destPtr, arrayType);
 
         auto rhs = co_await Lower(asg->Value, scope);
@@ -1184,9 +1234,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                 "$" + asg->Name + "_assign",
                 asg->Value->Location,
                 scope.Id.Id);
-            Builder.Emit0("copy"_op, {destPtr, src, TImm{(int64_t)elemByteSize}});
+            emitter.Emit0("copy"_op, {destPtr, src, TImm{(int64_t)elemByteSize}});
         } else {
-            Builder.Emit0("ste"_op, {destPtr, *rhs.Value});
+            emitter.Emit0("ste"_op, {destPtr, *rhs.Value});
         }
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeIndex = NAst::TMaybeNode<NAst::TIndexExpr>(expr)) {
@@ -1219,15 +1269,15 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             int elemTypeId = FromAstType(expr->Type, Module.Types);
             int elemByteSize = Module.Types.SizeInBytes(elemTypeId);
             auto i64 = Module.Types.I(EKind::I64);
-            auto offset = Builder.Emit1("*"_op, {*indexValue.Value, TImm{elemByteSize, i64}});
+            auto offset = emitter.Emit1("*"_op, {*indexValue.Value, TImm{elemByteSize, i64}});
             Builder.SetType(offset, i64);
-            auto destPtr = Builder.Emit1("+"_op, {arrayPtr, offset});
+            auto destPtr = emitter.Emit1("+"_op, {arrayPtr, offset});
             Builder.SetType(destPtr, arrayType);
             if (Module.Types.GetKind(elemTypeId) == EKind::Struct) {
                 Builder.SetType(destPtr, Module.Types.Ptr(elemTypeId));
                 co_return TValueWithBlock{ destPtr, Builder.CurrentBlockLabel() };
             }
-            auto loaded = Builder.Emit1("lde"_op, { destPtr });
+            auto loaded = emitter.Emit1("lde"_op, { destPtr });
             Builder.SetType(loaded, elemTypeId);
             co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
         }
@@ -1237,17 +1287,17 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
 
         // Adjust index by lower bound: index0 = index - lbound0
-        auto lbound0 = LoadLayoutOperand(layoutIt->second.LBounds[0]);
+            auto lbound0 = LoadLayoutOperand(layoutIt->second.LBounds[0], expr->Location, scope.Id.Id);
         auto i64 = Module.Types.I(EKind::I64);
-        auto zeroBasedIndex = Builder.Emit1("-"_op, {*indexValue.Value, lbound0});
+        auto zeroBasedIndex = emitter.Emit1("-"_op, {*indexValue.Value, lbound0});
         Builder.SetType(zeroBasedIndex, i64);
 
         auto arrayType = Builder.GetType(arrayPtr.Tmp);
         int elemTypeId = FromAstType(expr->Type, Module.Types);
         int elemByteSize = Module.Types.SizeInBytes(elemTypeId);
-        auto offset = Builder.Emit1("*"_op, {zeroBasedIndex, TImm{elemByteSize, i64}}); // byte offset
+        auto offset = emitter.Emit1("*"_op, {zeroBasedIndex, TImm{elemByteSize, i64}}); // byte offset
         Builder.SetType(offset, i64);
-        auto destPtr = Builder.Emit1("+"_op, {arrayPtr, offset});
+        auto destPtr = emitter.Emit1("+"_op, {arrayPtr, offset});
         Builder.SetType(destPtr, arrayType);
         // For struct elements: return the pointer directly (caller uses memcpy/lea semantics)
         bool isStructElem = NAst::TMaybeType<NAst::TStructType>(NAst::UnwrapNamedType(expr->Type));
@@ -1255,7 +1305,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.SetType(destPtr, Module.Types.Ptr(elemTypeId));
             co_return TValueWithBlock{ destPtr, Builder.CurrentBlockLabel() };
         }
-        auto loaded = Builder.Emit1("lde"_op, { destPtr });
+        auto loaded = emitter.Emit1("lde"_op, { destPtr });
         Builder.SetType(loaded, elemTypeId);
         co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
     } else if (auto maybeConstruct = NAst::TMaybeNode<NAst::TStructConstructExpr>(expr)) {
@@ -1266,7 +1316,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         int ptrTypeId = Module.Types.Ptr(structTypeId);
         auto i64 = Module.Types.I(EKind::I64);
 
-        auto ptr = Builder.Emit1("salloc"_op, {TImm{totalSize, i64}});
+        auto ptr = emitter.Emit1("salloc"_op, {TImm{totalSize, i64}});
         Builder.SetType(ptr, ptrTypeId);
 
         const auto& fieldTypes = Module.Types.GetStructFields(structTypeId);
@@ -1294,7 +1344,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             }
             int64_t offset = Module.Types.FieldOffset(structTypeId, fieldIndex);
             int fieldTypeId = fieldIndex < static_cast<int>(fieldTypes.size()) ? fieldTypes[fieldIndex] : -1;
-            auto fieldPtr = Builder.Emit1("+"_op, {ptr, TImm{offset, i64}});
+            auto fieldPtr = emitter.Emit1("+"_op, {ptr, TImm{offset, i64}});
             Builder.SetType(fieldPtr, Module.Types.Ptr(fieldTypeId));
             if (Module.Types.GetKind(fieldTypeId) == EKind::Struct) {
                 int fieldSize = Module.Types.SizeInBytes(fieldTypeId);
@@ -1304,9 +1354,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     "$field_value",
                     sc->Fields[i]->Location,
                     scope.Id.Id);
-                Builder.Emit0("copy"_op, {fieldPtr, src, TImm{(int64_t)fieldSize}});
+                emitter.Emit0("copy"_op, {fieldPtr, src, TImm{(int64_t)fieldSize}});
             } else {
-                Builder.Emit0("ste"_op, {fieldPtr, *fieldVal.Value});
+                emitter.Emit0("ste"_op, {fieldPtr, *fieldVal.Value});
             }
         }
         co_return TValueWithBlock{ ptr, Builder.CurrentBlockLabel() };
@@ -1349,14 +1399,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         int fieldTypeId = FromAstType(fieldAstType, Module.Types);
 
         auto i64      = Module.Types.I(EKind::I64);
-        auto fieldPtr  = Builder.Emit1("+"_op, {objAddr, TImm{fieldByteOffset, i64}});
+        auto fieldPtr  = emitter.Emit1("+"_op, {objAddr, TImm{fieldByteOffset, i64}});
         Builder.SetType(fieldPtr, Module.Types.Ptr(fieldTypeId));
 
         if (maybeRead) {
             if (Module.Types.GetKind(fieldTypeId) == EKind::Struct) {
                 co_return TValueWithBlock{ fieldPtr, Builder.CurrentBlockLabel() };
             }
-            auto loaded = Builder.Emit1("lde"_op, { fieldPtr });
+            auto loaded = emitter.Emit1("lde"_op, { fieldPtr });
             Builder.SetType(loaded, fieldTypeId);
             co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
         } else {
@@ -1375,9 +1425,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     tempName,
                     maybeWrite.Cast()->Value->Location,
                     scope.Id.Id);
-                Builder.Emit0("copy"_op, {fieldPtr, src, TImm{(int64_t)Module.Types.SizeInBytes(fieldTypeId)}});
+                emitter.Emit0("copy"_op, {fieldPtr, src, TImm{(int64_t)Module.Types.SizeInBytes(fieldTypeId)}});
             } else {
-                Builder.Emit0("ste"_op, {fieldPtr, *rhs.Value});
+                emitter.Emit0("ste"_op, {fieldPtr, *rhs.Value});
             }
             co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
         }
@@ -1408,13 +1458,13 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(asg->Location, TErrorString::Get<EErrorId::FAILED_LOWER_ARRAY_INDICES>());
         }
         auto totalIndex = *indices.Value;
-        auto destPtr = Builder.Emit1("+"_op, {arrayPtr, totalIndex});
+        auto destPtr = emitter.Emit1("+"_op, {arrayPtr, totalIndex});
         Builder.SetType(destPtr, arrayType);
         if (Module.Types.GetKind(multiElemTypeId) == EKind::Struct) {
             Builder.SetType(destPtr, Module.Types.Ptr(multiElemTypeId));
             co_return TValueWithBlock{ destPtr, Builder.CurrentBlockLabel() };
         }
-        auto loaded = Builder.Emit1("lde"_op, { destPtr });
+        auto loaded = emitter.Emit1("lde"_op, { destPtr });
         Builder.SetType(loaded, FromAstType(expr->Type, Module.Types));
         co_return TValueWithBlock{ loaded, Builder.CurrentBlockLabel() };
     } else if (auto maybeAsg = NAst::TMaybeNode<NAst::TAssignExpr>(expr)) {
@@ -1433,7 +1483,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             Builder.SetType(
                 localSlot,
                 slotType,
-                TLocalVarDebugInfo{asg->Name, node->Location, sidOpt->DeclScopeId, node->Type});
+                LocalDebugInfo(asg->Name, node->Location, sidOpt->DeclScopeId, node->Type));
         }
         TOperand storeOperand = (localSlot.Idx >= 0) ? TOperand{localSlot} : TOperand{storeSlot};
         // slot type was set on variable declaration
@@ -1442,7 +1492,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         if (auto maybeRef = NAst::TMaybeType<NAst::TReferenceType>(nodeType)) {
             auto ref = maybeRef.Cast();
-            auto addrTmp = Builder.Emit1("load"_op, {storeOperand});
+            auto addrTmp = emitter.Emit1("load"_op, {storeOperand});
             Builder.SetType(addrTmp, FromAstType(node->Type, Module.Types));
 
             auto refType = NAst::UnwrapNamedType(ref->ReferencedType);
@@ -1456,10 +1506,10 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     "$" + asg->Name + "_assign",
                     asg->Value->Location,
                     scope.Id.Id);
-                Builder.Emit0("copy"_op, {addrTmp, src, TImm{(int64_t)sizeBytes}});
+                emitter.Emit0("copy"_op, {addrTmp, src, TImm{(int64_t)sizeBytes}});
             } else {
                 // see cases/ref/index_ref
-                Builder.Emit0("ste"_op, {addrTmp, *rhs.Value});
+                emitter.Emit0("ste"_op, {addrTmp, *rhs.Value});
             }
         } else {
             auto storedValue = *rhs.Value;
@@ -1472,7 +1522,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                     asg->Value->Location,
                     scope.Id.Id);
             }
-            Builder.Emit0("stre"_op, {storeOperand, storedValue});
+            emitter.Emit0("stre"_op, {storeOperand, storedValue});
         }
 
         // store does not produce a value
@@ -1490,7 +1540,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             if (NAst::TMaybeType<NAst::TStructType>(refType)) {
                 Builder.SetType(tmp, Module.Types.Ptr(FromAstType(ref->ReferencedType, Module.Types)));
             } else {
-                auto derefTmp = Builder.Emit1("lde"_op, { tmp });
+                auto derefTmp = emitter.Emit1("lde"_op, { tmp });
                 Builder.SetType(derefTmp, FromAstType(ref->ReferencedType, Module.Types));
                 tmp = derefTmp;
             }
@@ -1507,7 +1557,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (sidOpt->FunctionLevelIdx >= 0) {
             Builder.SetType(TLocal{sidOpt->FunctionLevelIdx},
                 FromAstType(var->Type, Module.Types),
-                TLocalVarDebugInfo{var->Name, var->Location, sidOpt->DeclScopeId, var->Type});
+                LocalDebugInfo(var->Name, var->Location, sidOpt->DeclScopeId, var->Type));
         }
         if (var->Init) {
             auto assign = std::make_shared<NAst::TAssignExpr>(var->Location, var->Name, var->Init);
@@ -1522,19 +1572,19 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto ctorId = co_await GlobalSymbolId("array_create");
 
             auto layout = co_await LowerArrayLayout(*sidOpt, var->Bounds, scope, var->Name, var->Location);
-            auto tmp = LoadLayoutOperand(layout.TotalElements);
+            auto tmp = LoadLayoutOperand(layout.TotalElements, expr->Location, scope.Id.Id);
             auto i64 = Module.Types.I(EKind::I64);
-            auto arraySize = Builder.Emit1("*"_op, {tmp, TImm{elemSize, i64}});
+            auto arraySize = emitter.Emit1("*"_op, {tmp, TImm{elemSize, i64}});
             Builder.SetType(arraySize, i64);
 
-            Builder.Emit0("arg"_op, {arraySize});
-            auto arrayPtr = Builder.Emit1("call"_op, {TImm{ctorId}});
+            emitter.Emit0("arg"_op, {arraySize});
+            auto arrayPtr = emitter.Emit1("call"_op, {TImm{ctorId}});
             Builder.SetType(arrayPtr, arrayType);
 
             TOperand arg = (sidOpt->FunctionLevelIdx >= 0)
                 ? TOperand { TLocal{ sidOpt->FunctionLevelIdx } }
                 : TOperand { TSlot{ sidOpt->Id } };
-            Builder.Emit0("stre"_op, {arg, arrayPtr});
+            emitter.Emit0("stre"_op, {arg, arrayPtr});
         }
         co_return TValueWithBlock{ std::nullopt, Builder.CurrentBlockLabel() };
     } else if (auto maybeFun = NAst::TMaybeNode<NAst::TFunDecl>(expr)) {
@@ -1559,6 +1609,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         auto funScope = fun->Body->Scope;
         auto functionScope = fun->Scope;
+        emitter.DebugInfo = InstDebugInfo(fun->Location, functionScope);
         std::vector<TLocal> args; args.reserve(params.size());
         int i = 0;
         for (auto& p : params) {
@@ -1591,7 +1642,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             auto name = params[index]->Name;
             Builder.SetType(a,
                 FromAstType(astType, Module.Types),
-                TLocalVarDebugInfo{name, params[index]->Location, functionScope, params[index]->Type});
+                LocalDebugInfo(name, params[index]->Location, functionScope, params[index]->Type));
         }
         int localCount = 0;
         for (const auto& symbol : Context.GetSymbols()) {
@@ -1616,7 +1667,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             retTypeId = FromAstType(retAstType, Module.Types);
             retLocal = Builder.AllocLocal(
                 *retTypeId,
-                TLocalVarDebugInfo{"$return", fun->Location, functionScope, retAstType});
+                LocalDebugInfo("$return", fun->Location, functionScope, retAstType));
         }
 
         // Create a dedicated final return block label beforehand and pass it
@@ -1664,24 +1715,24 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
                         body->Location,
                         functionBodyScope.Id.Id);
                 }
-                Builder.Emit0("stre"_op, {TOperand{*retLocal}, returnValue});
+                emitter.Emit0("stre"_op, {TOperand{*retLocal}, returnValue});
             }
-            Builder.Emit0("jmp"_op, { endLabel });
+            emitter.Emit0("jmp"_op, { endLabel });
         }
         // Materialize final return block and emit single ret there.
         Builder.NewBlock(endLabel);
         if (retLocal) {
             TTmp returned;
             if (retTypeId && Module.Types.GetKind(*retTypeId) == EKind::Struct) {
-                returned = Builder.Emit1("lea"_op, {TOperand{*retLocal}});
+                returned = emitter.Emit1("lea"_op, {TOperand{*retLocal}});
                 Builder.SetType(returned, Module.Types.Ptr(*retTypeId));
             } else {
-                returned = Builder.Emit1("load"_op, {TOperand{*retLocal}});
+                returned = emitter.Emit1("load"_op, {TOperand{*retLocal}});
                 Builder.SetType(returned, *retTypeId);
             }
-            Builder.Emit0("ret"_op, {returned});
+            emitter.Emit0("ret"_op, {returned});
         } else {
-            Builder.Emit0("ret"_op, {});
+            emitter.Emit0("ret"_op, {});
         }
         co_return TValueWithBlock{ {}, Builder.CurrentBlockLabel() };
     } else if (auto maybeAwait = NAst::TMaybeNode<NAst::TAwaitExpr>(expr)) {
@@ -1693,9 +1744,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         std::optional<TOperand> tmp = std::nullopt;
         if (NAst::TMaybeType<NAst::TVoidType>(awaitExpr->Type)) {
-            Builder.Emit0("await"_op, {*future.Value});
+            emitter.Emit0("await"_op, {*future.Value});
         } else {
-            tmp = Builder.Emit1("await"_op, {*future.Value});
+            tmp = emitter.Emit1("await"_op, {*future.Value});
             Builder.SetType(tmp->Tmp, FromAstType(awaitExpr->Type, Module.Types));
         }
 
@@ -1767,13 +1818,13 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         if (funDecl->NeedsLocator) {
             auto locatorId = co_await GlobalSymbolId("builtin::record_locator");
             const int i64 = Module.Types.I(EKind::I64);
-            Builder.Emit0("arg"_op, {TImm{.Value = call->Location.Line, .TypeId = i64}});
-            Builder.Emit0("arg"_op, {TImm{.Value = call->Location.Byte, .TypeId = i64}});
-            Builder.Emit0("arg"_op, {TImm{.Value = call->Location.Column, .TypeId = i64}});
-            Builder.Emit0("call"_op, {TImm{locatorId}});
+            emitter.Emit0("arg"_op, {TImm{.Value = call->Location.Line, .TypeId = i64}});
+            emitter.Emit0("arg"_op, {TImm{.Value = call->Location.Byte, .TypeId = i64}});
+            emitter.Emit0("arg"_op, {TImm{.Value = call->Location.Column, .TypeId = i64}});
+            emitter.Emit0("call"_op, {TImm{locatorId}});
         }
         for (auto arg : argv) {
-            Builder.Emit0("arg"_op, {arg});
+            emitter.Emit0("arg"_op, {arg});
         }
         // Decide if callee returns a value (non-void). If void -> Emit0
         bool returnsValue = false;
@@ -1785,14 +1836,14 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
 
         std::optional<TOperand> tmp = std::nullopt;
         if (returnsValue) {
-            tmp = Builder.Emit1("call"_op, {TImm{calleeSymId}});
+            tmp = emitter.Emit1("call"_op, {TImm{calleeSymId}});
             int returnTypeId = FromAstType(returnType, Module.Types);
             Builder.SetType(tmp->Tmp, returnTypeId);
             if (Module.Types.GetKind(returnTypeId) == EKind::Struct) {
                 tmp = co_await EnsureStructAddress(*tmp, returnTypeId, "$call_result", call->Location, scope.Id.Id);
             }
         } else {
-            Builder.Emit0("call"_op, {TImm{calleeSymId}});
+            emitter.Emit0("call"_op, {TImm{calleeSymId}});
         }
         co_return TValueWithBlock{ tmp, Builder.CurrentBlockLabel() };
     } else {
@@ -1869,6 +1920,7 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
         .FuncIdx = -1,
         .Id = NSemantics::TScopeId{0}
     };
+    TInstrEmitter emitter{Builder, InstDebugInfo(expr->Location, scope.Id.Id)};
     block->Scope = scope.Id.Id;
 
     std::unordered_set<int32_t> reachableFunctions;
@@ -2079,7 +2131,7 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
                 if (!lowered) {
                     return std::unexpected(lowered.error());
                 }
-                Builder.Emit0("ret"_op, {});
+                emitter.Emit0("ret"_op, {});
                 Module.ModuleDestructorFunctionId = destructorFunctionId;
             } else if (NAst::TMaybeNode<NAst::TUseExpr>(s)) {
                 // Imports are handled during parsing/name resolution; keep the AST node
@@ -2099,7 +2151,7 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
     }
     if (constructorFunctionId != -1) {
         Builder.SetCurrentFunction(constructorFunctionId);
-        Builder.Emit0("ret"_op, {});
+        emitter.Emit0("ret"_op, {});
         Module.ModuleConstructorFunctionId = constructorFunctionId;
     }
 
