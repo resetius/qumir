@@ -1,3 +1,6 @@
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(READLINE IMPORTED_TARGET QUIET readline)
+
 add_executable(qumiri interpreter.cpp)
 add_executable(qumirc driver.cpp)
 if(UNIX AND NOT APPLE)
@@ -9,6 +12,7 @@ else()
     target_link_libraries(qumiri PUBLIC qumir qumir_runtime qumir_codegen_llvm)
     target_link_libraries(qumirc PUBLIC qumir qumir_runtime qumir_codegen_llvm)
 endif()
+target_link_libraries(qumiri PRIVATE PkgConfig::READLINE)
 
 target_compile_definitions(qumirc PRIVATE QUMIR_VERSION_STRING="${QUMIR_VERSION_STRING}")
 target_compile_definitions(qumiri PRIVATE QUMIR_VERSION_STRING="${QUMIR_VERSION_STRING}")

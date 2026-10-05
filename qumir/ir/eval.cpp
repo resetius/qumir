@@ -192,7 +192,9 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
     if (!function.Exec) {
         function.Exec = &Compiler.Compile(function, options.PrintByteCode);
     }
-    std::vector<TFrame> callStack; callStack.reserve(16);
+    Runtime.CallStack.clear();
+    auto& callStack = Runtime.CallStack;
+    callStack.reserve(16);
     auto* execFunc = function.Exec;
     callStack.push_back(TFrame {
         .Exec = execFunc,
@@ -848,23 +850,23 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
             copyArgsToFrame(Runtime.Stack.data() + base, calleeExec,
                             Runtime.Args.data(), argCount);
 
-            ReturnLinks.emplace_back(TReturnLink {
-                .FrameIdx = (int64_t) callStack.size() - 1,
+            auto link = TReturnLink {
                 .CallerDst = instr.Operands[0].Tmp.Idx,
                 .CalleeIsCoroutine = calleeFn->IsCoroutine,
                 .CalleeReturnsVoid = calleeFn->CoroutineResultTypeId >= 0
                     && Module.Types.IsVoid(calleeFn->CoroutineResultTypeId),
-            });
+            };
 
             Runtime.Args.clear();
             Runtime.Args128.clear();
-            callStack.push_back(TFrame {
+            callStack.emplace_back(TFrame {
                 .Exec = calleeExec,
                 .UsedRegs = calleeExec->MaxTmpIdx + 1,
                 .Used128Regs = calleeExec->MaxTmp128Idx + 1,
                 .StackBase = base,
                 .PC = &calleeExec->VMCode[0],
                 .Name = calleeFn->Name,
+                .ReturnLink = link,
             });
             break;
         }
@@ -890,14 +892,14 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
             }
         case EVMOp::RetVoid: {
             auto base = frame.StackBase;
+            auto returnLink = callStack.back().ReturnLink;
             callStack.pop_back();
             if (callStack.empty()) {
                 break;
             } else {
                 auto& callerFrame = callStack.back();
-                assert(!ReturnLinks.empty());
-                auto link = std::move(ReturnLinks.back());
-                ReturnLinks.pop_back();
+                assert(returnLink);
+                auto link = *returnLink;
 
                 std::optional<int64_t> materializedRet;
                 if (retVal.has_value()) {

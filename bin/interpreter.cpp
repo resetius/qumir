@@ -15,6 +15,9 @@
 #include <iomanip>
 #include <unordered_map>
 
+#include <readline/readline.h>
+#include <readline/history.h>
+
 using namespace NQumir;
 
 namespace {
@@ -129,39 +132,79 @@ struct TInteractiveDebugger : public NIR::IDebugger {
 
     void OnModuleCompilationFinished() override {
         std::cout << "Module compilation finished." << std::endl;
+        UserInput(nullptr);
     }
 
     void OnInstruction(const NIR::TFrame& frame) override {
         const NIR::TVMInstr& instr = *frame.PC;
-        std::cout << "Executing instruction: " << instr << " in function: " << frame.Name << std::endl;
-        size_t index = frame.PC - frame.Exec->VMCode.data();
-        std::set<int> reachableScopes;
-        TLocation location;
-        if (index < frame.Exec->InstrDebugInfo.size()) {
-            auto& debugInfo = frame.Exec->InstrDebugInfo[index];
-            if (debugInfo) {
-                location = debugInfo.Location;
-                std::cout << "Source location: " << debugInfo.Location.ToString() << std::endl;
-                if (debugInfo.ScopeId != -1) {
-                    std::cout << "Scope ID: " << debugInfo.ScopeId << std::endl;
-                }
-
-                int scopeId = debugInfo.ScopeId;
-                auto funcIt = FunctionMap.find(std::string(frame.Name));
-                if (funcIt != FunctionMap.end()) {
-                    const auto& func = funcIt->second;
-                    while (scopeId != -1 && scopeId < func->ScopeParents.size()) {
-                        reachableScopes.insert(scopeId);
-                        scopeId = func->ScopeParents[scopeId];
-                    }
-                }
-            }
+        if (Breakpoints.find(frame.PC) != Breakpoints.end()) {
+            std::cout << "Breakpoint hit at instruction: " << instr << " in function: " << frame.Name << std::endl;
+            UserInput(&frame);
         }
-        PrintNamedLocals(frame, reachableScopes, location);
     }
 
 private:
-    void PrintNamedLocals(const NIR::TFrame& frame, const std::set<int>& reachableScopes, const TLocation& location) {
+    void AddHistory(const std::string& input) {
+        // TODO
+    }
+
+    std::string InputString() {
+        char* line = readline("(qumir) ");
+        if (!line) {
+            std::exit(0);
+            return "";
+        }
+        std::string input(line); free(line);
+        if (!input.empty()) {
+            AddHistory(input);
+        }
+        return input;
+    }
+
+    void UserInput(const NIR::TFrame* frame) {
+        while (true) {
+            auto input = InputString();
+            if (input.empty()) {
+                continue;
+            } else if (input == "c" || input == "continue") {
+                break;
+            } else if (input == "bt") {
+                if (frame) {
+                    PrintCallStack(*frame);
+                } else {
+                    std::cout << "No frame available." << std::endl;
+                }
+            } else if (input == "locals") {
+                if (frame) {
+                    PrintNamedLocals(*frame);
+                } else {
+                    std::cout << "No frame available." << std::endl;
+                }
+            } else if (input.starts_with("b ")) {
+                std::string funcName = input.substr(2);
+                auto it = FunctionMap.find(funcName);
+                if (it != FunctionMap.end()) {
+                    std::cout << "Breakpoint set at function: " << funcName << std::endl;
+                }
+                auto& func = *it->second;
+                auto& exec = func.Exec;
+                Breakpoints.insert(exec->VMCode.data());
+            }
+        }
+    }
+
+    std::optional<NIR::TInstrDebugInfo> GetInstrDebugInfo(const NIR::TFrame& frame, bool current) const {
+        size_t index = frame.PC - frame.Exec->VMCode.data();
+        if (!current && index > 0) {
+            --index;
+        }
+        if (index < frame.Exec->InstrDebugInfo.size() && frame.Exec->InstrDebugInfo[index]) {
+            return frame.Exec->InstrDebugInfo[index];
+        }
+        return std::nullopt;
+    }
+
+    void PrintNamedLocals(const NIR::TFrame& frame) {
         if (!Runtime || !Module) {
             return;
         }
@@ -170,6 +213,25 @@ private:
             return;
         }
         auto func = funcIt->second;
+
+        std::set<int> reachableScopes;
+        TLocation location;
+        size_t index = frame.PC - frame.Exec->VMCode.data();
+        if (index < frame.Exec->InstrDebugInfo.size() && frame.Exec->InstrDebugInfo[index]) {
+            auto& debugInfo = frame.Exec->InstrDebugInfo[index];
+            location = debugInfo.Location;
+            std::cout << "Source location: " << debugInfo.Location.ToString() << std::endl;
+            if (debugInfo.ScopeId != -1) {
+                std::cout << "Scope ID: " << debugInfo.ScopeId << std::endl;
+            }
+
+            int scopeId = debugInfo.ScopeId;
+            while (scopeId != -1 && scopeId < func->ScopeParents.size()) {
+                reachableScopes.insert(scopeId);
+                scopeId = func->ScopeParents[scopeId];
+            }
+        }
+
         TValuePrinter printer(Module->Types);
         std::cout << "Locals:\n";
         for (size_t i = 0; i < func->LocalDebugInfo.size()
@@ -215,10 +277,65 @@ private:
         }
     }
 
+    void PrintCallStack(const NIR::TFrame& frame) {
+        if (!Runtime || !Module) {
+            return;
+        }
+        TValuePrinter printer(Module->Types);
+        std::cout << "Call stack:\n";
+        for (size_t depth = 0; depth < Runtime->CallStack.size(); ++depth) {
+            const auto& f = Runtime->CallStack[depth];
+            std::cout << std::string((depth + 1) * 2, ' ') << f.Name << "(";
+            auto funcIt = FunctionMap.find(std::string(f.Name));
+            if (funcIt != FunctionMap.end()) {
+                const auto& func = *funcIt->second;
+                for (size_t i = 0; i < func.ArgLocals.size(); ++i) {
+                    if (i != 0) {
+                        std::cout << ", ";
+                    }
+                    int localIdx = func.ArgLocals[i].Idx;
+                    const NIR::TLocalVarDebugInfo* info = localIdx >= 0
+                        && static_cast<size_t>(localIdx) < func.LocalDebugInfo.size()
+                        ? &func.LocalDebugInfo[localIdx] : nullptr;
+                    std::cout << (info && !info->Name.empty() ? info->Name : "#" + std::to_string(i)) << "=";
+                    if (localIdx < 0 || static_cast<size_t>(localIdx) >= func.LocalTypes.size()
+                        || static_cast<size_t>(localIdx) >= f.Exec->LocalByteOffsets.size())
+                    {
+                        std::cout << "<unavailable>";
+                        continue;
+                    }
+                    int typeId = func.LocalTypes[localIdx];
+                    int offset = f.Exec->LocalByteOffsets[localIdx];
+                    if (typeId < 0 || offset < 0) {
+                        std::cout << "<unavailable>";
+                        continue;
+                    }
+                    size_t size = static_cast<size_t>(Module->Types.SizeInBytes(typeId));
+                    if (f.StackBase > Runtime->Stack.size()
+                        || static_cast<size_t>(offset) > Runtime->Stack.size() - f.StackBase
+                        || size > Runtime->Stack.size() - f.StackBase - offset)
+                    {
+                        std::cout << "<unavailable>";
+                        continue;
+                    }
+                    const char* value = size == 0
+                        ? nullptr : Runtime->Stack.data() + f.StackBase + offset;
+                    printer.Print(std::cout, value, typeId, info ? info->AstType : nullptr);
+                }
+            }
+            std::cout << ")";
+            if (auto debugInfo = GetInstrDebugInfo(f, &f == &frame)) {
+                std::cout << " at " << debugInfo->Location.ToString();
+            }
+            std::cout << "\n";
+        }
+    }
+
     const NIR::TRuntime* Runtime{nullptr};
     const NIR::TModule* Module{nullptr};
 
     std::unordered_map<std::string, const NIR::TFunction*> FunctionMap;
+    std::unordered_set<const void*> Breakpoints;
 };
 
 int main(int argc, char ** argv) {

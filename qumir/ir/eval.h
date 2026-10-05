@@ -13,6 +13,23 @@
 namespace NQumir {
 namespace NIR {
 
+// Link to caller frame for returning
+struct TReturnLink {
+    int32_t CallerDst; // destination tmp idx in caller frame, -1 if none
+    bool CalleeIsCoroutine = false;
+    bool CalleeReturnsVoid = false;
+};
+
+struct TFrame {
+    const TExecFunc* Exec{nullptr};
+    const int UsedRegs = 0;
+    const int Used128Regs = 0;
+    const uint64_t StackBase = 0;
+    TVMInstr* PC{nullptr};
+    std::string_view Name;
+    std::optional<TReturnLink> ReturnLink;
+};
+
 struct TRuntime {
     std::vector<char> Globals; // byte array; each variable slot is 8 bytes (64-bit aligned)
     std::vector<char> Stack;   // byte array; each variable slot is 8 bytes (64-bit aligned)
@@ -22,26 +39,10 @@ struct TRuntime {
     std::vector<int64_t> Regs;
     std::vector<__int128_t> Regs128; // addressed by the same register index as Regs
     std::vector<int64_t> SavedRegs;
+    std::vector<TFrame> CallStack;
 };
 
 struct TExecFunc;
-
-struct TFrame {
-    const TExecFunc* Exec{nullptr};
-    const int UsedRegs = 0;
-    const int Used128Regs = 0;
-    const uint64_t StackBase = 0;
-    TVMInstr* PC{nullptr};
-    std::string_view Name;
-};
-
-// Link to caller frame for returning
-struct TReturnLink {
-    int64_t FrameIdx;
-    int32_t CallerDst; // destination tmp idx in caller frame, -1 if none
-    bool CalleeIsCoroutine = false;
-    bool CalleeReturnsVoid = false;
-};
 
 struct IDebugger {
     virtual ~IDebugger() = default;
@@ -84,7 +85,6 @@ private:
     TModule& Module;
     TRuntime Runtime;
     TVMCompiler& Compiler;
-    std::vector<TReturnLink> ReturnLinks;
     IDebugger* Debugger{nullptr};
 };
 
