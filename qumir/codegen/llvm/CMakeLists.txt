@@ -32,6 +32,8 @@ add_library(qumir_codegen_llvm
     llvm_initializer.h
     llvm_codegen.cpp
     llvm_codegen.h
+    llvm_debug_info.cpp
+    llvm_debug_info.h
     llvm_runner.cpp
     llvm_runner.h
     symbol_object_cache.cpp

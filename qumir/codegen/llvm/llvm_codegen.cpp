@@ -1,5 +1,6 @@
 #include "llvm_codegen.h"
 #include "llvm_codegen_impl.h"
+#include "llvm_debug_info.h"
 
 #include <qumir/ir/builder.h>
 #include <qumir/align.h>
@@ -704,6 +705,16 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
     }
 
     // Pass 2: lower function bodies
+    std::unique_ptr<TLLVMDebugInfo> debugInfo;
+    if (
+        optLevel == 0 && !module.HasSourceModules && std::any_of(
+            module.Functions.begin(), module.Functions.end(),
+            [&](const TFunction& f) {
+                return f.DebugInfo && !f.IsCoroutine && newSymIds.count(f.SymId);
+            }))
+    {
+        debugInfo = std::make_unique<TLLVMDebugInfo>(*LModule, module);
+    }
     int funcIdx = 0;
     std::vector<llvm::Function*> ctorFunctions;
     std::vector<llvm::Function*> dtorFunctions;
@@ -712,7 +723,7 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
             funcIdx++;
             continue;
         }
-        auto* function = LowerFunction(f, module);
+        auto* function = LowerFunction(f, module, debugInfo.get());
         if (funcIdx == module.ModuleConstructorFunctionId) {
             function->setLinkage(llvm::Function::InternalLinkage);
             ctorFunctions.push_back(function);
@@ -787,6 +798,11 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
             llvm::ConstantInt::get(i32Ty, 1),
             "__qumir_is_coroutine");
         EmitCoroutineRuntimeHelpers(*LModule, *Ctx);
+    }
+
+    if (debugInfo) {
+        debugInfo->Finalize();
+        debugInfo.reset();
     }
 
     if (Opts.LlvmBitcode) {
@@ -864,13 +880,22 @@ llvm::GlobalVariable* TLLVMCodeGen::EnsureSlotGlobal(int64_t sidx, NIR::TModule&
     return static_cast<llvm::GlobalVariable*>(ModuleSlots[sidx]);
 }
 
-llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, NIR::TModule& module) {
+llvm::Function* TLLVMCodeGen::LowerFunction(
+    const TFunction& fun,
+    NIR::TModule& module,
+    TLLVMDebugInfo* debugInfo)
+{
+    auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
+    irb->SetCurrentDebugLocation({});
     if (fun.IsCoroutine) {
         return LowerCoroutineFunction(fun, module);
     }
 
     auto& ctx = *Ctx;
     auto lfun = LModule->getFunction(fun.Name);
+    if (debugInfo) {
+        debugInfo->BeginFunction(fun, *lfun);
+    }
     // Function has already been registered in Emit pre-pass
 
     CurFun = std::make_unique<TFunState>();
@@ -886,7 +911,6 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, NIR::TModule& 
         CurFun->LabelExitBB[b.Label.Idx] = bb;
     }
 
-    auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
     irb->SetInsertPoint(bbs.front());
 
     CurFun->Allocas.resize(fun.LocalTypes.size(), nullptr);
@@ -908,10 +932,15 @@ llvm::Function* TLLVMCodeGen::LowerFunction(const TFunction& fun, NIR::TModule& 
         irb->CreateStore(&arg, ptr);
     }
 
+    if (debugInfo) {
+        debugInfo->DeclareLocals(CurFun->Allocas, *bbs.front());
+    }
+
     for (size_t i = 0; i < fun.Blocks.size(); ++i) {
         irb->SetInsertPoint(bbs[i]);
-        LowerBlock(fun.Blocks[i], module, lfun, bbs);
+        LowerBlock(fun.Blocks[i], module, lfun, bbs, debugInfo);
     }
+    irb->SetCurrentDebugLocation({});
     for (size_t i = 0; i < fun.Blocks.size(); ++i) {
         irb->SetInsertPoint(bbs[i]);
         for (const auto& instr : fun.Blocks[i].Phis) {
@@ -1204,8 +1233,15 @@ llvm::Function* TLLVMCodeGen::LowerCoroutineFunction(const TFunction& fun, NIR::
     return lfun;
 }
 
-void TLLVMCodeGen::LowerBlock(const TBlock& blk, NIR::TModule& module, llvm::Function*, std::vector<llvm::BasicBlock*>& orderedBBs) {
+void TLLVMCodeGen::LowerBlock(
+    const TBlock& blk,
+    NIR::TModule& module,
+    llvm::Function*,
+    std::vector<llvm::BasicBlock*>& orderedBBs,
+    TLLVMDebugInfo* debugInfo)
+{
     auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
+    irb->SetCurrentDebugLocation({});
     for (const auto& instr : blk.Phis) {
         if (irb->GetInsertBlock()->getTerminator()) {
             throw std::runtime_error("attempt to emit instruction after terminator");
@@ -1213,11 +1249,15 @@ void TLLVMCodeGen::LowerBlock(const TBlock& blk, NIR::TModule& module, llvm::Fun
         EmitPhi(instr, module);
     }
 
-    for (const auto& instr : blk.Instrs) {
+    for (size_t i = 0; i < blk.Instrs.size(); ++i) {
         if (irb->GetInsertBlock()->getTerminator()) {
             throw std::runtime_error("attempt to emit instruction after terminator");
         }
-        LowerInstr(instr, module);
+        if (debugInfo) {
+            irb->SetCurrentDebugLocation(debugInfo->GetLocation(
+                i < blk.InstrDebugInfo.size() ? blk.InstrDebugInfo[i] : TInstrDebugInfo{}));
+        }
+        LowerInstr(blk.Instrs[i], module);
     }
 }
 

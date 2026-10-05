@@ -1991,6 +1991,7 @@ std::expected<std::monostate, TError> TAstLowerer::LowerTop(const NAst::TExprPtr
         [&](const std::shared_ptr<NAst::TBlockExpr>& block, NSemantics::TScopeId currentScope)
     {
         for (const auto& stmt : block->Stmts) {
+            Module.HasSourceModules |= stmt && stmt->Origin.has_value();
             if (auto fun = NAst::TMaybeNode<NAst::TFunDecl>(stmt)) {
                 if (!stmt->Origin) {
                     if (auto symbol = Context.Lookup(fun.Cast()->Name, currentScope)) {

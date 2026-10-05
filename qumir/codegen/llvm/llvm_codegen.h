@@ -33,6 +33,8 @@ struct TBlock;
 
 namespace NQumir::NCodeGen {
 
+class TLLVMDebugInfo;
+
 // A generic instance: stable, specialization-addressed name. Implementation
 // changes are invalidated via the fingerprint's KernelLibVersion, not by hashing.
 inline bool IsCacheableSymbol(std::string_view name) {
@@ -83,9 +85,17 @@ public:
     void PrintFunction(int symId, std::ostream& os) const;
 
 private:
-    llvm::Function* LowerFunction(const NIR::TFunction& fun, NIR::TModule& module);
+    llvm::Function* LowerFunction(
+        const NIR::TFunction& fun,
+        NIR::TModule& module,
+        TLLVMDebugInfo* debugInfo);
     llvm::Function* LowerCoroutineFunction(const NIR::TFunction& fun, NIR::TModule& module);
-    void LowerBlock(const NIR::TBlock& blk, NIR::TModule& module, llvm::Function* lf, std::vector<llvm::BasicBlock*>& orderedBBs);
+    void LowerBlock(
+        const NIR::TBlock& blk,
+        NIR::TModule& module,
+        llvm::Function* lf,
+        std::vector<llvm::BasicBlock*>& orderedBBs,
+        TLLVMDebugInfo* debugInfo);
     llvm::Value* LowerInstr(const NIR::TInstr& instr, NIR::TModule& module);
     llvm::Value* EmitPhi(const NIR::TPhi& instr, NIR::TModule& module);
     void AddIncomingPhiEdges(const NIR::TPhi& instr, NIR::TModule& module);

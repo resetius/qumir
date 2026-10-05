@@ -302,6 +302,7 @@ struct TModule {
 
     TTypeTable Types;
     std::string SourceFilePath; // empty for stdin
+    bool HasSourceModules = false;
 
     TFunction* GetFunctionByName(const std::string& name);
     TFunction* GetEntryPoint();
