@@ -13,6 +13,12 @@ struct TLocation
     std::string ToString() const {
         return "Line: " + std::to_string(Line) + ", Byte: " + std::to_string(Byte) + ", Column: " + std::to_string(Column);
     }
+
+    auto operator<=>(const TLocation& other) const {
+        if (Line != other.Line) return Line <=> other.Line;
+        if (Byte != other.Byte) return Byte <=> other.Byte;
+        return Column <=> other.Column;
+    }
 };
 
 } // namespace NQumir

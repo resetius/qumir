@@ -712,6 +712,11 @@ TExpectedTask<std::monostate, TError, TLocation> TAstLowerer::EmitLifetimeDestro
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& inputExpr, TBlockScope scope) {
     NAst::TExprPtr expr = inputExpr;
     TInstrEmitter emitter{Builder, InstDebugInfo(expr->Location, scope.Id.Id)};
+    if (EmitDebugInfo) {
+        auto scopePtr = Context.GetScope(scope.Id);
+        auto parentScopeId = scopePtr && scopePtr->Parent ? scopePtr->Parent->Id.Id : -1;
+        Builder.SetScopeDebugInfo(scope.Id.Id, parentScopeId);
+    }
 
     if (auto maybeRetain = NAst::TMaybeNode<NAst::TRetainExpr>(expr)) {
         auto retain = maybeRetain.Cast();

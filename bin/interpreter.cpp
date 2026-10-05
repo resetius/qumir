@@ -134,11 +134,34 @@ struct TInteractiveDebugger : public NIR::IDebugger {
     void OnInstruction(const NIR::TFrame& frame) override {
         const NIR::TVMInstr& instr = *frame.PC;
         std::cout << "Executing instruction: " << instr << " in function: " << frame.Name << std::endl;
-        PrintNamedLocals(frame);
+        size_t index = frame.PC - frame.Exec->VMCode.data();
+        std::set<int> reachableScopes;
+        TLocation location;
+        if (index < frame.Exec->InstrDebugInfo.size()) {
+            auto& debugInfo = frame.Exec->InstrDebugInfo[index];
+            if (debugInfo) {
+                location = debugInfo.Location;
+                std::cout << "Source location: " << debugInfo.Location.ToString() << std::endl;
+                if (debugInfo.ScopeId != -1) {
+                    std::cout << "Scope ID: " << debugInfo.ScopeId << std::endl;
+                }
+
+                int scopeId = debugInfo.ScopeId;
+                auto funcIt = FunctionMap.find(std::string(frame.Name));
+                if (funcIt != FunctionMap.end()) {
+                    const auto& func = funcIt->second;
+                    while (scopeId != -1 && scopeId < func->ScopeParents.size()) {
+                        reachableScopes.insert(scopeId);
+                        scopeId = func->ScopeParents[scopeId];
+                    }
+                }
+            }
+        }
+        PrintNamedLocals(frame, reachableScopes, location);
     }
 
 private:
-    void PrintNamedLocals(const NIR::TFrame& frame) {
+    void PrintNamedLocals(const NIR::TFrame& frame, const std::set<int>& reachableScopes, const TLocation& location) {
         if (!Runtime || !Module) {
             return;
         }
@@ -151,9 +174,16 @@ private:
         std::cout << "Locals:\n";
         for (size_t i = 0; i < func->LocalDebugInfo.size()
             && i < func->LocalTypes.size()
-            && i < frame.Exec->LocalByteOffsets.size(); ++i) {
+            && i < frame.Exec->LocalByteOffsets.size(); ++i)
+        {
             const auto& debugInfo = func->LocalDebugInfo[i];
             if (debugInfo.Name.empty()) {
+                continue;
+            }
+            if (reachableScopes.find(debugInfo.ScopeId) == reachableScopes.end()) {
+                continue;
+            }
+            if (debugInfo.Location > location) {
                 continue;
             }
             int typeId = func->LocalTypes[i];

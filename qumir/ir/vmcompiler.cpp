@@ -289,7 +289,8 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
         return Is128BitInteger(Module.Types, typeId);
     };
 
-    auto ins2vm = [&](const TInstr& ins, TVMInstr& out) {
+    auto ins2vm = [&](const TInstr& ins, TVMInstr*& ptr) {
+        auto& out = *ptr++;
         int offset = 0;
         if (ins.Dest.Idx >= 0) {
             out.Operands[0] = ins.Dest;
@@ -731,10 +732,23 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
 
     auto* ptr = code.data();
     for (const auto& block : function.Blocks) {
-        for (const auto& ins : block.Instrs) {
-            auto& dst = *ptr++;
-            ins2vm(ins, dst);
+        for (size_t i = 0; i < block.Instrs.size(); ++i) {
+            const size_t firstVMIndex = ptr - code.data();
+            ins2vm(block.Instrs[i], ptr);
+            if (!block.InstrDebugInfo.empty()) {
+                const size_t lastVMIndex = ptr - code.data();
+                funcOut.InstrDebugInfo.resize(lastVMIndex);
+                const auto debugInfo = i < block.InstrDebugInfo.size()
+                    ? block.InstrDebugInfo[i] : TInstrDebugInfo{};
+                // 1 instr may produce > 1 VM instr
+                for (size_t vmIndex = firstVMIndex; vmIndex < lastVMIndex; ++vmIndex) {
+                    funcOut.InstrDebugInfo[vmIndex] = debugInfo;
+                }
+            }
         }
+    }
+    if (!funcOut.InstrDebugInfo.empty()) {
+        funcOut.InstrDebugInfo.resize(ptr - code.data());
     }
 }
 

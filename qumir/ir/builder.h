@@ -264,6 +264,7 @@ struct TFunction {
 
     // debug info {
     std::vector<TLocalVarDebugInfo> LocalDebugInfo; // LocalIdx -> DebugInfo
+    std::vector<int> ScopeParents;
     // debug info }
 
     int GetTmpType(int tmpId) const;
@@ -311,6 +312,7 @@ public:
     void SetCurrentBlock(int idx = -1); // -1 = last
     void SetCurrentBlock(TLabel label);
     void SetCurrentFunction(int idx = -1); // -1 = last
+    void SetScopeDebugInfo(int scopeId, int parentScopeId);
 
     TTmp Emit1(TOp op, std::initializer_list<TOperand> operands, const TInstrDebugInfo& debugInfo = {});
     void SetType(TTmp tmp, int typeId);

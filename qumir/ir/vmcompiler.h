@@ -22,6 +22,7 @@ struct TExecFunc {
 
     // debug
     std::vector<int> LocalByteOffsets; // byte offset of each local in the frame (for debug only)
+    std::vector<TInstrDebugInfo> InstrDebugInfo;
 };
 
 class TVMCompiler {

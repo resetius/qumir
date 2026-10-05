@@ -381,6 +381,19 @@ void TBuilder::SetCurrentFunction(int idx) {
     CurrentBlock = &CurrentFunction->Blocks.back();
 }
 
+void TBuilder::SetScopeDebugInfo(int scopeId, int parentScopeId) {
+    if (!CurrentFunction) {
+        return;
+    }
+    if (scopeId < 0) {
+        return;
+    }
+    if (CurrentFunction->ScopeParents.size() <= scopeId) {
+        CurrentFunction->ScopeParents.resize(scopeId + 1, -1);
+    }
+    CurrentFunction->ScopeParents[scopeId] = parentScopeId;
+}
+
 TTmp TBuilder::NewTmp() {
     if (!CurrentFunction) {
         throw std::runtime_error("No current function");
