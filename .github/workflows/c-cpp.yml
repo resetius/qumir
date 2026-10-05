@@ -36,7 +36,7 @@ jobs:
     - name: apt-get update
       run: sudo apt-get update
     - name: Install packages
-      run: sudo apt-get install libcmocka-dev liburing-dev cmake ninja-build llvm-20-dev libgtest-dev lld nodejs g++-14
+      run: sudo apt-get install libcmocka-dev liburing-dev cmake ninja-build llvm-20-dev libgtest-dev libreadline-dev lld nodejs g++-14
     - name: configure
       run: |
         mkdir build
