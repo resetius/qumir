@@ -31,7 +31,8 @@ TIRRunner::TIRRunner(
     std::ostream& out,
     std::istream& in,
     TIRRunnerOptions options)
-    : Compiler(Module)
+    : Module{.SourceFilePath = options.SourceFilePath}
+    , Compiler(Module)
     , Builder(Module)
     , Lowerer(Module, Builder, Resolver, options.Debugger != nullptr)
     , Options(std::move(options))

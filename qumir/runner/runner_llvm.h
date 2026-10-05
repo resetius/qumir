@@ -43,6 +43,7 @@ struct TLLVMRunnerOptions {
     std::vector<std::string> ModuleFiles;
     // Target triple override (e.g. "wasm32-unknown-unknown"). Empty means the host default.
     std::string TargetTriple;
+    std::string SourceFilePath;
 };
 
 // A single compilation session: holds persistent frontend state (Module,

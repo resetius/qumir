@@ -128,6 +128,12 @@ struct TInteractiveDebugger : public NIR::IDebugger {
     void OnFunctionCompilationFinished(const NIR::TFunction& function) override {
         std::cout << "Function compiled: " << function.Name << std::endl;
         FunctionMap[function.Name] = &function;
+        for (size_t i = 0; i < function.Exec->InstrDebugInfo.size(); ++i) {
+            const auto& debugInfo = function.Exec->InstrDebugInfo[i];
+            if (debugInfo) {
+                LineMap[debugInfo.Location.Line] = function.Exec->VMCode.data() + i;
+            }
+        }
     }
 
     void OnModuleCompilationFinished() override {
@@ -180,15 +186,30 @@ private:
                 } else {
                     std::cout << "No frame available." << std::endl;
                 }
+            } else if (input == "list" || input == "l") {
+                ListSource(frame);
             } else if (input.starts_with("b ")) {
-                std::string funcName = input.substr(2);
-                auto it = FunctionMap.find(funcName);
-                if (it != FunctionMap.end()) {
-                    std::cout << "Breakpoint set at function: " << funcName << std::endl;
+                std::string arg = input.substr(2);
+                if (arg.find(':') != std::string::npos) {
+                    auto parts = arg.find(':');
+                    std::string fileName = arg.substr(0, parts);
+                    int lineNumber = std::stoi(arg.substr(parts + 1));
+                    auto it = LineMap.find(lineNumber);
+                    if (it != LineMap.end()) {
+                        Breakpoints.insert(it->second);
+                        std::cout << "Breakpoint set at " << fileName << ":" << lineNumber << std::endl;
+                    } else {
+                        std::cout << "No instruction found for " << fileName << ":" << lineNumber << std::endl;
+                    }
+                } else {
+                    auto it = FunctionMap.find(arg);
+                    if (it != FunctionMap.end()) {
+                        std::cout << "Breakpoint set at function: " << arg << std::endl;
+                    }
+                    auto& func = *it->second;
+                    auto& exec = func.Exec;
+                    Breakpoints.insert(exec->VMCode.data());
                 }
-                auto& func = *it->second;
-                auto& exec = func.Exec;
-                Breakpoints.insert(exec->VMCode.data());
             }
         }
     }
@@ -202,6 +223,34 @@ private:
             return frame.Exec->InstrDebugInfo[index];
         }
         return std::nullopt;
+    }
+
+    void ListSource(const NIR::TFrame* frame) const {
+        if (!Module || Module->SourceFilePath.empty()) {
+            std::cout << "No source file available.\n";
+            return;
+        }
+        std::ifstream source(Module->SourceFilePath);
+        if (!source) {
+            std::cout << "Failed to open source file: " << Module->SourceFilePath << "\n";
+            return;
+        }
+        int currentLine = 0;
+        if (frame) {
+            if (auto debugInfo = GetInstrDebugInfo(*frame, true)) {
+                currentLine = debugInfo->Location.Line;
+            }
+        }
+        const int firstLine = std::max(1, currentLine - 5);
+        const int lastLine = firstLine + 10;
+        std::cout << Module->SourceFilePath << ":\n";
+        std::string line;
+        for (int lineNumber = 1; lineNumber <= lastLine && std::getline(source, line); ++lineNumber) {
+            if (lineNumber >= firstLine) {
+                std::cout << (lineNumber == currentLine ? "=> " : "   ")
+                    << std::setw(4) << lineNumber << "  " << line << "\n";
+            }
+        }
     }
 
     void PrintNamedLocals(const NIR::TFrame& frame) {
@@ -336,6 +385,7 @@ private:
 
     std::unordered_map<std::string, const NIR::TFunction*> FunctionMap;
     std::unordered_set<const void*> Breakpoints;
+    std::unordered_map<int, const void*> LineMap;
 };
 
 int main(int argc, char ** argv) {
@@ -491,6 +541,9 @@ int main(int argc, char ** argv) {
             .ModuleSearchPaths = modulePaths,
             .ModuleFiles = moduleFiles,
             .Debugger = debugger.get(),
+            .SourceFilePath = inputFile == "-"
+                ? ""
+                : inputFile,
         }
     );
 
@@ -505,6 +558,9 @@ int main(int argc, char ** argv) {
         .Prelude = corePrelude,
         .ModuleSearchPaths = modulePaths,
         .ModuleFiles = moduleFiles,
+        .SourceFilePath = inputFile == "-"
+            ? ""
+            : inputFile,
     });
 
     long long lastEvalUs = 0;

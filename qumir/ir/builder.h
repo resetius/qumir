@@ -293,6 +293,7 @@ struct TModule {
     int ModuleDestructorFunctionId = -1;
 
     TTypeTable Types;
+    std::string SourceFilePath; // empty for stdin
 
     TFunction* GetFunctionByName(const std::string& name);
     TFunction* GetEntryPoint();

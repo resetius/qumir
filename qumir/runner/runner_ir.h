@@ -36,6 +36,7 @@ struct TIRRunnerOptions {
     // Explicitly registered `.oz` module files (bound by file stem).
     std::vector<std::string> ModuleFiles;
     NIR::IDebugger* Debugger = nullptr;
+    std::string SourceFilePath;
 };
 
 class TIRRunner {

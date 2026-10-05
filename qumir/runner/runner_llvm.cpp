@@ -38,6 +38,7 @@ bool IsKnown32BitTarget(const std::string& targetTriple) {
 
 TLLVMRunner::TLLVMRunner(TLLVMRunnerOptions options)
     : Options(std::move(options))
+    , Module{.SourceFilePath = Options.SourceFilePath}
     , Builder(Module)
     , Lowerer(Module, Builder, Resolver)
     , LlvmRunner_({

@@ -232,7 +232,11 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
         return 1;
     }
 
-    NIR::TModule module;
+    NIR::TModule module{
+        .SourceFilePath = inputFile == "-"
+            ? ""
+            : inputFile,
+    };
     NIR::TBuilder builder(module);
 
     NIR::TAstLowerer lowerer(module, builder, r);
@@ -282,7 +286,11 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
         return 1;
     }
 
-    NIR::TModule module;
+    NIR::TModule module{
+        .SourceFilePath = inputFile == "-"
+            ? ""
+            : inputFile,
+    };
     NIR::TBuilder builder(module);
 
     NIR::TAstLowerer lowerer(module, builder, r);
@@ -447,7 +455,11 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
         return 1;
     }
 
-    NIR::TModule module;
+    NIR::TModule module{
+        .SourceFilePath = inputFile == "-"
+            ? ""
+            : inputFile,
+    };
     if (wasmBits == 32) {
         module.Types.SetPointerSize(4);
     }
