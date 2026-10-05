@@ -320,6 +320,8 @@ struct TModule {
     std::string SourceFilePath; // empty for stdin
     bool HasSourceModules = false;
     TDebugOptions DebugOptions;
+    std::string AsyncMode;
+    std::vector<std::string> AsyncImports;
     std::vector<TDebugPoint> DebugPoints;
     std::vector<TDebugBinding> DebugBindings;
 

@@ -432,7 +432,8 @@ function updateBounds(x, y) {
 let __futureRuntime = null;
 export function __bindFutureRuntime(fr) { __futureRuntime = fr; }
 
-function _drawerOp(execute) {
+function _drawerOp(execute, jspi = false) {
+  if (jspi) return execute();
   if (!__futureRuntime) { execute(); return 0; }
   const h = __futureRuntime.allocFuture();
   __futureRuntime.enqueuePendingOp({ h, execute });
@@ -454,7 +455,7 @@ export function drawer_set_color(color) {
   scheduleDraw();
 }
 
-export function drawer_move_to(x, y) {
+export function drawer_move_to(x, y, jspi = false) {
   const nx = Number(x) || 0;
   const ny = Number(y) || 0;
   return _drawerOp(() => {
@@ -474,10 +475,14 @@ export function drawer_move_to(x, y) {
     state.x = nx;
     state.y = ny;
     if (!focusContentAfterChange()) scheduleDraw();
-  });
+  }, jspi);
 }
 
-export function drawer_move_by(dx, dy) {
+export function drawer_move_to_jspi(x, y) {
+  return drawer_move_to(x, y, true);
+}
+
+export function drawer_move_by(dx, dy, jspi = false) {
   const ddx = Number(dx) || 0;
   const ddy = Number(dy) || 0;
   const nx = state.x + ddx;
@@ -499,7 +504,11 @@ export function drawer_move_by(dx, dy) {
     state.x = nx;
     state.y = ny;
     if (!focusContentAfterChange()) scheduleDraw();
-  });
+  }, jspi);
+}
+
+export function drawer_move_by_jspi(dx, dy) {
+  return drawer_move_by(dx, dy, true);
 }
 
 // Need access to string runtime for loading strings from handles/memory
@@ -509,7 +518,7 @@ export function __bindStringRuntime(runtime) {
   stringRuntime = runtime;
 }
 
-export function drawer_write_text(width, textPtr) {
+export function drawer_write_text(width, textPtr, jspi = false) {
   // textPtr can be:
   // - A negative number (JS string handle from string pool)
   // - A non-negative number (C-string pointer in WASM memory)
@@ -547,5 +556,9 @@ export function drawer_write_text(width, textPtr) {
     state.hasPath = true;
 
     if (!focusContentAfterChange()) scheduleDraw();
-  });
+  }, jspi);
+}
+
+export function drawer_write_text_jspi(width, textPtr) {
+  return drawer_write_text(width, textPtr, true);
 }

@@ -257,7 +257,7 @@ TEST(LLVMDebugInfo, DebugPointsAndNativeInfoAreIndependent) {
         for (bool points : {false, true}) {
             std::istringstream input(
                 "алг цел main\nнач\n  знач := add(21, 23)\nкон\n"
-                "алг цел add(цел x, цел y)\nнач\n  знач := x + y\nкон\n");
+                "алг цел add(цел x, цел y)\nнач\n  лог positive\n  positive := (x > 0) и (y > 0)\n  знач := x + y\nкон\n");
             NSemantics::TNameResolver resolver;
             NRegistry::SystemModule system;
             resolver.RegisterModule(&system);

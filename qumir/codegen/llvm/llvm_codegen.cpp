@@ -705,6 +705,10 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
         }
     }
 
+    if (!module.AsyncMode.empty()) {
+        LModule->getOrInsertNamedMetadata("wasm.custom_sections")->addOperand(llvm::MDNode::get(*Ctx, {
+            llvm::MDString::get(*Ctx, "qumir.runtime"), llvm::MDString::get(*Ctx, SerializeRuntimeData(module))}));
+    }
     if (module.DebugOptions.EmitDebugPoints) {
         auto data = SerializeDebugData(module);
         LModule->getOrInsertNamedMetadata("wasm.custom_sections")->addOperand(llvm::MDNode::get(*Ctx, {

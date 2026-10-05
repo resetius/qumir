@@ -67,7 +67,7 @@ function installKeyboardListener() {
 
 export function __resetKeyboard() {
   keyQueue.length = 0;
-  codeWaiters.length = 0;
+  for (const waiter of codeWaiters.splice(0)) waiter.resolve(0n);
   hasSignal = false;
   installKeyboardListener();
 }
@@ -99,3 +99,17 @@ export function keyboard_reset() {
 }
 
 installKeyboardListener();
+
+export function keyboard_code_jspi() {
+  installKeyboardListener();
+  if (keyQueue.length) return BigInt(keyQueue.shift());
+  return new Promise(resolve => { codeWaiters.push({ resolve }); });
+}
+
+export function __disposeKeyboard() {
+  __resetKeyboard();
+  if (installed && typeof window !== 'undefined') {
+    window.removeEventListener('keydown', onKeyDown, true);
+    installed = false;
+  }
+}

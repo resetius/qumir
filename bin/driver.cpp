@@ -18,6 +18,7 @@
 #include <qumir/codegen/llvm/llvm_codegen.h>
 #include <qumir/codegen/llvm/llvm_initializer.h>
 #include <qumir/modules/builtins/builtins.h>
+#include <qumir/modules/jspi_module.h>
 #include <qumir/modules/system/system.h>
 #include <qumir/modules/turtle/turtle.h>
 #include <qumir/modules/robot/robot.h>
@@ -90,13 +91,13 @@ std::expected<NAst::TExprPtr, TError> ParseInput(
     return composed->Ast;
 }
 
-NTransform::TPipelineOptions PipelineOptions(bool coreInput) {
+NTransform::TPipelineOptions PipelineOptions(bool coreInput, bool jspi = false) {
     NTransform::TPipelineExtensions extensions;
-    if (coreInput) {
+    if (coreInput && !jspi) {
         extensions.AfterTypeAnnotation.push_back(
             NTransform::CoroutineAnnotationTransform);
-    } else {
-        extensions = NSemantics::NKumir::PipelineExtensions();
+    } else if (!coreInput) {
+        extensions = NSemantics::NKumir::PipelineExtensions(!jspi);
     }
     return NTransform::TPipelineOptions{.Extensions = std::move(extensions)};
 }
@@ -106,7 +107,7 @@ NTransform::TPipelineOptions PipelineOptions(bool coreInput) {
 // runtime as the prelude. For the Kumir frontend it also registers the legacy
 // module aliases (e.g. "Файлы" -> "System").
 std::vector<std::shared_ptr<NRegistry::IModule>> SetupModules(
-    NSemantics::TNameResolver& r, bool coreInput) {
+    NSemantics::TNameResolver& r, bool coreInput, bool jspi = false) {
     std::vector<std::shared_ptr<NRegistry::IModule>> modules = {
         std::make_shared<NRegistry::BuiltinsModule>(),
         std::make_shared<NRegistry::SystemModule>(),
@@ -117,6 +118,11 @@ std::vector<std::shared_ptr<NRegistry::IModule>> SetupModules(
         std::make_shared<NRegistry::ColorsModule>(),
         std::make_shared<NRegistry::KeyboardModule>(),
     };
+    if (jspi) {
+        for (auto& mod : modules) {
+            mod = std::make_shared<NRegistry::TJspiModule>(std::move(mod));
+        }
+    }
     for (const auto& mod : modules) {
         r.RegisterModule(mod.get());
     }
@@ -129,6 +135,35 @@ std::vector<std::shared_ptr<NRegistry::IModule>> SetupModules(
         }
     }
     return modules;
+}
+
+void ConfigureWasmRuntime(NIR::TModule& module, const std::vector<std::shared_ptr<NRegistry::IModule>>& modules, bool jspi) {
+    module.AsyncMode = jspi
+        ? "jspi"
+        : "coroutine";
+    for (const auto& mod : modules) {
+        if (auto* adapted = dynamic_cast<NRegistry::TJspiModule*>(mod.get())) {
+            const auto& names = adapted->AsyncImports();
+            module.AsyncImports.insert(module.AsyncImports.end(), names.begin(), names.end());
+        }
+    }
+}
+
+bool ValidateJspi(const NAst::TExprPtr& ast) {
+    if (NAst::TMaybeNode<NAst::TAwaitExpr>(ast) || NAst::IsFutureType(ast->Type)) {
+        std::cerr << "explicit Future/await requires --async-mode=coroutine\n";
+        return false;
+    }
+    if (auto fun = NAst::TMaybeNode<NAst::TFunDecl>(ast); fun && NAst::IsFutureType(fun.Cast()->RetType)) {
+        std::cerr << "Future functions require --async-mode=coroutine\n";
+        return false;
+    }
+    for (const auto& child : ast->Children()) {
+        if (child && !ValidateJspi(child)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 std::shared_ptr<std::istream> OpenInputFile(const std::string& filename) {
@@ -167,7 +202,7 @@ std::shared_ptr<std::ostream> OpenOutputFile(const std::string& filename, bool r
     }
 }
 
-int GenerateAst(const std::string& inputFile, const std::string& outputFile, bool transformed, bool coreInput, bool verbose, const TModuleConfig& moduleConfig) {
+int GenerateAst(const std::string& inputFile, const std::string& outputFile, bool transformed, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, bool jspi) {
     if (verbose) {
         std::cerr << "Generating " << (transformed ? "transformed " : "") << "AST from " << inputFile << " to " << outputFile << "\n";
     }
@@ -179,7 +214,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     }
 
     NSemantics::TNameResolver r;
-    auto modules = SetupModules(r, coreInput);
+    auto modules = SetupModules(r, coreInput, jspi);
 
     auto expected = ParseInput(*in, r, coreInput, moduleConfig);
     if (!expected.has_value()) {
@@ -188,7 +223,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     }
     auto ast = std::move(expected.value());
     if (transformed) {
-        auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput));
+        auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput, jspi));
         if (!error) {
             std::cerr << error.error().ToString() << "\n";
             return 1;
@@ -205,7 +240,7 @@ int GenerateAst(const std::string& inputFile, const std::string& outputFile, boo
     return 0;
 }
 
-int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, NIR::TDebugOptions debugOptions) {
+int GenerateIr(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, NIR::TDebugOptions debugOptions, bool jspi, int targetBits) {
     if (verbose) {
         std::cerr << "Generating IR from " << inputFile << " to " << outputFile << "\n";
     }
@@ -217,7 +252,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     }
 
     NSemantics::TNameResolver r;
-    auto modules = SetupModules(r, coreInput);
+    auto modules = SetupModules(r, coreInput, jspi);
 
     auto expected = ParseInput(*in, r, coreInput, moduleConfig);
     if (!expected.has_value()) {
@@ -226,9 +261,13 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     }
     auto ast = std::move(expected.value());
 
-    auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput));
+    auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput, jspi));
     if (!error) {
         std::cerr << error.error().ToString() << "\n";
+        return 1;
+    }
+
+    if (jspi && !ValidateJspi(ast)) {
         return 1;
     }
 
@@ -237,6 +276,10 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
             ? ""
             : inputFile,
     };
+    if (targetBits != 0) {
+        module.Types.SetPointerSize(targetBits / 8);
+        ConfigureWasmRuntime(module, modules, jspi);
+    }
     NIR::TBuilder builder(module);
 
     NIR::TAstLowerer lowerer(module, builder, r, debugOptions);
@@ -259,7 +302,7 @@ int GenerateIr(const std::string& inputFile, const std::string& outputFile, int 
     return 0;
 }
 
-int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, NIR::TDebugOptions debugOptions) {
+int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, int optLevel, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, NIR::TDebugOptions debugOptions, bool jspi, int targetBits) {
     if (verbose) {
         std::cerr << "Generating LLVM IR from " << inputFile << " to " << outputFile << "\n";
     }
@@ -271,7 +314,7 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     }
 
     NSemantics::TNameResolver r;
-    auto modules = SetupModules(r, coreInput);
+    auto modules = SetupModules(r, coreInput, jspi);
 
     auto expected = ParseInput(*in, r, coreInput, moduleConfig);
     if (!expected.has_value()) {
@@ -280,9 +323,13 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
     }
     auto ast = std::move(expected.value());
 
-    auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput));
+    auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput, jspi));
     if (!error) {
         std::cerr << error.error().ToString() << "\n";
+        return 1;
+    }
+
+    if (jspi && !ValidateJspi(ast)) {
         return 1;
     }
 
@@ -291,6 +338,10 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
             ? ""
             : inputFile,
     };
+    if (targetBits != 0) {
+        module.Types.SetPointerSize(targetBits / 8);
+        ConfigureWasmRuntime(module, modules, jspi);
+    }
     NIR::TBuilder builder(module);
 
     NIR::TAstLowerer lowerer(module, builder, r, debugOptions);
@@ -300,7 +351,13 @@ int GenerateLlvm(const std::string& inputFile, const std::string& outputFile, in
         return 1;
     }
 
-    NCodeGen::TLLVMCodeGen cg;
+    NCodeGen::TLLVMCodeGenOptions cgOptions;
+    if (targetBits != 0) {
+        cgOptions.TargetTriple = targetBits == 32
+            ? "wasm32-unknown-unknown"
+            : "wasm64-unknown-unknown";
+    }
+    NCodeGen::TLLVMCodeGen cg(cgOptions);
     auto artifacts = cg.Emit(module, optLevel);
     if (!artifacts) {
         std::cerr << "Codegen error " << "\n";
@@ -428,7 +485,7 @@ void GenerateObjFromAsm(const std::string& asmCode, std::ostream& objOut) {
 }
 #endif
 
-int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, int wasmBits, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, NIR::TDebugOptions debugOptions) {
+int Generate(const std::string& inputFile, const std::string& outputFile, bool compileOnly, bool generateAsm, int optLevel, int wasmBits, bool coreInput, bool verbose, const TModuleConfig& moduleConfig, NIR::TDebugOptions debugOptions, bool jspi) {
     if (verbose) {
         std::cerr << "Compiling " << inputFile << " to " << outputFile << "\n";
     }
@@ -440,7 +497,7 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     }
 
     NSemantics::TNameResolver r;
-    auto modules = SetupModules(r, coreInput);
+    auto modules = SetupModules(r, coreInput, jspi);
 
     auto expected = ParseInput(*in, r, coreInput, moduleConfig);
     if (!expected.has_value()) {
@@ -449,9 +506,13 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
     }
     auto ast = std::move(expected.value());
 
-    auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput));
+    auto error = NTransform::Pipeline(ast, r, PipelineOptions(coreInput, jspi));
     if (!error) {
         std::cerr << error.error().ToString() << "\n";
+        return 1;
+    }
+
+    if (jspi && !ValidateJspi(ast)) {
         return 1;
     }
 
@@ -460,8 +521,9 @@ int Generate(const std::string& inputFile, const std::string& outputFile, bool c
             ? ""
             : inputFile,
     };
-    if (wasmBits == 32) {
-        module.Types.SetPointerSize(4);
+    if (wasmBits != 0) {
+        module.Types.SetPointerSize(wasmBits / 8);
+        ConfigureWasmRuntime(module, modules, jspi);
     }
     NIR::TBuilder builder(module);
 
@@ -557,12 +619,19 @@ int main(int argc, char** argv) {
     bool coreInput = false;
     bool verbose = false;
     NIR::TDebugOptions debugOptions;
+    std::string asyncMode;
     TModuleConfig moduleConfig;
     for (int i = 1; i < argc; ++i) {
         if (!std::strcmp(argv[i], "-c")) {
             compileOnly = true;
         } else if (!std::strcmp(argv[i], "-g")) {
             debugOptions.EmitDebugInfo = true;
+        } else if (!std::strncmp(argv[i], "--async-mode=", 13)) {
+            asyncMode = argv[i] + 13;
+            if (asyncMode != "jspi" && asyncMode != "coroutine") {
+                std::cerr << "--async-mode must be jspi or coroutine\n";
+                return 1;
+            }
         } else if (!std::strcmp(argv[i], "--debug-points")) {
             debugOptions.EmitDebugPoints = true;
         } else if (!std::strcmp(argv[i], "-o")) {
@@ -578,6 +647,7 @@ int main(int argc, char** argv) {
                          "  -c            Compile only, do not link\n"
                          "  -g            Collect debug info (O0 only)\n"
                          "  --debug-points Emit browser debug points (O0 only)\n"
+                         "  --async-mode=jspi|coroutine WASM default: jspi\n"
                          "  -o <file>     Write output to <file> (default: " << (compileOnly ? "N/A" : A_OUT) << ")\n"
                          "  --ast         Generate parsed AST only (no IR, no codegen)\n"
                          "  --transformed-ast Generate transformed AST only (no IR, no codegen)\n"
@@ -666,6 +736,11 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    const bool jspi = asyncMode == "jspi" || (asyncMode.empty() && wasmBits != 0);
+    if (jspi && wasmBits == 0) {
+        std::cerr << "JSPI requires a WebAssembly target\n";
+        return 1;
+    }
     debugOptions.EmitDebugInfo = debugOptions.EmitDebugInfo && optLevel == 0;
     if (debugOptions.EmitDebugPoints && (optLevel != 0 || (!generateIr && !generateLlvm && wasmBits != 32))) {
         std::cerr << "--debug-points requires O0 and wasm32, --ir or --llvm\n";
@@ -682,21 +757,21 @@ int main(int argc, char** argv) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ast");
         }
-        return GenerateAst(inputFile, outputFile, generateTransformedAst, coreInput, verbose, moduleConfig);
+        return GenerateAst(inputFile, outputFile, generateTransformedAst, coreInput, verbose, moduleConfig, jspi);
     }
 
     if (generateIr) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ir");
         }
-        return GenerateIr(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig, debugOptions);
+        return GenerateIr(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig, debugOptions, jspi, wasmBits);
     }
 
     if (generateLlvm) {
         if (outputFile.empty()) {
             outputFile = OutputFilename(inputFile, ".ll");
         }
-        return GenerateLlvm(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig, debugOptions);
+        return GenerateLlvm(inputFile, outputFile, optLevel, coreInput, verbose, moduleConfig, debugOptions, jspi, wasmBits);
     }
 
     if (!compileOnly && outputFile.empty()) {
@@ -712,5 +787,5 @@ int main(int argc, char** argv) {
             : outputFile;
     }
 
-    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, wasmBits, coreInput, verbose, moduleConfig, debugOptions);
+    return Generate(inputFile, finalOutput, compileOnly, generateAsm, optLevel, wasmBits, coreInput, verbose, moduleConfig, debugOptions, jspi);
 }

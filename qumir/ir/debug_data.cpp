@@ -41,6 +41,19 @@ void Type(std::ostream& out, NAst::TTypePtr type) {
 
 } // namespace
 
+std::string SerializeRuntimeData(const TModule& module) {
+    std::ostringstream out;
+    out << "{\"version\":1,\"mode\":" << Quote(module.AsyncMode) << ",\"asyncImports\":[";
+    for (size_t i = 0; i < module.AsyncImports.size(); ++i) {
+        if (i) {
+            out << ',';
+        }
+        out << Quote(module.AsyncImports[i]);
+    }
+    out << "]}";
+    return out.str();
+}
+
 std::string SerializeDebugData(const TModule& module) {
     std::ostringstream out;
     out << "{\"version\":1,\"pointerSize\":" << module.Types.PointerSizeInBytes()

@@ -37,11 +37,12 @@ std::expected<bool, TError> PowerTransform(
     return changed;
 }
 
-NTransform::TPipelineExtensions PipelineExtensions() {
+NTransform::TPipelineExtensions PipelineExtensions(bool coroutines) {
     NTransform::TPipelineExtensions extensions;
     extensions.AfterTypeAnnotation.push_back(PowerTransform);
-    extensions.AfterTypeAnnotation.push_back(
-        NTransform::CoroutineAnnotationTransform);
+    if (coroutines) {
+        extensions.AfterTypeAnnotation.push_back(NTransform::CoroutineAnnotationTransform);
+    }
     return extensions;
 }
 

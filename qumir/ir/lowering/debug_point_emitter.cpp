@@ -42,7 +42,7 @@ void TDebugPointEmitter::Point(std::string_view kind, const TInstrDebugInfo& inf
 }
 
 void TDebugPointEmitter::Before(TOp op, const TInstrDebugInfo& info) {
-    if (!Module_.DebugOptions.EmitDebugPoints) {
+    if (!Module_.DebugOptions.EmitDebugPoints || op == "phi"_op) {
         return;
     }
     if (op == "ret"_op) {

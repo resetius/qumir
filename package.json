@@ -6,5 +6,8 @@
   "private": true,
   "dependencies": {
     "marked": "^17.0.1"
+  },
+  "devDependencies": {
+    "puppeteer": "^25.12.0"
   }
 }

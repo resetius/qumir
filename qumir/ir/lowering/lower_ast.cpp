@@ -113,7 +113,7 @@ void TAstLowerer::Statement(const NAst::TExprPtr& expr, int scopeId) {
     {
         return;
     }
-    if (auto var = NAst::TMaybeNode<NAst::TVarStmt>(expr); var && var.Cast()->Name.starts_with('$')) {
+    if (auto var = NAst::TMaybeNode<NAst::TVarStmt>(expr); var && (var.Cast()->Name.starts_with('$') || var.Cast()->Name == "знач")) {
         return;
     }
     DebugPoints_.Point("statement", InstDebugInfo(expr->Location, scopeId));
@@ -987,10 +987,18 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         auto newScope = scope;
         newScope.Id = NSemantics::TScopeId{block->Scope};
 
+        // Frontend I/O expansion groups several runtime calls into one source statement.
+        const bool grouped = !block->Stmts.empty() && std::all_of(
+            block->Stmts.begin(), block->Stmts.end(), [&](const auto& stmt) {
+                return (stmt->Location <=> block->Location) == 0;
+            });
+        if (grouped) {
+            DebugPoints_.Point("statement", InstDebugInfo(block->Location, newScope.Id.Id));
+        }
         for (size_t stmtIdx = 0; stmtIdx < block->Stmts.size(); ++stmtIdx) {
             auto& s = block->Stmts[stmtIdx];
 
-            if (!NAst::TMaybeNode<NAst::TWhileStmtExpr>(s) && !NAst::TMaybeNode<NAst::TForStmtExpr>(s)
+            if (!grouped && !NAst::TMaybeNode<NAst::TWhileStmtExpr>(s) && !NAst::TMaybeNode<NAst::TForStmtExpr>(s)
                 && !NAst::TMaybeNode<NAst::TTimesStmtExpr>(s))
             {
                 Statement(s, newScope.Id.Id);

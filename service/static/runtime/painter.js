@@ -557,7 +557,7 @@ export function painter_fill(x, y) {
 let __futureRuntime = null;
 export function __bindFutureRuntime(fr) { __futureRuntime = fr; }
 
-export function painter_new_sheet(w, h, color) {
+export function painter_new_sheet(w, h, color, jspi = false) {
   const sw = Number(w), sh = Number(h);
   const execute = () => {
     if (sw <= 0 || sh <= 0 || sw > 32767 || sh > 32767) return;
@@ -569,6 +569,7 @@ export function painter_new_sheet(w, h, color) {
       applySheet(sw, sh, color);
     }
   };
+  if (jspi) return execute();
   if (!__futureRuntime) { execute(); return 0; }
   const hf = __futureRuntime.allocFuture();
   __futureRuntime.enqueuePendingOp({ h: hf, execute });
@@ -605,4 +606,8 @@ function saveOffscreen(filename) {
   } else {
     offscreen.toBlob(download, 'image/png');
   }
+}
+
+export function painter_new_sheet_jspi(w, h, color) {
+  return painter_new_sheet(w, h, color, true);
 }

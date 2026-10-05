@@ -1,5 +1,12 @@
 'use strict';
 
+import { DebuggerUI } from './debugger_ui.js';
+import { supportsJspi, ExecutionStopped } from './runtime/execution_session.js';
+
+let debuggerUI = null;
+let executionSession = null;
+let executionAbort = null;
+
 const $ = sel => document.querySelector(sel);
 let currentAbort = null;
 // Set to true by the Stop button; cleared at the start of each run.
@@ -55,6 +62,8 @@ const api = async (path, body, asBinary, signal) => {
   const syntaxMode = document.getElementById('syntax-mode');
   const headers = { 'Content-Type': 'text/plain', 'X-Qumir-O': String(O) };
   if (syntaxMode && syntaxMode.value === 'core') headers['X-Qumir-Syntax'] = 'core';
+  if (body.debug) headers['X-Qumir-Debug-Points'] = '1';
+  if (body.asyncMode) headers['X-Qumir-Async-Mode'] = body.asyncMode;
   const r = await fetch(path, { method: 'POST', headers, body: code, signal });
   if (!r.ok) {
     let msg;
@@ -90,6 +99,8 @@ function resetCoroStopSignal() {
 }
 
 function signalCoroStop() {
+  executionSession?.stop();
+  executionAbort?.abort();
   __coroStopRequested = true;
   if (__coroStopSignal && typeof __coroStopSignal.resolve === 'function') {
     __coroStopSignal.resolve();
@@ -2981,19 +2992,37 @@ function showCelebration() {
   }, 1500);
 }
 
-async function runWasm() {
+async function runWasm(debug = false) {
+  if (__coroRunning) return;
+  if (debug && !supportsJspi()) return;
   const code = getCode();
   const { type: algType } = parseAlgHeader(code);
-  const O = $('#opt').value;
+  const O = debug ? '0' : $('#opt').value;
   window.__hasRuntimeErrors = false;
   // A run that fails to compile must not leave the previous program's output behind.
   $('#stdout').textContent = '';
   resetCoroStopSignal();
   let runAsCoroutine = false;
+  let runtime = null;
+  const debuggerInstance = debug ? debuggerUI?.begin() : null;
+  executionAbort = new AbortController();
+  setCoroRunning(true);
   try {
-    const bytes = await api('/api/compile-wasm', { code, O }, true);
+    const bytes = await api('/api/compile-wasm', { code, O, debug, asyncMode: supportsJspi() ? 'jspi' : 'coroutine' }, true, executionAbort.signal);
     const { loadRuntime } = await import('./runtime/loader.js');
-    const runtime = await loadRuntime(bytes);
+    runtime = await loadRuntime(bytes, {
+      debugger: debuggerInstance,
+      render: () => {
+        if (__robotModule) renderRobotField();
+        __turtleModule?.__onCanvasShown?.();
+        __drawerModule?.__onCanvasShown?.();
+        __painterModule?.__flushPainter?.();
+      },
+      delay: () => (__robotModule || __turtleModule || __painterModule)?.__getAnimationDelay?.() || 0,
+    });
+    executionSession = runtime.session;
+    if (__coroStopRequested) executionSession?.stop();
+    if (debug) debuggerUI.bind(runtime);
     const {
       module,
       instance,
@@ -3028,7 +3057,7 @@ async function runWasm() {
       complexEnv.__bindMemory(mem);
     }
     // Bind WASM exports to future runtime (needed for __qumir_wrap_coro child coro ops)
-    if (typeof futureEnv.__bindWasm === 'function') {
+    if (!executionSession && typeof futureEnv.__bindWasm === 'function') {
       futureEnv.__bindWasm(instance.exports);
     }
     if (mem && typeof futureEnv.__bindMemory === 'function') {
@@ -3136,7 +3165,8 @@ async function runWasm() {
   if (instance && instance.exports) {
       // Call global constructors if present (init_array handlers)
       if (typeof instance.exports.__wasm_call_ctors === 'function') {
-        instance.exports.__wasm_call_ctors();
+        if (executionSession) await executionSession.call(instance.exports.__wasm_call_ctors);
+        else instance.exports.__wasm_call_ctors();
       }
       const entries = Object.entries(instance.exports)
         .filter(([k, v]) => typeof v === 'function' && !k.startsWith('__') && k !== '$$module_constructor' && k !== '$$module_destructor');
@@ -3164,7 +3194,7 @@ async function runWasm() {
             resultEnv.setStringRuntime(stringEnv);
           }
           const retType = resultEnv.wasmReturnType(bytes, name);
-          runAsCoroutine = shouldRunWasmCoroutine({
+          runAsCoroutine = !executionSession && shouldRunWasmCoroutine({
             instance,
             returnType: retType,
             algType,
@@ -3175,7 +3205,7 @@ async function runWasm() {
           });
           const res = runAsCoroutine
             ? await runWasmCoroutine({ instance, entryFn: fn, args: parsed, usesRobot, usesTurtle, usesPainter, futureEnv })
-            : fn(...parsed);
+            : executionSession ? await executionSession.call(fn, parsed) : fn(...parsed);
           const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
           const elapsedUs = Math.round((t1 - t0) * 1000);
           const normalized = resultEnv.normalizeReturnValue(res, {
@@ -3190,7 +3220,8 @@ async function runWasm() {
       }
       // Call global destructors if present
       if (typeof instance.exports.__wasm_call_dtors === 'function') {
-        instance.exports.__wasm_call_dtors();
+        if (executionSession) await executionSession.call(instance.exports.__wasm_call_dtors);
+        else instance.exports.__wasm_call_dtors();
       }
       if (__painterModule && typeof __painterModule.__flushPainter === 'function') {
         __painterModule.__flushPainter();
@@ -3243,7 +3274,8 @@ async function runWasm() {
     }
     // ========================================
   } catch (e) {
-    const errMsg = e.message || String(e);
+    const stopped = e instanceof ExecutionStopped || (__coroStopRequested && e.name === 'AbortError');
+    const errMsg = stopped ? 'Остановлено' : e.message || String(e);
 
     // Parse error for line number: "@ Line: 8, Byte: 4, Column: 4"
     const lineMatch = errMsg.match(/@\s*Line:\s*(\d+)/i);
@@ -3253,7 +3285,7 @@ async function runWasm() {
     }
 
     // Show error in errors pane (not stdout)
-    setErrorsPaneContent(errMsg, { isError: true });
+    setErrorsPaneContent(errMsg, { isError: !stopped });
     setActiveIoPane('errors', { persistCookie: false });
 
     // If we have a line number, highlight it like compilation errors
@@ -3269,6 +3301,16 @@ async function runWasm() {
     if (__compilerOutputMode === 'robot' && __robotModule) {
       renderRobotField();
     }
+  } finally {
+    executionSession?.finish();
+    executionSession = null;
+    executionAbort = null;
+    runtime?.futureEnv.__bindWasm?.(null);
+    runtime?.futureEnv.__resetFutures?.();
+    __keyboardModule?.__disposeKeyboard?.();
+    __browserFileManager?.reset?.();
+    if (debug) debuggerUI?.finish();
+    setCoroRunning(false);
   }
 }
 
@@ -3278,6 +3320,8 @@ function setCoroRunning(running) {
   const runBtn = document.getElementById('btn-run');
   if (stopBtn) stopBtn.style.display = running ? '' : 'none';
   if (runBtn) runBtn.disabled = running;
+  const debugBtn = document.getElementById('btn-debug');
+  if (debugBtn) debugBtn.disabled = running || !supportsJspi() || !debuggerUI;
 }
 
 function shouldRunWasmCoroutine({ instance, returnType, algType, usesRobot, usesTurtle, usesDrawer, usesPainter }) {
@@ -4931,6 +4975,11 @@ $('#btn-run').addEventListener('click', async () => {
   await runWasm();
   show($('#view').value, { clearErrorsOnSuccess: false });
 });
+
+if (editor) debuggerUI = new DebuggerUI(editor, document.getElementById('debug-panel'));
+$('#btn-debug').disabled = !supportsJspi() || !debuggerUI;
+if (!supportsJspi()) $('#btn-debug').title = 'Этот браузер не поддерживает JSPI';
+$('#btn-debug').addEventListener('click', async () => { await runWasm(true); });
 
 $('#btn-stop').addEventListener('click', () => {
   signalCoroStop();

@@ -1,3 +1,5 @@
+import { ExecutionSession, supportsJspi, bindJspiImports } from './execution_session.js';
+
 let browserIo = null;
 
 function usesImport(imports, prefix) {
@@ -18,9 +20,19 @@ async function optionalImport(path, enabled) {
   }
 }
 
-export async function loadRuntime(bytes) {
+export async function loadRuntime(bytes, options = {}) {
   const module = await WebAssembly.compile(bytes);
   const imports = WebAssembly.Module.imports(module);
+  const readSection = name => {
+    const data = WebAssembly.Module.customSections(module, name)[0];
+    return data ? JSON.parse(new TextDecoder().decode(data)) : null;
+  };
+  const runtimeInfo = readSection('qumir.runtime');
+  const debugData = readSection('qumir.debug');
+  const jspi = runtimeInfo?.mode === 'jspi' || !!debugData;
+  if (jspi && !supportsJspi()) throw new Error('Этот браузер не поддерживает JSPI');
+  const session = jspi ? new ExecutionSession(options) : null;
+  if (options.debugger) options.debugger.data = debugData;
 
   const [
     mathEnv,
@@ -75,11 +87,18 @@ export async function loadRuntime(bytes) {
     ...(colorsModule || {}),
     ...(keyboardModule || {}),
   };
+  if (session) {
+    bindJspiImports(env, imports, runtimeInfo, session, debugData);
+  }
   const instance = await WebAssembly.instantiate(module, { env });
+  if (session) session.instance = instance;
 
   return {
     module,
     instance,
+    session,
+    debugData,
+    runtimeInfo,
     ioEnv,
     resultEnv,
     stringEnv,

@@ -818,3 +818,18 @@ body.dev-mode .dev-mode-toggle { opacity: 1; filter: brightness(1.3); }
 	0%, 100% { transform: translateY(0); }
 	50% { transform: translateY(-8px); }
 }
+
+.q-debug-panel { flex: 0 0 auto; max-height: 40%; overflow: auto; padding: 12px; border: 1px solid var(--border, #555); border-radius: 8px; margin: 8px; }
+.q-debug-panel[hidden], .q-debug-tooltip[hidden] { display: none; }
+.q-debug-controls { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.q-debug-values { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; margin-top: 10px; max-height: 240px; overflow: auto; }
+.q-debug-values table { width: 100%; text-align: left; border-spacing: 8px 4px; }
+.q-debug-values td { overflow-wrap: anywhere; }
+[data-debug-stack] { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+[data-debug-stack] button { text-align: left; }
+.CodeMirror-gutter.q-debug-gutter { width: 16px; cursor: pointer; }
+.q-debug-breakpoint { color: #f05b61; }
+.q-debug-current { background: rgba(225, 175, 45, .25); }
+.q-debug-variable { background: rgba(90, 160, 230, .3); }
+.q-debug-tooltip { position: fixed; z-index: 10000; max-width: 400px; padding: 8px; border-radius: 4px; background: #20242b; color: #fff; white-space: pre-wrap; pointer-events: none; font-family: monospace; }
+@media (max-width: 600px) { .q-debug-values { grid-template-columns: 1fr; } }

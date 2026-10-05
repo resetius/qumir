@@ -284,7 +284,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         src = self._write_temp_source(code)
         out = os.path.splitext(src)[0] + '.wasm'
         try:
-            rc, so, se = self._run([QUMIRC, '--wasm', '-O', olevel, '-o', out, src])
+            mode = self.headers.get('X-Qumir-Async-Mode', 'jspi')
+            if mode not in ('jspi', 'coroutine'):
+                return self._send_json({'error': 'invalid async mode'}, 400)
+            debug = self.headers.get('X-Qumir-Debug-Points') == '1'
+            args = [QUMIRC, '--wasm', '--async-mode=' + mode, '-O', '0' if debug else olevel, '-o', out, src]
+            if debug:
+                args.insert(1, '--debug-points')
+            if self.headers.get('X-Qumir-Syntax') == 'core':
+                args.insert(1, '--core')
+            rc, so, se = self._run(args)
             if rc != 0:
                 return self._send_json({'error':se.decode('utf-8','ignore')}, 400)
             with open(out,'rb') as f:
