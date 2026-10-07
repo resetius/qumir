@@ -48,7 +48,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="fibonacci">
+
+```kumir
 алг
 нач
     цел i
@@ -68,3 +70,5 @@
     все
 кон
 ```
+
+</qumir-example>

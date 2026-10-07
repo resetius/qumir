@@ -107,7 +107,9 @@ tol := 1e-3
 
 ## Полная программа
 
-```
+<qumir-example id="poisson3d-gs">
+
+```kumir
 алг
 нач
   цел Nx, Ny, Nz
@@ -202,5 +204,7 @@ tol := 1e-3
   все
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=math/poisson3d_gs.kum)

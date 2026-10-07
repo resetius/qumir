@@ -53,7 +53,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="turtle-dragon">
+
+```kumir
 использовать Черепаха
 алг
 нач
@@ -85,5 +87,7 @@
     все
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=turtle/dragon_curve.kum)

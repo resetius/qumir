@@ -30,7 +30,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="painter-circles">
+
+```kumir
 использовать Рисователь
 
 алг
@@ -44,5 +46,7 @@
     кц
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=painter/circles.kum)

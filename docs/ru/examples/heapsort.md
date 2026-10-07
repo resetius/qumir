@@ -80,7 +80,14 @@
 
 ## Полная программа
 
-```
+<qumir-example id="heapsort">
+
+```kumir
+алг
+нач
+    main(10)
+кон
+
 алг main(цел n)
 нач
     если n <= 0 то
@@ -155,5 +162,7 @@
     вывод нс
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=algorithms/heapsort.kum)

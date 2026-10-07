@@ -32,7 +32,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="sum">
+
+```kumir
 алг
 нач
     цел a, b
@@ -41,3 +43,13 @@
     вывод a, " + ", b, " = ", a + b, нс
 кон
 ```
+
+<qumir-input>
+
+```text
+7 5
+```
+
+</qumir-input>
+
+</qumir-example>

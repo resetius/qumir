@@ -36,7 +36,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="complex-array">
+
+```kumir
 использовать Комплексные числа
 
 алг main
@@ -55,5 +57,7 @@
     кц
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=complex/complex_array_test.kum)

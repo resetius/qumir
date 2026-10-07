@@ -125,7 +125,9 @@
 
 ### Флаг
 
-```
+<qumir-example id="painter-example-1">
+
+```kumir
 использовать Рисователь
 алг
 нач
@@ -140,9 +142,13 @@
 кон
 ```
 
+</qumir-example>
+
 ### Радуга
 
-```
+<qumir-example id="painter-example-2">
+
+```kumir
 использовать Рисователь
 алг
 нач
@@ -155,9 +161,13 @@
 кон
 ```
 
+</qumir-example>
+
 ### Концентрические окружности
 
-```
+<qumir-example id="painter-example-3">
+
+```kumir
 использовать Рисователь
 алг
 нач
@@ -170,6 +180,8 @@
     кц
 кон
 ```
+
+</qumir-example>
 
 ## Система координат
 

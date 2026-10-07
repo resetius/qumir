@@ -96,7 +96,9 @@ $$A_{i,j} = \begin{cases} 1, & j \le i \\ 0, & j > i \end{cases}$$
 
 ## Полная программа
 
-```
+<qumir-example id="matvec">
+
+```kumir
 алг main
 нач
   | Матвект: y = A * x, где A — нижнетреугольная матрица из единиц,
@@ -147,5 +149,7 @@ $$A_{i,j} = \begin{cases} 1, & j \le i \\ 0, & j > i \end{cases}$$
   вывод "matvec: ||e||_inf  = ", res_inf, нс
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=math/matvec.kum)

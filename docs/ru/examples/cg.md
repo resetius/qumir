@@ -202,7 +202,9 @@ $$A_{i,j} = \frac{1}{i + j + 1}, \quad i,j = 0, \ldots, n-1$$
 
 ## Полная программа
 
-```
+<qumir-example id="cg">
+
+```kumir
 алг main
 нач
   | Conjugate Gradient (CG) для матрицы Гильберта A (A[i,j] = 1/(i+j+1)) и правой части b=1.
@@ -344,5 +346,7 @@ $$A_{i,j} = \frac{1}{i + j + 1}, \quad i,j = 0, \ldots, n-1$$
   кц
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=math/cg.kum)

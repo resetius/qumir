@@ -45,8 +45,35 @@
 
 ## Полная программа
 
-```
+<qumir-example id="complex-func">
+
+```kumir
 использовать Комплексные числа
+
+алг
+нач
+    компл a
+    вещ x, re, im
+    x := 2.5
+    a := x
+
+    вывод "Re(a) = ", getReal(a), нс
+    вывод "Im(a) = ", getImag(a), нс
+
+    компл b
+    b := fromReal(3.0)
+    вывод "Re(fromReal(3.0)) = ", Re(b), нс
+    вывод "Im(fromReal(3.0)) = ", Im(b), нс
+
+    realAndImag(a, re, im)
+    вывод "decompose Re = ", re, нс
+    вывод "decompose Im = ", im, нс
+
+    компл c
+    makeComplex(5.0, 6.0, c)
+    вывод "рез компл Re = ", Re(c), нс
+    вывод "рез компл Im = ", Im(c), нс
+кон
 
 алг вещ getReal(компл z)
 нач
@@ -77,31 +104,8 @@
     tmp := re
     result := tmp
 кон
-
-алг
-нач
-    компл a
-    вещ x, re, im
-    x := 2.5
-    a := x
-
-    вывод "Re(a) = ", getReal(a), нс
-    вывод "Im(a) = ", getImag(a), нс
-
-    компл b
-    b := fromReal(3.0)
-    вывод "Re(fromReal(3.0)) = ", Re(b), нс
-    вывод "Im(fromReal(3.0)) = ", Im(b), нс
-
-    realAndImag(a, re, im)
-    вывод "decompose Re = ", re, нс
-    вывод "decompose Im = ", im, нс
-
-    компл c
-    makeComplex(5.0, 6.0, c)
-    вывод "рез компл Re = ", Re(c), нс
-    вывод "рез компл Im = ", Im(c), нс
-кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=complex/complex_func_test.kum)

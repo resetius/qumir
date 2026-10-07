@@ -63,7 +63,9 @@
 
 ### Простое перемещение
 
-```
+<qumir-example id="robot-example-1">
+
+```kumir
 использовать Робот
 алг
 нач
@@ -74,9 +76,22 @@
 кон
 ```
 
+<qumir-file name="robot.fil">
+
+```text
+5 4
+1 1
+```
+
+</qumir-file>
+
+</qumir-example>
+
 ### Закрасить ряд
 
-```
+<qumir-example id="robot-example-2">
+
+```kumir
 использовать Робот
 алг
 нач
@@ -88,9 +103,22 @@
 кон
 ```
 
+<qumir-file name="robot.fil">
+
+```text
+6 1
+1 1
+```
+
+</qumir-file>
+
+</qumir-example>
+
 ### Закрасить квадрат 3×3
 
-```
+<qumir-example id="robot-example-3">
+
+```kumir
 использовать Робот
 алг
 нач
@@ -113,9 +141,22 @@
 кон
 ```
 
+<qumir-file name="robot.fil">
+
+```text
+5 5
+2 2
+```
+
+</qumir-file>
+
+</qumir-example>
+
 ### Обход препятствия
 
-```
+<qumir-example id="robot-example-4">
+
+```kumir
 использовать Робот
 алг
 нач
@@ -132,9 +173,24 @@
 кон
 ```
 
+<qumir-file name="robot.fil">
+
+```text
+6 4
+1 1
+2 1 8 0 0 0 $ $ 0
+2 2 8 0 0 0 $ $ 0
+```
+
+</qumir-file>
+
+</qumir-example>
+
 ### Следование вдоль стены
 
-```
+<qumir-example id="robot-example-5">
+
+```kumir
 использовать Робот
 алг
 нач
@@ -163,9 +219,22 @@
 кон
 ```
 
+<qumir-file name="robot.fil">
+
+```text
+5 4
+1 1
+```
+
+</qumir-file>
+
+</qumir-example>
+
 ### Заливка области
 
-```
+<qumir-example id="robot-example-6">
+
+```kumir
 использовать Робот
 алг
 нач
@@ -204,6 +273,19 @@
     все
 кон
 ```
+
+<qumir-file name="robot.fil">
+
+```text
+5 4
+3 2
+2 1 2 0 0 0 $ $ 0
+2 2 2 0 0 0 $ $ 0
+```
+
+</qumir-file>
+
+</qumir-example>
 
 ## Файл поля (.fil)
 

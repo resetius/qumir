@@ -62,7 +62,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="primes">
+
+```kumir
 алг
 нач
     цел i
@@ -93,3 +95,5 @@
     все
 кон
 ```
+
+</qumir-example>

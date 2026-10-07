@@ -70,7 +70,9 @@
 
 Пример:
 
-```
+<qumir-example id="standard-functions-example-1">
+
+```kumir
 алг
 нач
     лит s = "абракадабра"
@@ -81,6 +83,8 @@
     вывод s, нс
 кон
 ```
+
+</qumir-example>
 
 ## Преобразование строк и чисел
 
@@ -93,7 +97,9 @@
 
 Если преобразование строки не удалось, числовая функция возвращает `0`, а флаг успеха получает `нет`.
 
-```
+<qumir-example id="standard-functions-example-2">
+
+```kumir
 алг
 нач
     лог ok
@@ -105,6 +111,8 @@
     все
 кон
 ```
+
+</qumir-example>
 
 ## Файлы
 
@@ -121,7 +129,9 @@
 
 Файлы обычно используются через команды `ввод` и `вывод`:
 
-```
+<qumir-example id="standard-functions-example-3">
+
+```kumir
 алг
 нач
     файл f
@@ -133,6 +143,16 @@
 кон
 ```
 
+<qumir-file name="input.txt">
+
+```text
+42
+```
+
+</qumir-file>
+
+</qumir-example>
+
 ## Время
 
 | Функция или процедура | Тип результата | Описание |
@@ -142,7 +162,9 @@
 
 Пример:
 
-```
+<qumir-example id="standard-functions-example-4">
+
+```kumir
 алг
 нач
     вывод время, нс
@@ -150,3 +172,5 @@
     вывод время, нс
 кон
 ```
+
+</qumir-example>

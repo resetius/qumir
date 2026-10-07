@@ -95,7 +95,9 @@ $$y_i = \sin(x_i) \cdot \text{scale}$$
 
 ## Полная программа
 
-```
+<qumir-example id="drawer-function">
+
+```kumir
 | График функции y = sin(x)
 использовать Чертежник
 
@@ -157,5 +159,7 @@ $$y_i = \sin(x_i) \cdot \text{scale}$$
     написать(2.0, "y=sin(x)")
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=drawer/function.kum)

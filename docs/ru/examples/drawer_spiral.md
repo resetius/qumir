@@ -79,7 +79,9 @@ $$x = r \cdot \cos(\theta), \quad y = r \cdot \sin(\theta)$$
 
 ## Полная программа
 
-```
+<qumir-example id="drawer-spiral">
+
+```kumir
 | Рисование спирали Архимеда
 использовать Чертежник
 
@@ -123,5 +125,7 @@ $$x = r \cdot \cos(\theta), \quad y = r \cdot \sin(\theta)$$
     написать(4.0, "Спираль Архимеда")
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=drawer/spiral.kum)

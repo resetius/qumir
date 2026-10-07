@@ -84,7 +84,14 @@ k := l
 
 ## Полная программа
 
-```
+<qumir-example id="mergesort">
+
+```kumir
+алг
+нач
+    main(10)
+кон
+
 алг main(цел n)
 нач
     если n <= 0 то
@@ -167,5 +174,7 @@ k := l
     вывод нс
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=algorithms/mergesort.kum)

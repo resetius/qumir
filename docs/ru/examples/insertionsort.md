@@ -42,7 +42,14 @@ A[j + 1] := key
 
 ## Полная программа
 
-```
+<qumir-example id="insertionsort">
+
+```kumir
+алг
+нач
+    main(10)
+кон
+
 алг main(цел n)
 нач
     если n <= 0 то
@@ -93,5 +100,7 @@ A[j + 1] := key
     вывод нс
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=algorithms/insertionsort.kum)

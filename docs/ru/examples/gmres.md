@@ -319,7 +319,9 @@ $$c = \frac{h_{jj}}{\sqrt{h_{jj}^2 + h_{j+1,j}^2}}, \quad s = \frac{h_{j+1,j}}{\
 
 ## Полная программа
 
-```
+<qumir-example id="gmres">
+
+```kumir
 алг main
 нач
   | GMRES(m) для матрицы Гильберта A (A[i,j] = 1/(i+j+1)) и правой части b=1.
@@ -547,5 +549,7 @@ $$c = \frac{h_{jj}}{\sqrt{h_{jj}^2 + h_{j+1,j}^2}}, \quad s = \frac{h_{j+1,j}}{\
   кц
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=math/gmres.kum)

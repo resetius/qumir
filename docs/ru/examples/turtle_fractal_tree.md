@@ -51,7 +51,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="turtle-fractal-tree">
+
+```kumir
 использовать Черепаха
 алг
 нач
@@ -78,5 +80,7 @@
     все
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=turtle/fractal_tree.kum)

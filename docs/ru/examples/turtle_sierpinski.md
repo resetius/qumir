@@ -66,7 +66,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="turtle-sierpinski">
+
+```kumir
 использовать Черепаха
 алг
 нач
@@ -107,5 +109,7 @@
     все
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=turtle/sierpinski_triangle.kum)

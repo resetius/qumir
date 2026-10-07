@@ -35,7 +35,9 @@ n := a    | берётся int(Re(a))
 
 ## Полная программа
 
-```
+<qumir-example id="complex-cast">
+
+```kumir
 использовать Комплексные числа
 
 алг
@@ -64,5 +66,7 @@ n := a    | берётся int(Re(a))
     вывод "компл -> цел: ", n, нс
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=complex/cast_test.kum)

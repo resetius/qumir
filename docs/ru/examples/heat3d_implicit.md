@@ -150,7 +150,9 @@ err := 0.0
 
 ## Полная программа
 
-```
+<qumir-example id="heat3d-implicit">
+
+```kumir
 алг
 нач
   цел Nx, Ny, Nz
@@ -253,5 +255,7 @@ err := 0.0
   все
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=math/heat3d_implicit.kum)

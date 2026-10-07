@@ -27,7 +27,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="painter-gradient">
+
+```kumir
 | 2D HSV-градиент: оттенок меняется по X, яркость по Y
 
 использовать Рисователь
@@ -45,5 +47,7 @@
     кц
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=painter/gradient.kum)

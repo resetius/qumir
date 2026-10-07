@@ -174,7 +174,9 @@ $$x_i = \frac{b_i - \sum_{j=i+1}^{n-1} A_{i,j} \cdot x_j}{A_{i,i}}$$
 
 ## Полная программа
 
-```
+<qumir-example id="gauss">
+
+```kumir
 алг main
 нач
   | Решение Ax=b методом Гаусса с частичным выбором, нормировкой строки
@@ -295,5 +297,7 @@ $$x_i = \frac{b_i - \sum_{j=i+1}^{n-1} A_{i,j} \cdot x_j}{A_{i,i}}$$
   вывод "||r||_inf  = ", res_inf, нс
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=math/gauss.kum)

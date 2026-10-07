@@ -46,7 +46,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="robot-simple">
+
+```kumir
 использовать Робот
 
 алг квадрат
@@ -61,5 +63,16 @@
   закрасить
 кон
 ```
+
+<qumir-file name="robot.fil">
+
+```text
+4 4
+2 2
+```
+
+</qumir-file>
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=robot/simple.kum)

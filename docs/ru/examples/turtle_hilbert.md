@@ -74,7 +74,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="turtle-hilbert">
+
+```kumir
 использовать Черепаха
 алг
 нач
@@ -125,5 +127,7 @@
     все
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=turtle/hilbert_curve.kum)

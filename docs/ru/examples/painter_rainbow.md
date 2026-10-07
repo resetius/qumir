@@ -29,7 +29,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="painter-rainbow">
+
+```kumir
 использовать Рисователь
 
 алг
@@ -42,5 +44,7 @@
     кц
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=painter/rainbow.kum)

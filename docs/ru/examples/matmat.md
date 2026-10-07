@@ -100,7 +100,9 @@ $$C_{i,j} = \sum_{k=0}^{n-1} A_{i,k} \cdot B_{k,j}, \quad i,j = 0, \ldots, n-1$$
 
 ## Полная программа
 
-```
+<qumir-example id="matmat">
+
+```kumir
 алг main
 нач
   | Матматр: C = A * B. A — нижнетреугольная матрица из единиц,
@@ -155,5 +157,7 @@ $$C_{i,j} = \sum_{k=0}^{n-1} A_{i,k} \cdot B_{k,j}, \quad i,j = 0, \ldots, n-1$$
   вывод "matmat: ||e||_inf  = ", res_inf, нс
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=math/matmat.kum)

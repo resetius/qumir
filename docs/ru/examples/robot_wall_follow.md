@@ -76,7 +76,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="robot-wall-follow">
+
+```kumir
 использовать Робот
 
 алг обход_стен
@@ -103,5 +105,16 @@
   кц
 кон
 ```
+
+<qumir-file name="robot.fil">
+
+```text
+6 4
+1 1
+```
+
+</qumir-file>
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=robot/wall_follow.kum)

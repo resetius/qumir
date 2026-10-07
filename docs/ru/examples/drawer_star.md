@@ -85,7 +85,9 @@ $$x = cx + r \cdot \cos(\alpha), \quad y = cy + r \cdot \sin(\alpha)$$
 
 ## Полная программа
 
-```
+<qumir-example id="drawer-star">
+
+```kumir
 | Рисование звезды
 использовать Чертежник
 
@@ -135,5 +137,7 @@ $$x = cx + r \cdot \cos(\alpha), \quad y = cy + r \cdot \sin(\alpha)$$
     кц
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=drawer/star.kum)

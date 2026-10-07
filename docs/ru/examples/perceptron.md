@@ -143,7 +143,9 @@ acc_te := accuracy(Ntest,  X1te,  X2te,  Yte,  w1, w2, bias)
 
 ## Полная программа
 
-```
+<qumir-example id="perceptron">
+
+```kumir
 | Персептрон для линейно разделимых 2D-точек.
 | Задача: порождаем обучающую и тестовую выборки из квадрата [-1,1]^2.
 | Истинная разметка задаётся случайной прямой a*x1 + b*x2 + c = 0.
@@ -265,5 +267,7 @@ acc_te := accuracy(Ntest,  X1te,  X2te,  Yte,  w1, w2, bias)
   знач := acc
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=ml/perceptron.kum)

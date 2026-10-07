@@ -67,7 +67,9 @@
 
 ## Полная программа
 
-```
+<qumir-example id="factorial">
+
+```kumir
 алг
 нач
     цел n
@@ -86,3 +88,13 @@
     все
 кон
 ```
+
+<qumir-input>
+
+```text
+5
+```
+
+</qumir-input>
+
+</qumir-example>

@@ -38,7 +38,9 @@ toggle := 0
 
 ## Полная программа
 
-```
+<qumir-example id="painter-checkerboard">
+
+```kumir
 использовать Рисователь
 
 алг
@@ -62,5 +64,7 @@ toggle := 0
     кц
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=painter/checkerboard.kum)

@@ -106,12 +106,16 @@ ctest --test-dir build --output-on-failure
 
 Создайте файл `hello.kum`:
 
-```
+<qumir-example id="index-example-1">
+
+```kumir
 алг
 нач
     вывод "Привет, мир!", нс
 кон
 ```
+
+</qumir-example>
 
 ### Запуск через интерпретатор
 

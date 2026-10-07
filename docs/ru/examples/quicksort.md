@@ -67,7 +67,14 @@ j := р
 
 ## Полная программа
 
-```
+<qumir-example id="quicksort">
+
+```kumir
+алг
+нач
+    main(10)
+кон
+
 алг main(цел n)
 нач
     если n <= 0 то
@@ -133,5 +140,7 @@ j := р
     вывод нс
 кон
 ```
+
+</qumir-example>
 
 [▶ Запустить пример](/?example=algorithms/quicksort.kum)
