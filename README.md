@@ -215,6 +215,8 @@ For browser embedding, compile with `qumirc --wasm` and provide the imported hos
 
 ## Documentation
 
+On the website, a `kumir` code block inside `<qumir-example id="unique-id">` becomes an editable, runnable example. Set `io="false"` on the tag to hide the input/output panel for graphics examples; execution results and errors remain visible below the editor. The panel is visible by default, or with `io="true"`. Keep it visible when readers need text input, output, or file editing. Robot fields can be edited directly in the preview even with `io="false"`. Markdown code blocks and screenshots remain readable on GitHub.
+
 - [User documentation](docs/ru/index.md)
 - [Syntax reference](docs/ru/syntax.md)
 - [Standard functions](docs/ru/standard-functions.md)

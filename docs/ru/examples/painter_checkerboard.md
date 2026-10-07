@@ -38,7 +38,7 @@ toggle := 0
 
 ## Полная программа
 
-<qumir-example id="painter-checkerboard">
+<qumir-example id="painter-checkerboard" io="false">
 
 ```kumir
 использовать Рисователь

@@ -80,7 +80,7 @@
 
 ## Полная программа
 
-<qumir-example id="drawer-grid">
+<qumir-example id="drawer-grid" io="false">
 
 ```kumir
 | Рисование координатной сетки

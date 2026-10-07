@@ -77,7 +77,7 @@
 
 ## Полная программа
 
-<qumir-example id="drawer-house">
+<qumir-example id="drawer-house" io="false">
 
 ```kumir
 | Простой домик с использованием чертежника

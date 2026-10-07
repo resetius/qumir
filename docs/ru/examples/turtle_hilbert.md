@@ -74,7 +74,7 @@
 
 ## Полная программа
 
-<qumir-example id="turtle-hilbert">
+<qumir-example id="turtle-hilbert" io="false">
 
 ```kumir
 использовать Черепаха

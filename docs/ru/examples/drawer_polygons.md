@@ -96,7 +96,7 @@ $$x_i = cx + r \cdot \cos(\alpha_i), \quad y_i = cy + r \cdot \sin(\alpha_i)$$
 
 ## Полная программа
 
-<qumir-example id="drawer-polygons">
+<qumir-example id="drawer-polygons" io="false">
 
 ```kumir
 | Рисование правильных многоугольников

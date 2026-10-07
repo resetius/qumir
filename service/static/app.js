@@ -1238,6 +1238,13 @@ function setErrorsPaneContent(text, { isError = false } = {}) {
   if (viewer) {
     viewer.textContent = text || '';
   }
+  if (embedded) {
+    const result = document.getElementById('example-result');
+    if (result) {
+      result.textContent = text || '';
+      result.classList.toggle('error', isError);
+    }
+  }
   if (isError && __currentIoPane !== 'errors') {
     setErrorsBadge(true);
   }

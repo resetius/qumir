@@ -127,7 +127,7 @@
 
 ## Полная программа
 
-<qumir-example id="drawer-chart">
+<qumir-example id="drawer-chart" io="false">
 
 ```kumir
 | Простая столбчатая диаграмма

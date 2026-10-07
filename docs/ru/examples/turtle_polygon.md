@@ -42,7 +42,7 @@
 
 ## Полная программа
 
-<qumir-example id="turtle-polygon">
+<qumir-example id="turtle-polygon" io="false">
 
 ```kumir
 использовать Черепаха

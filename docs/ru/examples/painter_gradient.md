@@ -27,7 +27,7 @@
 
 ## Полная программа
 
-<qumir-example id="painter-gradient">
+<qumir-example id="painter-gradient" io="false">
 
 ```kumir
 | 2D HSV-градиент: оттенок меняется по X, яркость по Y

@@ -125,7 +125,7 @@
 
 ### Флаг
 
-<qumir-example id="painter-example-1">
+<qumir-example id="painter-example-1" io="false">
 
 ```kumir
 использовать Рисователь
@@ -146,7 +146,7 @@
 
 ### Радуга
 
-<qumir-example id="painter-example-2">
+<qumir-example id="painter-example-2" io="false">
 
 ```kumir
 использовать Рисователь
@@ -165,7 +165,7 @@
 
 ### Концентрические окружности
 
-<qumir-example id="painter-example-3">
+<qumir-example id="painter-example-3" io="false">
 
 ```kumir
 использовать Рисователь

@@ -63,7 +63,7 @@ Velocity Verlet существенно лучше сохраняет энерг�
 
 ## Полная программа
 
-<qumir-example id="painter-orbits">
+<qumir-example id="painter-orbits" io="false">
 
 ```kumir
 использовать Рисователь

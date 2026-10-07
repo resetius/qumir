@@ -30,7 +30,7 @@
 
 ## Полная программа
 
-<qumir-example id="painter-circles">
+<qumir-example id="painter-circles" io="false">
 
 ```kumir
 использовать Рисователь

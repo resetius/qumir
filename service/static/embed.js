@@ -36,6 +36,12 @@ try {
     }
     try {
       if (event.data.type === 'init' && !initial) {
+        const io = event.data.options?.io ?? true;
+        if (typeof io !== 'boolean') {
+          throw new Error('Неверная настройка панели ввода/вывода');
+        }
+        document.getElementById('example-io').hidden = !io;
+        document.getElementById('example-result').hidden = io;
         initial = exampleData(event.data.example);
         await restore();
       } else if (event.data.type === 'stop') {

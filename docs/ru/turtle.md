@@ -42,7 +42,7 @@
 
 Эти команды удобны для ветвящихся рисунков: перед ветвью состояние сохраняют, после неё — восстанавливают.
 
-<qumir-example id="turtle-example-1">
+<qumir-example id="turtle-example-1" io="false">
 
 ```kumir
 использовать Черепаха
@@ -64,7 +64,7 @@
 
 ### Квадрат
 
-<qumir-example id="turtle-example-2">
+<qumir-example id="turtle-example-2" io="false">
 
 ```kumir
 использовать Черепаха
@@ -83,7 +83,7 @@
 
 ### Треугольник
 
-<qumir-example id="turtle-example-3">
+<qumir-example id="turtle-example-3" io="false">
 
 ```kumir
 использовать Черепаха
@@ -102,7 +102,7 @@
 
 ### Звезда
 
-<qumir-example id="turtle-example-4">
+<qumir-example id="turtle-example-4" io="false">
 
 ```kumir
 использовать Черепаха
@@ -121,7 +121,7 @@
 
 ### Окружность (приближённо)
 
-<qumir-example id="turtle-example-5">
+<qumir-example id="turtle-example-5" io="false">
 
 ```kumir
 использовать Черепаха
@@ -140,7 +140,7 @@
 
 ### Спираль
 
-<qumir-example id="turtle-example-6">
+<qumir-example id="turtle-example-6" io="false">
 
 ```kumir
 использовать Черепаха
@@ -162,7 +162,7 @@
 
 ### Еще пример
 
-<qumir-example id="turtle-example-7">
+<qumir-example id="turtle-example-7" io="false">
 
 ```kumir
 использовать Черепаха
@@ -194,7 +194,7 @@
 
 ### Снежинка Коха
 
-<qumir-example id="turtle-example-8">
+<qumir-example id="turtle-example-8" io="false">
 
 ```kumir
 использовать Черепаха
@@ -229,7 +229,7 @@
 
 ### Дерево
 
-<qumir-example id="turtle-example-9">
+<qumir-example id="turtle-example-9" io="false">
 
 ```kumir
 использовать Черепаха
@@ -259,7 +259,7 @@
 
 ### Треугольник Серпинского
 
-<qumir-example id="turtle-example-10">
+<qumir-example id="turtle-example-10" io="false">
 
 ```kumir
 использовать Черепаха

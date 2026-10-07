@@ -63,7 +63,7 @@
 
 ## Полная программа
 
-<qumir-example id="turtle-koch">
+<qumir-example id="turtle-koch" io="false">
 
 ```kumir
 использовать Черепаха

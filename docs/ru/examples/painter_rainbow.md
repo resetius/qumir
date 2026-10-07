@@ -29,7 +29,7 @@
 
 ## Полная программа
 
-<qumir-example id="painter-rainbow">
+<qumir-example id="painter-rainbow" io="false">
 
 ```kumir
 использовать Рисователь

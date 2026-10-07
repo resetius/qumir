@@ -95,7 +95,7 @@ $$y_i = \sin(x_i) \cdot \text{scale}$$
 
 ## Полная программа
 
-<qumir-example id="drawer-function">
+<qumir-example id="drawer-function" io="false">
 
 ```kumir
 | График функции y = sin(x)

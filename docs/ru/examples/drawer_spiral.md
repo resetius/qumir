@@ -79,7 +79,7 @@ $$x = r \cdot \cos(\theta), \quad y = r \cdot \sin(\theta)$$
 
 ## Полная программа
 
-<qumir-example id="drawer-spiral">
+<qumir-example id="drawer-spiral" io="false">
 
 ```kumir
 | Рисование спирали Архимеда

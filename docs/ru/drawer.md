@@ -48,7 +48,7 @@
 
 ### Квадрат
 
-<qumir-example id="drawer-example-1">
+<qumir-example id="drawer-example-1" io="false">
 
 ```kumir
 использовать Чертежник
@@ -68,7 +68,7 @@
 
 ### Треугольник
 
-<qumir-example id="drawer-example-2">
+<qumir-example id="drawer-example-2" io="false">
 
 ```kumir
 использовать Чертежник
@@ -87,7 +87,7 @@
 
 ### Домик
 
-<qumir-example id="drawer-example-3">
+<qumir-example id="drawer-example-3" io="false">
 
 ```kumir
 использовать Чертежник
@@ -120,7 +120,7 @@
 
 ### Использование векторов
 
-<qumir-example id="drawer-example-4">
+<qumir-example id="drawer-example-4" io="false">
 
 ```kumir
 использовать Чертежник
@@ -144,7 +144,7 @@
 
 ### Правильный многоугольник
 
-<qumir-example id="drawer-example-5">
+<qumir-example id="drawer-example-5" io="false">
 
 ```kumir
 использовать Чертежник
@@ -185,7 +185,7 @@
 
 ### Звезда
 
-<qumir-example id="drawer-example-6">
+<qumir-example id="drawer-example-6" io="false">
 
 ```kumir
 использовать Чертежник
@@ -234,7 +234,7 @@
 
 ### График синуса
 
-<qumir-example id="drawer-example-7">
+<qumir-example id="drawer-example-7" io="false">
 
 ```kumir
 использовать Чертежник
@@ -284,7 +284,7 @@
 
 ## Координатная сетка
 
-<qumir-example id="drawer-example-8">
+<qumir-example id="drawer-example-8" io="false">
 
 ```kumir
 использовать Чертежник

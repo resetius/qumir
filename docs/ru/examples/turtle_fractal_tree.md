@@ -51,7 +51,7 @@
 
 ## Полная программа
 
-<qumir-example id="turtle-fractal-tree">
+<qumir-example id="turtle-fractal-tree" io="false">
 
 ```kumir
 использовать Черепаха

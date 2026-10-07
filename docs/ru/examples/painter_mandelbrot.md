@@ -51,7 +51,7 @@ $$z_{n+1} = z_n^2 + c, \quad z_0 = 0$$
 
 ## Полная программа
 
-<qumir-example id="painter-mandelbrot">
+<qumir-example id="painter-mandelbrot" io="false">
 
 ```kumir
 | Цветной мандельброт: каждая точка раскрашивается через HSL

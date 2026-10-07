@@ -85,7 +85,7 @@ $$x = cx + r \cdot \cos(\alpha), \quad y = cy + r \cdot \sin(\alpha)$$
 
 ## Полная программа
 
-<qumir-example id="drawer-star">
+<qumir-example id="drawer-star" io="false">
 
 ```kumir
 | Рисование звезды

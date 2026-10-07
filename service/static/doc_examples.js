@@ -14,6 +14,11 @@ class QumirExample extends HTMLElement {
           if (Array.from(document.querySelectorAll('qumir-example')).filter(node => node.id === this.id).length !== 1) {
             throw new Error('У каждого примера в статье должен быть уникальный id');
           }
+          const io = this.getAttribute('io');
+          if (io !== null && io !== 'true' && io !== 'false') {
+            throw new Error('Атрибут io должен быть true или false');
+          }
+          this.options = { io: io !== 'false' };
           this.initial = readExample(this);
           this.source = document.createElement('div');
           this.source.className = 'qumir-example-source';
@@ -62,7 +67,7 @@ class QumirExample extends HTMLElement {
       }
       const message = event.data;
       if (message.type === 'ready') {
-        this.send('init', { example: this.initial });
+        this.send('init', { example: this.initial, options: this.options });
       } else if (message.type === 'loaded') {
         clearTimeout(this.timer);
         this.dataset.ready = 'true';

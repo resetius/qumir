@@ -38,7 +38,7 @@
 
 ## Полная программа
 
-<qumir-example id="turtle-spiral">
+<qumir-example id="turtle-spiral" io="false">
 
 ```kumir
 использовать Черепаха
