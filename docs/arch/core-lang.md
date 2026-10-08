@@ -278,12 +278,31 @@ any) and before the body. Recognized attributes:
 extern
 print
 used
+cacheable
+inline
 ```
 
 The parser stores `expect_after` on `TFunDecl::LastAssert`. `expect_before` is
 parsed for forward compatibility. Bare-identifier attributes other than the
-recognized ones above (e.g. `inline`) are accepted and silently ignored for
+recognized ones above are accepted and silently ignored for
 forward compatibility.
+
+`inline` requests LLVM `alwaysinline` for ordinary function definitions.
+It is preserved through AST cloning, core printing and generic specialization.
+Calls are inlined by the LLVM optimization pipeline; at optimization level
+zero the attribute is retained without an inlining guarantee. It does not
+change the interpreter, external declarations, coroutines, or functions
+kept unoptimized for debug points and the REPL. Recursive calls cannot
+always be inlined. For example:
+
+```core
+(fun twice [T] ((var x T)) -> T (attrs inline)
+  (block (return (+ x x))))
+```
+
+Inlining requires a body in the LLVM module; the attribute alone cannot
+inline calls across native object boundaries. `cacheable inline` may be
+combined, and both attributes survive core printing.
 
 ### External function attributes
 

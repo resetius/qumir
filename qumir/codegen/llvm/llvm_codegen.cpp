@@ -697,6 +697,8 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
             lfun->addFnAttr(llvm::Attribute::NoInline);
             lfun->addFnAttr(llvm::Attribute::OptimizeNone);
             lfun->addFnAttr("disable-tail-calls", "true");
+        } else if (f.Inline && !f.Blocks.empty() && !f.IsCoroutine) {
+            lfun->addFnAttr(llvm::Attribute::AlwaysInline);
         }
         SymIdToLFun[f.SymId] = lfun;
         if (shouldDefine(f.Name)) {

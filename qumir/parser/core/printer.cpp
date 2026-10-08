@@ -417,10 +417,20 @@ void TPrinter::PrintFun(TFunDecl& node, int level) {
     const bool hasAttrs = node.LastAssert
         || node.OperatorName
         || node.LiteralSuffix
+        || node.Cacheable
+        || node.Inline
         || node.IsExternal();
     if (hasAttrs) {
         Space();
         *Out << "(attrs";
+        if (node.Cacheable) {
+            Separator(level + 2);
+            *Out << "cacheable";
+        }
+        if (node.Inline) {
+            Separator(level + 2);
+            *Out << "inline";
+        }
         if (node.LastAssert) {
             Separator(level + 2);
             *Out << "(expect_after";

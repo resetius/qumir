@@ -262,6 +262,7 @@ struct TFunction {
     int CoroutineResultTypeId = -1;
     bool CfgBuilt = false;
     bool Cacheable = false; // eligible for the JIT object cache (see TFunDecl::Cacheable)
+    bool Inline = false; // explicit inline request, preserved through specialization
 
     int SymId;
     int UniqueId; // unique within module, updated function will have same SymId and new UniqueId
