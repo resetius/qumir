@@ -543,6 +543,71 @@ std::unordered_map<uint64_t, llvm::Instruction::BinaryOps> fbinOpMap = {
 
 } // namespace
 
+std::unordered_set<std::string> CollectInlineDefinitions(
+    const NIR::TModule& module,
+    const std::unordered_set<std::string>& cacheable,
+    const std::unordered_set<std::string>& definitions)
+{
+    // Importing a body lets LLVM inline it, but also makes every optimization
+    // pass visit it again. Keep automatic imports small and bounded; explicit
+    // inline requests are exempt from the budget.
+    constexpr size_t maxAutomaticFunctionInstructions = 256;
+    size_t automaticBudget = 4096;
+    std::unordered_map<int, const NIR::TFunction*> functions;
+    std::vector<int> pending;
+    for (const auto& function : module.Functions) {
+        if (function.Blocks.empty()) {
+            continue;
+        }
+        functions[function.SymId] = &function;
+        if (definitions.count(function.Name)) {
+            pending.push_back(function.SymId);
+        }
+    }
+    std::unordered_set<int> visited;
+    std::unordered_set<std::string> imports;
+    for (size_t index = 0; index < pending.size(); ++index) {
+        const int symId = pending[index];
+        auto found = functions.find(symId);
+        if (found == functions.end() || !visited.insert(symId).second) {
+            continue;
+        }
+        const auto& function = *found->second;
+        if (!definitions.count(function.Name)) {
+            if (function.IsCoroutine || !cacheable.count(function.Name)) {
+                continue;
+            }
+            size_t instructions = 0;
+            for (const auto& block : function.Blocks) {
+                instructions += block.Instrs.size() + block.Phis.size();
+            }
+            if (!function.Inline) {
+                if (
+                    instructions > maxAutomaticFunctionInstructions ||
+                    instructions > automaticBudget) {
+                    continue;
+                }
+                automaticBudget -= instructions;
+            }
+            imports.insert(function.Name);
+        }
+        // A large out-of-line callee stops this traversal. Its own cache miss
+        // selects imports separately, starting at that object's definition.
+        for (const auto& block : function.Blocks) {
+            for (const auto& instruction : block.Instrs) {
+                if (
+                    (instruction.Op == "call"_op || instruction.Op == "await"_op) &&
+                    instruction.OperandCount >= 1 &&
+                    instruction.Operands[0].Type == NIR::TOperand::EType::Imm)
+                {
+                    pending.push_back(static_cast<int>(instruction.Operands[0].Imm.Value));
+                }
+            }
+        }
+    }
+    return imports;
+}
+
 std::vector<std::string> CollectCacheableSymbols(const NIR::TModule& module) {
     // Candidate cacheable definitions (generic instance or `cacheable`); a
     // coroutine lowers to several symbols one name cannot describe.
@@ -701,7 +766,10 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
             lfun->addFnAttr(llvm::Attribute::AlwaysInline);
         }
         SymIdToLFun[f.SymId] = lfun;
-        if (shouldDefine(f.Name)) {
+        if (
+            shouldDefine(f.Name) ||
+            (Opts.InlineDefinitions && Opts.InlineDefinitions->count(f.Name)))
+        {
             newSymIds.insert(f.SymId);
             SymIdToUniqueFunId[f.SymId] = f.UniqueId;
         }
@@ -737,6 +805,9 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
             continue;
         }
         auto* function = LowerFunction(f, module, debugInfo.get());
+        if (!shouldDefine(f.Name) && !function->isDeclaration()) {
+            function->setLinkage(llvm::Function::AvailableExternallyLinkage);
+        }
         if (funcIdx == module.ModuleConstructorFunctionId) {
             function->setLinkage(llvm::Function::InternalLinkage);
             ctorFunctions.push_back(function);
@@ -861,7 +932,7 @@ std::unique_ptr<ILLVMModuleArtifacts> TLLVMCodeGen::Emit(TModule& module, int op
     // Collect defined function names for tests without pulling in LLVM headers
     if (out->Module) {
         for (auto& F : *out->Module) {
-            if (!F.isDeclaration()) {
+            if (!F.isDeclaration() && !F.hasAvailableExternallyLinkage()) {
                 out->FunctionNames.push_back(F.getName().str());
             }
         }

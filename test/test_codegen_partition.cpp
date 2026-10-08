@@ -6,6 +6,7 @@
 #include <qumir/ir/type.h>
 
 #include <algorithm>
+#include <sstream>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -65,6 +66,22 @@ TEST(CodegenPartition, EmitAsExternalDeclaresListed) {
     auto defs = Emit(opts);
     EXPECT_FALSE(Has(defs, "A")); // A is an external declaration
     EXPECT_TRUE(Has(defs, "B"));
+}
+
+TEST(CodegenPartition, ImportedBodyIsAvailableButDoesNotOwnAnExport) {
+    NIR::TModule module;
+    BuildTwoFuns(module);
+    std::unordered_set<std::string> only{"A"};
+    std::unordered_set<std::string> imports{"B"};
+    NCodeGen::TLLVMCodeGen codegen({
+        .RestrictToDefinitions = &only,
+        .InlineDefinitions = &imports,
+    });
+    auto artifacts = codegen.Emit(module, 0);
+    EXPECT_EQ(artifacts->GetDefinedFunctionNames(), (std::vector<std::string>{"A"}));
+    std::ostringstream ir;
+    artifacts->PrintModule(ir);
+    EXPECT_NE(ir.str().find("define available_externally void @B("), std::string::npos);
 }
 
 int main(int argc, char** argv) {

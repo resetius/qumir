@@ -46,6 +46,13 @@ inline bool IsCacheableSymbol(std::string_view name) {
 // no state mutation.
 std::vector<std::string> CollectCacheableSymbols(const NIR::TModule& module);
 
+// Reachable cacheable bodies suitable for importing into the definitions.
+// Explicit inline requests and a bounded set of small helpers are included.
+std::unordered_set<std::string> CollectInlineDefinitions(
+    const NIR::TModule& module,
+    const std::unordered_set<std::string>& cacheable,
+    const std::unordered_set<std::string>& definitions);
+
 struct TLLVMCodeGenOptions {
     std::string ModuleName {"oz_module"};
     bool Optimize {false};
@@ -60,6 +67,8 @@ struct TLLVMCodeGenOptions {
     // define everything (default).
     const std::unordered_set<std::string>* RestrictToDefinitions {nullptr};
     const std::unordered_set<std::string>* EmitAsExternal {nullptr};
+    // Optimizer-visible bodies owned by another object. They are never exports.
+    const std::unordered_set<std::string>* InlineDefinitions {nullptr};
     // Binary LLVM bitcode modules linked into the generated module before the
     // LLVM optimization pipeline. The pointed-to vector must outlive Emit().
     const std::vector<std::string>* LlvmBitcode {nullptr};

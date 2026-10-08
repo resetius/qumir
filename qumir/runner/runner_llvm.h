@@ -131,6 +131,11 @@ private:
         size_t RequiredCount = 0;
         size_t HitCount = 0;
         size_t MissCount = 0;
+        size_t ImportedCount = 0;
+        double FrontendMs = 0;
+        double ResolveMs = 0;
+        double DependenciesMs = 0;
+        double KernelMs = 0;
     };
 
     std::optional<TPreparedCachedCompilation> PrepareFusedKernelsCached(
@@ -155,7 +160,8 @@ private:
         const std::unordered_set<std::string>* restrictToDefinitions,
         const std::unordered_set<std::string>* emitAsExternal,
         std::string* error,
-        const std::vector<std::string>* llvmBitcode = nullptr);
+        const std::vector<std::string>* llvmBitcode = nullptr,
+        const std::unordered_set<std::string>* inlineDefinitions = nullptr);
 
     // Shared frontend for both CompileKernelAst overloads: lower then emit.
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> EmitKernelArtifacts(
