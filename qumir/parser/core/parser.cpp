@@ -841,6 +841,7 @@ TListHandlerMap MakeDefaultHandlers() {
             std::optional<std::string> literalSuffix;
             bool used = false;
             bool cacheable = false;
+            bool inlineFunction = false;
             tok = ctx.Stream.Next();
             if (IsOp(tok, '(')) {
                 auto peek = ctx.Stream.Next();
@@ -882,7 +883,7 @@ TListHandlerMap MakeDefaultHandlers() {
                             // `print`: the function is its argument type's printer
                             // (a unary "print" operator, dispatched by `вывод`).
                             // `extern`: external function bound to its own name.
-                            // Other simple attrs (inline etc.) - ignored for now.
+                            // Unknown simple attributes are ignored for forward compatibility.
                             if (attrTok.Name == "print") {
                                 operatorName = "print";
                             } else if (attrTok.Name == "extern") {
@@ -892,6 +893,8 @@ TListHandlerMap MakeDefaultHandlers() {
                                 used = true;
                             } else if (attrTok.Name == "cacheable") {
                                 cacheable = true;
+                            } else if (attrTok.Name == "inline") {
+                                inlineFunction = true;
                             }
                         } else {
                             co_return Error(attrTok, "expected function attribute");
@@ -917,6 +920,7 @@ TListHandlerMap MakeDefaultHandlers() {
             funDecl->LiteralSuffix = std::move(literalSuffix);
             funDecl->Used = used;
             funDecl->Cacheable = cacheable;
+            funDecl->Inline = inlineFunction;
             if (externSymbol) {
                 funDecl->MangledName = std::move(*externSymbol);
             }

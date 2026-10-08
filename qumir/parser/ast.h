@@ -653,6 +653,8 @@ struct TFunDecl : TExpr {
     // `cacheable` attribute: content-stable and reusable across compilations,
     // so its compiled object may be persisted in the JIT object cache.
     bool Cacheable = false;
+    // `inline` attribute: request LLVM alwaysinline on a function definition.
+    bool Inline = false;
     // Set once the resolver finalized the emit symbol (overload/cacheable mangling);
     // guards against re-mangling when the mangled name is re-declared.
     bool Mangled = false;
