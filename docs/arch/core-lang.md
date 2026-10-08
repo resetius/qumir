@@ -304,6 +304,15 @@ Inlining requires a body in the LLVM module; the attribute alone cannot
 inline calls across native object boundaries. `cacheable inline` may be
 combined, and both attributes survive core printing.
 
+The native object cache imports reachable `inline` definitions and a bounded
+set of small helpers with LLVM `available_externally` linkage. The cached
+object retains ownership of each exported definition, while its callers can
+still inline the imported body on both cache misses and hits. Large helpers
+remain out of line unless explicitly marked `inline`; their native objects
+are reused without optimizing their bodies in each caller. Each missing
+object selects imports from its own call graph. At optimization level zero,
+dependency bodies are not imported.
+
 ### External function attributes
 
 `extern` marks a function declaration as implemented by a native symbol instead

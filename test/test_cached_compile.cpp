@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <regex>
 #include <sstream>
 #include <string>
 
@@ -40,7 +41,8 @@ constexpr const char* Source =
     "  (fun kernel () -> i64 (block (return (+ (call dep) (: 2 i64))))))";
 
 NCodeGen::TLlvmRunner::TLinkedModule Compile(
-    const std::string& cacheDir, const char* source, const std::string& entry, std::string* err)
+    const std::string& cacheDir, const char* source, const std::string& entry,
+    std::string* err, int optLevel = 0, bool printLlvm = false)
 {
     std::istringstream in(source);
     NAst::NCore::TTokenStream tokens(in);
@@ -51,11 +53,12 @@ NCodeGen::TLlvmRunner::TLinkedModule Compile(
         return {};
     }
     TLLVMRunner runner({
+        .PrintLlvm = printLlvm,
         .NativeCode = true,
         .CoreInput = true,
         .ResolveCoreInput = true,
         .AllowOverloads = true,
-        .OptLevel = 0,
+        .OptLevel = optLevel,
     });
     return runner.CompileFusedKernelsCached(*parsed, {entry}, cacheDir, "v1", "k1", err);
 }
@@ -142,6 +145,119 @@ TEST(CachedCompile, OverloadedCacheableReused) {
     ASSERT_FALSE(second.Entries.empty()) << err;
     EXPECT_EQ(reinterpret_cast<int64_t (*)()>(second.Entries["kernel"])(), 43);
     EXPECT_EQ(CountObjects(cache.Dir), after); // both overloads were cache hits
+}
+
+TEST(CachedCompile, OptimizedKernelInlinesCachedDependenciesOnMissAndHit) {
+    TCacheDir cache;
+    constexpr const char* source = R"(
+      (block
+        (fun leaf ((var x i64)) -> i64 (attrs cacheable)
+          (block (return (+ (* x 3) 1))))
+        (fun dep ((var x i64)) -> i64 (attrs cacheable)
+          (block (return (+ (call leaf x) 7))))
+        (fun kernel ((var data <ptr i64>) (var n i64)) -> i64
+          (block
+            (var i = 0)
+            (var sum = 0)
+            (while (< i n)
+              (block
+                (= sum (+ sum (call dep (index data i))))
+                (= i (+ i 1))))
+            (return sum)))))";
+    for (int run = 0; run < 2; ++run) {
+        std::string err;
+        testing::internal::CaptureStderr();
+        auto linked = Compile(cache.Str(), source, "kernel", &err, 3, true);
+        const auto ir = testing::internal::GetCapturedStderr();
+        ASSERT_FALSE(linked.Entries.empty()) << err;
+        int64_t values[] = {2, -5, 19, 0};
+        auto* kernel = reinterpret_cast<int64_t (*)(int64_t*, int64_t)>(
+            linked.Entries.at("kernel"));
+        EXPECT_EQ(kernel(values, 4), 80);
+        EXPECT_EQ(kernel(values, 0), 0);
+        EXPECT_EQ(CountObjects(cache.Dir), 2);
+        // Inspect the final query module, not a separately compiled dependency.
+        const auto entry = ir.rfind("@kernel(");
+        ASSERT_NE(entry, std::string::npos) << ir;
+        const auto end = ir.find("\n}", entry);
+        ASSERT_NE(end, std::string::npos);
+        const auto body = ir.substr(entry, end - entry);
+        EXPECT_FALSE(std::regex_search(body,
+            std::regex(R"(call[^\n]*@[^\n(]*(dep|leaf))"))) << body;
+    }
+}
+
+TEST(CachedCompile, GenericInlineAttributeReachesLlvmAndCachedCode) {
+    TCacheDir cache;
+    const char* source = R"((block
+      (fun twice [T] ((var x T)) -> T (attrs inline)
+        (block (return (+ x x))))
+      (fun kernel ((var x i64)) -> i64
+        (block (return (call twice x))))))";
+    for (int optLevel : {0, 3}) {
+        for (int run = 0; run < 2; ++run) {
+            std::string err;
+            testing::internal::CaptureStderr();
+            auto linked = Compile(cache.Str(), source, "kernel", &err,
+                optLevel, true);
+            const auto ir = testing::internal::GetCapturedStderr();
+            ASSERT_FALSE(linked.Entries.empty()) << err;
+            EXPECT_EQ(reinterpret_cast<int64_t (*)(int64_t)>(
+                linked.Entries.at("kernel"))(21), 42);
+            if (optLevel == 0) {
+                EXPECT_NE(ir.find("alwaysinline"), std::string::npos) << ir;
+            }
+            if (optLevel == 3) {
+                const auto entry = ir.rfind("@kernel(");
+                ASSERT_NE(entry, std::string::npos);
+                const auto end = ir.find("\n}", entry);
+                ASSERT_NE(end, std::string::npos);
+                EXPECT_EQ(ir.substr(entry, end - entry).find("__generic_twice"),
+                    std::string::npos) << ir;
+            }
+        }
+    }
+}
+
+TEST(CachedCompile, LargeDependencyStaysOutOfLineAndImportsItsOwnLeaf) {
+    TCacheDir cache;
+    std::string source = R"((block
+      (fun leaf ((var x i64)) -> i64 (attrs cacheable inline)
+        (block (return (+ x 7))))
+      (fun cold ((var x i64)) -> i64 (attrs cacheable)
+        (block (var value = x))";
+    for (int i = 0; i < 80; ++i) {
+        source += "(= value (+ (^ value (>> value 5)) 17))";
+    }
+    source += R"((return (call leaf value))))
+      (fun kernel ((var x i64)) -> i64
+        (block (return (call cold x))))))";
+    for (int run = 0; run < 2; ++run) {
+        std::string error;
+        testing::internal::CaptureStderr();
+        auto linked = Compile(cache.Str(), source.c_str(), "kernel", &error, 3, true);
+        const auto ir = testing::internal::GetCapturedStderr();
+        ASSERT_FALSE(linked.Entries.empty()) << error;
+        int64_t expected = 21;
+        for (int i = 0; i < 80; ++i) {
+            expected = (expected ^ (expected >> 5)) + 17;
+        }
+        EXPECT_EQ(reinterpret_cast<int64_t (*)(int64_t)>(linked.Entries.at("kernel"))(21), expected + 7);
+        EXPECT_EQ(CountObjects(cache.Dir), 2);
+        const auto begin = ir.rfind("@kernel(");
+        ASSERT_NE(begin, std::string::npos) << ir;
+        const auto end = ir.find("\n}", begin);
+        ASSERT_NE(end, std::string::npos);
+        EXPECT_TRUE(std::regex_search(ir.substr(begin, end - begin),
+            std::regex(R"(call[^\n]*@[^\n(]*cold)"))) << ir;
+        if (run == 0) {
+            const std::regex definition(R"(define[^\n]*@[^\n(]*cold[^\n]*\{([\s\S]*?)\n\})");
+            std::smatch match;
+            ASSERT_TRUE(std::regex_search(ir, match, definition)) << ir;
+            EXPECT_FALSE(std::regex_search(match[1].str(),
+                std::regex(R"(call[^\n]*@[^\n(]*leaf)"))) << ir;
+        }
+    }
 }
 
 int main(int argc, char** argv) {

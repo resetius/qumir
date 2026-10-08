@@ -427,7 +427,8 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitLoweredModule(
     const std::unordered_set<std::string>* restrictToDefinitions,
     const std::unordered_set<std::string>* emitAsExternal,
     std::string* error,
-    const std::vector<std::string>* llvmBitcode)
+    const std::vector<std::string>* llvmBitcode,
+    const std::unordered_set<std::string>* inlineDefinitions)
 {
     if (error) {
         error->clear();
@@ -440,6 +441,7 @@ std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> TLLVMRunner::EmitLoweredModule(
         .TargetTriple = Options.TargetTriple,
         .RestrictToDefinitions = restrictToDefinitions,
         .EmitAsExternal = emitAsExternal,
+        .InlineDefinitions = inlineDefinitions,
         .LlvmBitcode = llvmBitcode,
     });
     std::unique_ptr<NCodeGen::ILLVMModuleArtifacts> artifacts;
@@ -573,9 +575,11 @@ TLLVMRunner::PrepareFusedKernelsCached(
     if (error) {
         error->clear();
     }
+    auto started = std::chrono::steady_clock::now();
     if (!LowerKernelAst(std::move(ast), entryNames, error)) {
         return std::nullopt;
     }
+    auto frontendDone = std::chrono::steady_clock::now();
 
     // The full cacheable set of the (monomorphized) module. This is transitively
     // closed: if a cacheable A calls a cacheable B, B is instantiated here too,
@@ -585,6 +589,9 @@ TLLVMRunner::PrepareFusedKernelsCached(
 
     auto fp = NCodeGen::MakeBuildFingerprint(
         Options.NativeCode, Options.TargetTriple, Options.OptLevel, cacheSchema, kernelLibVersion);
+    // Dependency objects now inline selected callees; older objects remain
+    // in a separate generation and cannot silently preserve call overhead.
+    fp.OptSettings += ";cache-inline-selective-v3";
     auto cache = NCodeGen::TSymbolObjectCache::Open(cacheDir, fp);
     if (!cache) {
         if (error) {
@@ -593,15 +600,20 @@ TLLVMRunner::PrepareFusedKernelsCached(
         return std::nullopt;
     }
     auto plan = cache->Resolve(required);
+    auto resolved = std::chrono::steady_clock::now();
 
     // Compile and persist each missing dependency as its own object, so a kernel
     // loads exactly the symbols it needs. Each object is self-contained: it
     // references only other cacheable symbols (their objects, pulled by the
     // transitively-closed required set) and runtime symbols.
     std::vector<std::string> depBlobs;
+    std::unordered_set<std::string> depSet(required.begin(), required.end());
     for (const auto& miss : plan.Misses) {
         std::unordered_set<std::string> one{miss};
-        auto depArt = EmitLoweredModule(&one, nullptr, error);
+        auto imports = Options.OptLevel > 0
+            ? NCodeGen::CollectInlineDefinitions(Module, depSet, one)
+            : std::unordered_set<std::string>{};
+        auto depArt = EmitLoweredModule(&one, nullptr, error, nullptr, &imports);
         if (!depArt) {
             return std::nullopt;
         }
@@ -624,14 +636,29 @@ TLLVMRunner::PrepareFusedKernelsCached(
         depBlobs.push_back(std::move(depBytes));
     }
 
-    // Kernel module: all cacheable deps are external, resolved from the objects.
-    std::unordered_set<std::string> depSet(required.begin(), required.end());
+    auto dependenciesDone = std::chrono::steady_clock::now();
+    // Native objects own the exports. Only selected bodies are rebuilt for
+    // inlining into this module, including when every dependency is a hit.
+    std::unordered_set<std::string> definitions;
+    for (const auto& function : Module.Functions) {
+        if (!depSet.count(function.Name) && !function.Blocks.empty()) {
+            definitions.insert(function.Name);
+        }
+    }
+    auto imports = Options.OptLevel > 0
+        ? NCodeGen::CollectInlineDefinitions(Module, depSet, definitions)
+        : std::unordered_set<std::string>{};
     auto kernelArt = EmitLoweredModule(
-        /*restrict=*/nullptr, required.empty() ? nullptr : &depSet, error);
+        /*restrict=*/nullptr, required.empty() ? nullptr : &depSet, error,
+        nullptr, &imports);
     if (!kernelArt) {
         return std::nullopt;
     }
 
+    auto kernelDone = std::chrono::steady_clock::now();
+    auto milliseconds = [](auto duration) {
+        return std::chrono::duration<double, std::milli>(duration).count();
+    };
     const size_t hitCount = plan.ObjectFiles.size();
     const size_t missCount = plan.Misses.size();
     return TPreparedCachedCompilation{
@@ -641,6 +668,11 @@ TLLVMRunner::PrepareFusedKernelsCached(
         .RequiredCount = required.size(),
         .HitCount = hitCount,
         .MissCount = missCount,
+        .ImportedCount = imports.size(),
+        .FrontendMs = milliseconds(frontendDone - started),
+        .ResolveMs = milliseconds(resolved - frontendDone),
+        .DependenciesMs = milliseconds(dependenciesDone - resolved),
+        .KernelMs = milliseconds(kernelDone - dependenciesDone),
     };
 }
 
@@ -675,7 +707,12 @@ NCodeGen::TLlvmRunner::TLinkedModule TLLVMRunner::CompileFusedKernelsCached(
                   << " hit=" << prepared->HitCount
                   << " miss=" << prepared->MissCount
                   << " | prepare=" << ms(tPrepared - tStart) << "ms"
-                  << " link=" << ms(std::chrono::steady_clock::now() - tPrepared) << "ms\n";
+                  << " link=" << ms(std::chrono::steady_clock::now() - tPrepared) << "ms"
+                  << " imported=" << prepared->ImportedCount
+                  << " frontend=" << prepared->FrontendMs << "ms"
+                  << " resolve=" << prepared->ResolveMs << "ms"
+                  << " dependencies=" << prepared->DependenciesMs << "ms"
+                  << " kernel=" << prepared->KernelMs << "ms\n";
     }
     return linked;
 }
@@ -709,7 +746,12 @@ TLLVMRunner::CompileFusedKernelsToObjectsCached(
                   << " miss=" << prepared->MissCount
                   << " | prepare=" << ms(tPrepared - tStart) << "ms"
                   << " objectEmit="
-                  << ms(std::chrono::steady_clock::now() - tPrepared) << "ms\n";
+                  << ms(std::chrono::steady_clock::now() - tPrepared) << "ms"
+                  << " imported=" << prepared->ImportedCount
+                  << " frontend=" << prepared->FrontendMs << "ms"
+                  << " resolve=" << prepared->ResolveMs << "ms"
+                  << " dependencies=" << prepared->DependenciesMs << "ms"
+                  << " kernel=" << prepared->KernelMs << "ms\n";
     }
 
     return TCachedObjectModule{
