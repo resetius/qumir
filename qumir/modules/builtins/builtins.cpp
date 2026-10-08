@@ -14,6 +14,7 @@ BuiltinsModule::BuiltinsModule() {
     auto i64Type = std::make_shared<NAst::TIntegerType>();
     auto i32Type = std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::I32);
     auto u8Type = std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::U8);
+    auto u32Type = std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::U32);
     auto u64Type = std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::U64);
     auto ptrU8Type = std::make_shared<NAst::TPointerType>(u8Type);
     auto voidType = std::make_shared<NAst::TVoidType>();
@@ -57,6 +58,56 @@ BuiltinsModule::BuiltinsModule() {
             },
             .ArgTypes = { ptrU8Type, ptrU8Type, i64Type },
             .ReturnType = i32Type,
+        },
+        {
+            // LLVM folds this using target features; the interpreter uses the host.
+            .Name = "builtin::byte_match_backend",
+            .MangledName = "qumir_builtin_byte_match_backend",
+            .Packed = +[](const uint64_t*, size_t) -> uint64_t {
+#if defined(__SSE2__)
+                return 2;
+#elif defined(__aarch64__) && defined(__ARM_NEON)
+                return 1;
+#else
+                return 0;
+#endif
+            },
+            .ArgTypes = {},
+            .ReturnType = i64Type,
+        },
+        {
+            .Name = "builtin::byte_match8",
+            .MangledName = "qumir_builtin_byte_match8",
+            .Packed = +[](const uint64_t* args, size_t) -> uint64_t {
+                const auto* bytes = std::bit_cast<const uint8_t*>(args[0]);
+                const auto byte = static_cast<uint8_t>(args[1]);
+                uint64_t mask = 0;
+                for (unsigned i = 0; i < 8; ++i) {
+                    if (bytes[i] == byte) {
+                        mask |= uint64_t{0xff} << (8 * i);
+                    }
+                }
+                return mask;
+            },
+            .ArgTypes = {ptrU8Type, u8Type},
+            .ReturnType = u64Type,
+        },
+        {
+            .Name = "builtin::byte_match16",
+            .MangledName = "qumir_builtin_byte_match16",
+            .Packed = +[](const uint64_t* args, size_t) -> uint64_t {
+                const auto* bytes = std::bit_cast<const uint8_t*>(args[0]);
+                const auto byte = static_cast<uint8_t>(args[1]);
+                uint64_t mask = 0;
+                for (unsigned i = 0; i < 16; ++i) {
+                    if (bytes[i] == byte) {
+                        mask |= uint64_t{1} << i;
+                    }
+                }
+                return mask;
+            },
+            .ArgTypes = {ptrU8Type, u8Type},
+            .ReturnType = u32Type,
         },
         {
             .Name = "builtin::cttz",

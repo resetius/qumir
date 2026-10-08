@@ -31,6 +31,7 @@
 #include <llvm/Support/Alignment.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Config/llvm-config.h>
+#include <llvm/MC/MCSubtargetInfo.h>
 
 // For optimization
 #include <llvm/Passes/PassBuilder.h>
@@ -337,7 +338,10 @@ enum class EBuiltinIntrinsic {
     Memmove,
     Cttz,
     Ctlz,
-    Ctpop
+    Ctpop,
+    ByteMatch8,
+    ByteMatch16,
+    ByteMatchBackend
 };
 
 static const std::unordered_map<std::string, EBuiltinIntrinsic> BuiltinIntrinsics = {
@@ -346,7 +350,71 @@ static const std::unordered_map<std::string, EBuiltinIntrinsic> BuiltinIntrinsic
     {"builtin::cttz", EBuiltinIntrinsic::Cttz},
     {"builtin::ctlz", EBuiltinIntrinsic::Ctlz},
     {"builtin::ctpop", EBuiltinIntrinsic::Ctpop},
+    {"builtin::byte_match8", EBuiltinIntrinsic::ByteMatch8},
+    {"builtin::byte_match16", EBuiltinIntrinsic::ByteMatch16},
+    {"builtin::byte_match_backend", EBuiltinIntrinsic::ByteMatchBackend},
 };
+
+int ByteMatchBackend(const llvm::TargetMachine& tm) {
+    const auto arch = tm.getTargetTriple().getArch();
+    const auto* features = tm.getMCSubtargetInfo();
+    if ((arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64) &&
+        features && features->checkFeatures("+sse2"))
+    {
+        return 2;
+    }
+    if (arch == llvm::Triple::aarch64 && features && features->checkFeatures("+neon")) {
+        return 1;
+    }
+    return 0;
+}
+
+template<class TCast>
+llvm::Value* EmitBuiltinByteMatch(
+    llvm::IRBuilder<>& irb,
+    EBuiltinIntrinsic kind,
+    std::vector<llvm::Value*>& pendingArgs,
+    TCast&& cast)
+{
+    if (pendingArgs.size() != 2) {
+        throw std::runtime_error("builtin byte_match8/16 expects 2 arguments");
+    }
+    const bool compact = kind == EBuiltinIntrinsic::ByteMatch16;
+    const unsigned width = compact ? 16 : 8;
+    auto& ctx = irb.getContext();
+    auto* i8Ty = llvm::Type::getInt8Ty(ctx);
+    auto* resultTy = compact
+        ? llvm::Type::getInt32Ty(ctx)
+        : llvm::Type::getInt64Ty(ctx);
+    auto* bytesTy = llvm::FixedVectorType::get(i8Ty, width);
+    auto* ptr = cast(pendingArgs[0], llvm::PointerType::get(ctx, 0));
+    auto* byte = cast(pendingArgs[1], i8Ty);
+    pendingArgs.clear();
+    auto* bytes = irb.CreateLoad(bytesTy, ptr, "byte.ctrl");
+    bytes->setAlignment(llvm::Align(1));
+    auto* matches = irb.CreateICmpEQ(bytes, irb.CreateVectorSplat(width, byte));
+
+    if (irb.GetInsertBlock()->getModule()->getDataLayout().isBigEndian()) {
+        // Scalar lane packing preserves the same memory-to-mask order on every target.
+        llvm::Value* mask = llvm::ConstantInt::get(resultTy, 0);
+        for (unsigned i = 0; i < width; ++i) {
+            auto* predicate = irb.CreateExtractElement(matches, i);
+            auto* bit = compact
+                ? irb.CreateZExt(predicate, resultTy)
+                : irb.CreateAnd(
+                    irb.CreateSExt(predicate, resultTy),
+                    llvm::ConstantInt::get(resultTy, 0xff));
+            mask = irb.CreateOr(mask, irb.CreateShl(bit, compact ? i : 8 * i));
+        }
+        return mask;
+    }
+    if (compact) {
+        // A <16 x i1> bitcast lets x86 select PMOVMSKB without manual ISA intrinsics.
+        return irb.CreateZExt(irb.CreateBitCast(matches, llvm::Type::getInt16Ty(ctx)), resultTy);
+    }
+    // NEON CMEQ already produces the eight 0x00/0xff bytes represented by u64.
+    return irb.CreateBitCast(irb.CreateSExt(matches, bytesTy), resultTy);
+}
 
 template<class TCast>
 llvm::Value* EmitBuiltinBitCountCall(llvm::IRBuilder<>& irb, EBuiltinIntrinsic kind,
@@ -367,12 +435,23 @@ llvm::Value* EmitBuiltinBitCountCall(llvm::IRBuilder<>& irb, EBuiltinIntrinsic k
     return irb.CreateIntrinsic(id, {i64Ty}, {value, irb.getFalse()});
 }
 
-// dst/src/len, returning dst (the libc memcpy/memmove contract the "builtin::"
-// signatures were declared with).
 template<class TCast>
-llvm::Value* EmitBuiltinIntrinsicCall(llvm::IRBuilder<>& irb, EBuiltinIntrinsic kind,
-    std::vector<llvm::Value*>& pendingArgs, TCast&& cast)
+llvm::Value* EmitBuiltinIntrinsicCall(
+    llvm::IRBuilder<>& irb,
+    EBuiltinIntrinsic kind,
+    std::vector<llvm::Value*>& pendingArgs,
+    TCast&& cast,
+    const llvm::TargetMachine& tm)
 {
+    if (kind == EBuiltinIntrinsic::ByteMatchBackend) {
+        if (!pendingArgs.empty()) {
+            throw std::runtime_error("builtin byte_match_backend expects no arguments");
+        }
+        return irb.getInt64(ByteMatchBackend(tm));
+    }
+    if (kind == EBuiltinIntrinsic::ByteMatch8 || kind == EBuiltinIntrinsic::ByteMatch16) {
+        return EmitBuiltinByteMatch(irb, kind, pendingArgs, cast);
+    }
     if (kind == EBuiltinIntrinsic::Cttz || kind == EBuiltinIntrinsic::Ctlz ||
         kind == EBuiltinIntrinsic::Ctpop)
     {
@@ -2015,7 +2094,11 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                         bit != BuiltinIntrinsics.end())
                     {
                         return storeTmp(EmitBuiltinIntrinsicCall(
-                            *irb, bit->second, CurFun->PendingArgs, cast));
+                            *irb,
+                            bit->second,
+                            CurFun->PendingArgs,
+                            cast,
+                            *TM));
                     }
                     EAbiArch arch = ModuleAbiArch(*LModule);
                     if (arch != EAbiArch::Other) {
