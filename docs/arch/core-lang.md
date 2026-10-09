@@ -927,6 +927,40 @@ exclusive. `mutable` explicitly selects the default readable and mutable state,
 which the printer omits in canonical output. The fully immutable, unreadable
 state cannot be spelled — there is no attribute for it.
 
+## Builtin Byte Matching
+
+The always-loaded `builtin` module provides fixed-width byte comparisons:
+
+| Call | Return type | Mask layout |
+|---|---|---|
+| `builtin::byte_match8(data: <ptr u8>, byte: u8)` | `u64` | Byte i is `0xff` on a match and `0x00` otherwise. |
+| `builtin::byte_match16(data: <ptr u8>, byte: u8)` | `u32` | Bit i is set on a match; bits 16 through 31 are zero. |
+| `builtin::byte_match_backend()` | `i64` | 0: portable; 1: NEON byte masks; 2: SSE2 compact masks. |
+
+Both comparisons accept unaligned pointers. The pointer must address at least
+8 or 16 readable bytes respectively; neither primitive reads beyond its group.
+The byte at `data[0]` always maps to the least significant byte or bit, including
+on big-endian targets. All 256 byte values can be compared without special cases.
+
+LLVM emits target-independent vector IR and chooses the comparison instructions.
+The backend selector becomes a constant derived from the target machine and its
+enabled features, so callers can choose group geometry without a runtime branch:
+backend 1 favors `byte_match8`, backend 2 favors `byte_match16`, and backend 0
+lets the caller use a portable algorithm. Both primitives remain available with
+the same semantics on every target. The IR interpreter uses scalar comparisons
+and reports its host backend.
+
+For the 8-byte result, `cttz(mask) / 8` gives the first matching index. Before
+iterating with `mask &= mask - 1`, keep one flag per byte by applying
+`mask &= 0x8080808080808080`; otherwise a matching byte contains eight set bits.
+For the 16-byte result, use `cttz(mask)` and clear the lowest set bit directly.
+Check that the mask is nonzero before treating the index as a match.
+
+```core
+(fun group_matches ((var data <ptr u8>) (var byte u8)) -> u64
+  (block (return (call builtin::byte_match8 data byte))))
+```
+
 ## Printer Conventions
 
 The core printer is the canonical form used by tests and AST goldens.
