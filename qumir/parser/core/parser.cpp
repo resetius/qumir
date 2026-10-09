@@ -505,6 +505,34 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
         co_return scalar;
     }
 
+    if (head == "vec") {
+        auto elementType = co_await ParseType(context);
+        if (!TMaybeType<TIntegerType>(elementType) || !TMaybeType<TFloatType>(elementType)) {
+            co_return TError(location, "vector element type must be integer or float");
+        }
+        auto sizeToken = context.Stream.Next();
+        if (sizeToken.Type != TToken::Integer) co_return Error(sizeToken, "expected vector size");
+        co_await Expect(context, '>');
+        co_return std::make_shared<TVectorType>(std::move(elementType), static_cast<int>(sizeToken.Value.i64));
+    }
+    if (head == "tensor") {
+        auto elementType = co_await ParseType(context);
+        if (!TMaybeType<TIntegerType>(elementType) && !TMaybeType<TFloatType>(elementType)) {
+            co_return TError(location, "tensor element type must be integer or float");
+        }
+        std::vector<int> shape;
+        while (true) {
+            auto dimToken = context.Stream.Next();
+            if (IsOp(dimToken, '>')) break;
+            if (dimToken.Type != TToken::Integer) co_return Error(dimToken, "expected tensor dimension");
+            shape.push_back(static_cast<int>(dimToken.Value.i64));
+        }
+        if (shape.empty()) {
+            co_return TError(location, "tensor must have at least one dimension");
+        }
+        co_return std::make_shared<TTensorType>(std::move(elementType), std::move(shape));
+    }
+
     if (head == "fun") {
         auto returnType = co_await ParseType(context);
         auto params = co_await ParseTypeList(context);

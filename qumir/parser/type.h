@@ -370,6 +370,58 @@ struct TStructType : TType {
     }
 };
 
+// simd vector type, e.g. f32x4, i32x8, etc.
+// examples: <vec f32 4>, <vec i32 8>
+struct TVectorType : TType {
+    static constexpr const char* TypeId = "Vector";
+
+    TTypePtr ElementType;
+    int Size{0};
+
+    TVectorType() = default;
+
+    explicit TVectorType(TTypePtr et, int size)
+        : ElementType(std::move(et))
+        , Size(size)
+    {}
+
+    std::string ToString() const override {
+        return (ElementType ? std::string(ElementType->TypeName()) : "unknown") + "x" + std::to_string(Size);
+    }
+
+    const std::string_view TypeName() const override {
+        return TVectorType::TypeId;
+    }
+};
+
+// simd tensor type, e.g. f32x4x4, i32x8x8, etc.
+// examples: <tensor f32 4 4>, <tensor i32 8 8>
+struct TTensorType : TType {
+    static constexpr const char* TypeId = "Tensor";
+
+    TTypePtr ElementType;
+    std::vector<int> Shape;
+
+    TTensorType() = default;
+
+    explicit TTensorType(TTypePtr et, std::vector<int> shape)
+        : ElementType(std::move(et))
+        , Shape(std::move(shape))
+    {}
+
+    std::string ToString() const override {
+        std::string s = (ElementType ? std::string(ElementType->TypeName()) : "unknown");
+        for (int dim : Shape) {
+            s += "x" + std::to_string(dim);
+        }
+        return s;
+    }
+
+    const std::string_view TypeName() const override {
+        return TTensorType::TypeId;
+    }
+};
+
 std::ostream& operator<<(std::ostream& os, const TType& expr);
 
 inline TTypePtr UnwrapReferenceType(TTypePtr type) {
@@ -485,6 +537,16 @@ inline std::string TypeDiagnosticName(const TTypePtr& type) {
         result += "}";
         return result;
     }
+    if (auto vector = TMaybeType<TVectorType>(type)) {
+        return TypeDiagnosticName(vector.Cast()->ElementType) + "x" + std::to_string(vector.Cast()->Size);
+    }
+    if (auto tensor = TMaybeType<TTensorType>(type)) {
+        std::string result = TypeDiagnosticName(tensor.Cast()->ElementType);
+        for (int dim : tensor.Cast()->Shape) {
+            result += "x" + std::to_string(dim);
+        }
+        return result;
+    }
     return std::string(type->TypeName());
 }
 
@@ -532,6 +594,16 @@ inline std::string TypeKey(const TTypePtr& t) {
             key += name + ":" + TypeKey(type) + ";";
         }
         key += "}";
+        return key;
+    }
+    if (auto vector = TMaybeType<TVectorType>(t)) {
+        return "Vector::" + TypeKey(vector.Cast()->ElementType) + "::" + std::to_string(vector.Cast()->Size);
+    }
+    if (auto tensor = TMaybeType<TTensorType>(t)) {
+        std::string key = "Tensor::" + TypeKey(tensor.Cast()->ElementType);
+        for (int dim : tensor.Cast()->Shape) {
+            key += "::" + std::to_string(dim);
+        }
         return key;
     }
     return std::string(t->TypeName());
@@ -585,6 +657,16 @@ inline std::string TypeMangleKey(const TTypePtr& t) {
         std::string key = "Struct";
         for (const auto& [_, type] : structure.Cast()->Fields) {
             key += "_" + TypeMangleKey(type);
+        }
+        return key;
+    }
+    if (auto vector = TMaybeType<TVectorType>(t)) {
+        return "Vector_" + TypeMangleKey(vector.Cast()->ElementType) + "_" + std::to_string(vector.Cast()->Size);
+    }
+    if (auto tensor = TMaybeType<TTensorType>(t)) {
+        std::string key = "Tensor_" + TypeMangleKey(tensor.Cast()->ElementType);
+        for (int dim : tensor.Cast()->Shape) {
+            key += "_" + std::to_string(dim);
         }
         return key;
     }
