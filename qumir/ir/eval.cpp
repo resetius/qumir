@@ -1,5 +1,6 @@
 #include "eval.h"
 
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <iostream>
@@ -325,44 +326,65 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
             }
             break;
         }
-        case EVMOp::Load64: {
-            assert(instr.Operands[0].Tmp.Idx >= 0);
+        case EVMOp::Load: {
+            const size_t size = instr.SizeInBytes();
+            const auto& dest = instr.Operands[0];
+            assert(dest.Type == TVMOperand::EType::Tmp && dest.Tmp.Idx >= 0);
+            assert(static_cast<size_t>(dest.Tmp.Idx) + size <= Runtime.Regs.Size());
+            auto* value = Runtime.Regs.Data() + dest.Tmp.Idx;
             if (instr.Operands[1].Type == TVMOperand::EType::Slot) {
                 const auto& s = instr.Operands[1].Slot;
-                const size_t byteOffset = s.Idx * 8;
-                assert(s.Idx >= 0 && byteOffset + 8 <= Runtime.Globals.size());
-                int64_t value;
-                std::memcpy(&value, Runtime.Globals.data() + byteOffset, 8);
-                Runtime.Regs.Get<int64_t>(instr.Operands[0].Tmp.Idx) = value;
+                const size_t byteOffset = static_cast<size_t>(s.Idx) * 8;
+                assert(s.Idx >= 0 && byteOffset + size <= Runtime.Globals.size());
+                std::memcpy(value, Runtime.Globals.data() + byteOffset, size);
             } else if (instr.Operands[1].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[1].Local;
                 const size_t byteOffset = frame.StackBase + l.Idx; // l.Idx is byte offset
-                assert(l.Idx >= 0 && byteOffset + 8 <= Runtime.Stack.size());
-                int64_t value;
-                std::memcpy(&value, Runtime.Stack.data() + byteOffset, 8);
-                Runtime.Regs.Get<int64_t>(instr.Operands[0].Tmp.Idx) = value;
+                assert(l.Idx >= 0 && byteOffset + size <= Runtime.Stack.size());
+                std::memcpy(value, Runtime.Stack.data() + byteOffset, size);
             } else {
                 assert(false && "Invalid operand for load");
             }
             break;
         }
-        case EVMOp::Store64: {
-            int64_t val = ReadOperand(Runtime.Regs, instr.Operands[1]);
+        case EVMOp::Store: {
+            const size_t size = instr.SizeInBytes();
+            size_t effectiveSize = size;
+            const auto& source = instr.Operands[1];
+            const void* value;
+            if (source.Type == TVMOperand::EType::Tmp) {
+                assert(source.Tmp.Idx >= 0);
+                assert(static_cast<size_t>(source.Tmp.Idx) + size <= Runtime.Regs.Size());
+                value = Runtime.Regs.Data() + source.Tmp.Idx;
+            } else if (source.Type == TVMOperand::EType::Imm) {
+                effectiveSize = std::min(size, sizeof(source.Imm.Value));
+                value = &source.Imm.Value;
+            } else {
+                assert(false && "Invalid operand for store value");
+                break;
+            }
+            char* destination;
             if (instr.Operands[0].Type == TVMOperand::EType::Slot) {
-                // TODO:
                 const auto& s = instr.Operands[0].Slot;
-                const size_t byteOffset = s.Idx * 8;
-                if (byteOffset + 8 > Runtime.Globals.size()) {
-                    Runtime.Globals.resize(byteOffset + 8, 0);
+                assert(s.Idx >= 0);
+                const size_t byteOffset = static_cast<size_t>(s.Idx) * 8;
+                if (byteOffset + size > Runtime.Globals.size()) {
+                    Runtime.Globals.resize(byteOffset + size, 0);
                 }
-                std::memcpy(Runtime.Globals.data() + byteOffset, &val, 8);
+                destination = Runtime.Globals.data() + byteOffset;
             } else if (instr.Operands[0].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[0].Local;
                 const size_t byteOffset = frame.StackBase + l.Idx; // l.Idx is byte offset
-                assert(l.Idx >= 0 && byteOffset + 8 <= Runtime.Stack.size());
-                std::memcpy(Runtime.Stack.data() + byteOffset, &val, 8);
+                assert(l.Idx >= 0 && byteOffset + size <= Runtime.Stack.size());
+                destination = Runtime.Stack.data() + byteOffset;
             } else {
                 assert(false && "Invalid operand for store");
+                break;
+            }
+            std::memcpy(destination, value, effectiveSize);
+            if (effectiveSize < size) {
+                // Wide stores must retain the sign of their 64-bit immediate.
+                std::memset(destination + effectiveSize, source.Imm.Value < 0 ? 0xff : 0, size - effectiveSize);
             }
             break;
         }
@@ -410,10 +432,6 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
         case EVMOp::IMulS:
             assert(instr.Operands[0].Tmp.Idx >= 0);
             Runtime.Regs.Get<int64_t>(instr.Operands[0].Tmp.Idx) = EvalAlu<int64_t>(Runtime.Regs, instr, std::multiplies<int64_t>{});
-            break;
-        case EVMOp::IMulU:
-            assert(instr.Operands[0].Tmp.Idx >= 0);
-            Runtime.Regs.Get<int64_t>(instr.Operands[0].Tmp.Idx) = EvalAlu<uint64_t>(Runtime.Regs, instr, std::multiplies<uint64_t>{});
             break;
         case EVMOp::FMul:
             assert(instr.Operands[0].Tmp.Idx >= 0);
@@ -699,33 +717,6 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
         case EVMOp::F2I128: {
             double fval = ReadOperand<double>(Runtime.Regs, instr.Operands[1]);
             Runtime.Regs.Get<__int128_t>(instr.Operands[0].Tmp.Idx) = static_cast<__int128_t>(fval);
-            break;
-        }
-        case EVMOp::Load128: {
-            const size_t byteOffset = instr.Operands[1].Type == TVMOperand::EType::Slot
-                ? static_cast<size_t>(instr.Operands[1].Slot.Idx) * 8
-                : frame.StackBase + instr.Operands[1].Local.Idx;
-            const char* base = instr.Operands[1].Type == TVMOperand::EType::Slot
-                ? Runtime.Globals.data()
-                : Runtime.Stack.data();
-            __int128_t value = 0;
-            std::memcpy(&value, base + byteOffset, 16);
-            Runtime.Regs.Get<__int128_t>(instr.Operands[0].Tmp.Idx) = value;
-            break;
-        }
-        case EVMOp::Store128: {
-            __int128_t value = ReadOperand<__int128_t>(Runtime.Regs, instr.Operands[1]);
-            if (instr.Operands[0].Type == TVMOperand::EType::Slot) {
-                const size_t byteOffset = static_cast<size_t>(instr.Operands[0].Slot.Idx) * 8;
-                if (byteOffset + 16 > Runtime.Globals.size()) {
-                    Runtime.Globals.resize(byteOffset + 16, 0);
-                }
-                std::memcpy(Runtime.Globals.data() + byteOffset, &value, 16);
-            } else {
-                const size_t byteOffset = frame.StackBase + instr.Operands[0].Local.Idx;
-                assert(byteOffset + 16 <= Runtime.Stack.size());
-                std::memcpy(Runtime.Stack.data() + byteOffset, &value, 16);
-            }
             break;
         }
         case EVMOp::Lde128: {

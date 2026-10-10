@@ -11,7 +11,6 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::IAdd: return os << "IAdd";
     case EVMOp::ISub: return os << "ISub";
     case EVMOp::IMulS: return os << "IMulS";
-    case EVMOp::IMulU: return os << "IMulU";
     case EVMOp::IDivS: return os << "IDivS";
     case EVMOp::IDivU: return os << "IDivU";
     case EVMOp::IRemS: return os << "IRemS";
@@ -44,14 +43,8 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::FCmpGE: return os << "FCmpGE";
     case EVMOp::FCmpEQ: return os << "FCmpEQ";
     case EVMOp::FCmpNE: return os << "FCmpNE";
-    case EVMOp::Load8: return os << "Load8";
-    case EVMOp::Load16: return os << "Load16";
-    case EVMOp::Load32: return os << "Load32";
-    case EVMOp::Load64: return os << "Load64";
-    case EVMOp::Store8: return os << "Store8";
-    case EVMOp::Store16: return os << "Store16";
-    case EVMOp::Store32: return os << "Store32";
-    case EVMOp::Store64: return os << "Store64";
+    case EVMOp::Load: return os << "Load";
+    case EVMOp::Store: return os << "Store";
     case EVMOp::Mov: return os << "Mov";
     case EVMOp::Cmov: return os << "Cmov";
     case EVMOp::I2F: return os << "I2F";
@@ -100,8 +93,6 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::ICmpGEU128: return os << "ICmpGEU128";
     case EVMOp::ICmpEQ128: return os << "ICmpEQ128";
     case EVMOp::ICmpNE128: return os << "ICmpNE128";
-    case EVMOp::Load128: return os << "Load128";
-    case EVMOp::Store128: return os << "Store128";
     case EVMOp::Mov128: return os << "Mov128";
     case EVMOp::CmovS128: return os << "CmovS128";
     case EVMOp::CmovU128: return os << "CmovU128";
@@ -122,7 +113,11 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
 
 
 std::ostream& operator<<(std::ostream& os, const TVMInstr& instr) {
-    os << instr.Op << " ";
+    os << instr.Op;
+    if (instr.Op == EVMOp::Load || instr.Op == EVMOp::Store) {
+        os << '<' << instr.ElementSizeInBytes() << 'x' << instr.LaneCount() << '>';
+    }
+    os << ' ';
     for (size_t i = 0; i < instr.Operands.size(); ++i) {
         if (instr.Operands[i].Type == TVMOperand::EType::Tmp && instr.Operands[i].Tmp.Idx >= 0) {
             os << "reg(" << instr.Operands[i].Tmp.Idx << ") ";

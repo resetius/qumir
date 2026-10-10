@@ -1,6 +1,10 @@
 #pragma once
 
 #include <qumir/ir/builder.h>
+
+#include <array>
+#include <cassert>
+#include <cstddef>
 #include <cstdint>
 
 namespace NQumir {
@@ -15,7 +19,6 @@ enum class EVMOp : uint8_t {
     IAdd, // +
     ISub, // -
     IMulS, // * signed
-    IMulU, // * unsigned
     IDivS, // / signed
     IDivU, // / unsigned
     IRemS, // % signed
@@ -51,14 +54,8 @@ enum class EVMOp : uint8_t {
     FCmpNE, // !=
 
     // load/store
-    Load8,
-    Load16,
-    Load32,
-    Load64,
-    Store8,
-    Store16,
-    Store32,
-    Store64,
+    Load,
+    Store,
 
     // tmp assignment
     Mov,
@@ -115,8 +112,6 @@ enum class EVMOp : uint8_t {
     ICmpEQ128,
     ICmpNE128,
 
-    Load128,
-    Store128,
     Mov128,   // 128-bit register copy
     CmovS128, // sign-extend a 64-bit immediate into a 128-bit register
     CmovU128, // zero-extend a 64-bit immediate into a 128-bit register
@@ -175,6 +170,28 @@ struct TVMOperand {
 struct TVMInstr {
     std::array<TVMOperand, 3> Operands;
     EVMOp Op;
+    // Bits 0..2: log2(element bytes), 3..5: log2(lanes), 6..7: reserved opcode flags.
+    uint8_t Format = 3;
+
+    static constexpr uint8_t MakeFormat(uint8_t elementLog2, uint8_t lanesLog2 = 0) {
+        assert(elementLog2 <= 4 && lanesLog2 <= 5);
+        return static_cast<uint8_t>(elementLog2 | (lanesLog2 << 3));
+    }
+
+    constexpr size_t ElementSizeInBytes() const {
+        assert((Format & 7) <= 4);
+        return size_t{1} << (Format & 7);
+    }
+
+    constexpr size_t LaneCount() const {
+        const auto lanesLog2 = (Format >> 3) & 7;
+        assert(lanesLog2 <= 5);
+        return size_t{1} << lanesLog2;
+    }
+
+    constexpr size_t SizeInBytes() const {
+        return ElementSizeInBytes() * LaneCount();
+    }
 };
 
 std::ostream& operator<<(std::ostream& os, const TVMInstr& instr);
