@@ -47,7 +47,12 @@ bool IsValidVectorSize(size_t size) {
     return size >= 2 && size <= 32 && (size & (size - 1)) == 0;
 }
 
-std::optional<TError> ValidateVectorSizes(const TTypePtr& type, const TLocation& location) {
+bool IsWideIntegerType(const TTypePtr& type) {
+    auto integer = TMaybeType<TIntegerType>(UnwrapNamedType(type)).Cast();
+    return integer && integer->BitWidth() > 64;
+}
+
+std::optional<TError> ValidateVectorTypes(const TTypePtr& type, const TLocation& location) {
     std::unordered_set<const TType*> checked;
     auto validate = [&](auto& self, const TTypePtr& current) -> std::optional<TError> {
         if (!current || !checked.insert(current.get()).second) {
@@ -56,6 +61,9 @@ std::optional<TError> ValidateVectorSizes(const TTypePtr& type, const TLocation&
         if (auto vector = TMaybeType<TVectorType>(current)) {
             if (!IsValidVectorSize(vector.Cast()->Size)) {
                 return TError(location, "Размер вектора должен быть 2, 4, 8, 16 или 32.");
+            }
+            if (IsWideIntegerType(vector.Cast()->ElementType)) {
+                return TError(location, "Целочисленный элемент вектора должен быть не шире 64 бит.");
             }
             return self(self, vector.Cast()->ElementType);
         }
@@ -1083,6 +1091,9 @@ TTask AnnotateVector(
         if (!elementType) {
             elementType = valueType;
         }
+        if (IsWideIntegerType(elementType)) {
+            co_return TError(element->Location, "Целочисленный элемент вектора должен быть не шире 64 бит.");
+        }
         if (target && RetypeIntegerLiteralIfFits(element, elementType)) {
             valueType = UnwrapReferenceType(element->Type);
         }
@@ -1260,6 +1271,12 @@ TBinaryOpTypesResult AnnotateVecBinaryOp(
     }
     if (!types) {
         return types;
+    }
+    if ((leftVector && IsWideIntegerType(types->Left))
+        || (rightVector && IsWideIntegerType(types->Right)) || IsWideIntegerType(types->Result))
+    {
+        return std::unexpected(TError(binary->Location,
+            "Целочисленный элемент вектора должен быть не шире 64 бит."));
     }
     if (leftVector) {
         types->Left = std::make_shared<TVectorType>(types->Left, size);
@@ -3195,7 +3212,7 @@ TTask AnnotateFieldAssign(std::shared_ptr<TFieldAssignExpr> fieldAssign, NSemant
 }
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
-    if (auto error = ValidateVectorSizes(expr->Type, expr->Location)) {
+    if (auto error = ValidateVectorTypes(expr->Type, expr->Location)) {
         co_return *error;
     }
     if (auto maybeBinary = TMaybeNode<TBinaryExpr>(expr)) {

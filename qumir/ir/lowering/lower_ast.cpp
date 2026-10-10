@@ -741,6 +741,35 @@ TExpectedTask<std::monostate, TError, TLocation> TAstLowerer::EmitLifetimeDestro
     co_return std::monostate{};
 }
 
+TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::LowerVector(
+    const NAst::TVectorExpr& vector,
+    TBlockScope scope)
+{
+    TInstrEmitter emitter{Builder, InstDebugInfo(vector.Location, scope.Id.Id), DebugPoints_, Module.DebugOptions.EmitDebugInfo};
+    const int vectorType = FromAstType(vector.Type, Module.Types);
+    const int elementType = Module.Types.UnderlyingType(vectorType);
+    const int elementSize = Module.Types.SizeInBytes(elementType);
+    const int pointerType = Module.Types.Ptr(elementType);
+    const auto storage = Builder.AllocLocal(vectorType, LocalDebugInfo("$vector", vector.Location, scope.Id.Id));
+    const auto base = emitter.Emit1("lea"_op, {storage});
+    Builder.SetType(base, pointerType);
+    for (size_t i = 0; i < vector.Elements.size(); ++i) {
+        auto element = co_await Lower(vector.Elements[i], scope);
+        if (!element.Value) {
+            co_return TError(vector.Elements[i]->Location, "vector element must produce a value");
+        }
+        auto address = base;
+        if (i != 0) {
+            address = emitter.Emit1("+"_op, {base, TImm{static_cast<int64_t>(i * elementSize)}});
+            Builder.SetType(address, pointerType);
+        }
+        emitter.Emit0("ste"_op, {address, *element.Value});
+    }
+    const auto result = emitter.Emit1("load"_op, {storage});
+    Builder.SetType(result, vectorType);
+    co_return TValueWithBlock{result, Builder.CurrentBlockLabel()};
+}
+
 TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lower(const NAst::TExprPtr& inputExpr, TBlockScope scope) {
     NAst::TExprPtr expr = inputExpr;
     TInstrEmitter emitter{Builder, InstDebugInfo(expr->Location, scope.Id.Id), DebugPoints_, Module.DebugOptions.EmitDebugInfo};
@@ -750,7 +779,9 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         Builder.SetScopeDebugInfo(scope.Id.Id, parentScopeId);
     }
 
-    if (auto maybeRetain = NAst::TMaybeNode<NAst::TRetainExpr>(expr)) {
+    if (auto vector = NAst::TMaybeNode<NAst::TVectorExpr>(expr)) {
+        co_return co_await LowerVector(*vector.Cast(), scope);
+    } else if (auto maybeRetain = NAst::TMaybeNode<NAst::TRetainExpr>(expr)) {
         auto retain = maybeRetain.Cast();
         auto value = co_await Lower(retain->Value, scope);
         if (!value.Value) {
@@ -1033,6 +1064,11 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         co_return TValueWithBlock{ operand.Value, operand.ProducingLabel };
     } else if (auto maybeBinary = NAst::TMaybeNode<NAst::TBinaryExpr>(expr)) {
         auto binary = maybeBinary.Cast();
+        if (NAst::TMaybeType<NAst::TVectorType>(NAst::UnwrapNamedType(expr->Type))
+            && (binary->Operator == "&&"_op || binary->Operator == "||"_op))
+        {
+            co_return TError(binary->Location, "vector logical operators are not supported in lowering yet");
+        }
         bool isLazy = (binary->Operator == "&&"_op || binary->Operator == "||"_op);
         auto leftRes = co_await Lower(binary->Left, scope);
         auto leftNum = leftRes.Value;

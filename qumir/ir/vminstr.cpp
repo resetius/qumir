@@ -93,7 +93,6 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::ICmpGEU128: return os << "ICmpGEU128";
     case EVMOp::ICmpEQ128: return os << "ICmpEQ128";
     case EVMOp::ICmpNE128: return os << "ICmpNE128";
-    case EVMOp::Mov128: return os << "Mov128";
     case EVMOp::CmovS128: return os << "CmovS128";
     case EVMOp::CmovU128: return os << "CmovU128";
     case EVMOp::SExt128: return os << "SExt128";
@@ -107,6 +106,12 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::Ste128: return os << "Ste128";
     case EVMOp::ArgTmp128: return os << "ArgTmp128";
     case EVMOp::Ret128: return os << "Ret128";
+    case EVMOp::VIAdd: return os << "VIAdd";
+    case EVMOp::VISub: return os << "VISub";
+    case EVMOp::VIMul: return os << "VIMul";
+    case EVMOp::VFAdd: return os << "VFAdd";
+    case EVMOp::VFSub: return os << "VFSub";
+    case EVMOp::VFMul: return os << "VFMul";
     default: return os << "EVMOp(" << static_cast<int>(op) << ")";
     }
 }
@@ -114,8 +119,14 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
 
 std::ostream& operator<<(std::ostream& os, const TVMInstr& instr) {
     os << instr.Op;
-    if (instr.Op == EVMOp::Load || instr.Op == EVMOp::Store) {
+    if (instr.Op == EVMOp::Load || instr.Op == EVMOp::Store || instr.Format != 3) {
         os << '<' << instr.ElementSizeInBytes() << 'x' << instr.LaneCount() << '>';
+        if (instr.Format & TVMInstr::BroadcastLeft) {
+            os << "[broadcast-left]";
+        }
+        if (instr.Format & TVMInstr::BroadcastRight) {
+            os << "[broadcast-right]";
+        }
     }
     os << ' ';
     for (size_t i = 0; i < instr.Operands.size(); ++i) {
