@@ -4,6 +4,7 @@
 #include <qumir/location.h>
 
 #include <cctype>
+#include <limits>
 #include <map>
 #include <string>
 #include <string_view>
@@ -246,7 +247,7 @@ void TTokenStream::Read() {
     char prev = 0; // for 2-char operators or current string quote
     std::variant<int64_t,double,TIdentifierList,TStringLiteral,std::monostate> token = std::monostate();
     std::string rawTokenValue;
-    int frac = 10;
+    uint64_t frac = 10;
     bool repeat = false;
     bool unescape = false;
     TLocation tokenLocation = CurrentLocation;
@@ -311,7 +312,9 @@ void TTokenStream::Read() {
     };
 
     auto flush =[&]() {
-        if (expMode != 0) {
+        if (std::holds_alternative<double>(token) && frac == 0) {
+            token = std::stod(rawTokenValue);
+        } else if (expMode != 0) {
             double baseVal = std::get<double>(token);
             if (expValue != 0 || expSign != 1) {
                 baseVal *= std::pow(10.0, (double)expSign * (double)expValue);
@@ -554,8 +557,13 @@ void TTokenStream::Read() {
                         if (std::isdigit(ch)) {
                             rawTokenValue += ch;
                             if (std::holds_alternative<double>(token)) {
-                                token = (double)(std::get<double>(token) * frac + (ch - '0')) / frac;
-                                frac *= 10;
+                                if (frac != 0) {
+                                    token = (std::get<double>(token) * frac + (ch - '0')) / frac;
+                                    // Longer fractions are parsed from raw text to avoid wrapping the scale.
+                                    frac = frac <= std::numeric_limits<uint64_t>::max() / 10
+                                        ? frac * 10
+                                        : 0;
+                                }
                             } else {
                                 token = (int64_t)(std::get<int64_t>(token) * 10 + (ch - '0'));
                             }

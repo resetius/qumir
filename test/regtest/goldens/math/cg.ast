@@ -6,7 +6,7 @@
       (var tol f64)
       (= n 16)
       (= maxIter 500)
-      (= tol 7.0918695992859933e-10)
+      (= tol 1e-10)
       (var x <array f64 1> [0 (- n 1)])
       (var b <array f64 1> [0 (- n 1)])
       (var r <array f64 1> [0 (- n 1)])

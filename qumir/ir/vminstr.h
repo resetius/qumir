@@ -87,7 +87,7 @@ enum class EVMOp : uint8_t {
     StructStore, // struct_store(dst_local, src_tmp, size_imm) - memcpy from Tmp into Local frame slot
     SAlloc,      // salloc(dst_tmp, frame_offset_imm, size_imm) - zero frame storage and return its address
 
-    // 128-bit ops address the Regs128 file by the same register index as Regs.
+    // All register operands are byte offsets in the same aligned register file.
     INeg128,
     INot128,
     IBitNot128,

@@ -77,6 +77,31 @@ TEST(LexerTest, NegativeFloat2) {
     ExpectFloat(tokens.Next(), 1.1);
 }
 
+TEST(LexerTest, LongFractionalPart) {
+    struct TCase {
+        std::string Literal;
+        double Expected;
+    };
+    const TCase cases[] = {
+        {"0.000000001", 1e-9},
+        {"0.0000000001", 1e-10},
+        {"1.2345678901234567", 1.2345678901234567},
+        {"0.0000000001e+3", 1e-7},
+        {"1." + std::string(400, '0'), 1.0},
+        {".1" + std::string(400, '0'), 0.1},
+        {"0." + std::string(400, '0') + "1e401", 1.0},
+    };
+    for (const auto& test : cases) {
+        SCOPED_TRACE(test.Literal);
+        std::istringstream input(test.Literal);
+        TTokenStream tokens(input);
+        const auto value = tokens.Next();
+        ASSERT_EQ(value.Type, TToken::Float);
+        EXPECT_DOUBLE_EQ(value.Value.f64, test.Expected);
+        EXPECT_EQ(value.RawValue, test.Literal);
+    }
+}
+
 TEST(LexerTest, Assignment) {
     std::istringstream input("x := 23");
     TTokenStream tokens(input);
