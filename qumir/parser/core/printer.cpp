@@ -190,6 +190,17 @@ void TPrinter::PrintType(TTypePtr type, int level) {
         PrintScalarType("char", type);
     } else if (TMaybeType<TVoidType>(type)) {
         PrintScalarType("void", type);
+    } else if (auto t = TMaybeType<TVectorType>(type)) {
+        *Out << "<vec ";
+        PrintType(t.Cast()->ElementType, level);
+        *Out << ' ' << t.Cast()->Size << '>';
+    } else if (auto t = TMaybeType<TTensorType>(type)) {
+        *Out << "<tensor ";
+        PrintType(t.Cast()->ElementType, level);
+        for (int dim : t.Cast()->Shape) {
+            *Out << ' ' << dim;
+        }
+        *Out << '>';
     } else if (auto t = TMaybeType<TFunctionType>(type)) {
         PrintFunctionType(t.Cast(), level);
     } else if (auto t = TMaybeType<TFutureType>(type)) {
