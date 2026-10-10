@@ -12,13 +12,17 @@ namespace NIR {
 struct TExecFunc {
     int UniqueId;
     std::vector<TVMInstr> VMCode;
-    int32_t MaxTmpIdx{0};
-    int32_t MaxTmp128Idx{-1};
+    int32_t RegisterFileSize = 0;
+    int32_t RegisterFileAlignment = 8;
     int32_t NumLocals{0};        // frame size in bytes (not variable count)
     std::vector<int> ArgByteOffsets; // byte offset of each argument local in the frame (for func args only!)
     std::vector<int> ArgTypeIds;     // IR typeId of each argument (eval uses SizeInBytes to handle struct)
-    std::vector<int> TmpTypeIds;     // IR typeId of each tmp (eval uses it for VM-only packed ABI)
-    std::vector<int> TmpFrameOffsets; // optional frame storage for address-backed tmp values
+    std::unordered_map<int, int> TmpByteOffsets; // IR tmp id -> register file byte offset
+    struct TStructRegister {
+        int FrameOffset;
+        int Size;
+    };
+    std::unordered_map<int, TStructRegister> StructRegisters; // register byte offset -> frame storage
 
     // debug
     std::vector<int> LocalByteOffsets; // byte offset of each local in the frame (for debug only)
@@ -35,6 +39,10 @@ public:
 
 private:
     void CompileUltraLow(const TFunction& function, TExecFunc& out);
+    void AllocateRegisters(
+        const TFunction& function,
+        const std::vector<int>& tmpFrameOffsets,
+        TExecFunc& out);
 
     // nullptr if the symbol is missing or the signature is unsupported.
     NFFI::IFunction* GetOrCreateExternalThunk(int externIdx);

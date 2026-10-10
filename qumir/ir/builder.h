@@ -49,7 +49,7 @@ struct TOp {
     uint64_t Code;
 };
 
-// Temporary variable
+// Temporary variable. In VM bytecode, Idx is a byte offset in the register file.
 struct TTmp {
     int32_t Idx;
 };

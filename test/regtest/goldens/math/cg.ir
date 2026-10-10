@@ -3,7 +3,7 @@ function main () { ; void
     label: label(0)
     stre local(0,i64) imm(16,i64) 
     stre local(1,i64) imm(500,i64) 
-    stre local(2,f64) imm(4469926066138495049,f64) 
+    stre local(2,f64) imm(4457293557087583675,f64) 
     load tmp(0,i64) = local(0,i64) 
     - tmp(1,i64) = tmp(0,i64) imm(1,i64) 
     stre local(20,i64) imm(0,i64) 

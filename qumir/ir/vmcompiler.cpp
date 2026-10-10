@@ -8,6 +8,8 @@
 #include <iostream>
 #include <iomanip>
 #include <dlfcn.h>
+#include <limits>
+#include <unordered_set>
 
 namespace NQumir {
 namespace NIR {
@@ -158,11 +160,18 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
     std::unordered_map<int64_t, int64_t> labelToLastPC;
 
     auto& code = funcOut.VMCode;
-    funcOut.TmpTypeIds = function.TmpTypes;
+    std::unordered_set<int> usedTmps;
     for (const auto& block : function.Blocks) {
         labelToPC[block.Label.Idx] = code.size();
         for (const auto& instr : block.Instrs) {
-            funcOut.MaxTmpIdx = std::max(funcOut.MaxTmpIdx, instr.Dest.Idx);
+            if (instr.Dest.Idx >= 0) {
+                usedTmps.insert(instr.Dest.Idx);
+            }
+            for (int i = 0; i < instr.OperandCount; ++i) {
+                if (instr.Operands[i].Type == TOperand::EType::Tmp && instr.Operands[i].Tmp.Idx >= 0) {
+                    usedTmps.insert(instr.Operands[i].Tmp.Idx);
+                }
+            }
             code.emplace_back(); // placeholder
         }
         labelToLastPC[block.Label.Idx] = code.size() - 1;
@@ -171,6 +180,7 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
     // Compute byte offset for each local variable and address-backed temporary.
     // VM pointers must refer to memory owned by the current call frame; allocating
     // per instruction would make struct-heavy loops grow runtime-owned buffers.
+    std::vector<int> tmpFrameOffsets(function.TmpTypes.size(), -1);
     {
         int offset = 0;
         for (int typeId : function.LocalTypes) {
@@ -179,15 +189,11 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             offset += Module.Types.SizeInBytes(typeId);
         }
 
-        funcOut.TmpFrameOffsets.assign(function.TmpTypes.size(), -1);
         for (int tmpIdx = 0; tmpIdx < (int)function.TmpTypes.size(); ++tmpIdx) {
             const int typeId = function.TmpTypes[tmpIdx];
-            if (typeId >= 0 && Is128BitInteger(Module.Types, typeId)) {
-                funcOut.MaxTmp128Idx = std::max(funcOut.MaxTmp128Idx, tmpIdx);
-            }
-            if (typeId >= 0 && Module.Types.GetKind(typeId) == EKind::Struct) {
+            if (usedTmps.contains(tmpIdx) && typeId >= 0 && Module.Types.GetKind(typeId) == EKind::Struct) {
                 offset = AlignUp(offset, 8);
-                funcOut.TmpFrameOffsets[tmpIdx] = offset;
+                tmpFrameOffsets[tmpIdx] = offset;
                 offset += Module.Types.SizeInBytes(typeId);
             }
         }
@@ -198,10 +204,10 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                     continue;
                 }
                 offset = AlignUp(offset, 8);
-                if (instr.Dest.Idx >= (int)funcOut.TmpFrameOffsets.size()) {
-                    funcOut.TmpFrameOffsets.resize(instr.Dest.Idx + 1, -1);
+                if (instr.Dest.Idx >= (int)tmpFrameOffsets.size()) {
+                    tmpFrameOffsets.resize(instr.Dest.Idx + 1, -1);
                 }
-                funcOut.TmpFrameOffsets[instr.Dest.Idx] = offset;
+                tmpFrameOffsets[instr.Dest.Idx] = offset;
                 offset += static_cast<int>(instr.Operands[0].Imm.Value);
             }
         }
@@ -330,12 +336,12 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 require(ins, 1, 1);
                 out.Op = EVMOp::SAlloc;
                 const int tmpIdx = ins.Dest.Idx;
-                if (tmpIdx < 0 || tmpIdx >= (int)funcOut.TmpFrameOffsets.size()
-                    || funcOut.TmpFrameOffsets[tmpIdx] < 0)
+                if (tmpIdx < 0 || tmpIdx >= (int)tmpFrameOffsets.size()
+                    || tmpFrameOffsets[tmpIdx] < 0)
                 {
                     throw std::runtime_error("salloc temporary has no frame storage");
                 }
-                out.Operands[1] = TUntypedImm{funcOut.TmpFrameOffsets[tmpIdx]};
+                out.Operands[1] = TUntypedImm{tmpFrameOffsets[tmpIdx]};
                 out.Operands[2] = TUntypedImm{ins.Operands[0].Imm.Value};
                 break;
             }
@@ -750,6 +756,50 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
     if (!funcOut.InstrDebugInfo.empty()) {
         funcOut.InstrDebugInfo.resize(ptr - code.data());
     }
+    AllocateRegisters(function, tmpFrameOffsets, funcOut);
+}
+
+void TVMCompiler::AllocateRegisters(
+    const TFunction& function,
+    const std::vector<int>& tmpFrameOffsets,
+    TExecFunc& out)
+{
+    int offset = 0;
+    for (auto& instr : out.VMCode) {
+        for (auto& operand : instr.Operands) {
+            if (operand.Type != TVMOperand::EType::Tmp || operand.Tmp.Idx < 0) {
+                continue;
+            }
+            const int tmpId = operand.Tmp.Idx;
+            if (auto it = out.TmpByteOffsets.find(tmpId); it != out.TmpByteOffsets.end()) {
+                operand.Tmp.Idx = it->second;
+                continue;
+            }
+
+            const int typeId = function.GetTmpType(tmpId);
+            const bool isStruct = typeId >= 0 && Module.Types.GetKind(typeId) == EKind::Struct;
+            // Existing scalar opcodes read/write a full machine word; struct values are addresses.
+            const int size = isStruct
+                ? 8
+                : std::max(8, Module.Types.SizeInBytes(typeId));
+            const int alignment = isStruct
+                ? 8
+                : std::max(8, Module.Types.AlignInBytes(typeId));
+            if (offset > std::numeric_limits<int32_t>::max() - alignment - size) {
+                throw std::runtime_error("VM register file is too large");
+            }
+            offset = AlignUp(offset, alignment);
+            out.TmpByteOffsets[tmpId] = offset;
+            if (isStruct) {
+                const int frameOffset = tmpFrameOffsets.at(tmpId);
+                out.StructRegisters[offset] = {frameOffset, Module.Types.SizeInBytes(typeId)};
+            }
+            operand.Tmp.Idx = offset;
+            offset += size;
+            out.RegisterFileAlignment = std::max(out.RegisterFileAlignment, alignment);
+        }
+    }
+    out.RegisterFileSize = offset;
 }
 
 } // namespace NIR

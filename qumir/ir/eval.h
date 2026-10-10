@@ -2,6 +2,7 @@
 
 #include "builder.h"
 #include "vmcompiler.h"
+#include "register_file.h"
 
 #include <coroutine>
 #include <cstdint>
@@ -15,15 +16,13 @@ namespace NIR {
 
 // Link to caller frame for returning
 struct TReturnLink {
-    int32_t CallerDst; // destination tmp idx in caller frame, -1 if none
+    int32_t CallerDst; // destination register byte offset in caller, -1 if none
     bool CalleeIsCoroutine = false;
     bool CalleeReturnsVoid = false;
 };
 
 struct TFrame {
     const TExecFunc* Exec{nullptr};
-    const int UsedRegs = 0;
-    const int Used128Regs = 0;
     const uint64_t StackBase = 0;
     TVMInstr* PC{nullptr};
     std::string_view Name;
@@ -36,9 +35,7 @@ struct TRuntime {
     std::vector<int64_t> Args; // call arguments, will be copied on stack on call, TODO: remove
     std::vector<__int128_t> Args128; // parallel to Args, filled for 128-bit arguments only
     __int128_t Ret128Value = 0;
-    std::vector<int64_t> Regs;
-    std::vector<__int128_t> Regs128; // addressed by the same register index as Regs
-    std::vector<int64_t> SavedRegs;
+    TRegisterFile Regs;
     std::vector<TFrame> CallStack;
 };
 

@@ -64,12 +64,11 @@ add_library(qumir
     ir/passes/transforms/locals2ssa.cpp
     ir/passes/transforms/pipeline.h
     ir/passes/transforms/pipeline.cpp
-    ir/passes/transforms/renumber_regs.h
-    ir/passes/transforms/renumber_regs.cpp
     ir/builder.h
     ir/builder.cpp
     ir/eval.h
     ir/eval.cpp
+    ir/register_file.h
     ir/ffi.h
     ir/ffi.cpp
     ir/type.h

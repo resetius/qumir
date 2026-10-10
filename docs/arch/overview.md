@@ -192,7 +192,6 @@ opcodes can be added without touching an enum.
 | `locals2ssa`   | stack locals → SSA temporaries            |
 | `const_fold`   | constant folding                          |
 | `de_ssa`       | insert copies at φ-joins before codegen   |
-| renumber       | compact temporary indices                 |
 | CFG analysis   | predecessor / successor computation       |
 
 ### 5.4 IR type table
@@ -205,9 +204,16 @@ opcodes can be added without touching an enum.
 
 ## 6. VM / interpreter
 
-The VM is a register-based bytecode interpreter.  The IR is compiled to
+The VM is a register-based bytecode interpreter. The IR is compiled to
 `TVMInstr` bytecode by `TVMCompiler`, which assigns stack-frame byte offsets
-to locals and temporaries.
+to locals and aligned register-file byte offsets to temporaries. IR temporary
+ids remain unchanged; only VM operands contain the assigned byte offsets.
+
+Each invocation uses one aligned byte buffer for all registers, including
+128-bit integers. Existing scalar opcodes use eight-byte slots even for
+narrower types, while 128-bit slots use sixteen bytes with sixteen-byte
+alignment. Struct registers hold addresses of storage in the call frame.
+Function calls save and restore the complete register file as one byte range.
 
 ### 6.1 Execution model
 

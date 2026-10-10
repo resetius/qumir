@@ -3,7 +3,7 @@ function lanczos2d () { ; void
     label: label(0)
     stre local(0,i64) imm(8,i64) 
     stre local(1,i64) imm(8,i64) 
-    stre local(4,f64) imm(4614256656626530093,f64) 
+    stre local(4,f64) imm(4614256656552045848,f64) 
     load tmp(0,i64) = local(0,i64) 
     - tmp(1,i64) = tmp(0,i64) imm(1,i64) 
     i2f tmp(2,f64) = tmp(1,i64) 
