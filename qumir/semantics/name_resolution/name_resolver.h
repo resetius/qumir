@@ -225,6 +225,7 @@ public:
         const NAst::TTypePtr& left, const NAst::TTypePtr& right) const;
     std::optional<TRegisteredOp> GetUnaryOp(const std::string& op,
         const NAst::TTypePtr& operand) const;
+    void RegisterUnaryOp(const std::string& op, const NAst::TTypePtr& operand, TRegisteredOp target);
     std::vector<std::shared_ptr<NAst::TFunDecl>> LookupGenericOperatorDecls(
         const std::string& op,
         std::size_t arity) const;

@@ -112,6 +112,7 @@ std::ostream& operator<<(std::ostream& os, EVMOp op) {
     case EVMOp::VFAdd: return os << "VFAdd";
     case EVMOp::VFSub: return os << "VFSub";
     case EVMOp::VFMul: return os << "VFMul";
+    case EVMOp::VIndex: return os << "VIndex";
     default: return os << "EVMOp(" << static_cast<int>(op) << ")";
     }
 }
@@ -121,7 +122,9 @@ std::ostream& operator<<(std::ostream& os, const TVMInstr& instr) {
     os << instr.Op;
     if (instr.Op == EVMOp::Load || instr.Op == EVMOp::Store || instr.Format != 3) {
         os << '<' << instr.ElementSizeInBytes() << 'x' << instr.LaneCount() << '>';
-        if (instr.Format & TVMInstr::BroadcastLeft) {
+        if (instr.Op == EVMOp::VIndex && (instr.Format & TVMInstr::SignedElement)) {
+            os << "[signed]";
+        } else if (instr.Format & TVMInstr::BroadcastLeft) {
             os << "[broadcast-left]";
         }
         if (instr.Format & TVMInstr::BroadcastRight) {

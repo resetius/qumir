@@ -138,6 +138,21 @@ TOperand TAstLowerer::AllocLayoutStorage(NSemantics::TSymbolInfo symbol, int typ
     return TOperand{slot};
 }
 
+TTmp TAstLowerer::MaterializeValue(
+    TOperand value,
+    int typeId,
+    const std::string& name,
+    const TLocation& loc,
+    int32_t scopeId)
+{
+    TInstrEmitter emitter{Builder, InstDebugInfo(loc, scopeId), DebugPoints_, Module.DebugOptions.EmitDebugInfo};
+    auto local = Builder.AllocLocal(typeId, LocalDebugInfo(name, loc, scopeId));
+    emitter.Emit0("stre"_op, {local, value});
+    auto address = emitter.Emit1("lea"_op, {local});
+    Builder.SetType(address, Module.Types.Ptr(typeId));
+    return address;
+}
+
 TExpectedTask<TOperand, TError, TLocation> TAstLowerer::EnsureStructAddress(
     TOperand value,
     int structTypeId,
@@ -167,11 +182,7 @@ TExpectedTask<TOperand, TError, TLocation> TAstLowerer::EnsureStructAddress(
         co_return TError(loc, "Внутренняя ошибка: значение структуры имеет несовместимый IR-тип.");
     }
 
-    auto local = Builder.AllocLocal(structTypeId, LocalDebugInfo(name, loc, scopeId));
-    emitter.Emit0("stre"_op, {TOperand{local}, value});
-    auto addr = emitter.Emit1("lea"_op, {TOperand{local}});
-    Builder.SetType(addr, ptrTypeId);
-    co_return TOperand{addr};
+    co_return TOperand{MaterializeValue(value, structTypeId, name, loc, scopeId)};
 }
 
 TTmp TAstLowerer::LoadLayoutOperand(TOperand operand, const TLocation& loc, int32_t scopeId)
@@ -1340,6 +1351,12 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             co_return TError(index->Collection->Location, TErrorString::Get<EErrorId::COLLECTION_NOT_ARRAY>());
         }
 
+        if (NAst::TMaybeType<NAst::TVectorType>(NAst::UnwrapNamedType(NAst::UnwrapReferenceType(index->Collection->Type)))) {
+            auto element = emitter.Emit1("index"_op, {*value.Value, *indexValue.Value});
+            Builder.SetType(element, FromAstType(expr->Type, Module.Types));
+            co_return TValueWithBlock{element, Builder.CurrentBlockLabel()};
+        }
+
         auto maybeIndexIdent = NAst::TMaybeNode<NAst::TIdentExpr>(index->Collection);
         if (!maybeIndexIdent) {
             co_return TError(index->Collection->Location, TErrorString::Get<EErrorId::COLLECTION_NOT_ARRAY>());
@@ -1897,7 +1914,21 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
             TValueWithBlock av;
 
             if (NAst::TMaybeType<NAst::TReferenceType>(argType)) {
-                av = co_await LowerLValueAddress(a, scope);
+                auto valueType = NAst::UnwrapNamedType(NAst::UnwrapReferenceType(a->Type));
+                if (NAst::TMaybeType<NAst::TVectorType>(valueType)
+                    && !NAst::TMaybeNode<NAst::TIdentExpr>(a) && !NAst::TMaybeNode<NAst::TFieldAccessExpr>(a)
+                    && !NAst::TMaybeNode<NAst::TIndexExpr>(a))
+                {
+                    auto value = co_await Lower(a, scope);
+                    if (!value.Value) {
+                        co_return TError(a->Location, TErrorString::Get<EErrorId::INVALID_ARGUMENT>());
+                    }
+                    const auto address = MaterializeValue(*value.Value, FromAstType(valueType, Module.Types),
+                        "$vector_argument", a->Location, scope.Id.Id);
+                    av = TValueWithBlock{address, Builder.CurrentBlockLabel()};
+                } else {
+                    av = co_await LowerLValueAddress(a, scope);
+                }
                 if (av.Value && av.Value->Type == TOperand::EType::Tmp) {
                     Builder.SetType(av.Value->Tmp, FromAstType(argType, Module.Types));
                 }

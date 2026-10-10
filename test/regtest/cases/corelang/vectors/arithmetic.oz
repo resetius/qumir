@@ -1,0 +1,22 @@
+; disable_llvm
+(block
+  (use vector)
+  (fun <main> ()
+    (block
+      (var a = (vec 1 2 3 4))
+      (var b = (vec 10 20 30 40))
+      (output (+ a b) "\n")
+      (output (- a b) "\n")
+      (output (* a b) "\n")
+      (output (+ a 5) "\n")
+      (output (- 5 a) "\n")
+      (output (* 3 a) "\n")
+      (output (index (+ a b) 2) "\n")
+      (var f = (vec 1.25 -2.5))
+      (var g = (vec 2.0 4.0))
+      (output (+ f g) "\n")
+      (output (- f g) "\n")
+      (output (* f g) "\n")
+      (output (+ f 0.5) "\n")
+      (output (- 10.0 f) "\n")
+      (output (* 2.0 f) "\n"))))

@@ -103,6 +103,15 @@ TTypePtr CloneTypeWithGenericBindings(
                 src->Arity),
             type);
     }
+    if (auto t = TMaybeType<TVectorType>(type)) {
+        auto result = std::make_shared<TVectorType>(*t.Cast());
+        result->ElementType = CloneTypeWithGenericBindings(
+            result->ElementType, genericTypeParams, bindings, genericValueParams, valueBindings);
+        if (auto it = valueBindings.find(result->SizeParam); it != valueBindings.end()) {
+            result->BindSize(it->second);
+        }
+        return result;
+    }
     if (auto t = TMaybeType<TPointerType>(type)) {
         return CopyTypeAttrs(
             std::make_shared<TPointerType>(CloneTypeWithGenericBindings(t.Cast()->PointeeType, genericTypeParams, bindings, genericValueParams, valueBindings)),
@@ -258,6 +267,14 @@ std::string OverloadTypeKey(
     }
     if (auto pointer = TMaybeType<TPointerType>(type)) {
         return std::string("Ptr_") + OverloadTypeKey(pointer.Cast()->PointeeType, genericAliases);
+    }
+    if (auto vector = TMaybeType<TVectorType>(type)) {
+        auto src = vector.Cast();
+        auto alias = genericAliases.Values.find(src->SizeParam);
+        const std::string size = alias != genericAliases.Values.end()
+            ? alias->second
+            : src->SizeText();
+        return "Vector_" + OverloadTypeKey(src->ElementType, genericAliases) + "_" + size;
     }
     if (auto reference = TMaybeType<TReferenceType>(type)) {
         return std::string("Ref_") + OverloadTypeKey(reference.Cast()->ReferencedType, genericAliases);
@@ -439,6 +456,11 @@ std::optional<TError> TNameResolver::ResolveTypeRef(TTypePtr& type, const TLocat
             return self(self, maybePtr.Cast()->PointeeType, loc, typeScope);
         } else if (auto maybeArray = TMaybeType<TArrayType>(type)) {
             return self(self, maybeArray.Cast()->ElementType, loc, typeScope);
+        } else if (auto vector = TMaybeType<TVectorType>(type)) {
+            if (!vector.Cast()->SizeParam.empty() && !IsGenericValueParam(vector.Cast()->SizeParam, typeScope)) {
+                return TError(loc, "Vector size '" + vector.Cast()->SizeParam + "' must be a generic value parameter");
+            }
+            return self(self, vector.Cast()->ElementType, loc, typeScope);
         } else if (auto maybeFun = TMaybeType<TFunctionType>(type)) {
             auto fun = maybeFun.Cast();
             if (auto err = self(self, fun->ReturnType, loc, typeScope)) {
@@ -518,6 +540,9 @@ TNameResolver::TTask TNameResolver::Resolve(TExprPtr node, TScopePtr scope, TSco
         auto ident = maybeIdent.Cast();
         auto found = Lookup(ident->Name, scope->Id);
         if (!found) {
+            if (IsGenericValueParam(ident->Name, scope)) {
+                co_return {};
+            }
             if (!LookupOverloads(ident->Name, scope->Id).empty()) {
                 co_return {};
             }
@@ -1072,6 +1097,10 @@ std::optional<TNameResolver::TRegisteredOp> TNameResolver::GetUnaryOp(
     auto it = ImportedUnaryOps.find({op, TypeKey(operand)});
     if (it != ImportedUnaryOps.end()) return it->second;
     return std::nullopt;
+}
+
+void TNameResolver::RegisterUnaryOp(const std::string& op, const NAst::TTypePtr& operand, TRegisteredOp target) {
+    ImportedUnaryOps[{op, TypeKey(operand)}] = std::move(target);
 }
 
 std::vector<std::shared_ptr<NAst::TFunDecl>> TNameResolver::LookupGenericOperatorDecls(

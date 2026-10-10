@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <charconv>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -411,6 +412,7 @@ struct TVectorType : TType {
 
     TTypePtr ElementType;
     int Size{0};
+    std::string SizeParam;
 
     TVectorType() = default;
 
@@ -419,8 +421,22 @@ struct TVectorType : TType {
         , Size(size)
     {}
 
+    std::string SizeText() const {
+        return SizeParam.empty()
+            ? std::to_string(Size)
+            : SizeParam;
+    }
+
+    void BindSize(std::string_view value) {
+        auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), Size);
+        if (error != std::errc{} || end != value.data() + value.size()) {
+            Size = 0;
+        }
+        SizeParam.clear();
+    }
+
     std::string ToString() const override {
-        return (ElementType ? std::string(ElementType->TypeName()) : "unknown") + "x" + std::to_string(Size);
+        return (ElementType ? std::string(ElementType->TypeName()) : "unknown") + "x" + SizeText();
     }
 
     const std::string_view TypeName() const override {
@@ -572,7 +588,7 @@ inline std::string TypeDiagnosticName(const TTypePtr& type) {
         return result;
     }
     if (auto vector = TMaybeType<TVectorType>(type)) {
-        return TypeDiagnosticName(vector.Cast()->ElementType) + "x" + std::to_string(vector.Cast()->Size);
+        return TypeDiagnosticName(vector.Cast()->ElementType) + "x" + vector.Cast()->SizeText();
     }
     if (auto tensor = TMaybeType<TTensorType>(type)) {
         std::string result = TypeDiagnosticName(tensor.Cast()->ElementType);
@@ -631,7 +647,7 @@ inline std::string TypeKey(const TTypePtr& t) {
         return key;
     }
     if (auto vector = TMaybeType<TVectorType>(t)) {
-        return "Vector::" + TypeKey(vector.Cast()->ElementType) + "::" + std::to_string(vector.Cast()->Size);
+        return "Vector::" + TypeKey(vector.Cast()->ElementType) + "::" + vector.Cast()->SizeText();
     }
     if (auto tensor = TMaybeType<TTensorType>(t)) {
         std::string key = "Tensor::" + TypeKey(tensor.Cast()->ElementType);
@@ -695,7 +711,7 @@ inline std::string TypeMangleKey(const TTypePtr& t) {
         return key;
     }
     if (auto vector = TMaybeType<TVectorType>(t)) {
-        return "Vector_" + TypeMangleKey(vector.Cast()->ElementType) + "_" + std::to_string(vector.Cast()->Size);
+        return "Vector_" + TypeMangleKey(vector.Cast()->ElementType) + "_" + vector.Cast()->SizeText();
     }
     if (auto tensor = TMaybeType<TTensorType>(t)) {
         std::string key = "Tensor_" + TypeMangleKey(tensor.Cast()->ElementType);

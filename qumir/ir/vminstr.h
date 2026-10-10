@@ -133,6 +133,7 @@ enum class EVMOp : uint8_t {
     VFAdd,
     VFSub,
     VFMul,
+    VIndex,
 };
 
 std::ostream& operator<<(std::ostream& os, EVMOp op);
@@ -177,11 +178,12 @@ struct TVMOperand {
 struct TVMInstr {
     std::array<TVMOperand, 3> Operands;
     EVMOp Op;
-    // Bits 0..2: log2(element bytes), 3..5: log2(lanes), 6..7: operand broadcasts.
+    // Bits 0..2: log2(element bytes), 3..5: log2(lanes), 6..7: opcode flags.
     uint8_t Format = 3;
 
     static constexpr uint8_t BroadcastLeft = 1 << 6;
     static constexpr uint8_t BroadcastRight = 1 << 7;
+    static constexpr uint8_t SignedElement = 1 << 6;
 
     static constexpr uint8_t MakeFormat(uint8_t elementLog2, uint8_t lanesLog2 = 0) {
         assert(elementLog2 <= 4 && lanesLog2 <= 5);

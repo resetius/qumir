@@ -330,14 +330,14 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
                             output->Location,
                             std::make_shared<NAst::TIdentExpr>(output->Location, "output_symbol"),
                             std::move(args));
-                    } else if (auto named = NAst::TMaybeType<NAst::TNamedType>(type)) {
+                    } else if (NAst::TMaybeType<NAst::TNamedType>(type) || NAst::TMaybeType<NAst::TVectorType>(type)) {
                         if (width || prec) {
-                            errors.push_back(TError(output->Location, "width and precision arguments are not applicable for named type output"));
+                            errors.push_back(TError(output->Location, "width and precision arguments are not applicable for custom output"));
                             return node;
                         }
                         auto op = context.GetUnaryOp("print", type);
                         if (!op) {
-                            errors.push_back(TError(arg.Expr->Location, "тип '" + named.Cast()->Name + "' не поддерживает вывод"));
+                            errors.push_back(TError(arg.Expr->Location, "тип '" + NAst::TypeDiagnosticName(type) + "' не поддерживает вывод"));
                             return node;
                         }
                         call = std::make_shared<NAst::TCallExpr>(
@@ -525,7 +525,8 @@ std::expected<bool, TError> PostTypeAnnotationTransform(NAst::TExprPtr& expr, NS
             return node;
         },
         [](const NAst::TExprPtr& node) {
-            return true; // transform all nodes
+            auto function = NAst::TMaybeNode<NAst::TFunDecl>(node);
+            return !function || function.Cast()->GenericParams.empty();
         });
 
     if (!errors.empty()) {
@@ -598,7 +599,8 @@ std::expected<bool, TError> PostNameResolutionTransform(NAst::TExprPtr& expr, NS
             return node;
         },
         [](const NAst::TExprPtr& node) {
-            return true; // transform all nodes
+            auto function = NAst::TMaybeNode<NAst::TFunDecl>(node);
+            return !function || function.Cast()->GenericParams.empty();
         });
     if (!errors.empty()) {
         return std::unexpected(TError(expr->Location, errors));

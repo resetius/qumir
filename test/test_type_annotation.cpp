@@ -15,11 +15,13 @@ namespace {
 std::expected<TExprPtr, TError> Annotate(const std::string& source) {
     std::istringstream input(source);
     NCore::TTokenStream tokens(input);
-    auto parsed = NCore::TParser{}.Parse(tokens);
+    NCore::TParser parser;
+    auto parsed = parser.Parse(tokens);
     if (!parsed) {
         return std::unexpected(parsed.error());
     }
     NSemantics::TNameResolver resolver;
+    resolver.ApplyPragmas(parser.Pragmas);
     if (auto error = resolver.Resolve(*parsed)) {
         return std::unexpected(*error);
     }
@@ -380,6 +382,75 @@ TEST(VectorTypeAnnotation, AllowsScalar128BitValuesConvertedToFloatElements) {
         ASSERT_TRUE(scalarArithmetic) << scalarArithmetic.error().ToString();
         EXPECT_EQ(TypeName((*scalarArithmetic)->Type), scalar);
     }
+}
+
+TEST(VectorTypeAnnotation, GenericVectorBindsTypeAndSizeAndCachesInstances) {
+    auto result = Annotate(
+        "(block (pragma language overloads)"
+        " (fun size [T (const N i32)] ((var v <ref <vec T N>>)) -> i32 (block (return N)))"
+        " (var a = (: (vec 1 2) <vec i8 2>)) (var b = (vec 1 2 3 4))"
+        " (var x = (call size a)) (var y = (call size a)) (var z = (call size b)))");
+    ASSERT_TRUE(result) << result.error().ToString();
+    int instances = 0;
+    for (const auto& stmt : TMaybeNode<TBlockExpr>(*result).Cast()->Stmts) {
+        auto function = TMaybeNode<TFunDecl>(stmt).Cast();
+        if (!function || function->OriginalName != "size") {
+            continue;
+        }
+        ++instances;
+        auto vector = TMaybeType<TVectorType>(UnwrapReferenceType(function->Params[0]->Type)).Cast();
+        ASSERT_NE(vector, nullptr);
+        EXPECT_TRUE(vector->SizeParam.empty());
+        EXPECT_TRUE(vector->Size == 2 || vector->Size == 4);
+        auto body = TMaybeNode<TBlockExpr>(function->Body).Cast();
+        auto returned = TMaybeNode<TReturnExpr>(body->Stmts.back()).Cast();
+        ASSERT_NE(returned, nullptr);
+        auto number = TMaybeNode<TNumberExpr>(returned->Value).Cast();
+        ASSERT_NE(number, nullptr);
+        EXPECT_EQ(number->IntValue, vector->Size);
+        EXPECT_EQ(TypeName(number->Type), "i32");
+    }
+    EXPECT_EQ(instances, 2);
+    NCore::TPrintOptions options;
+    options.Pretty = false;
+    auto reparsed = Annotate(NCore::PrintAst(*result, options));
+    ASSERT_TRUE(reparsed) << reparsed.error().ToString();
+}
+
+TEST(VectorTypeAnnotation, GenericVectorRejectsConflictingBindingsAndInvalidElements) {
+    for (const std::string source : {
+        "(block (pragma language overloads)"
+        " (fun same [T (const N i64)] ((var a <ref <vec T N>>) (var b <ref <vec T N>>))"
+        " -> void (block)) (var a = (vec 1 2)) (var b = (vec 1 2 3 4)) (call same a b))",
+        "(block (pragma language overloads)"
+        " (fun same [T (const N i64)] ((var a <ref <vec T N>>) (var b <ref <vec T N>>))"
+        " -> void (block)) (var a = (vec 1 2)) (var b = (vec #t #f)) (call same a b))",
+        "(block (var v <vec string 2>))",
+        "(block (var v <vec i64 N>))",
+        "(block (pragma language overloads) (fun f [T] ((var v <vec T T>)) -> void (block)))",
+        "(block (type V [T (const N i64)] <vec T N>) (var v <named V [i128 2]>))",
+        "(block (type V [T (const N i64)] <vec T N>) (var v <named V [i64 3]>))",
+        "(block (var v <vec i64 4294967298>))",
+    }) {
+        SCOPED_TRACE(source);
+        auto result = Annotate(source);
+        ASSERT_FALSE(result);
+    }
+}
+
+TEST(VectorTypeAnnotation, VectorIndexInfersScalarElementType) {
+    for (const auto& [source, type] : std::vector<std::pair<std::string, std::string>>{
+        {"(index (vec 1 2) 0)", "i64"},
+        {"(index (: (vec -1 127) <vec i8 2>) (: 1 i32))", "i8"},
+        {"(index (vec #t #f) 1)", "Bool"},
+        {"(index (vec 1.0 2.0) 0)", "Float"},
+    }) {
+        SCOPED_TRACE(source);
+        auto result = Annotate(source);
+        ASSERT_TRUE(result) << result.error().ToString();
+        EXPECT_EQ(TypeName((*result)->Type), type);
+    }
+    EXPECT_FALSE(Annotate("(index (vec 1 2) \"first\")"));
 }
 
 int main(int argc, char** argv) {

@@ -144,6 +144,28 @@ void EvalVectorAlu(TRegisterFile& regs, const TVMInstr& instr, TOp op) {
     throw std::runtime_error("Unsupported vector arithmetic element width");
 }
 
+uint64_t EvalVectorIndex(const TRegisterFile& regs, const TVMInstr& instr) {
+    const int64_t index = ReadOperand(regs, instr.Operands[2]);
+    if (index < 0 || static_cast<uint64_t>(index) >= instr.LaneCount()) {
+        throw std::runtime_error("Vector index out of bounds");
+    }
+    const size_t size = instr.ElementSizeInBytes();
+    const int offset = static_cast<int>(index * size);
+    uint64_t value;
+    switch (size) {
+        case 1: value = ReadVectorOperand<uint8_t>(regs, instr.Operands[1], offset); break;
+        case 2: value = ReadVectorOperand<uint16_t>(regs, instr.Operands[1], offset); break;
+        case 4: value = ReadVectorOperand<uint32_t>(regs, instr.Operands[1], offset); break;
+        case 8: value = ReadVectorOperand<uint64_t>(regs, instr.Operands[1], offset); break;
+        default: throw std::runtime_error("Unsupported vector element width");
+    }
+    if ((instr.Format & TVMInstr::SignedElement) && size < 8) {
+        const int shift = static_cast<int>(64 - size * 8);
+        value = std::bit_cast<uint64_t>(std::bit_cast<int64_t>(value << shift) >> shift);
+    }
+    return value;
+}
+
 ITypeErasedFuture* MakeCompletedVoidFuture() {
     auto promise = std::make_shared<TPromise<void>>();
     promise->return_void();
@@ -447,6 +469,9 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
             break;
         }
 
+        case EVMOp::VIndex:
+            Runtime.Regs.Get<uint64_t>(instr.Operands[0].Tmp.Idx) = EvalVectorIndex(Runtime.Regs, instr);
+            break;
         case EVMOp::VIAdd:
             EvalVectorAlu<false>(Runtime.Regs, instr, std::plus<>{});
             break;

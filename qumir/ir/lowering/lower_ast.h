@@ -62,6 +62,12 @@ private:
 
     TExpectedTask<TValueWithBlock, TError, TLocation> Lower(const NAst::TExprPtr& expr, TBlockScope scope);
     TExpectedTask<TValueWithBlock, TError, TLocation> LowerVector(const NAst::TVectorExpr& vector, TBlockScope scope);
+    TTmp MaterializeValue(
+        TOperand value,
+        int typeId,
+        const std::string& name,
+        const TLocation& loc,
+        int32_t scopeId);
     TExpectedTask<TOperand, TError, TLocation> EnsureStructAddress(
         TOperand value,
         int structTypeId,

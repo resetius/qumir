@@ -146,6 +146,20 @@ bool TVMCompiler::CompileVectorInstruction(const TFunction& function, const TIns
     }
     out.Format = VectorFormat(types, vectorType);
     switch (instr.Op) {
+        case "index"_op: {
+            const int elementType = types.UnderlyingType(vectorType);
+            if (function.GetTmpType(instr.Dest.Idx) != elementType
+                || OperandType(function, Module, instr.Operands[0]) != vectorType
+                || types.GetKind(OperandType(function, Module, instr.Operands[1])) != EKind::I64)
+            {
+                throw std::runtime_error("Invalid VM vector index types");
+            }
+            out.Op = EVMOp::VIndex;
+            if (types.IsSigned(elementType)) {
+                out.Format |= TVMInstr::SignedElement;
+            }
+            return true;
+        }
         case "lea"_op:
             out.Op = EVMOp::Lea;
             out.Format = 3;
