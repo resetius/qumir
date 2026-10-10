@@ -703,10 +703,9 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                 if (destType >= 0 && Module.Types.GetKind(destType) == EKind::Struct) {
                     // IR load is a struct value; VM represents struct values as 64-bit addresses.
                     out.Op = EVMOp::Lea;
-                } else if (is128(destType)) {
-                    out.Op = EVMOp::Load128;
                 } else {
-                    out.Op = EVMOp::Load64;
+                    out.Op = EVMOp::Load;
+                    out.Format = TVMInstr::MakeFormat(is128(destType) ? 4 : 3);
                 }
                 break;
             }
@@ -723,7 +722,8 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                         break;
                     }
                 }
-                out.Op = is128(typeIdOp(ins.Operands[1])) ? EVMOp::Store128 : EVMOp::Store64;
+                out.Op = EVMOp::Store;
+                out.Format = TVMInstr::MakeFormat(is128(typeIdOp(ins.Operands[1])) ? 4 : 3);
                 break;
             }
             case "copy"_op: {

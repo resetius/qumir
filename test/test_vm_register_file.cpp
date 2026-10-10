@@ -5,6 +5,7 @@
 
 #include <array>
 #include <bit>
+#include <cstring>
 #include <sstream>
 
 using namespace NQumir;
@@ -188,6 +189,124 @@ TEST(VMRegisterFile, StructReturnUsesMetadataAtRegisterByteOffset) {
     const int byteOffset = function.Exec->TmpByteOffsets.at(returned.Idx);
     EXPECT_NE(byteOffset, returned.Idx);
     EXPECT_EQ(function.Exec->StructRegisters.at(byteOffset).Size, 16);
+}
+
+TEST(VMMemory, ScalarFormatsRoundTripLocalsAndGlobals) {
+    for (EKind kind : {EKind::I64, EKind::U64, EKind::F64, EKind::I128, EKind::U128}) {
+        for (bool useImmediate : {false, true}) {
+            SCOPED_TRACE(static_cast<int>(kind));
+            SCOPED_TRACE(useImmediate);
+            TVMTest vm;
+            const int type = vm.Module.Types.I(kind);
+            const int i64 = vm.Module.Types.I(EKind::I64);
+            const int boolean = vm.Module.Types.I(EKind::I1);
+            const bool isWide = kind == EKind::I128 || kind == EKind::U128;
+            const int64_t raw = kind == EKind::F64
+                ? std::bit_cast<int64_t>(-3.25)
+                : -17;
+            __int128_t expected = raw;
+            TOperand source = TImm{raw, type};
+            vm.Module.GlobalTypes = {type, i64, i64};
+            vm.Builder.NewFunction("memory", {}, 0);
+            vm.Builder.SetType(TLocal{0}, i64, {});
+            vm.Builder.SetType(TLocal{1}, type, {});
+            vm.Builder.Emit0("stre"_op, {TLocal{0}, TImm{73, i64}});
+            vm.Builder.Emit0("stre"_op, {TSlot{2}, TImm{73, i64}});
+            if (!useImmediate) {
+                if (isWide) {
+                    const auto one = vm.Emit("mov"_op, {TImm{1, type}}, type);
+                    const auto high = vm.Emit("<<"_op, {one, TImm{100, type}}, type);
+                    source = vm.Emit('|'_op, {high, TImm{19, type}}, type);
+                    expected = (static_cast<__int128_t>(1) << 100) | 19;
+                } else {
+                    source = vm.Emit("mov"_op, {source}, type);
+                }
+            }
+            vm.Builder.Emit0("stre"_op, {TLocal{1}, source});
+            const auto local = vm.Emit("load"_op, {TLocal{1}}, type);
+            vm.Builder.Emit0("stre"_op, {TSlot{0}, local});
+            const auto global = vm.Emit("load"_op, {TSlot{0}}, type);
+            const auto matches = vm.Emit("=="_op, {global, source}, boolean);
+            const auto neighbor = vm.Emit("load"_op, {TLocal{0}}, i64);
+            const auto neighborMatches = vm.Emit("=="_op, {neighbor, TImm{73, i64}}, boolean);
+            const auto result = vm.Emit('&'_op, {matches, neighborMatches}, boolean);
+            vm.Builder.Emit0("ret"_op, {result});
+            vm.Builder.SetReturnType(boolean);
+
+            auto& function = vm.Module.Functions[0];
+            ASSERT_EQ(vm.Interpreter.EvalRaw(function, {}, {}), 1);
+            const auto& globals = vm.Interpreter.GetRuntime().Globals;
+            ASSERT_EQ(globals.size(), 24);
+            const size_t size = isWide
+                ? 16
+                : 8;
+            const void* expectedData = isWide
+                ? static_cast<const void*>(&expected)
+                : static_cast<const void*>(&raw);
+            EXPECT_EQ(std::memcmp(globals.data(), expectedData, size), 0);
+            int64_t globalNeighbor = 0;
+            std::memcpy(&globalNeighbor, globals.data() + 16, sizeof(globalNeighbor));
+            EXPECT_EQ(globalNeighbor, 73);
+
+            int wideOperations = 0;
+            for (const auto& instr : function.Exec->VMCode) {
+                if (instr.Op == EVMOp::Load || instr.Op == EVMOp::Store) {
+                    EXPECT_EQ(instr.LaneCount(), 1);
+                    if (instr.ElementSizeInBytes() == 16) {
+                        ++wideOperations;
+                    } else {
+                        EXPECT_EQ(instr.ElementSizeInBytes(), 8);
+                    }
+                }
+            }
+            EXPECT_EQ(wideOperations, isWide ? 4 : 0);
+        }
+    }
+}
+
+TEST(VMMemory, PackedFormatsCopyTheCompletePayload) {
+    struct TCase {
+        uint8_t Format;
+        int Size;
+        const char* Spelling;
+    };
+    for (const auto& test : {
+        TCase{TVMInstr::MakeFormat(2, 2), 16, "Load<4x4>"},
+        TCase{TVMInstr::MakeFormat(0, 5), 32, "Load<1x32>"},
+        TCase{TVMInstr::MakeFormat(4, 5), 512, "Load<16x32>"},
+    }) {
+        SCOPED_TRACE(test.Size);
+        TVMTest vm;
+        const int i64 = vm.Module.Types.I(EKind::I64);
+        vm.Builder.NewFunction("packed", {}, 0);
+        vm.Builder.SetReturnType(i64);
+        const int destSlot = test.Size / 8 + 1;
+        TExecFunc exec{
+            .UniqueId = 0,
+            .VMCode = {
+                {.Operands = {TTmp{test.Size}, TImm{73}}, .Op = EVMOp::Mov},
+                {.Operands = {TTmp{0}, TSlot{0}}, .Op = EVMOp::Load, .Format = test.Format},
+                {.Operands = {TSlot{destSlot}, TTmp{0}}, .Op = EVMOp::Store, .Format = test.Format},
+                {.Operands = {TTmp{test.Size}}, .Op = EVMOp::Ret},
+            },
+            .RegisterFileSize = test.Size + 8,
+            .RegisterFileAlignment = 16,
+        };
+        vm.Module.Functions[0].Exec = &exec;
+        std::vector<char> source(test.Size);
+        for (int i = 0; i < test.Size; ++i) {
+            source[i] = static_cast<char>(i * 37 + 11);
+        }
+        vm.Interpreter.GetRuntime().Globals = source;
+        ASSERT_EQ(vm.Interpreter.EvalRaw(vm.Module.Functions[0], {}, {}), 73);
+        const auto& globals = vm.Interpreter.GetRuntime().Globals;
+        ASSERT_EQ(globals.size(), test.Size * 2 + 8);
+        EXPECT_EQ(std::memcmp(globals.data(), source.data(), test.Size), 0);
+        EXPECT_EQ(std::memcmp(globals.data() + destSlot * 8, source.data(), test.Size), 0);
+        std::ostringstream printed;
+        printed << exec.VMCode[1];
+        EXPECT_TRUE(printed.str().starts_with(test.Spelling));
+    }
 }
 
 } // namespace
