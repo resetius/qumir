@@ -1,4 +1,3 @@
-; disable_llvm
 (block
   (pragma language overloads)
   (use vector)

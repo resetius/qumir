@@ -106,6 +106,7 @@ private:
         std::vector<llvm::BasicBlock*>& orderedBBs,
         TLLVMDebugInfo* debugInfo);
     llvm::Value* LowerInstr(const NIR::TInstr& instr, NIR::TModule& module);
+    llvm::Value* LowerVectorIndex(llvm::Value* vector, llvm::Value* index, llvm::Type* resultType);
     llvm::Value* EmitPhi(const NIR::TPhi& instr, NIR::TModule& module);
     void AddIncomingPhiEdges(const NIR::TPhi& instr, NIR::TModule& module);
     llvm::Value* GetOp(const NIR::TOperand& op, NIR::TModule& module);
