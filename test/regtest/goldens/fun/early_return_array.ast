@@ -3,8 +3,8 @@
     (block
       (var знач f64)
       (var A <array f64 1> [0 10])
-      (= A [0] 5)
+      (= A [0] 5.0)
       (= знач (index A 0))
       (if (cast #t bool) (block (cleanup-exit (return знач) (destroy A))))
-      (= знач 99)
+      (= знач 99.0)
       (cleanup-exit (return знач) (destroy A)))))

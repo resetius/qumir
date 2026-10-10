@@ -1,5 +1,6 @@
 #include <qumir/parser/core/lexer.h>
 #include <qumir/parser/core/parser.h>
+#include <qumir/parser/core/printer.h>
 #include <qumir/semantics/type_annotation/type_annotation.h>
 
 #include <gtest/gtest.h>
@@ -155,6 +156,162 @@ TEST(BinaryTypeAnnotation, VectorAssignmentsCheckShapeAndElementType) {
     ASSERT_NE(assignment, nullptr);
     EXPECT_EQ(TypeName(assignment->Value->Type), "Vector::Float::4");
     EXPECT_TRUE(TMaybeNode<TCastExpr>(assignment->Value));
+}
+
+TEST(VectorTypeAnnotation, InfersTypeFromScalarExpressions) {
+    const std::vector<std::pair<std::string, std::string>> cases = {
+        {"(vec 1 (+ 2 3) 4 5)", "Vector::i64::4"},
+        {"(vec 0.5 2.5)", "Vector::Float::2"},
+        {"(vec #t #f)", "Vector::Bool::2"},
+        {"(vec (: 1 i16) (: 2 i16))", "Vector::i16::2"},
+    };
+    for (const auto& [source, type] : cases) {
+        SCOPED_TRACE(source);
+        auto result = Annotate(source);
+        ASSERT_TRUE(result) << result.error().ToString();
+        EXPECT_EQ(TypeName((*result)->Type), type);
+    }
+}
+
+TEST(VectorTypeAnnotation, ConvertsElementsToExplicitType) {
+    auto result = Annotate(
+        "(block (var a i32) (var b i32)"
+        " (var value = (: (vec a (+ b 1)) <vec f64 2>)))");
+    ASSERT_TRUE(result) << result.error().ToString();
+    auto variable = TMaybeNode<TVarStmt>(TMaybeNode<TBlockExpr>(*result).Cast()->Stmts.back()).Cast();
+    auto vector = TMaybeNode<TVectorExpr>(variable->Init).Cast();
+    ASSERT_NE(vector, nullptr);
+    EXPECT_EQ(TypeName(vector->Type), "Vector::Float::2");
+    for (const auto& element : vector->Elements) {
+        ASSERT_TRUE(TMaybeNode<TCastExpr>(element));
+        EXPECT_EQ(TypeName(element->Type), "Float");
+    }
+    NCore::TPrintOptions options;
+    options.Pretty = false;
+    auto printed = NCore::PrintAst(*result, options);
+    EXPECT_EQ(printed.find("(: (vec"), std::string::npos);
+    auto reparsed = Annotate(printed);
+    ASSERT_TRUE(reparsed) << reparsed.error().ToString();
+    auto reparsedVariable = TMaybeNode<TVarStmt>(TMaybeNode<TBlockExpr>(*reparsed).Cast()->Stmts.back()).Cast();
+    EXPECT_EQ(TypeName(reparsedVariable->Type), TypeName(variable->Type));
+}
+
+TEST(VectorTypeAnnotation, ConvertsReferencedElementsToExplicitType) {
+    auto result = Annotate(
+        "(block (var a <ref i32>)"
+        " (var value = (: (vec a a) <vec f64 2>)))");
+    ASSERT_TRUE(result) << result.error().ToString();
+    auto variable = TMaybeNode<TVarStmt>(TMaybeNode<TBlockExpr>(*result).Cast()->Stmts.back()).Cast();
+    auto vector = TMaybeNode<TVectorExpr>(variable->Init).Cast();
+    ASSERT_NE(vector, nullptr);
+    for (const auto& element : vector->Elements) {
+        EXPECT_TRUE(TMaybeNode<TCastExpr>(element));
+        EXPECT_EQ(TypeName(element->Type), "Float");
+    }
+}
+
+TEST(VectorTypeAnnotation, LiteralTypesSurvivePrintAndReannotation) {
+    for (const std::string source : {
+        "(: (vec 1 2) <vec f64 2>)",
+        "(: (vec 1 127) <vec i8 2>)",
+        "(: (vec 1 0) <vec bool 2>)",
+        "(vec 1.0 -0.0)",
+    }) {
+        SCOPED_TRACE(source);
+        auto result = Annotate(source);
+        ASSERT_TRUE(result) << result.error().ToString();
+        NCore::TPrintOptions options;
+        options.Pretty = false;
+        auto printed = NCore::PrintAst(*result, options);
+        EXPECT_EQ(printed.find("(: (vec"), std::string::npos);
+        auto reparsed = Annotate(printed);
+        ASSERT_TRUE(reparsed) << reparsed.error().ToString();
+        EXPECT_EQ(TypeName((*reparsed)->Type), TypeName((*result)->Type)) << printed;
+    }
+}
+
+TEST(VectorTypeAnnotation, RejectsInvalidConstruction) {
+    for (const std::string source : {
+        "(vec)",
+        "(vec 1)",
+        "(vec 1 2 3)",
+        "(vec nil)",
+        "(vec 1 nil)",
+        "(vec \"one\" \"two\")",
+        "(vec (vec 1 2) (vec 3 4))",
+        "(vec 1 #t)",
+        "(vec 1 2.5)",
+        "(: (vec 1 2) i64)",
+        "(: (vec 1 2) <vec i64 4>)",
+        "(: (vec 1) <vec i64 0>)",
+        "(: (vec 1 128) <vec i8 2>)",
+        "(block (var a i64) (: (vec a a) <vec i8 2>))",
+    }) {
+        SCOPED_TRACE(source);
+        auto result = Annotate(source);
+        ASSERT_FALSE(result);
+        EXPECT_NE(result.error().ToString().find("Line: 1"), std::string::npos);
+    }
+}
+
+TEST(VectorTypeAnnotation, AcceptsSupportedSizes) {
+    for (int size : {2, 4, 8, 16, 32}) {
+        SCOPED_TRACE(size);
+        std::string source = "(vec";
+        for (int index = 0; index < size; ++index) {
+            source += " 1";
+        }
+        source += ')';
+        auto result = Annotate(source);
+        ASSERT_TRUE(result) << result.error().ToString();
+        EXPECT_EQ(TypeName((*result)->Type), "Vector::i64::" + std::to_string(size));
+        auto declared = Annotate("(block (var v <vec i64 " + std::to_string(size) + ">))");
+        ASSERT_TRUE(declared) << declared.error().ToString();
+    }
+}
+
+TEST(VectorTypeAnnotation, RejectsUnsupportedSizesDuringAnnotation) {
+    for (int size : {-1, 0, 1, 3, 5, 31, 33, 64}) {
+        SCOPED_TRACE(size);
+        auto source = "(block (var v <vec i64 " + std::to_string(size) + ">))";
+        std::istringstream input(source);
+        NCore::TTokenStream tokens(input);
+        auto parsed = NCore::TParser{}.Parse(tokens);
+        ASSERT_TRUE(parsed) << parsed.error().ToString();
+        NSemantics::TNameResolver resolver;
+        ASSERT_FALSE(resolver.Resolve(*parsed));
+        auto result = NTypeAnnotation::TTypeAnnotator(resolver).Annotate(*parsed);
+        ASSERT_FALSE(result);
+        EXPECT_NE(result.error().ToString().find("2, 4, 8, 16 или 32"), std::string::npos);
+        if (size >= 0) {
+            std::string constructor = "(vec";
+            for (int index = 0; index < size; ++index) {
+                constructor += " 1";
+            }
+            constructor += ')';
+            EXPECT_FALSE(Annotate(constructor));
+        }
+    }
+}
+
+TEST(VectorTypeAnnotation, ChecksSizesInsideCompositeTypes) {
+    for (const std::string source : {
+        "(block (var v <ptr <vec i64 3>>))",
+        "(block (var v <array <vec i64 3> 1>))",
+        "(block (var v <future <vec i64 3>>))",
+        "(block (var v <struct (field <vec i64 3>)>))",
+        "(block (var v <ref <vec i64 3>>))",
+        "(block (var v <fun <vec i64 3> ()>))",
+        "(block (type V <vec i64 3>))",
+        "(block (fun f ((var v <vec i64 3>)) -> void (block)))",
+        "(block (fun f () -> <vec i64 3> (block)))",
+    }) {
+        SCOPED_TRACE(source);
+        auto result = Annotate(source);
+        ASSERT_FALSE(result);
+        EXPECT_NE(result.error().ToString().find("2, 4, 8, 16 или 32"), std::string::npos)
+            << result.error().ToString();
+    }
 }
 
 int main(int argc, char** argv) {

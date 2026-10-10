@@ -5,7 +5,7 @@
       (var z <named компл>)
       (var re f64)
       (var im f64)
-      (call make_by_ref 4 6 (: z <named компл>))
+      (call make_by_ref 4.0 6.0 (: z <named компл>))
       (call split (: z <named компл>) re im)
       (block
         (call output_string "made Re=")

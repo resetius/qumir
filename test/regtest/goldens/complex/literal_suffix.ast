@@ -3,7 +3,7 @@
   (fun <main> ()
     (block
       (var z <named компл>)
-      (= z (: (call __imag 2) <named компл>))
+      (= z (: (call __imag 2.0) <named компл>))
       (block
         (call output_string "2i: Re=")
         (call output_double (call Re (: z <named компл>)) 0 -1)
@@ -18,7 +18,7 @@
         (call output_double (call Im (: z <named компл>)) 0 -1)
         (call output_string "\n"))
       (= z
-        (: (call complex_add (: (call __imag 2) <named компл>) (: (call complex_from_int 10) <named компл>))
+        (: (call complex_add (: (call __imag 2.0) <named компл>) (: (call complex_from_int 10) <named компл>))
           <named компл>))
       (block
         (call output_string "2i+10: Re=")
@@ -27,7 +27,7 @@
         (call output_double (call Im (: z <named компл>)) 0 -1)
         (call output_string "\n"))
       (= z
-        (: (call complex_mul (: (call __imag 1) <named компл>) (: (call __imag 1) <named компл>))
+        (: (call complex_mul (: (call __imag 1.0) <named компл>) (: (call __imag 1.0) <named компл>))
           <named компл>))
       (block
         (call output_string "i*i: Re=")

@@ -3,7 +3,7 @@
   (fun <main> ()
     (block
       (var z <named компл>)
-      (= z (: (call __imag 2) <named компл>))
+      (= z (: (call __imag 2.0) <named компл>))
       (block
         (call output_double (call Re (: z <named компл>)) 0 -1)
         (call output_symbol (cast 32 char))
