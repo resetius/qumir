@@ -38,7 +38,8 @@ TLifetimeTraits Classify(
         || NAst::TMaybeType<NAst::TFloatType>(type)
         || NAst::TMaybeType<NAst::TBoolType>(type)
         || NAst::TMaybeType<NAst::TSymbolType>(type)
-        || NAst::TMaybeType<NAst::TPointerType>(type))
+        || NAst::TMaybeType<NAst::TPointerType>(type)
+        || NAst::TMaybeType<NAst::TVectorType>(type))
     {
         return {
             .Kind = ELifetimeKind::Trivial,

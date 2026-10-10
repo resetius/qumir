@@ -66,6 +66,25 @@ int TTypeTable::Struct(std::vector<int> fields) {
     return StructCache[fields] = (int)Types.size()-1;
 }
 
+int TTypeTable::Vec(int elemType, int count) {
+    auto it = VecCache.find({elemType, count});
+    if (it != VecCache.end()) {
+        return it->second;
+    }
+
+    int id = (int)Vectors.size();
+    Vectors.push_back({
+        .ElementType = elemType,
+        .Size = count
+    });
+    Types.push_back({
+        .Kind = EKind::Vec,
+        .Aux = id,
+    });
+
+    return VecCache[{elemType, count}] = (int)Types.size()-1;
+}
+
 int TTypeTable::Unify(int leftId, int rightId) {
     if (leftId == rightId) return leftId;
     auto left = Types[leftId];
@@ -165,6 +184,12 @@ int FromAstType(const NAst::TTypePtr& t, TTypeTable& tt) {
         return tt.Func(std::move(ps), r);
     }
 
+    if (auto v = NAst::TMaybeType<NAst::TVectorType>(t)) {
+        int elemType = FromAstType(v.Cast()->ElementType, tt);
+        int count = v.Cast()->Size;
+        return tt.Vec(elemType, count);
+    }
+
     return -1;
 }
 
@@ -214,6 +239,13 @@ void TTypeTable::Print(std::ostream& out, int typeId) const {
                 if (i < str.FieldTypes.size() - 1) out << "; ";
             }
             out << "}";
+            break;
+        }
+        case EKind::Vec: {
+            const auto& vec = Vectors[type.Aux];
+            out << "vec<";
+            Print(out, vec.ElementType);
+            out << ", " << vec.Size << ">";
             break;
         }
     }
@@ -301,6 +333,10 @@ void TTypeTable::Format(std::ostream& out, uint64_t bitRepr, int typeId) const {
             ss << "<struct 0x" << std::hex << bitRepr << std::dec << ">";
             break;
         }
+        case EKind::Vec: {
+            ss << "<vec 0x" << std::hex << bitRepr << std::dec << ">";
+            break;
+        }
     }
     out << ss.str();
 }
@@ -312,9 +348,11 @@ bool TTypeTable::IsVoid(int typeId) const {
 }
 
 bool TTypeTable::IsPrimitive(int typeId) const {
-    if (typeId < 0 || typeId >= (int)Types.size()) return false;
+    if (typeId < 0 || typeId >= (int)Types.size()) {
+        return false;
+    }
     auto k = Types[typeId].Kind;
-    return k != EKind::Ptr && k != EKind::Func && k != EKind::Struct;
+    return k != EKind::Ptr && k != EKind::Func && k != EKind::Struct && k != EKind::Vec;
 }
 
 bool TTypeTable::IsFloat(int typeId) const {
@@ -352,6 +390,14 @@ bool TTypeTable::IsPointer(int typeId) const {
     return k == EKind::Ptr;
 }
 
+bool TTypeTable::IsVector(int typeId) const {
+    if (typeId < 0 || typeId >= (int)Types.size()) {
+        return false;
+    }
+    auto k = Types[typeId].Kind;
+    return k == EKind::Vec;
+}
+
 EKind TTypeTable::GetKind(int typeId) const {
     if (typeId < 0 || typeId >= (int)Types.size()) {
         throw std::runtime_error("Invalid typeId in GetKind");
@@ -367,7 +413,13 @@ int TTypeTable::UnderlyingType(int typeId) const {
     if (type.Kind == EKind::Ptr || type.Kind == EKind::Func || type.Kind == EKind::Struct) {
         return type.Aux;
     }
-    throw std::runtime_error("Type is not Ptr, Func, or Struct in UnderlyingType");
+    if (
+        type.Kind == EKind::Vec
+        && type.Aux >= 0 && type.Aux < (int)Vectors.size())
+    {
+        return Vectors[type.Aux].ElementType;
+    }
+    throw std::runtime_error("Type is not Ptr, Func, Struct, or Vec in UnderlyingType");
 }
 
 int TTypeTable::SizeInBytes(int typeId) const {
@@ -382,6 +434,7 @@ int TTypeTable::SizeInBytes(int typeId) const {
         return 2;
     case EKind::I32:
     case EKind::U32:
+    case EKind::F32:
         return 4;
     case EKind::I64:
     case EKind::U64:
@@ -410,6 +463,11 @@ int TTypeTable::SizeInBytes(int typeId) const {
         int structAlign = std::min(maxAlign, 16);
         return AlignUp(offset, structAlign);
     }
+    case EKind::Vec: {
+        const auto& vec = Vectors[Types[typeId].Aux];
+        int elemSize = SizeInBytes(vec.ElementType);
+        return elemSize * vec.Size;
+    }
     }
     return 8;
 }
@@ -436,6 +494,17 @@ int TTypeTable::FieldOffset(int structTypeId, int fieldIndex) const {
         offset += fieldSize;
     }
     return offset;
+}
+
+int TTypeTable::VectorSize(int typeId) const {
+    if (typeId < 0 || typeId >= (int)Types.size()) {
+        throw std::runtime_error("Invalid typeId in VectorSize");
+    }
+    auto& type = Types[typeId];
+    if (type.Kind != EKind::Vec) {
+        throw std::runtime_error("Type is not Vec in VectorSize");
+    }
+    return Vectors[type.Aux].Size;
 }
 
 void TTypeTable::SetPointerSize(int bytes) {

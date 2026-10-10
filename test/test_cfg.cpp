@@ -4,10 +4,12 @@
 #include <qumir/semantics/transform/transform.h>
 #include <qumir/modules/system/system.h>
 #include <qumir/ir/lowering/lower_ast.h>
+#include <qumir/ir/type.h>
 #include <qumir/ir/passes/analysis/cfg.h>
 #include <qumir/ir/passes/transforms/locals2ssa.h>
 #include <qumir/ir/passes/transforms/de_ssa.h>
 
+#include <memory>
 #include <sstream>
 
 using namespace NQumir;
@@ -48,6 +50,72 @@ std::string BuildIR(NAst::TTokenStream& ts, NIR::TModule& module, bool emitDebug
 }
 
 } // namespace
+
+TEST(IRType, VectorInterningPreservesElementTypeAndCount) {
+    TTypeTable types;
+    const int i64 = types.I(EKind::I64);
+    const int f64 = types.I(EKind::F64);
+    const int vec4 = types.Vec(i64, 4);
+    EXPECT_EQ(types.Vec(i64, 4), vec4);
+    EXPECT_NE(types.Vec(i64, 8), vec4);
+    EXPECT_NE(types.Vec(f64, 4), vec4);
+    EXPECT_EQ(types.GetKind(vec4), EKind::Vec);
+    EXPECT_EQ(types.UnderlyingType(vec4), i64);
+    EXPECT_EQ(types.VectorSize(vec4), 4);
+}
+
+TEST(IRType, VectorPrintingIncludesElementTypeAndCount) {
+    TTypeTable types;
+    types.I(EKind::I8);
+    const int i64 = types.I(EKind::I64);
+    const int vec4 = types.Vec(i64, 4);
+    const int vec8 = types.Vec(i64, 8);
+    std::ostringstream out;
+    types.Print(out, vec4);
+    out << " ";
+    types.Print(out, vec8);
+    EXPECT_EQ(out.str(), "vec<i64, 4> vec<i64, 8>");
+}
+
+TEST(IRType, VectorsAreDistinctFromScalarTypes) {
+    TTypeTable types;
+    const int i64 = types.I(EKind::I64);
+    const int f64 = types.I(EKind::F64);
+    EXPECT_TRUE(types.IsPrimitive(i64));
+    EXPECT_TRUE(types.IsPrimitive(f64));
+    EXPECT_FALSE(types.IsVector(i64));
+    EXPECT_FALSE(types.IsVector(-1));
+    for (int vector : {types.Vec(i64, 4), types.Vec(f64, 4)}) {
+        EXPECT_TRUE(types.IsVector(vector));
+        EXPECT_FALSE(types.IsPrimitive(vector));
+        EXPECT_FALSE(types.IsInteger(vector));
+        EXPECT_FALSE(types.IsFloat(vector));
+        EXPECT_FALSE(types.IsSigned(vector));
+        EXPECT_FALSE(types.IsUnsigned(vector));
+    }
+}
+
+TEST(IRType, VectorPayloadUsesElementWidthWithoutPadding) {
+    TTypeTable types;
+    const int f32 = types.I(EKind::F32);
+    EXPECT_EQ(types.SizeInBytes(f32), 4);
+    EXPECT_EQ(types.SizeInBytes(types.Vec(f32, 4)), 16);
+    EXPECT_EQ(types.SizeInBytes(types.Vec(types.I(EKind::F64), 4)), 32);
+    EXPECT_EQ(types.SizeInBytes(types.Vec(types.I(EKind::I1), 2)), 2);
+    EXPECT_EQ(types.SizeInBytes(types.Vec(types.I(EKind::I8), 32)), 32);
+    EXPECT_EQ(types.SizeInBytes(types.Vec(types.I(EKind::I128), 32)), 512);
+}
+
+TEST(IRType, AstVectorAliasesUseTheSameIRType) {
+    TTypeTable types;
+    auto vector = std::make_shared<NAst::TVectorType>(
+        std::make_shared<NAst::TIntegerType>(NAst::TIntegerType::I32), 4);
+    auto alias = std::make_shared<NAst::TNamedType>("V", vector);
+    const int expected = types.Vec(types.I(EKind::I32), 4);
+    EXPECT_EQ(FromAstType(vector, types), expected);
+    EXPECT_EQ(FromAstType(alias, types), expected);
+    EXPECT_EQ(FromAstType(std::make_shared<NAst::TPointerType>(alias), types), types.Ptr(expected));
+}
 
 TEST(CfgTest, InstructionDebugInfoIsOptional) {
     const std::string source = "алг main\nнач\n  цел x\n  x := 7\nкон\n";

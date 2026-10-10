@@ -52,6 +52,17 @@ TEST(LifetimeTraits, StringIsRefCounted) {
     ExpectTraits(std::make_shared<TStringType>(), ELifetimeKind::RefCounted, true, true);
 }
 
+TEST(LifetimeTraits, NumericVectorsAreTrivial) {
+    const std::vector<TTypePtr> elements = {
+        std::make_shared<TIntegerType>(),
+        std::make_shared<TFloatType>(),
+        std::make_shared<TBoolType>(),
+    };
+    for (const auto& element : elements) {
+        ExpectTraits(std::make_shared<TVectorType>(element, 4), ELifetimeKind::Trivial, true, false);
+    }
+}
+
 TEST(LifetimeTraits, NamedStringUsesUnderlyingType) {
     auto type = std::make_shared<TNamedType>("Text", std::make_shared<TStringType>());
     ExpectTraits(type, ELifetimeKind::RefCounted, true, true);
