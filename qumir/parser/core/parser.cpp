@@ -507,8 +507,8 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
 
     if (head == "vec") {
         auto elementType = co_await ParseType(context);
-        if (!TMaybeType<TIntegerType>(elementType) || !TMaybeType<TFloatType>(elementType)) {
-            co_return TError(location, "vector element type must be integer or float");
+        if (!TMaybeType<TIntegerType>(elementType) && !TMaybeType<TFloatType>(elementType) && !TMaybeType<TBoolType>(elementType)) {
+            co_return TError(location, "vector element type must be integer, float, or bool");
         }
         auto sizeToken = context.Stream.Next();
         if (sizeToken.Type != TToken::Integer) co_return Error(sizeToken, "expected vector size");
@@ -517,8 +517,8 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
     }
     if (head == "tensor") {
         auto elementType = co_await ParseType(context);
-        if (!TMaybeType<TIntegerType>(elementType) && !TMaybeType<TFloatType>(elementType)) {
-            co_return TError(location, "tensor element type must be integer or float");
+        if (!TMaybeType<TIntegerType>(elementType) && !TMaybeType<TFloatType>(elementType) && !TMaybeType<TBoolType>(elementType)) {
+            co_return TError(location, "tensor element type must be integer, float, or bool");
         }
         std::vector<int> shape;
         while (true) {

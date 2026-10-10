@@ -372,6 +372,40 @@ struct TStructType : TType {
 
 // simd vector type, e.g. f32x4, i32x8, etc.
 // examples: <vec f32 4>, <vec i32 8>
+// arithmetic operations:
+// - <vec type N> + <vec type N>  => <vec type N>
+// - <vec type N> * <vec type N>  => <vec type N>
+// - <vec type N> + <scalar type> => <vec type N> (multiply scalar to each element)
+// - <vec type N> * <scalar type> => <vec type N> (multiply scalar to each element)
+// bit operations:
+// - <vec type N> & <vec type N>  => <vec type N>
+// - <vec type N> | <vec type N>  => <vec type N>
+// - <vec type N> ^ <vec type N>  => <vec type N>
+// - <vec type N> & <scalar type> => <vec type N> (bitwise and scalar to each element)
+// - <vec type N> | <scalar type> => <vec type N> (bitwise or scalar to each element)
+// - <vec type N> ^ <scalar type> => <vec type N> (bitwise xor scalar to each element)
+// - <vec type N> << <scalar type> => <vec type N> (shift left each element by scalar)
+// - <vec type N> >> <scalar type> => <vec type N> (shift right each element by scalar)
+// - <vec type N> << <vec type N>  => <vec type N> (shift left each element by corresponding element)
+// - <vec type N> >> <vec type N>  => <vec type N> (shift right each element by corresponding element)
+// logical operations:
+// - <vec type N> && <scalar type> => <vec i1 N> (logical and scalar to each element)
+// - <vec type N> || <scalar type> => <vec i1 N> (logical or scalar to each element)
+// - <vec type N> && <vec type N>  => <vec i1 N> (logical and each element)
+// - <vec type N> || <vec type N>  => <vec i1 N> (logical or each element)
+// comparison operations:
+// - <vec type N> == <scalar type> => <vec i1 N>
+// - <vec type N> != <scalar type> => <vec i1 N>
+// - <vec type N> <  <scalar type> => <vec i1 N>
+// - <vec type N> <= <scalar type> => <vec i1 N>
+// - <vec type N> >  <scalar type> => <vec i1 N>
+// - <vec type N> >= <scalar type> => <vec i1 N>
+// - <vec type N> == <vec type N>  => <vec i1 N>
+// - <vec type N> != <vec type N>  => <vec i1 N>
+// - <vec type N> <  <vec type N>  => <vec i1 N>
+// - <vec type N> <= <vec type N>  => <vec i1 N>
+// - <vec type N> >  <vec type N>  => <vec i1 N>
+// - <vec type N> >= <vec type N>  => <vec i1 N>
 struct TVectorType : TType {
     static constexpr const char* TypeId = "Vector";
 

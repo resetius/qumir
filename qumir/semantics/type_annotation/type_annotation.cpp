@@ -209,6 +209,9 @@ bool IntegerLiteralCanUseType(TExprPtr expr, TTypePtr toType) {
 }
 
 bool EqualTypes(TTypePtr a, TTypePtr b) {
+    if (!a || !b) {
+        return a == b;
+    }
     if (a->TypeName() != b->TypeName()) {
         return false;
     }
@@ -238,6 +241,12 @@ bool EqualTypes(TTypePtr a, TTypePtr b) {
         return EqualTypes(maybeAFuture.Cast()->ResultType, maybeBFuture.Cast()->ResultType);
     }
 
+    if (auto vector = TMaybeType<TVectorType>(a)) {
+        auto other = TMaybeType<TVectorType>(b).Cast();
+        return vector.Cast()->Size == other->Size
+            && EqualTypes(vector.Cast()->ElementType, other->ElementType);
+    }
+
     return true;
 }
 
@@ -260,6 +269,15 @@ bool CanImplicit(TTypePtr S, TTypePtr D, NSemantics::TNameResolver* ctx) {
     }
     if (TMaybeType<TSymbolType>(S) && TMaybeType<TStringType>(D)) {
         return true; // symbol to string conversion allowed
+    }
+
+    auto sourceVector = TMaybeType<TVectorType>(S).Cast();
+    auto targetVector = TMaybeType<TVectorType>(D).Cast();
+    if (
+        sourceVector && targetVector && sourceVector->Size == targetVector->Size
+        && CanImplicit(sourceVector->ElementType, targetVector->ElementType, ctx))
+    {
+        return true;
     }
 
     auto maybePointerS = TMaybeType<TPointerType>(S);
@@ -957,6 +975,186 @@ void RetypeIntegerLiteralOperands(TExprPtr& leftExpr, TExprPtr& rightExpr, TType
     }
 }
 
+struct TBinaryOpTypes {
+    TTypePtr Left;
+    TTypePtr Right;
+    TTypePtr Result;
+};
+
+using TBinaryOpTypesResult = std::expected<TBinaryOpTypes, TError>;
+
+bool IsNumericType(const TTypePtr& type) {
+    return TMaybeType<TIntegerType>(type) || TMaybeType<TFloatType>(type);
+}
+
+bool IsStringType(const TTypePtr& type) {
+    return TMaybeType<TStringType>(type) || TMaybeType<TSymbolType>(type);
+}
+
+TBinaryOpTypesResult AnnotateNumericBinaryOp(
+    const std::shared_ptr<TBinaryExpr>& binary,
+    TTypePtr left,
+    TTypePtr right,
+    NSemantics::TNameResolver& context)
+{
+    auto error = [&](std::string message) {
+        return std::unexpected(TError(binary->Location, std::move(message)));
+    };
+    auto commonNumeric = [&](bool integerOnly, std::string message) -> TBinaryOpTypesResult {
+        RetypeIntegerLiteralOperands(binary->Left, binary->Right, left, right);
+        auto common = CommonNumericType(left, right);
+        if (!common || (integerOnly && !TMaybeType<TIntegerType>(common))) {
+            return error(std::move(message));
+        }
+        if (binary->Operator == TOperator("/")) {
+            common = std::make_shared<TFloatType>();
+        }
+        return TBinaryOpTypes{common, common, common};
+    };
+
+    switch (binary->Operator) {
+        case TOperator("+"):
+        case TOperator("-"):
+        case TOperator("*"):
+        case TOperator("/"):
+            return commonNumeric(false, "+, -, *, / применимы только к числам (оператор + также работает для строк)");
+        case TOperator("//"):
+        case TOperator("%"):
+            return commonNumeric(true, "binary expression operands must be both integer types");
+        case TOperator("**"):
+            if (TMaybeType<TFloatType>(left) && IsNumericType(right)) {
+                return TBinaryOpTypes{left, right, std::make_shared<TFloatType>()};
+            }
+            if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
+                return TBinaryOpTypes{left, right, std::make_shared<TIntegerType>()};
+            }
+            return error("binary expression operands must be numeric types (float ** float, float ** int, or int ** int)");
+        case TOperator("&"):
+        case TOperator("|"):
+        case TOperator("^"):
+        case TOperator("<<"):
+        case TOperator(">>"):
+            if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
+                // Lowering converts the RHS to the result width and selects signed shifts.
+                return TBinaryOpTypes{left, right, left};
+            }
+            return error("Битовые операции применимы только к целым числам");
+        case TOperator("<"):
+        case TOperator("<="):
+        case TOperator(">"):
+        case TOperator(">="):
+        case TOperator("=="):
+        case TOperator("!="):
+            if (IsNumericType(left) && IsNumericType(right)) {
+                auto common = commonNumeric(false, "Операции сравнения применимы только к числам");
+                if (!common) {
+                    return common;
+                }
+                common->Result = std::make_shared<TBoolType>();
+                return common;
+            }
+            if (TMaybeType<TBoolType>(left) && TMaybeType<TBoolType>(right)) {
+                return TBinaryOpTypes{left, right, std::make_shared<TBoolType>()};
+            }
+            if (
+                (binary->Operator == TOperator("==") || binary->Operator == TOperator("!="))
+                && TMaybeType<TPointerType>(left) && TMaybeType<TPointerType>(right))
+            {
+                return TBinaryOpTypes{left, right, std::make_shared<TBoolType>()};
+            }
+            return error("Операции сравнения применимы только к совместимым типам");
+        case TOperator("&&"):
+        case TOperator("||"): {
+            auto boolType = std::make_shared<TBoolType>();
+            if (CanImplicit(left, boolType, &context) && CanImplicit(right, boolType, &context)) {
+                return TBinaryOpTypes{boolType, boolType, boolType};
+            }
+            return error("Логические операции применимы только к логическим выражениям");
+        }
+        default:
+            return error("Неизвестный бинарный оператор: '" + binary->Operator.ToString() + "'");
+    }
+}
+
+TBinaryOpTypesResult AnnotateStringBinaryOp(
+    const std::shared_ptr<TBinaryExpr>& binary,
+    const TTypePtr& left,
+    const TTypePtr& right)
+{
+    if (IsStringType(left) && IsStringType(right)) {
+        auto stringType = std::make_shared<TStringType>();
+        switch (binary->Operator) {
+            case TOperator("+"):
+                return TBinaryOpTypes{stringType, stringType, stringType};
+            case TOperator("<"):
+            case TOperator("<="):
+            case TOperator(">"):
+            case TOperator(">="):
+            case TOperator("=="):
+            case TOperator("!="):
+                if (TMaybeType<TSymbolType>(left) && TMaybeType<TSymbolType>(right)) {
+                    return TBinaryOpTypes{left, right, std::make_shared<TBoolType>()};
+                }
+                return TBinaryOpTypes{stringType, stringType, std::make_shared<TBoolType>()};
+        }
+    }
+    return std::unexpected(TError(binary->Location,
+        "Оператор '" + binary->Operator.ToString() + "' неприменим к типам "
+        + TypeDiagnosticName(left) + " и " + TypeDiagnosticName(right)));
+}
+
+TBinaryOpTypesResult AnnotateVecBinaryOp(
+    const std::shared_ptr<TBinaryExpr>& binary,
+    const TTypePtr& left,
+    const TTypePtr& right,
+    NSemantics::TNameResolver& context)
+{
+    auto leftVector = TMaybeType<TVectorType>(left).Cast();
+    auto rightVector = TMaybeType<TVectorType>(right).Cast();
+    int size = leftVector
+        ? leftVector->Size
+        : rightVector->Size;
+    if (size <= 0 || (leftVector && rightVector && leftVector->Size != rightVector->Size)) {
+        return std::unexpected(TError(binary->Location,
+            "Размеры векторов должны быть положительными и совпадать: "
+            + TypeDiagnosticName(left) + " и " + TypeDiagnosticName(right)));
+    }
+    auto leftElement = leftVector
+        ? leftVector->ElementType
+        : left;
+    auto rightElement = rightVector
+        ? rightVector->ElementType
+        : right;
+    auto isElementType = [&](const TTypePtr& type) {
+        return IsNumericType(type) || TMaybeType<TBoolType>(type);
+    };
+    if (!isElementType(leftElement) || !isElementType(rightElement)) {
+        return std::unexpected(TError(binary->Location,
+            "Элементы векторов и скалярные операнды должны быть числами или bool: "
+            + TypeDiagnosticName(left) + " и " + TypeDiagnosticName(right)));
+    }
+
+    auto types = AnnotateNumericBinaryOp(binary, leftElement, rightElement, context);
+    if (
+        (binary->Operator == TOperator("&") || binary->Operator == TOperator("|")
+            || binary->Operator == TOperator("^"))
+        && TMaybeType<TBoolType>(leftElement) && TMaybeType<TBoolType>(rightElement))
+    {
+        types = TBinaryOpTypes{leftElement, rightElement, leftElement};
+    }
+    if (!types) {
+        return types;
+    }
+    if (leftVector) {
+        types->Left = std::make_shared<TVectorType>(types->Left, size);
+    }
+    if (rightVector) {
+        types->Right = std::make_shared<TVectorType>(types->Right, size);
+    }
+    types->Result = std::make_shared<TVectorType>(types->Result, size);
+    return types;
+}
+
 TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
     auto explicitType = binary->Type;
     binary->Left = co_await DoAnnotate(binary->Left, context, scopeId);
@@ -966,185 +1164,28 @@ TTask AnnotateBinary(std::shared_ptr<TBinaryExpr> binary, NSemantics::TNameResol
     }
     auto left = UnwrapReferenceType(binary->Left->Type);
     auto right = UnwrapReferenceType(binary->Right->Type);
-    TTypePtr type;
-
-    switch (binary->Operator) {
-        case TOperator("+"):
-        case TOperator("-"):
-        case TOperator("*"):
-        case TOperator("//"):
-        case TOperator("/"): {
-            // string and symbol concatenation cases
-            if (binary->Operator == TOperator("+")) {
-                auto maybeStrLeft = TMaybeType<TStringType>(left);
-                auto maybeStrRight = TMaybeType<TStringType>(right);
-                auto maybeSymLeft = TMaybeType<TSymbolType>(left);
-                auto maybeSymRight = TMaybeType<TSymbolType>(right);
-
-                // string + string
-                if (maybeStrLeft && maybeStrRight) {
-                    type = left;
-                    break;
-                }
-                // string + symbol
-                if (maybeStrLeft && maybeSymRight) {
-                    binary->Right = InsertImplicitCastIfNeeded(binary->Right, maybeStrLeft.Cast(), &context);
-                    type = maybeStrLeft.Cast();
-                    break;
-                }
-                // symbol + string
-                if (maybeSymLeft && maybeStrRight) {
-                    binary->Left = InsertImplicitCastIfNeeded(binary->Left, maybeStrRight.Cast(), &context);
-                    type = maybeStrRight.Cast();
-                    break;
-                }
-                // symbol + symbol => string
-                if (maybeSymLeft && maybeSymRight) {
-                    auto strT = std::make_shared<TStringType>();
-                    binary->Left = InsertImplicitCastIfNeeded(binary->Left, strT, &context);
-                    binary->Right = InsertImplicitCastIfNeeded(binary->Right, strT, &context);
-                    type = strT;
-                    break;
-                }
-            }
-
-            RetypeIntegerLiteralOperands(binary->Left, binary->Right, left, right);
-            auto common = CommonNumericType(left, right);
-            if (!common) {
-                if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
-                }
-                if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
-                }
-                co_return TError(binary->Location, "+, -, *, / применимы только к числам (оператор + также работает для строк)");
-            }
-            if (binary->Operator == TOperator("/")) {
-                // 3/2 -> 1.5 : convert to float division
-                common = std::make_shared<TFloatType>();
-            } else if (binary->Operator == TOperator("//") && !TMaybeType<TIntegerType>(common)) {
-                co_return TError(binary->Location, "binary expression operands must be both integer types");
-            }
-
-            binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common, &context);
-            binary->Right = InsertImplicitCastIfNeeded(binary->Right, common, &context);
-            type = common;
-            break;
+    TBinaryOpTypesResult types;
+    if (TMaybeType<TVectorType>(left) || TMaybeType<TVectorType>(right)) {
+        types = AnnotateVecBinaryOp(binary, left, right, context);
+    } else if (IsStringType(left) || IsStringType(right)) {
+        types = AnnotateStringBinaryOp(binary, left, right);
+    } else {
+        types = AnnotateNumericBinaryOp(binary, left, right, context);
+    }
+    if (!types) {
+        if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+            co_return co_await AnnotateIfNeeded(result, context, scopeId);
         }
-        case TOperator("%"):
-            // integer remainder
-            if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
-                RetypeIntegerLiteralOperands(binary->Left, binary->Right, left, right);
-                auto common = CommonNumericType(left, right);
-                if (!common || !TMaybeType<TIntegerType>(common)) {
-                    co_return TError(binary->Location, "binary expression operands must be both integer types");
-                }
-                binary->Left = InsertImplicitCastIfNeeded(binary->Left, common, &context);
-                binary->Right = InsertImplicitCastIfNeeded(binary->Right, common, &context);
-                type = common;
-            } else {
-                if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
-                }
-                if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
-                }
-                co_return TError(binary->Location, "binary expression operands must be both integer types");
-            }
-            break;
-        case TOperator("**"):
-            // power: left ** right
-            if (TMaybeType<TFloatType>(left) &&
-                (TMaybeType<TIntegerType>(right) || TMaybeType<TFloatType>(right)))
-            {
-                type = std::make_shared<TFloatType>();
-            } else if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
-                type = std::make_shared<TIntegerType>();
-            } else {
-                co_return TError(binary->Location, "binary expression operands must be numeric types (float ** float, float ** int, or int ** int)");
-            }
-            break;
-        case TOperator("&"):
-        case TOperator("|"):
-        case TOperator("^"):
-        case TOperator("<<"):
-        case TOperator(">>"):
-            if (TMaybeType<TIntegerType>(left) && TMaybeType<TIntegerType>(right)) {
-                // Preserve width and signedness. Lowering/codegen select
-                // arithmetic vs logical right shift from the result type.
-                type = left;
-            } else {
-                if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
-                }
-                if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
-                }
-                co_return TError(binary->Location, "Битовые операции применимы только к целым числам");
-            }
-            break;
-
-        case TOperator("<"):
-        case TOperator("<="):
-        case TOperator(">"):
-        case TOperator(">="):
-        case TOperator("=="):
-        case TOperator("!="):
-            if ((TMaybeType<TFloatType>(left) || TMaybeType<TIntegerType>(left)) &&
-                (TMaybeType<TFloatType>(right) || TMaybeType<TIntegerType>(right))) {
-                RetypeIntegerLiteralOperands(binary->Left, binary->Right, left, right);
-                auto common = CommonNumericType(left, right);
-                if (!common) {
-                    co_return TError(binary->Location, "Операции сравнения применимы только к числам");
-                }
-                binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  common, &context);
-                binary->Right = InsertImplicitCastIfNeeded(binary->Right, common, &context);
-            } else if (!(TMaybeType<TBoolType>(left) && TMaybeType<TBoolType>(right))) {
-                if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
-                }
-                if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
-                }
-            }
-            type = std::make_shared<TBoolType>();
-            break;
-        case TOperator("&&"):
-        case TOperator("||"):
-            {
-                auto boolType = std::make_shared<TBoolType>();
-                if (CanImplicit(left, boolType, &context) && CanImplicit(right, boolType, &context)) {
-                    binary->Left  = InsertImplicitCastIfNeeded(binary->Left,  boolType, &context);
-                    binary->Right = InsertImplicitCastIfNeeded(binary->Right, boolType, &context);
-                    type = boolType;
-                    break;
-                }
-                if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
-                }
-                if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                    co_return co_await AnnotateIfNeeded(result, context, scopeId);
-                }
-                co_return TError(binary->Location, "Логические операции применимы только к логическим выражениям");
-            }
-            break;
-        default:
-            if (auto result = TryModuleBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                co_return co_await AnnotateIfNeeded(result, context, scopeId);
-            }
-            if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
-                co_return co_await AnnotateIfNeeded(result, context, scopeId);
-            }
-            co_return TError(binary->Location, "Неизвестный бинарный оператор: '" + binary->Operator.ToString() + "'");
-            break;
+        if (auto result = co_await TryGenericBinaryOp(binary->Left, binary->Right, binary->Operator, context)) {
+            co_return co_await AnnotateIfNeeded(result, context, scopeId);
+        }
+        co_return types.error();
     }
 
-    if (!type) {
-        co_return TError(binary->Location, "Не удалось определить тип бинарного выражения");
-    }
-
-    binary->Type = type;
-    if (explicitType && !EqualTypes(explicitType, type)) {
+    binary->Left = InsertImplicitCastIfNeeded(binary->Left, types->Left, &context);
+    binary->Right = InsertImplicitCastIfNeeded(binary->Right, types->Right, &context);
+    binary->Type = types->Result;
+    if (explicitType && !EqualTypes(explicitType, binary->Type)) {
         co_return MakeCast(binary, explicitType);
     }
     if (explicitType) {
