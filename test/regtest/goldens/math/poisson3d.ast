@@ -10,7 +10,7 @@
       (var pi f64)
       (= pi 3.1415926535897931)
       (var h f64)
-      (= h (/ 1 (cast (- Nx 1) f64)))
+      (= h (/ 1.0 (cast (- Nx 1) f64)))
       (var h2 f64)
       (= h2 (* h h))
       (var u <array f64 3> [0 (- Nx 1)] [0 (- Ny 1)] [0 (- Nz 1)])
@@ -43,9 +43,13 @@
                 1
                 (block
                   (= z (* (cast k f64) h))
-                  (= u [i j k] 0)
-                  (= un [i j k] 0)
-                  (= f [i j k] (* (* (* (* (* 3 pi) pi) (call sin (* pi x))) (call sin (* pi y))) (call sin (* pi z))))))))))
+                  (= u [i j k] 0.0)
+                  (= un [i j k] 0.0)
+                  (= f
+                    [i
+                      j
+                      k]
+                    (* (* (* (* (* 3.0 pi) pi) (call sin (* pi x))) (call sin (* pi y))) (call sin (* pi z))))))))))
       (var it i64)
       (var iters i64)
       (= iters 2000)
@@ -80,14 +84,14 @@
                                 (index u [i j (+ k 1)]))
                               (index u [i j (- k 1)]))
                             (* h2 (index f [i j k])))
-                          6))))))))
+                          6.0))))))))
           (for i
             1
             (- Nx 2)
             1
             (block
               (for j 1 (- Ny 2) 1 (block (for k 1 (- Nz 2) 1 (block (= u [i j k] (index un [i j k]))))))))
-          (= err 0)
+          (= err 0.0)
           (for i
             0
             (- Nx 1)
@@ -107,10 +111,13 @@
                     (block
                       (= z (* (cast k f64) h))
                       (= uex (* (* (call sin (* pi x)) (call sin (* pi y))) (call sin (* pi z))))
-                      (= diff (block (var $$value = (- (index u [i j k]) uex)) (if (< $$value 0) (- $$value) $$value)))
+                      (= diff
+                        (block
+                          (var $$value = (- (index u [i j k]) uex))
+                          (if (< $$value 0.0) (- $$value) $$value)))
                       (= err (block (var $$left = err) (var $$right = diff) (if (> $$left $$right) $$left $$right)))))))))
           (if (< err tol) (block (cleanup-exit (break))))))
-      (= err 0)
+      (= err 0.0)
       (for i
         0
         (- Nx 1)
@@ -130,7 +137,7 @@
                 (block
                   (= z (* (cast k f64) h))
                   (= uex (* (* (call sin (* pi x)) (call sin (* pi y))) (call sin (* pi z))))
-                  (= diff (block (var $$value = (- (index u [i j k]) uex)) (if (< $$value 0) (- $$value) $$value)))
+                  (= diff (block (var $$value = (- (index u [i j k]) uex)) (if (< $$value 0.0) (- $$value) $$value)))
                   (= err (block (var $$left = err) (var $$right = diff) (if (> $$left $$right) $$left $$right)))))))))
       (block
         (call output_string "Poisson3D: N=")

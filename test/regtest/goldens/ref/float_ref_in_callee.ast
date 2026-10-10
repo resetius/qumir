@@ -9,5 +9,5 @@
       (cleanup-exit (return знач))))
   (fun g ((var x <ref f64>))
     (block
-      (= x (* x 2))
+      (= x (* x 2.0))
       (cleanup-exit (return)))))

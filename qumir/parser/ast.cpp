@@ -132,6 +132,9 @@ TExprPtr ShallowCloneNode(const TExprPtr& node) {
     if (auto n = TMaybeNode<TGlobalCleanupExpr>(node)) {
         return std::make_shared<TGlobalCleanupExpr>(*n.Cast());
     }
+    if (auto n = TMaybeNode<TVectorExpr>(node)) {
+        return std::make_shared<TVectorExpr>(*n.Cast());
+    }
     return node;
 }
 
@@ -207,6 +210,7 @@ void TDestroyExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TReplaceExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TCleanupExitExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 void TGlobalCleanupExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
+void TVectorExpr::Accept(IVisitor& visitor) { visitor.Visit(*this); }
 
 } // namespace NAst
 } // namespace NQumir

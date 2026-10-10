@@ -1,5 +1,6 @@
 #include "printer.h"
 
+#include <cmath>
 #include <iomanip>
 #include <limits>
 #include <map>
@@ -292,10 +293,13 @@ void TPrinter::PrintNumber(TNumberExpr& node) {
     } else if (TMaybeType<TSymbolType>(node.Type)) {
         PrintString(std::string(1, static_cast<char>(node.IntValue)), '\'');
     } else if (node.IsFloat()) {
-        const auto oldPrecision = Out->precision();
-        *Out << std::setprecision(std::numeric_limits<double>::max_digits10);
-        *Out << node.FloatValue;
-        Out->precision(oldPrecision);
+        std::ostringstream literal;
+        literal << std::setprecision(std::numeric_limits<double>::max_digits10) << node.FloatValue;
+        auto spelling = literal.str();
+        if (std::isfinite(node.FloatValue) && spelling.find_first_of(".eE") == std::string::npos) {
+            spelling += ".0";
+        }
+        *Out << spelling;
     } else {
         *Out << node.IntValue;
     }
@@ -1017,6 +1021,10 @@ struct TPrintExpr : public IVisitor {
         *Out << "(cleanup-global";
         PrintCleanups(node.Cleanups);
         *Out << ')';
+    }
+
+    void Visit(TVectorExpr& node) override {
+        Printer.PrintExprList("vec", node.Elements, Frame.Level);
     }
 
     void VisitOtherwise(TExpr& node) override {

@@ -83,6 +83,12 @@ TEST(PrinterCustomNodes, TagCompact) {
     EXPECT_EQ(PrintAst(expr, MakeOptions()), "(tag \"hello\" x)");
 }
 
+TEST(PrinterNumbers, IntegralFloatKeepsItsLiteralType) {
+    EXPECT_EQ(PrintAst(std::make_shared<TNumberExpr>(TLocation{}, 1.0)), "1.0");
+    EXPECT_EQ(PrintAst(std::make_shared<TNumberExpr>(TLocation{}, -0.0)), "-0.0");
+    EXPECT_EQ(PrintAst(std::make_shared<TNumberExpr>(TLocation{}, 1e20)), "1e+20");
+}
+
 TEST(PrinterCustomNodes, PairCompact) {
     auto expr = std::make_shared<TPairExpr>(MakeIdent("a"), MakeIdent("b"));
     EXPECT_EQ(PrintAst(expr, MakeOptions()), "(pair a b)");

@@ -213,6 +213,38 @@ struct TNumberExpr : TExpr {
     void Accept(IVisitor& visitor) override;
 };
 
+struct TVectorExpr : TExpr {
+    static constexpr const char* NodeId = "Vector";
+
+    std::vector<TExprPtr> Elements;
+    explicit TVectorExpr(TLocation loc, std::vector<TExprPtr> elems)
+        : TExpr(std::move(loc)), Elements(std::move(elems))
+    { }
+
+    std::vector<TExprPtr> Children() const override {
+        return Elements;
+    }
+
+    std::vector<TExprPtr*> MutableChildren() override {
+        std::vector<TExprPtr*> result;
+        result.reserve(Elements.size());
+        for (auto& elem : Elements) {
+            result.push_back(&elem);
+        }
+        return result;
+    }
+
+    const std::string_view NodeName() const override {
+        return NodeId;
+    }
+
+    const std::string ToString() const override {
+        return "vec";
+    }
+
+    void Accept(IVisitor& visitor) override;
+};
+
 // c-style const char* string literal
 struct TStringLiteralExpr : TExpr {
     static constexpr const char* NodeId = "StringLiteral";
@@ -1425,6 +1457,7 @@ struct IVisitor {
     virtual void Visit(TReplaceExpr& node) = 0;
     virtual void Visit(TCleanupExitExpr& node) = 0;
     virtual void Visit(TGlobalCleanupExpr& node) = 0;
+    virtual void Visit(TVectorExpr& node) = 0;
 
     virtual void VisitOtherwise(TExpr& node) = 0;
      // Add more

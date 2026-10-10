@@ -4,7 +4,7 @@
     (block
       (var a <named компл>)
       (var b <named компл>)
-      (= a (: (call make_complex 2 5) <named компл>))
+      (= a (: (call make_complex 2.0 5.0) <named компл>))
       (block
         (call output_string "arg Re=")
         (call output_double (call real_part (: a <named компл>)) 0 -1)

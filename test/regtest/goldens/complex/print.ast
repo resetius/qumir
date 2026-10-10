@@ -4,18 +4,24 @@
     (block
       (var z <named компл>)
       (= z
-        (: (call complex_add (: (call complex_from_float 3) <named компл>) (: (call __imag 4) <named компл>))
+        (: (call
+            complex_add
+            (: (call complex_from_float 3.0) <named компл>)
+            (: (call __imag 4.0) <named компл>))
           <named компл>))
       (block
         (call complex_print (: z <named компл>))
         (call output_string "\n"))
       (= z
-        (: (call complex_sub (: (call complex_from_float 3) <named компл>) (: (call __imag 4) <named компл>))
+        (: (call
+            complex_sub
+            (: (call complex_from_float 3.0) <named компл>)
+            (: (call __imag 4.0) <named компл>))
           <named компл>))
       (block
         (call complex_print (: z <named компл>))
         (call output_string "\n"))
-      (= z (: (call __imag 2) <named компл>))
+      (= z (: (call __imag 2.0) <named компл>))
       (block
         (call complex_print (: z <named компл>))
         (call output_string "\n"))

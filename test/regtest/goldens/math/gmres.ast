@@ -34,7 +34,7 @@
       (var hi f64)
       (var hip1 f64)
       (var rho f64)
-      (for i 0 (- n 1) 1 (block (= b [i] 1) (= x [i] 0)))
+      (for i 0 (- n 1) 1 (block (= b [i] 1.0) (= x [i] 0.0)))
       (= it 0)
       (while
         (< it maxRestart)
@@ -45,7 +45,7 @@
           (if (<= rnorm tol) (block (cleanup-exit (break))))
           (for i 0 (- n 1) 1 (block (= V [0 i] (/ (index r i) beta))))
           (= g [0] beta)
-          (for j 1 m 1 (block (= g [j] 0)))
+          (for j 1 m 1 (block (= g [j] 0.0)))
           (= jArn (- m 1))
           (for j
             0
@@ -53,7 +53,7 @@
             1
             (block
               (= jArn j)
-              (for i 0 (- n 1) 1 (block (= w [i] 0)))
+              (for i 0 (- n 1) 1 (block (= w [i] 0.0)))
               (for k 0 (- n 1) 1 (block (= tmpv [k] (index V [j k]))))
               (call matvec n tmpv w)
               (for i
@@ -68,11 +68,11 @@
               (= hip1 (call norm2 n w))
               (= H [(+ j 1) j] hip1)
               (if
-                (!= hip1 0)
+                (!= hip1 0.0)
                 (block
                   (for k 0 (- n 1) 1 (block (= V [(+ j 1) k] (/ (index w k) hip1)))))
                 (block
-                  (for k 0 (- n 1) 1 (block (= V [(+ j 1) k] 0)))))
+                  (for k 0 (- n 1) 1 (block (= V [(+ j 1) k] 0.0)))))
               (for i
                 0
                 (- j 1)
@@ -84,22 +84,22 @@
               (= denom
                 (call sqrt (+ (* (index H [j j]) (index H [j j])) (* (index H [(+ j 1) j]) (index H [(+ j 1) j])))))
               (if
-                (!= denom 0)
+                (!= denom 0.0)
                 (block
                   (= cs [j] (/ (index H [j j]) denom))
                   (= sn [j] (/ (index H [(+ j 1) j]) denom)))
                 (block
-                  (= cs [j] 1)
-                  (= sn [j] 0)))
+                  (= cs [j] 1.0)
+                  (= sn [j] 0.0)))
               (= H [j j] (+ (* (index cs j) (index H [j j])) (* (index sn j) (index H [(+ j 1) j]))))
-              (= H [(+ j 1) j] 0)
+              (= H [(+ j 1) j] 0.0)
               (= tmp (* (index cs j) (index g j)))
               (= g [(+ j 1)] (* (- (index sn j)) (index g j)))
               (= g [j] tmp)
               (= rnorm (index g (+ j 1)))
-              (if (< rnorm 0) (block (= rnorm (- rnorm))))
+              (if (< rnorm 0.0) (block (= rnorm (- rnorm))))
               (if (<= rnorm tol) (block (= jArn j) (cleanup-exit (break))))))
-          (for i 0 jArn 1 (block (= y [i] 0)))
+          (for i 0 jArn 1 (block (= y [i] 0.0)))
           (for i
             jArn
             0
@@ -107,13 +107,13 @@
             (block
               (= sum (index g i))
               (for k (+ i 1) jArn 1 (block (= sum (- sum (* (index H [i k]) (index y k))))))
-              (if (!= (index H [i i]) 0) (block (= y [i] (/ sum (index H [i i])))) (block (= y [i] 0)))))
+              (if (!= (index H [i i]) 0.0) (block (= y [i] (/ sum (index H [i i])))) (block (= y [i] 0.0)))))
           (for k
             0
             (- n 1)
             1
             (block
-              (= sum 0)
+              (= sum 0.0)
               (for i 0 jArn 1 (block (= sum (+ sum (* (index V [i k]) (index y i))))))
               (= x [k] (+ (index x k) sum))))
           (call compute_residual n x b r w)
@@ -125,15 +125,15 @@
       (var res_l2 f64)
       (var res_inf f64)
       (var vabs f64)
-      (= res_l2_sq 0)
-      (= res_inf 0)
+      (= res_l2_sq 0.0)
+      (= res_inf 0.0)
       (for i
         0
         (- n 1)
         1
         (block
           (= vabs (index r i))
-          (if (< vabs 0) (block (= vabs (- vabs))))
+          (if (< vabs 0.0) (block (= vabs (- vabs))))
           (= res_l2_sq (+ res_l2_sq (* (index r i) (index r i))))
           (if (> vabs res_inf) (block (= res_inf vabs)))))
       (= res_l2 (call sqrt res_l2_sq))
@@ -180,8 +180,8 @@
         (- n 1)
         1
         (block
-          (= sum 0)
-          (for j 0 (- n 1) 1 (block (= sum (+ sum (* (/ 1 (+ (cast (+ i j) f64) 1)) (index v j))))))
+          (= sum 0.0)
+          (for j 0 (- n 1) 1 (block (= sum (+ sum (* (/ 1.0 (+ (cast (+ i j) f64) 1.0)) (index v j))))))
           (= w [i] sum)))
       (cleanup-exit (return))))
   (fun norm2 ((var n <i64 (readonly)>)
@@ -190,7 +190,7 @@
       (var знач f64)
       (var i i64)
       (var sum f64)
-      (= sum 0)
+      (= sum 0.0)
       (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index v i) (index v i))))))
       (= знач (call sqrt sum))
       (cleanup-exit (return знач))))
@@ -201,7 +201,7 @@
       (var знач f64)
       (var i i64)
       (var sum f64)
-      (= sum 0)
+      (= sum 0.0)
       (for i 0 (- n 1) 1 (block (= sum (+ sum (* (index a i) (index b i))))))
       (= знач sum)
       (cleanup-exit (return знач))))

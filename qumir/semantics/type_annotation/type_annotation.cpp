@@ -42,6 +42,66 @@ using TGenericBoolTask = TExpectedTask<bool, TError, TLocation>;
 using TRegisteredOpTask = TExpectedTask<std::optional<NSemantics::TNameResolver::TRegisteredOp>, TError, TLocation>;
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId);
+
+bool IsValidVectorSize(size_t size) {
+    return size >= 2 && size <= 32 && (size & (size - 1)) == 0;
+}
+
+std::optional<TError> ValidateVectorSizes(const TTypePtr& type, const TLocation& location) {
+    std::unordered_set<const TType*> checked;
+    auto validate = [&](auto& self, const TTypePtr& current) -> std::optional<TError> {
+        if (!current || !checked.insert(current.get()).second) {
+            return {};
+        }
+        if (auto vector = TMaybeType<TVectorType>(current)) {
+            if (!IsValidVectorSize(vector.Cast()->Size)) {
+                return TError(location, "Размер вектора должен быть 2, 4, 8, 16 или 32.");
+            }
+            return self(self, vector.Cast()->ElementType);
+        }
+        if (auto named = TMaybeType<TNamedType>(current)) {
+            for (const auto& arg : named.Cast()->TypeArgs) {
+                if (auto error = self(self, arg.Type)) {
+                    return error;
+                }
+            }
+            return self(self, named.Cast()->UnderlyingType);
+        }
+        if (auto reference = TMaybeType<TReferenceType>(current)) {
+            return self(self, reference.Cast()->ReferencedType);
+        }
+        if (auto pointer = TMaybeType<TPointerType>(current)) {
+            return self(self, pointer.Cast()->PointeeType);
+        }
+        if (auto array = TMaybeType<TArrayType>(current)) {
+            return self(self, array.Cast()->ElementType);
+        }
+        if (auto future = TMaybeType<TFutureType>(current)) {
+            return self(self, future.Cast()->ResultType);
+        }
+        if (auto tensor = TMaybeType<TTensorType>(current)) {
+            return self(self, tensor.Cast()->ElementType);
+        }
+        if (auto function = TMaybeType<TFunctionType>(current)) {
+            for (const auto& param : function.Cast()->ParamTypes) {
+                if (auto error = self(self, param)) {
+                    return error;
+                }
+            }
+            return self(self, function.Cast()->ReturnType);
+        }
+        if (auto structure = TMaybeType<TStructType>(current)) {
+            for (const auto& [name, field] : structure.Cast()->Fields) {
+                if (auto error = self(self, field)) {
+                    return error;
+                }
+            }
+        }
+        return {};
+    };
+    return validate(validate, type);
+}
+
 TTask AnnotateIdent(
     std::shared_ptr<TIdentExpr> ident,
     NSemantics::TNameResolver& context,
@@ -987,6 +1047,62 @@ bool IsNumericType(const TTypePtr& type) {
     return TMaybeType<TIntegerType>(type) || TMaybeType<TFloatType>(type);
 }
 
+TTask AnnotateVector(
+    std::shared_ptr<TVectorExpr> vector,
+    NSemantics::TNameResolver& context,
+    NSemantics::TScopeId scopeId)
+{
+    if (!IsValidVectorSize(vector->Elements.size())) {
+        co_return TError(vector->Location, "Размер вектора должен быть 2, 4, 8, 16 или 32.");
+    }
+    auto target = TMaybeType<TVectorType>(UnwrapNamedType(UnwrapReferenceType(vector->Type))).Cast();
+    if (vector->Type && !target) {
+        co_return TError(vector->Location, "Конструктору вектора должен быть задан векторный тип.");
+    }
+    if (target && (target->Size <= 0 || static_cast<size_t>(target->Size) != vector->Elements.size())) {
+        co_return TError(vector->Location, "Число элементов не совпадает с размером вектора.");
+    }
+    TTypePtr elementType = target
+        ? target->ElementType
+        : nullptr;
+    auto isElementType = [](const TTypePtr& type) {
+        return IsNumericType(type) || TMaybeType<TBoolType>(type);
+    };
+    if (target && !isElementType(elementType)) {
+        co_return TError(vector->Location, "Тип элемента вектора должен быть числом или bool.");
+    }
+    for (auto& element : vector->Elements) {
+        if (!element) {
+            co_return TError(vector->Location, "Элемент вектора должен быть выражением.");
+        }
+        element = co_await DoAnnotate(element, context, scopeId);
+        auto valueType = UnwrapReferenceType(element->Type);
+        if (!isElementType(valueType)) {
+            co_return TError(element->Location, "Элемент вектора должен быть числом или bool.");
+        }
+        if (!elementType) {
+            elementType = valueType;
+        }
+        if (target && RetypeIntegerLiteralIfFits(element, elementType)) {
+            valueType = UnwrapReferenceType(element->Type);
+        }
+        if (!EqualTypes(valueType, elementType)) {
+            if (!target || !CanImplicit(valueType, elementType, &context)) {
+                co_return TError(element->Location,
+                    "Тип элемента '" + TypeDiagnosticName(valueType)
+                    + "' не соответствует типу элементов вектора '" + TypeDiagnosticName(elementType) + "'.");
+            }
+            element = TMaybeType<TReferenceType>(element->Type)
+                ? MakeCast(element, elementType)
+                : InsertImplicitCastIfNeeded(element, elementType, &context);
+        }
+    }
+    if (!target) {
+        vector->Type = std::make_shared<TVectorType>(elementType, static_cast<int>(vector->Elements.size()));
+    }
+    co_return vector;
+}
+
 bool IsStringType(const TTypePtr& type) {
     return TMaybeType<TStringType>(type) || TMaybeType<TSymbolType>(type);
 }
@@ -1114,9 +1230,9 @@ TBinaryOpTypesResult AnnotateVecBinaryOp(
     int size = leftVector
         ? leftVector->Size
         : rightVector->Size;
-    if (size <= 0 || (leftVector && rightVector && leftVector->Size != rightVector->Size)) {
+    if (!IsValidVectorSize(size) || (leftVector && rightVector && leftVector->Size != rightVector->Size)) {
         return std::unexpected(TError(binary->Location,
-            "Размеры векторов должны быть положительными и совпадать: "
+            "Размеры векторов должны совпадать и быть 2, 4, 8, 16 или 32: "
             + TypeDiagnosticName(left) + " и " + TypeDiagnosticName(right)));
     }
     auto leftElement = leftVector
@@ -3079,10 +3195,15 @@ TTask AnnotateFieldAssign(std::shared_ptr<TFieldAssignExpr> fieldAssign, NSemant
 }
 
 TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::TScopeId scopeId) {
+    if (auto error = ValidateVectorSizes(expr->Type, expr->Location)) {
+        co_return *error;
+    }
     if (auto maybeBinary = TMaybeNode<TBinaryExpr>(expr)) {
         co_return co_await AnnotateBinary(maybeBinary.Cast(), context, scopeId);
     } else if (auto maybeNum = TMaybeNode<TNumberExpr>(expr)) {
         co_return AnnotateNumber(maybeNum.Cast());
+    } else if (auto vector = TMaybeNode<TVectorExpr>(expr)) {
+        co_return co_await AnnotateVector(vector.Cast(), context, scopeId);
     } else if (auto maybeUnary = TMaybeNode<TUnaryExpr>(expr)) {
         co_return co_await AnnotateUnary(maybeUnary.Cast(), context, scopeId);
     } else if (auto maybeCast = TMaybeNode<TCastExpr>(expr)) {

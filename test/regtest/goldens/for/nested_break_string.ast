@@ -5,7 +5,7 @@
       (var i i64)
       (var j i64)
       (var k f64)
-      (= k 0)
+      (= k 0.0)
       (for i
         0
         3
@@ -21,9 +21,9 @@
               (var b = (bitcast 0 string))
               (replace b (own-literal "inner"))
               (if (> j 1) (block (cleanup-exit (break) (destroy b))))
-              (= k (+ k 1))
+              (= k (+ k 1.0))
               (destroy b)))
-          (= k (+ k 10))
+          (= k (+ k 10.0))
           (destroy a)))
       (= знач k)
       (cleanup-exit (return знач)))))

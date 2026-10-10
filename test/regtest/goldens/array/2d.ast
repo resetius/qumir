@@ -7,6 +7,6 @@
       (var A <array f64 2> [0 10] [0 i])
       (var j i64)
       (= j 5)
-      (= A [0 j] 1)
+      (= A [0 j] 1.0)
       (= знач (index A [0 j]))
       (cleanup-exit (return знач) (destroy A)))))

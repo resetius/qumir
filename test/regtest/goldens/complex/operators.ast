@@ -8,15 +8,15 @@
       (= a
         (: (call
             complex_add
-            (: (call complex_from_float 1) <named компл>)
-            (: (call complex_mul (: (call complex_from_float 2) <named компл>) (: (call i) <named компл>))
+            (: (call complex_from_float 1.0) <named компл>)
+            (: (call complex_mul (: (call complex_from_float 2.0) <named компл>) (: (call i) <named компл>))
               <named компл>))
           <named компл>))
       (= b
         (: (call
             complex_add
-            (: (call complex_from_float 3) <named компл>)
-            (: (call complex_mul (: (call complex_from_float 4) <named компл>) (: (call i) <named компл>))
+            (: (call complex_from_float 3.0) <named компл>)
+            (: (call complex_mul (: (call complex_from_float 4.0) <named компл>) (: (call i) <named компл>))
               <named компл>))
           <named компл>))
       (= c (: (call complex_add (: a <named компл>) (: b <named компл>)) <named компл>))

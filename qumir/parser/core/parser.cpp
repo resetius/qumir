@@ -1074,6 +1074,10 @@ TListHandlerMap MakeDefaultHandlers() {
             co_await Expect(ctx, ')');
             co_return std::make_shared<TFieldAssignExpr>(loc, std::move(object), std::move(fieldName), std::move(value));
         }},
+        {"vec", [](TParserContext& ctx, TLocation loc) -> TAstTask {
+            auto elements = co_await ParseExprsUntil(ctx, ')');
+            co_return std::make_shared<TVectorExpr>(loc, std::move(elements));
+        }},
     };
 }
 
