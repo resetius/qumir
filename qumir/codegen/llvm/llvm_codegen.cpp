@@ -72,6 +72,7 @@ llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx
         case EKind::I128:
         case EKind::U128:
             return llvm::Type::getInt128Ty(ctx);
+        case EKind::F32: return llvm::Type::getFloatTy(ctx);
         case EKind::F64: return llvm::Type::getDoubleTy(ctx);
         case EKind::Void: return llvm::Type::getVoidTy(ctx);
         case EKind::Ptr: return llvm::PointerType::get(ctx, 0); // use pointer type (i8*) across targets
@@ -83,8 +84,54 @@ llvm::Type* GetTypeById(int typeId, const TTypeTable& tt, llvm::LLVMContext& ctx
             }
             return llvm::StructType::get(ctx, fields);
         }
+        case EKind::Vec: {
+            auto* element = GetTypeById(tt.UnderlyingType(typeId), tt, ctx);
+            // Boolean lanes occupy one byte in IR storage, not one bit.
+            if (element->isIntegerTy(1)) {
+                element = llvm::Type::getInt8Ty(ctx);
+            }
+            return llvm::FixedVectorType::get(element, tt.VectorSize(typeId));
+        }
         default:
             throw std::runtime_error("unsupported primitive type");
+    }
+}
+
+llvm::MaybeAlign VectorMemoryAlign(const TTypeTable& types, int typeId) {
+    // A pointer to IR vector storage only guarantees element alignment.
+    return types.IsVector(typeId)
+        ? llvm::MaybeAlign(types.SizeInBytes(types.UnderlyingType(typeId)))
+        : llvm::MaybeAlign();
+}
+
+llvm::Value* EmitVectorArithmetic(
+    llvm::IRBuilder<>& builder,
+    TOp opcode,
+    llvm::FixedVectorType* type,
+    llvm::Value* left,
+    llvm::Value* right)
+{
+    auto broadcast = [&](llvm::Value* value) {
+        if (value->getType() == type) {
+            return value;
+        }
+        if (value->getType() != type->getElementType()) {
+            throw std::runtime_error("Vector arithmetic operand type mismatch");
+        }
+        return builder.CreateVectorSplat(type->getNumElements(), value, "broadcast");
+    };
+    left = broadcast(left);
+    right = broadcast(right);
+    const bool floating = type->getElementType()->isFloatingPointTy();
+    switch (opcode) {
+        case "+"_op:
+            return builder.CreateBinOp(floating ? llvm::Instruction::FAdd : llvm::Instruction::Add, left, right, "vadd");
+        case "-"_op:
+            return builder.CreateBinOp(floating ? llvm::Instruction::FSub : llvm::Instruction::Sub, left, right, "vsub");
+        case "*"_op:
+            return builder.CreateBinOp(floating ? llvm::Instruction::FMul : llvm::Instruction::Mul, left, right, "vmul");
+        default:
+            throw std::runtime_error("Unsupported vector arithmetic opcode");
     }
 }
 
@@ -1422,6 +1469,8 @@ void TLLVMCodeGen::LowerBlock(
         }
         LowerInstr(blk.Instrs[i], module);
     }
+    // Bounds checks split LLVM blocks; PHIs must refer to the actual exit.
+    CurFun->LabelExitBB[blk.Label.Idx] = irb->GetInsertBlock();
 }
 
 llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, NIR::TModule& module)
@@ -1441,6 +1490,11 @@ llvm::Value* TLLVMCodeGen::GetOp(const TOperand& op, NIR::TModule& module)
                 return llvm::ConstantFP::get(f64, std::bit_cast<double>(op.Imm.Value));
             } else if (op.Imm.TypeId == lowIntTypeId) {
                 return llvm::ConstantInt::get(i64, op.Imm.Value, true);
+            } else if (module.Types.IsVector(op.Imm.TypeId) && op.Imm.Value == 0) {
+                return llvm::Constant::getNullValue(GetTypeById(op.Imm.TypeId, module.Types, ctx));
+            } else if (module.Types.IsFloat(op.Imm.TypeId)) {
+                return llvm::ConstantFP::get(llvm::Type::getFloatTy(ctx),
+                    std::bit_cast<float>(static_cast<uint32_t>(op.Imm.Value)));
             } else if (module.Types.IsInteger(op.Imm.TypeId)) {
                 auto* ty = GetTypeById(op.Imm.TypeId, module.Types, ctx);
                 return llvm::ConstantInt::get(ty, op.Imm.Value, module.Types.IsSigned(op.Imm.TypeId));
@@ -1545,6 +1599,39 @@ void TLLVMCodeGen::AddIncomingPhiEdges(const NIR::TPhi& instr, NIR::TModule& mod
         }
         phi->addIncoming(value, block);
     }
+}
+
+llvm::Value* TLLVMCodeGen::LowerVectorIndex(llvm::Value* vector, llvm::Value* index, llvm::Type* resultType) {
+    auto* irb = static_cast<llvm::IRBuilder<>*>(BuilderBase.get());
+    auto* type = llvm::dyn_cast<llvm::FixedVectorType>(vector->getType());
+    if (!type || !index->getType()->isIntegerTy(64)) {
+        throw std::runtime_error("Invalid LLVM vector index types");
+    }
+    auto& ctx = irb->getContext();
+    auto* valid = irb->CreateICmpULT(index,
+        llvm::ConstantInt::get(index->getType(), type->getNumElements()), "index.valid");
+    auto* success = llvm::BasicBlock::Create(ctx, "index.ok", CurFun->LFun);
+    auto* failure = llvm::BasicBlock::Create(ctx, "index.fail", CurFun->LFun);
+    irb->CreateCondBr(valid, success, failure);
+
+    irb->SetInsertPoint(failure);
+    auto ensure = LModule->getOrInsertFunction("__ensure",
+        llvm::FunctionType::get(llvm::Type::getVoidTy(ctx),
+            {llvm::Type::getInt1Ty(ctx), llvm::PointerType::get(ctx, 0)}, false));
+    auto* error = irb->CreateCall(ensure, {llvm::ConstantInt::getFalse(ctx),
+        irb->CreateGlobalString("Vector index out of bounds")});
+    error->addFnAttr(llvm::Attribute::NoReturn);
+    irb->CreateUnreachable();
+
+    irb->SetInsertPoint(success);
+    auto* value = irb->CreateExtractElement(vector, index, "element");
+    if (resultType->isIntegerTy(1) && value->getType()->isIntegerTy(8)) {
+        return irb->CreateTrunc(value, resultType, "element.bool");
+    }
+    if (value->getType() != resultType) {
+        throw std::runtime_error("Vector index result type mismatch");
+    }
+    return value;
 }
 
 llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& module) {
@@ -1716,6 +1803,10 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             if (outputType == nullptr) {
                 throw std::runtime_error("arithmetic op needs a typed dest");
             }
+            if (auto* vector = llvm::dyn_cast<llvm::FixedVectorType>(outputType)) {
+                return storeTmp(EmitVectorArithmetic(*irb, opcode, vector,
+                    GetOp(instr.Operands[0], module), GetOp(instr.Operands[1], module)));
+            }
             if (outputType->isFloatingPointTy()) {
                 auto it = fbinOpMap.find(opcode);
                 if (it == fbinOpMap.end()) throw std::runtime_error("unsupported fbinop opcode");
@@ -1860,7 +1951,8 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
         case "lde"_op: {
             // tmp = *ptr
             auto ptr = GetOp(instr.Operands[0], module);
-            auto val = irb->CreateLoad(outputType, ptr, "ldtmp");
+            auto val = irb->CreateAlignedLoad(outputType, ptr,
+                VectorMemoryAlign(module.Types, outputTypeId), "ldtmp");
             return storeTmp(val);
             break;
         }
@@ -1901,7 +1993,8 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
             }
             const int sourceTypeId = operandTypeId(instr.Operands[1]);
             const bool sourceSigned = sourceTypeId < 0 || IsSignedIntegerType(module.Types, sourceTypeId);
-            irb->CreateStore(cast(value, storeType, sourceSigned), ptr);
+            irb->CreateAlignedStore(cast(value, storeType, sourceSigned), ptr,
+                VectorMemoryAlign(module.Types, sourceTypeId));
             return nullptr;
             break;
         }
@@ -2066,6 +2159,10 @@ llvm::Value* TLLVMCodeGen::LowerInstr(const NIR::TInstr& instr, NIR::TModule& mo
                 }
             }
             return storeTmp(v);
+        }
+        case "index"_op: {
+            return storeTmp(LowerVectorIndex(GetOp(instr.Operands[0], module),
+                GetOp(instr.Operands[1], module), outputType));
         }
         case "arg"_op: {
             if (operandCount != 1) throw std::runtime_error("arg needs 1 operand");

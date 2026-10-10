@@ -3,7 +3,7 @@ function <main> () { ; void
     label: label(0)
     lea tmp(0,ptr to i8) = local(8,vec<i8, 2>) 
     ste tmp(0,ptr to i8) imm(-128,i8) 
-    + tmp(1,ptr to i8) = tmp(0,ptr to i8) imm(1) 
+    + tmp(1,ptr to i8) = tmp(0,ptr to i8) imm(1,i64) 
     ste tmp(1,ptr to i8) imm(127,i8) 
     load tmp(2,vec<i8, 2>) = local(8,vec<i8, 2>) 
     stre local(0,vec<i8, 2>) tmp(2,vec<i8, 2>) 
@@ -33,7 +33,7 @@ function <main> () { ; void
     call output_string 
     lea tmp(12,ptr to u8) = local(12,vec<u8, 2>) 
     ste tmp(12,ptr to u8) imm(0,u8) 
-    + tmp(13,ptr to u8) = tmp(12,ptr to u8) imm(1) 
+    + tmp(13,ptr to u8) = tmp(12,ptr to u8) imm(1,i64) 
     ste tmp(13,ptr to u8) imm(255,u8) 
     load tmp(14,vec<u8, 2>) = local(12,vec<u8, 2>) 
     stre local(1,vec<u8, 2>) tmp(14,vec<u8, 2>) 
@@ -63,7 +63,7 @@ function <main> () { ; void
     call output_string 
     lea tmp(24,ptr to i16) = local(16,vec<i16, 2>) 
     ste tmp(24,ptr to i16) imm(-32768,i16) 
-    + tmp(25,ptr to i16) = tmp(24,ptr to i16) imm(2) 
+    + tmp(25,ptr to i16) = tmp(24,ptr to i16) imm(2,i64) 
     ste tmp(25,ptr to i16) imm(32767,i16) 
     load tmp(26,vec<i16, 2>) = local(16,vec<i16, 2>) 
     stre local(2,vec<i16, 2>) tmp(26,vec<i16, 2>) 
@@ -85,7 +85,7 @@ function <main> () { ; void
     call output_string 
     lea tmp(33,ptr to u16) = local(19,vec<u16, 2>) 
     ste tmp(33,ptr to u16) imm(0,u16) 
-    + tmp(34,ptr to u16) = tmp(33,ptr to u16) imm(2) 
+    + tmp(34,ptr to u16) = tmp(33,ptr to u16) imm(2,i64) 
     ste tmp(34,ptr to u16) imm(65535,u16) 
     load tmp(35,vec<u16, 2>) = local(19,vec<u16, 2>) 
     stre local(3,vec<u16, 2>) tmp(35,vec<u16, 2>) 
@@ -107,7 +107,7 @@ function <main> () { ; void
     call output_string 
     lea tmp(42,ptr to i32) = local(22,vec<i32, 2>) 
     ste tmp(42,ptr to i32) imm(-2147483648,i32) 
-    + tmp(43,ptr to i32) = tmp(42,ptr to i32) imm(4) 
+    + tmp(43,ptr to i32) = tmp(42,ptr to i32) imm(4,i64) 
     ste tmp(43,ptr to i32) imm(2147483647,i32) 
     load tmp(44,vec<i32, 2>) = local(22,vec<i32, 2>) 
     stre local(4,vec<i32, 2>) tmp(44,vec<i32, 2>) 
@@ -129,7 +129,7 @@ function <main> () { ; void
     call output_string 
     lea tmp(51,ptr to u32) = local(25,vec<u32, 2>) 
     ste tmp(51,ptr to u32) imm(0,u32) 
-    + tmp(52,ptr to u32) = tmp(51,ptr to u32) imm(4) 
+    + tmp(52,ptr to u32) = tmp(51,ptr to u32) imm(4,i64) 
     ste tmp(52,ptr to u32) imm(4294967295,u32) 
     load tmp(53,vec<u32, 2>) = local(25,vec<u32, 2>) 
     stre local(5,vec<u32, 2>) tmp(53,vec<u32, 2>) 
@@ -154,7 +154,7 @@ function <main> () { ; void
     lea tmp(61,ptr to u64) = local(28,vec<u64, 2>) 
     ste tmp(61,ptr to u64) imm(0,u64) 
     load tmp(62,u64) = local(6,u64) 
-    + tmp(63,ptr to u64) = tmp(61,ptr to u64) imm(8) 
+    + tmp(63,ptr to u64) = tmp(61,ptr to u64) imm(8,i64) 
     ste tmp(63,ptr to u64) tmp(62,u64) 
     load tmp(64,vec<u64, 2>) = local(28,vec<u64, 2>) 
     stre local(7,vec<u64, 2>) tmp(64,vec<u64, 2>) 

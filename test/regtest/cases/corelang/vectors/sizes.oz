@@ -1,4 +1,3 @@
-; disable_llvm
 (block
   (use vector)
   (fun <main> ()

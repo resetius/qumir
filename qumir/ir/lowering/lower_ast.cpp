@@ -761,6 +761,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
     const int elementType = Module.Types.UnderlyingType(vectorType);
     const int elementSize = Module.Types.SizeInBytes(elementType);
     const int pointerType = Module.Types.Ptr(elementType);
+    const int offsetType = Module.Types.I(EKind::I64);
     const auto storage = Builder.AllocLocal(vectorType, LocalDebugInfo("$vector", vector.Location, scope.Id.Id));
     const auto base = emitter.Emit1("lea"_op, {storage});
     Builder.SetType(base, pointerType);
@@ -771,7 +772,7 @@ TExpectedTask<TAstLowerer::TValueWithBlock, TError, TLocation> TAstLowerer::Lowe
         }
         auto address = base;
         if (i != 0) {
-            address = emitter.Emit1("+"_op, {base, TImm{static_cast<int64_t>(i * elementSize)}});
+            address = emitter.Emit1("+"_op, {base, TImm{static_cast<int64_t>(i * elementSize), offsetType}});
             Builder.SetType(address, pointerType);
         }
         emitter.Emit0("ste"_op, {address, *element.Value});
