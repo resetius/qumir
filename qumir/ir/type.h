@@ -28,7 +28,8 @@ enum class EKind : uint8_t {
     Undef, // bad type for optimization errors
     Ptr,
     Func,
-    Struct
+    Struct,
+    Vec,
 };
 
 struct TType {
@@ -48,12 +49,18 @@ struct TStructL {
     std::vector<int> FieldTypes; /* TODO: align/packed/hasVptr */
 };
 
+struct TVecL {
+    int ElementType;
+    int Size;
+};
+
 class TTypeTable {
 public:
     int I(EKind k);
     int Ptr(int to);
     int Func(std::vector<int> args, int ret);
     int Struct(std::vector<int> fields);
+    int Vec(int elemType, int count);
     int Unify(int left, int right);
 
     void Print(std::ostream& out, int typeId) const;
@@ -66,8 +73,9 @@ public:
     bool IsUnsigned(int typeId) const;
     bool IsVoid(int typeId) const;
     bool IsPointer(int typeId) const;
+    bool IsVector(int typeId) const;
     EKind GetKind(int typeId) const;
-    int UnderlyingType(int typeId) const; // for Ptr, Func, Struct
+    int UnderlyingType(int typeId) const; // for Ptr, Func, Struct, Vec
     const std::vector<int>& GetStructFields(int typeId) const;
     // Size of the type payload in bytes. Stack frames may add their own alignment.
     int SizeInBytes(int typeId) const;
@@ -75,6 +83,7 @@ public:
     // Byte offset of a struct field under the same C-compatible alignment as
     // SizeInBytes, so IR, VM and LLVM agree on field placement.
     int FieldOffset(int structTypeId, int fieldIndex) const;
+    int VectorSize(int typeId) const; // for Vec only, returns the number of elements
 
     // Overrides the size/alignment used for Ptr and Func types (default 8,
     // i.e. a 64-bit target). Must be called before any lowering that bakes
@@ -89,11 +98,13 @@ private:
     std::vector<TType> Types;
     std::vector<TFuncSig> FuncSigs;
     std::vector<TStructL> Structs;
+    std::vector<TVecL> Vectors;
 
     std::unordered_map<EKind,int> PrimitiveCache;
     std::unordered_map<int, int> PtrCache;
     std::map<std::tuple<std::vector<int>,int>, int> FuncCache;
     std::map<std::vector<int>, int> StructCache;
+    std::map<std::pair<int,int>, int> VecCache;
 
     int PointerSize = 8;
 };
