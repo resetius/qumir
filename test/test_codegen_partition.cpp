@@ -311,7 +311,7 @@ TEST(LLVMVector, BooleanIndexUsesByteLanes) {
 
 TEST(LLVMVector, InvalidIndexRaisesRuntimeError) {
     for (int optLevel : {0, 3}) {
-        for (int64_t index : {-1LL, 2LL, std::numeric_limits<int64_t>::max()}) {
+        for (int64_t index : std::array<int64_t, 3>{-1, 2, std::numeric_limits<int64_t>::max()}) {
             SCOPED_TRACE(optLevel);
             SCOPED_TRACE(index);
             TModule module;
