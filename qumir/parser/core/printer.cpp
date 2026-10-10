@@ -194,7 +194,7 @@ void TPrinter::PrintType(TTypePtr type, int level) {
     } else if (auto t = TMaybeType<TVectorType>(type)) {
         *Out << "<vec ";
         PrintType(t.Cast()->ElementType, level);
-        *Out << ' ' << t.Cast()->Size << '>';
+        *Out << ' ' << t.Cast()->SizeText() << '>';
     } else if (auto t = TMaybeType<TTensorType>(type)) {
         *Out << "<tensor ";
         PrintType(t.Cast()->ElementType, level);

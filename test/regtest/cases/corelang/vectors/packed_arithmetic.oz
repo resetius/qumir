@@ -1,0 +1,20 @@
+; disable_llvm
+(block
+  (use vector)
+  (fun <main> ()
+    (block
+      (var i8s = (: (vec -128 127) <vec i8 2>))
+      (output (+ i8s 1) " " (- 1 i8s) " " (* i8s 2) "\n")
+      (var u8s = (: (vec 0 255) <vec u8 2>))
+      (output (+ u8s 1) " " (- u8s 1) " " (* u8s 2) "\n")
+      (var i16s = (: (vec -32768 32767) <vec i16 2>))
+      (output (+ i16s 1) " " (* i16s 2) "\n")
+      (var u16s = (: (vec 0 65535) <vec u16 2>))
+      (output (- u16s 1) " " (* u16s 2) "\n")
+      (var i32s = (: (vec -2147483648 2147483647) <vec i32 2>))
+      (output (+ i32s 1) " " (* i32s 2) "\n")
+      (var u32s = (: (vec 0 4294967295) <vec u32 2>))
+      (output (- u32s 1) " " (* u32s 2) "\n")
+      (var all = (cast -1 u64))
+      (var u64s = (vec (: 0 u64) all))
+      (output u64s " " (+ u64s 1) " " (* u64s 2) "\n"))))

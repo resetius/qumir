@@ -118,6 +118,23 @@ std::optional<TArgCost> GenericParametricCost(
         auto cost = CombineGenericCost(paramArray.Cast()->ElementType, argArray.Cast()->ElementType, genericTypeParams, genericValueParams, matched);
         return cost && matched ? std::optional<TArgCost>{StructuralGenericCost(*cost)} : std::nullopt;
     }
+    if (auto paramVector = TMaybeType<TVectorType>(paramType)) {
+        auto argVector = TMaybeType<TVectorType>(argType);
+        if (!argVector) {
+            return std::nullopt;
+        }
+        if (IsGenericValueParam(paramVector.Cast()->SizeParam, genericValueParams)) {
+            matched = true;
+            total = total + GenericParamCost(false);
+        } else if (paramVector.Cast()->Size != argVector.Cast()->Size) {
+            return std::nullopt;
+        }
+        auto cost = CombineGenericCost(paramVector.Cast()->ElementType, argVector.Cast()->ElementType,
+            genericTypeParams, genericValueParams, matched);
+        return cost && matched
+            ? std::optional<TArgCost>{StructuralGenericCost(total + *cost)}
+            : std::nullopt;
+    }
     if (auto paramPtr = TMaybeType<TPointerType>(paramType)) {
         auto argPtr = TMaybeType<TPointerType>(argType);
         if (!argPtr) {

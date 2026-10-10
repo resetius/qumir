@@ -230,6 +230,20 @@ TEST(VMVector, ConstantFoldingPreservesVectorOperations) {
     EXPECT_EQ(function.Blocks[0].Instrs[2].Operands[1], TOperand{product});
 }
 
+TEST(VMVector, IndexChecksBoundsBeforeReadingLanes) {
+    for (bool optimize : {false, true}) {
+        for (const std::string index : {"-1", "2", "9223372036854775807"}) {
+            SCOPED_TRACE(index);
+            TVMTest vm;
+            auto lowered = LowerCore(vm,
+                "(block (fun main () -> i64 (block (var i = " + index
+                    + ") (return (index (vec 7 9) i)))))", optimize);
+            ASSERT_TRUE(lowered) << lowered.error().ToString();
+            EXPECT_THROW(vm.Interpreter.EvalRaw(**lowered, {}, {}), std::runtime_error);
+        }
+    }
+}
+
 TEST(VMVector, UnsupportedOperationsAndGlobalStorageAreRejected) {
     for (bool global : {false, true}) {
         TVMTest vm;

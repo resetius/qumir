@@ -507,13 +507,17 @@ TTypeTask ParseCompositeType(TParserContext& context, TLocation location) {
 
     if (head == "vec") {
         auto elementType = co_await ParseType(context);
-        if (!TMaybeType<TIntegerType>(elementType) && !TMaybeType<TFloatType>(elementType) && !TMaybeType<TBoolType>(elementType)) {
-            co_return TError(location, "vector element type must be integer, float, or bool");
-        }
         auto sizeToken = context.Stream.Next();
-        if (sizeToken.Type != TToken::Integer) co_return Error(sizeToken, "expected vector size");
+        auto vector = std::make_shared<TVectorType>(std::move(elementType), 0);
+        if (sizeToken.Type == TToken::Integer) {
+            vector->BindSize(std::to_string(sizeToken.Value.i64));
+        } else if (sizeToken.Type == TToken::Identifier) {
+            vector->SizeParam = sizeToken.Name;
+        } else {
+            co_return Error(sizeToken, "expected vector size or generic value parameter");
+        }
         co_await Expect(context, '>');
-        co_return std::make_shared<TVectorType>(std::move(elementType), static_cast<int>(sizeToken.Value.i64));
+        co_return vector;
     }
     if (head == "tensor") {
         auto elementType = co_await ParseType(context);

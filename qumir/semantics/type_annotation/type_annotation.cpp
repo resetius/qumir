@@ -10,6 +10,7 @@
 #include <qumir/semantics/return_analysis.h>
 
 #include <algorithm>
+#include <bit>
 #include <iostream>
 #include <sstream>
 #include <cassert>
@@ -28,6 +29,7 @@ namespace {
 struct TGenericParamSets {
     std::unordered_set<std::string> Types;
     std::unordered_set<std::string> Values;
+    std::map<std::string, TTypePtr> ValueTypes;
 };
 
 struct TGenericBindings {
@@ -59,8 +61,14 @@ std::optional<TError> ValidateVectorTypes(const TTypePtr& type, const TLocation&
             return {};
         }
         if (auto vector = TMaybeType<TVectorType>(current)) {
-            if (!IsValidVectorSize(vector.Cast()->Size)) {
+            if (vector.Cast()->SizeParam.empty() && !IsValidVectorSize(vector.Cast()->Size)) {
                 return TError(location, "Размер вектора должен быть 2, 4, 8, 16 или 32.");
+            }
+            auto element = UnwrapNamedType(vector.Cast()->ElementType);
+            if (element && !TMaybeType<TNamedType>(element) && !TMaybeType<TIntegerType>(element)
+                && !TMaybeType<TFloatType>(element) && !TMaybeType<TBoolType>(element))
+            {
+                return TError(location, "Тип элемента вектора должен быть числом или bool.");
             }
             if (IsWideIntegerType(vector.Cast()->ElementType)) {
                 return TError(location, "Целочисленный элемент вектора должен быть не шире 64 бит.");
@@ -312,6 +320,7 @@ bool EqualTypes(TTypePtr a, TTypePtr b) {
     if (auto vector = TMaybeType<TVectorType>(a)) {
         auto other = TMaybeType<TVectorType>(b).Cast();
         return vector.Cast()->Size == other->Size
+            && vector.Cast()->SizeParam == other->SizeParam
             && EqualTypes(vector.Cast()->ElementType, other->ElementType);
     }
 
@@ -1573,6 +1582,7 @@ TGenericParamSets GenericParamSets(const TFunDecl& decl) {
             result.Types.insert(param.Name);
         } else {
             result.Values.insert(param.Name);
+            result.ValueTypes[param.Name] = param.ValueType;
         }
     }
     return result;
@@ -1619,6 +1629,9 @@ TTypePtr CloneTypeShape(const TTypePtr& shape) {
     if (auto t = TMaybeType<TArrayType>(shape)) {
         auto src = t.Cast();
         return std::make_shared<TArrayType>(src->ElementType, src->Arity);
+    }
+    if (auto t = TMaybeType<TVectorType>(shape)) {
+        return std::make_shared<TVectorType>(*t.Cast());
     }
     if (auto t = TMaybeType<TPointerType>(shape)) {
         return std::make_shared<TPointerType>(t.Cast()->PointeeType);
@@ -1695,6 +1708,14 @@ TTypePtr SubstituteGenericType(
         if (elem == src->ElementType) return type;
         auto result = std::make_shared<TArrayType>(std::move(elem), src->Arity);
         static_cast<TType&>(*result) = static_cast<const TType&>(*src);
+        return result;
+    }
+    if (auto vector = TMaybeType<TVectorType>(type)) {
+        auto result = std::make_shared<TVectorType>(*vector.Cast());
+        result->ElementType = SubstituteGenericType(result->ElementType, genericParams, bindings);
+        if (auto it = bindings.Values.find(result->SizeParam); it != bindings.Values.end()) {
+            result->BindSize(it->second);
+        }
         return result;
     }
     if (auto ptr = TMaybeType<TPointerType>(type)) {
@@ -1840,6 +1861,24 @@ std::optional<std::string> UnifyGenericType(
                 retypeIntegerLiterals);
         }
         return std::nullopt;
+    }
+    if (auto vector = TMaybeType<TVectorType>(paramType)) {
+        auto actual = TMaybeType<TVectorType>(argType).Cast();
+        if (!actual) {
+            return "ожидается векторный аргумент";
+        }
+        auto param = vector.Cast();
+        if (genericParams.Values.contains(param->SizeParam)) {
+            const auto size = std::to_string(actual->Size);
+            auto [it, inserted] = bindings.Values.try_emplace(param->SizeParam, size);
+            if (!inserted && it->second != size) {
+                return "значение обобщённого параметра '" + param->SizeParam + "' определяется неоднозначно";
+            }
+        } else if (param->Size != actual->Size) {
+            return "размеры векторных аргументов должны совпадать";
+        }
+        return UnifyGenericType(param->ElementType, actual->ElementType, genericParams,
+            bindings, nullptr, retypeIntegerLiterals);
     }
     if (auto ptr = TMaybeType<TPointerType>(paramType)) {
         if (auto argPtr = TMaybeType<TPointerType>(argType)) {
@@ -2022,6 +2061,17 @@ TExprPtr CloneAndSubstituteExpr(
         return node;
     }
     auto clone = ShallowCloneNode(node);
+    if (auto ident = TMaybeNode<TIdentExpr>(clone)) {
+        auto it = bindings.Values.find(ident.Cast()->Name);
+        if (it != bindings.Values.end() && genericParams.Values.contains(ident.Cast()->Name)) {
+            const int64_t value = it->second.starts_with('-')
+                ? std::stoll(it->second)
+                : std::bit_cast<int64_t>(static_cast<uint64_t>(std::stoull(it->second)));
+            auto number = std::make_shared<TNumberExpr>(clone->Location, value);
+            number->Type = genericParams.ValueTypes.at(ident.Cast()->Name);
+            return number;
+        }
+    }
     if (clone->Type) {
         clone->Type = SubstituteGenericType(clone->Type, genericParams, bindings);
     }
@@ -2076,6 +2126,10 @@ bool ContainsGenericParam(
     }
     if (auto arr = TMaybeType<TArrayType>(type)) {
         return ContainsGenericParam(arr.Cast()->ElementType, genericParams);
+    }
+    if (auto vector = TMaybeType<TVectorType>(type)) {
+        return genericParams.Values.contains(vector.Cast()->SizeParam)
+            || ContainsGenericParam(vector.Cast()->ElementType, genericParams);
     }
     if (auto ptr = TMaybeType<TPointerType>(type)) {
         return ContainsGenericParam(ptr.Cast()->PointeeType, genericParams);
@@ -2471,11 +2525,17 @@ TFunDeclTask InstantiateGenericFunction(
             bound.first = CloneAndSubstituteExpr(bound.first, genericParams, bindings);
             bound.second = CloneAndSubstituteExpr(bound.second, genericParams, bindings);
         }
+        if (auto error = ValidateVectorTypes(clonedParam->Type, callLoc)) {
+            co_return *error;
+        }
         paramTypes.push_back(clonedParam->Type);
         params.push_back(std::move(clonedParam));
     }
     auto retType = SubstituteGenericType(genericDecl->RetType, genericParams, bindings);
 
+    if (auto error = ValidateVectorTypes(retType, callLoc)) {
+        co_return *error;
+    }
     std::string mangledName = MangleGenericInstance(genericDecl->Name, retType, paramTypes);
 
     auto rootScopeId = context.GetOrCreateRootScope()->Id;
@@ -3062,7 +3122,7 @@ TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameReso
         }
         indexExpr->Index = InsertImplicitCastIfNeeded(indexExpr->Index, intType, &context);
     }
-    auto collectionType = UnwrapReferenceType(indexExpr->Collection->Type);
+    auto collectionType = UnwrapNamedType(UnwrapReferenceType(indexExpr->Collection->Type));
     if (TMaybeType<TStringType>(collectionType)) {
         indexExpr->Type = std::make_shared<TSymbolType>();
     } else if (auto maybeArrayType = TMaybeType<TArrayType>(collectionType)) {
@@ -3070,8 +3130,10 @@ TTask AnnotateIndex(std::shared_ptr<TIndexExpr> indexExpr, NSemantics::TNameReso
         indexExpr->Type = arrayType->ElementType;
     } else if (auto maybePointerType = TMaybeType<TPointerType>(collectionType)) {
         indexExpr->Type = maybePointerType.Cast()->PointeeType;
+    } else if (auto vector = TMaybeType<TVectorType>(collectionType)) {
+        indexExpr->Type = vector.Cast()->ElementType;
     } else {
-        co_return TError(indexExpr->Location, "Индексация поддерживается только для массивов, строк и указателей.\n"
+        co_return TError(indexExpr->Location, "Индексация поддерживается только для массивов, строк, указателей и векторов.\n"
             "Пример корректной индексации массива: a[2] (где a — массив).\n"
             "Пример корректной индексации строки: s[1] (где s — строка).\n"
             "Проверьте, что вы обращаетесь к массиву, строке или указателю, а не к другому типу.");
@@ -3266,6 +3328,25 @@ TTask DoAnnotate(TExprPtr expr, NSemantics::TNameResolver& context, NSemantics::
         co_return expr;
     } else if (auto maybeReturn = TMaybeNode<TReturnExpr>(expr)) {
         co_return co_await AnnotateReturn(maybeReturn.Cast(), context, scopeId);
+    } else if (auto output = TMaybeNode<TOutputExpr>(expr)) {
+        for (auto* child : output.Cast()->MutableChildren()) {
+            if (*child) {
+                *child = co_await DoAnnotate(*child, context, scopeId);
+            }
+        }
+        for (const auto& arg : output.Cast()->Args) {
+            auto type = UnwrapReferenceType(arg.Expr->Type);
+            if ((TMaybeType<TVectorType>(UnwrapNamedType(type)) || TMaybeType<TNamedType>(type))
+                && !context.GetUnaryOp("print", type))
+            {
+                if (auto printer = co_await InstantiateGenericOperator(
+                        "print", {arg.Expr}, std::make_shared<TVoidType>(), context, arg.Expr->Location))
+                {
+                    context.RegisterUnaryOp("print", type, *printer);
+                }
+            }
+        }
+        co_return output.Cast();
     } else if (auto retain = TMaybeNode<TRetainExpr>(expr)) {
         co_return co_await AnnotateLifetimeValue(retain.Cast(), context, scopeId);
     } else if (auto ownLiteral = TMaybeNode<TOwnLiteralExpr>(expr)) {

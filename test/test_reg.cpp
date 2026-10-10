@@ -515,6 +515,11 @@ void CheckExecCase(
     if (IsExecDisabled(code)) {
         GTEST_SKIP() << "Execution disabled for this test case";
     }
+    if (backend == EExecBackend::LLVM
+        && code.substr(0, code.find('\n')).find("disable_llvm") != std::string::npos)
+    {
+        GTEST_SKIP() << "LLVM execution disabled for this test case";
+    }
 
     auto [got, stdoutText] = RunExec(code, stdin, coreInput, backend, optLevel, src.parent_path());
     CheckExecGoldens(src, golden, goldenStdOut, got, stdoutText, label);

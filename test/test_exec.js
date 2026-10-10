@@ -772,6 +772,10 @@ async function runAll() {
       if (printOutput) log('[SKIP]', caseBase, '(disable_jsexec)');
       continue;
     }
+    if (firstLine.includes('disable_llvm')) {
+      if (printOutput) log('[SKIP]', caseBase, '(disable_llvm)');
+      continue;
+    }
     const wasmPath = compileCase(compiler, caseBase);
     const code = readAll(srcPath);
     const { type: algType, name: algName } = coreInput
