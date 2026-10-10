@@ -112,7 +112,6 @@ enum class EVMOp : uint8_t {
     ICmpEQ128,
     ICmpNE128,
 
-    Mov128,   // 128-bit register copy
     CmovS128, // sign-extend a 64-bit immediate into a 128-bit register
     CmovU128, // zero-extend a 64-bit immediate into a 128-bit register
     SExt128,  // sign-extend a 64-bit register into a 128-bit one
@@ -126,6 +125,14 @@ enum class EVMOp : uint8_t {
     Ste128,
     ArgTmp128,
     Ret128,
+
+    // Vector arithmetic uses Format; scalar arithmetic keeps its fixed width.
+    VIAdd,
+    VISub,
+    VIMul,
+    VFAdd,
+    VFSub,
+    VFMul,
 };
 
 std::ostream& operator<<(std::ostream& os, EVMOp op);
@@ -170,8 +177,11 @@ struct TVMOperand {
 struct TVMInstr {
     std::array<TVMOperand, 3> Operands;
     EVMOp Op;
-    // Bits 0..2: log2(element bytes), 3..5: log2(lanes), 6..7: reserved opcode flags.
+    // Bits 0..2: log2(element bytes), 3..5: log2(lanes), 6..7: operand broadcasts.
     uint8_t Format = 3;
+
+    static constexpr uint8_t BroadcastLeft = 1 << 6;
+    static constexpr uint8_t BroadcastRight = 1 << 7;
 
     static constexpr uint8_t MakeFormat(uint8_t elementLog2, uint8_t lanesLog2 = 0) {
         assert(elementLog2 <= 4 && lanesLog2 <= 5);

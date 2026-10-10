@@ -314,6 +314,74 @@ TEST(VectorTypeAnnotation, ChecksSizesInsideCompositeTypes) {
     }
 }
 
+TEST(VectorTypeAnnotation, Rejects128BitElementsDuringAnnotation) {
+    for (const std::string element : {"i128", "u128"}) {
+        const std::string vector = "<vec " + element + " 2>";
+        for (const std::string source : {
+            "(block (var v " + vector + "))",
+            "(block (var v <ptr " + vector + ">))",
+            "(block (var v <array " + vector + " 1>))",
+            "(block (var v <future " + vector + ">))",
+            "(block (var v <struct (field " + vector + ")>))",
+            "(block (var v <ref " + vector + ">))",
+            "(block (var v <fun " + vector + " ()>))",
+            "(block (type V " + vector + "))",
+            "(block (fun f ((var v " + vector + ")) -> void (block)))",
+            "(block (fun f () -> " + vector + " (block)))",
+            "(: (vec 1 2) " + vector + ")",
+            "(vec (: 1 " + element + ") (: 2 " + element + "))",
+        }) {
+            SCOPED_TRACE(source);
+            std::istringstream input(source);
+            NCore::TTokenStream tokens(input);
+            auto parsed = NCore::TParser{}.Parse(tokens);
+            ASSERT_TRUE(parsed) << parsed.error().ToString();
+            NSemantics::TNameResolver resolver;
+            ASSERT_FALSE(resolver.Resolve(*parsed));
+            auto result = NTypeAnnotation::TTypeAnnotator(resolver).Annotate(*parsed);
+            ASSERT_FALSE(result);
+            EXPECT_NE(result.error().ToString().find("64 бит"), std::string::npos)
+                << result.error().ToString();
+        }
+    }
+}
+
+TEST(BinaryTypeAnnotation, RejectsPromotionTo128BitVectorElements) {
+    for (const std::string scalar : {"i128", "u128"}) {
+        const std::string vector = scalar == "i128"
+            ? "<vec i64 2>"
+            : "<vec u64 2>";
+        for (const std::string op : {"+", "*", "==", "<"}) {
+            for (bool vectorLeft : {false, true}) {
+                SCOPED_TRACE(scalar + " " + op + " " + std::to_string(vectorLeft));
+                auto result = AnnotateBinary(op,
+                    vectorLeft ? vector : scalar,
+                    vectorLeft ? scalar : vector);
+                ASSERT_FALSE(result);
+                EXPECT_NE(result.error().ToString().find("64 бит"), std::string::npos)
+                    << result.error().ToString();
+            }
+        }
+    }
+}
+
+TEST(VectorTypeAnnotation, AllowsScalar128BitValuesConvertedToFloatElements) {
+    for (const std::string scalar : {"i128", "u128"}) {
+        auto constructed = Annotate("(block (var a " + scalar
+            + ") (var v = (: (vec a a) <vec f64 2>)))");
+        ASSERT_TRUE(constructed) << constructed.error().ToString();
+        auto arithmetic = AnnotateBinary("+", "<vec f64 2>", scalar);
+        ASSERT_TRUE(arithmetic) << arithmetic.error().ToString();
+        EXPECT_EQ(TypeName((*arithmetic)->Type), "Vector::Float::2");
+        auto division = AnnotateBinary("/", scalar == "i128" ? "<vec i64 2>" : "<vec u64 2>", scalar);
+        ASSERT_TRUE(division) << division.error().ToString();
+        EXPECT_EQ(TypeName((*division)->Type), "Vector::Float::2");
+        auto scalarArithmetic = AnnotateBinary("+", scalar, scalar);
+        ASSERT_TRUE(scalarArithmetic) << scalarArithmetic.error().ToString();
+        EXPECT_EQ(TypeName((*scalarArithmetic)->Type), scalar);
+    }
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

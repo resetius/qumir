@@ -39,6 +39,7 @@ public:
 
 private:
     void CompileUltraLow(const TFunction& function, TExecFunc& out);
+    bool CompileVectorInstruction(const TFunction& function, const TInstr& instr, TVMInstr& out);
     void AllocateRegisters(
         const TFunction& function,
         const std::vector<int>& tmpFrameOffsets,

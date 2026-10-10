@@ -120,20 +120,19 @@ void ConstFold(TFunction& function, TModule& module) {
 
         auto destTypeId = function.GetType(instr.Dest);
 
-        // A 128-bit immediate holds its low half only, so folding it in 64 bits
-        // would silently drop the rest.
-        auto is128 = [&](int typeId) {
+        // Scalar immediates cannot represent complete vectors or 128-bit values.
+        auto needsWideValue = [&](int typeId) {
             if (typeId < 0) {
                 return false;
             }
             auto kind = module.Types.GetKind(typeId);
-            return kind == EKind::I128 || kind == EKind::U128;
+            return kind == EKind::I128 || kind == EKind::U128 || kind == EKind::Vec;
         };
-        if (is128(destTypeId)) {
+        if (needsWideValue(destTypeId)) {
             return false;
         }
         for (size_t i = 0; i < instr.OperandCount; ++i) {
-            if (is128(operandTypeId(instr.Operands[i]))) {
+            if (needsWideValue(operandTypeId(instr.Operands[i]))) {
                 return false;
             }
         }

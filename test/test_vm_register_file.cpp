@@ -1,5 +1,10 @@
 #include <qumir/ir/eval.h>
+#include <qumir/ir/lowering/lower_ast.h>
+#include <qumir/ir/passes/transforms/const_fold.h>
 #include <qumir/ir/passes/transforms/pipeline.h>
+#include <qumir/parser/core/lexer.h>
+#include <qumir/parser/core/parser.h>
+#include <qumir/semantics/transform/transform.h>
 
 #include <gtest/gtest.h>
 
@@ -7,6 +12,7 @@
 #include <bit>
 #include <cstring>
 #include <sstream>
+#include <type_traits>
 
 using namespace NQumir;
 using namespace NQumir::NIR;
@@ -28,6 +34,218 @@ struct TVMTest {
         return tmp;
     }
 };
+
+std::expected<TFunction*, TError> LowerCore(TVMTest& vm, const std::string& source, bool optimize) {
+    std::istringstream input(source);
+    NAst::NCore::TTokenStream tokens(input);
+    auto parsed = NAst::NCore::TParser{}.Parse(tokens);
+    if (!parsed) {
+        return std::unexpected(parsed.error());
+    }
+    NSemantics::TNameResolver resolver;
+    auto annotated = NTransform::Pipeline(*parsed, resolver);
+    if (!annotated) {
+        return std::unexpected(annotated.error());
+    }
+    TAstLowerer lowerer(vm.Module, vm.Builder, resolver, {.EmitDebugInfo = true});
+    auto lowered = lowerer.LowerTop(*parsed);
+    if (!lowered) {
+        return std::unexpected(lowered.error());
+    }
+    if (optimize) {
+        NPasses::Pipeline(vm.Module);
+    }
+    return vm.Module.GetFunctionByName("main");
+}
+
+template<typename T, size_t N>
+void CheckCoreVector(const std::string& body, const std::array<T, N>& expected, int64_t result = 0) {
+    for (bool optimize : {false, true}) {
+        TVMTest vm;
+        auto lowered = LowerCore(vm, "(block (fun main () -> i64 (block " + body + ")))", optimize);
+        ASSERT_TRUE(lowered) << lowered.error().ToString();
+        auto* function = *lowered;
+        ASSERT_NE(function, nullptr);
+        ASSERT_EQ(vm.Interpreter.EvalRaw(*function, {}, {}), result);
+        int resultOffset = -1;
+        for (const auto& instr : function->Exec->VMCode) {
+            if (instr.LaneCount() == N && instr.Operands[0].Type == TVMOperand::EType::Tmp
+                && instr.Op != EVMOp::Store)
+            {
+                resultOffset = instr.Operands[0].Tmp.Idx;
+            }
+        }
+        ASSERT_GE(resultOffset, 0);
+        EXPECT_EQ(std::memcmp(vm.Interpreter.GetRuntime().Regs.Data() + resultOffset,
+            expected.data(), sizeof(expected)), 0);
+    }
+}
+
+template<typename T>
+void CheckVectorArithmetic(EKind kind, int count = 4) {
+    SCOPED_TRACE(static_cast<int>(kind));
+    SCOPED_TRACE(count);
+    TVMTest vm;
+    const int elementType = vm.Module.Types.I(kind);
+    const int vectorType = vm.Module.Types.Vec(elementType, count);
+    const int i64 = vm.Module.Types.I(EKind::I64);
+    vm.Builder.NewFunction("vector", {}, 0);
+    for (int i = 0; i < 3; ++i) {
+        vm.Builder.SetType(TLocal{i}, vectorType, {});
+    }
+    vm.Builder.SetType(TLocal{3}, i64, {});
+    const auto left = vm.Emit("load"_op, {TLocal{0}}, vectorType);
+    const auto right = vm.Emit("load"_op, {TLocal{1}}, vectorType);
+    const auto sum = vm.Emit("+"_op, {left, right}, vectorType);
+    const auto difference = vm.Emit("-"_op, {left, right}, vectorType);
+    const auto product = vm.Emit("*"_op, {left, right}, vectorType);
+    const int64_t five = std::is_floating_point_v<T>
+        ? (sizeof(T) == 4 ? std::bit_cast<uint32_t>(5.0f) : std::bit_cast<int64_t>(5.0))
+        : 5;
+    const auto scalar = vm.Emit("mov"_op, {TImm{five, elementType}}, elementType);
+    const auto broadcastLeft = vm.Emit("-"_op, {scalar, right}, vectorType);
+    const auto broadcastRight = vm.Emit("+"_op, {left, TImm{five, elementType}}, vectorType);
+    const auto copied = vm.Emit("mov"_op, {product}, vectorType);
+    vm.Builder.Emit0("stre"_op, {TLocal{2}, copied});
+    const auto reloaded = vm.Emit("load"_op, {TLocal{2}}, vectorType);
+    const auto address = vm.Emit("lea"_op, {TLocal{2}}, vm.Module.Types.Ptr(vectorType));
+    vm.Builder.Emit0("ste"_op, {address, copied});
+    const auto indirect = vm.Emit("lde"_op, {address}, vectorType);
+    const auto zero = vm.Emit("mov"_op, {TImm{0, vectorType}}, vectorType);
+    const auto guard = vm.Emit("load"_op, {TLocal{3}}, i64);
+    vm.Builder.Emit0("ret"_op, {guard});
+    vm.Builder.SetReturnType(i64);
+    auto& function = vm.Module.Functions[0];
+    const auto& exec = vm.Compiler.Compile(function);
+    std::vector<T> leftValues(count);
+    std::vector<T> rightValues(count);
+    for (int i = 0; i < count; ++i) {
+        leftValues[i] = static_cast<T>(i * 7 + 1);
+        rightValues[i] = static_cast<T>(i * 3 + 2);
+    }
+    if constexpr (!std::is_floating_point_v<T>) {
+        leftValues[0] = static_cast<T>(-1);
+        rightValues[0] = 1;
+        leftValues[1] = static_cast<T>(-2);
+        rightValues[1] = static_cast<T>(-3);
+    }
+    auto& runtime = vm.Interpreter.GetRuntime();
+    runtime.Stack.resize(exec.NumLocals);
+    const size_t size = count * sizeof(T);
+    std::memcpy(runtime.Stack.data() + exec.LocalByteOffsets[0], leftValues.data(), size);
+    std::memcpy(runtime.Stack.data() + exec.LocalByteOffsets[1], rightValues.data(), size);
+    const int64_t marker = 73;
+    std::memcpy(runtime.Stack.data() + exec.LocalByteOffsets[3], &marker, sizeof(marker));
+    ASSERT_EQ(vm.Interpreter.EvalRaw(function, {}, {}), marker);
+    using TCalc = std::conditional_t<std::is_floating_point_v<T>, T, uint64_t>;
+    for (int i = 0; i < count; ++i) {
+        auto lane = [&](TTmp tmp) {
+            return runtime.Regs.Get<T>(exec.TmpByteOffsets.at(tmp.Idx) + i * sizeof(T));
+        };
+        const auto a = static_cast<TCalc>(leftValues[i]);
+        const auto b = static_cast<TCalc>(rightValues[i]);
+        EXPECT_EQ(lane(sum), static_cast<T>(a + b));
+        EXPECT_EQ(lane(difference), static_cast<T>(a - b));
+        EXPECT_EQ(lane(product), static_cast<T>(a * b));
+        EXPECT_EQ(lane(copied), lane(product));
+        EXPECT_EQ(lane(reloaded), lane(product));
+        EXPECT_EQ(lane(indirect), lane(product));
+        EXPECT_EQ(lane(broadcastLeft), static_cast<T>(static_cast<TCalc>(5) - b));
+        EXPECT_EQ(lane(broadcastRight), static_cast<T>(a + 5));
+        EXPECT_EQ(lane(zero), 0);
+    }
+    const auto& add = exec.VMCode[2];
+    EXPECT_EQ(add.Op, std::is_floating_point_v<T> ? EVMOp::VFAdd : EVMOp::VIAdd);
+    EXPECT_EQ(add.ElementSizeInBytes(), sizeof(T));
+    EXPECT_EQ(add.LaneCount(), count);
+    EXPECT_EQ(exec.TmpByteOffsets.at(sum.Idx) % alignof(T), 0);
+}
+
+TEST(VMVector, ArithmeticCopiesAndBroadcastsUseTheElementWidth) {
+    CheckVectorArithmetic<uint8_t>(EKind::U8);
+    CheckVectorArithmetic<uint16_t>(EKind::U16);
+    CheckVectorArithmetic<uint32_t>(EKind::U32);
+    CheckVectorArithmetic<uint64_t>(EKind::U64);
+    CheckVectorArithmetic<uint64_t>(EKind::U64, 32);
+    CheckVectorArithmetic<float>(EKind::F32);
+    CheckVectorArithmetic<double>(EKind::F64);
+}
+
+TEST(VMVector, ConstructorExpressionsAndSSAExecuteThroughTheSemanticPipeline) {
+    const std::string source =
+        "(block (fun main () -> i64 (block"
+        " (var a = 1)"
+        " (var v = (vec a (+ a 2) (if #t 5 9) 7))"
+        " (var copy = (if (< a 2) v (vec 99 99 99 99)))"
+        " (var result = (* (- (+ copy 1) 2) (vec 2 3 4 5)))"
+        " (return 0))))";
+    for (bool optimize : {false, true}) {
+        SCOPED_TRACE(optimize);
+        TVMTest vm;
+        auto lowered = LowerCore(vm, source, optimize);
+        ASSERT_TRUE(lowered) << lowered.error().ToString();
+        auto* function = *lowered;
+        ASSERT_NE(function, nullptr);
+        ASSERT_EQ(vm.Interpreter.EvalRaw(*function, {}, {}), 0);
+        int productOffset = -1;
+        for (const auto& instr : function->Exec->VMCode) {
+            if (instr.Op == EVMOp::VIMul) {
+                productOffset = instr.Operands[0].Tmp.Idx;
+            }
+        }
+        ASSERT_GE(productOffset, 0);
+        const std::array<int64_t, 4> expected = {0, 6, 16, 30};
+        EXPECT_EQ(std::memcmp(vm.Interpreter.GetRuntime().Regs.Data() + productOffset,
+            expected.data(), sizeof(expected)), 0);
+        EXPECT_EQ(function->Exec->InstrDebugInfo.size(), function->Exec->VMCode.size());
+    }
+}
+
+TEST(VMVector, ConstructorsPreservePackedIntegersBooleansAndFloats) {
+    CheckCoreVector("(var v = (: (vec -1 127) <vec i8 2>)) (var copy = v) (return 0)",
+        std::array<int8_t, 2>{-1, 127});
+    CheckCoreVector("(var v = (vec #t #f)) (var copy = v) (return 0)",
+        std::array<uint8_t, 2>{1, 0});
+    CheckCoreVector("(var v = (vec -1.25 (+ 2.5 3.0))) (var r = (* 3.0 v)) (return 0)",
+        std::array<double, 2>{-3.75, 16.5});
+    CheckCoreVector(
+        "(var a = 0)"
+        " (var v = (vec (block (= a (+ a 1)) a) (block (= a (+ a 1)) a)"
+        " (block (= a (+ a 1)) a) (block (= a (+ a 1)) a))) (return a)",
+        std::array<int64_t, 4>{1, 2, 3, 4}, 4);
+}
+
+TEST(VMVector, ConstantFoldingPreservesVectorOperations) {
+    TVMTest vm;
+    const int i64 = vm.Module.Types.I(EKind::I64);
+    const int vectorType = vm.Module.Types.Vec(i64, 4);
+    vm.Builder.NewFunction("fold", {}, 0);
+    vm.Builder.SetType(TLocal{0}, vectorType, {});
+    const auto value = vm.Emit("load"_op, {TLocal{0}}, vectorType);
+    const auto product = vm.Emit("*"_op, {value, TImm{0, i64}}, vectorType);
+    vm.Builder.Emit0("stre"_op, {TLocal{0}, product});
+    auto& function = vm.Module.Functions[0];
+    NPasses::ConstFold(function, vm.Module);
+    EXPECT_EQ(function.Blocks[0].Instrs[1].Op, "*"_op);
+    EXPECT_EQ(function.Blocks[0].Instrs[2].Operands[1], TOperand{product});
+}
+
+TEST(VMVector, UnsupportedOperationsAndGlobalStorageAreRejected) {
+    for (bool global : {false, true}) {
+        TVMTest vm;
+        const int i64 = vm.Module.Types.I(EKind::I64);
+        const int vectorType = vm.Module.Types.Vec(i64, 4);
+        vm.Module.GlobalTypes = {vectorType};
+        vm.Builder.NewFunction("unsupported", {}, 0);
+        vm.Builder.SetType(TLocal{0}, vectorType, {});
+        const TOperand storage = global
+            ? TOperand{TSlot{0}}
+            : TOperand{TLocal{0}};
+        const auto value = vm.Emit("load"_op, {storage}, vectorType);
+        vm.Emit("/"_op, {value, value}, vectorType);
+        EXPECT_THROW(vm.Compiler.Compile(vm.Module.Functions[0]), std::runtime_error);
+    }
+}
 
 TEST(VMRegisterFile, AlignedTypedAccessAndBufferGrowth) {
     TRegisterFile registers;
@@ -104,6 +322,24 @@ TEST(VMRegisterFile, IRPipelinePreservesTemporaryIds) {
     EXPECT_EQ(function.Blocks[0].Instrs[1].Operands[0].Tmp.Idx, tmp.Idx);
     EXPECT_EQ(function.GetTmpType(tmp.Idx), i64);
     EXPECT_EQ(function.NextTmpIdx, 101);
+}
+
+TEST(VMRegisterFile, MovCopiesTheComplete128BitPayload) {
+    TVMTest vm;
+    const int i128 = vm.Module.Types.I(EKind::I128);
+    vm.Builder.NewFunction("wide_move", {}, 0);
+    const auto one = vm.Emit("mov"_op, {TImm{1, i128}}, i128);
+    const auto source = vm.Emit("<<"_op, {one, TImm{100, i128}}, i128);
+    const auto copied = vm.Emit("mov"_op, {source}, i128);
+    vm.Builder.Emit0("ret"_op, {copied});
+    vm.Builder.SetReturnType(i128);
+    auto& function = vm.Module.Functions[0];
+    ASSERT_EQ(vm.Interpreter.EvalRaw(function, {}, {}), 0);
+    const auto& exec = *function.Exec;
+    EXPECT_EQ(exec.VMCode[2].Op, EVMOp::Mov);
+    EXPECT_EQ(exec.VMCode[2].SizeInBytes(), 16);
+    EXPECT_EQ(vm.Interpreter.GetRuntime().Regs.Get<__int128_t>(exec.TmpByteOffsets.at(copied.Idx)),
+        static_cast<__int128_t>(1) << 100);
 }
 
 TEST(VMRegisterFile, CallsPreserveMixedRegistersAcrossBufferGrowth) {

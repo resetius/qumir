@@ -5,6 +5,7 @@
 #include <qumir/ir/passes/transforms/pipeline.h>
 
 #include <cassert>
+#include <bit>
 #include <iostream>
 #include <iomanip>
 #include <dlfcn.h>
@@ -78,6 +79,36 @@ bool Is128BitInteger(const TTypeTable& tt, int typeId) {
     return kind == EKind::I128 || kind == EKind::U128;
 }
 
+int OperandType(const TFunction& function, const TModule& module, const TOperand& operand) {
+    switch (operand.Type) {
+        case TOperand::EType::Tmp: return function.GetTmpType(operand.Tmp.Idx);
+        case TOperand::EType::Imm: return operand.Imm.TypeId;
+        case TOperand::EType::Local: return function.LocalTypes.at(operand.Local.Idx);
+        case TOperand::EType::Slot: return module.GlobalTypes.at(operand.Slot.Idx);
+        case TOperand::EType::Label: return -1;
+    }
+    return -1;
+}
+
+uint8_t VectorFormat(const TTypeTable& types, int vectorType) {
+    const int elementType = types.UnderlyingType(vectorType);
+    const auto elementSize = static_cast<unsigned>(types.SizeInBytes(elementType));
+    const auto count = static_cast<unsigned>(types.VectorSize(vectorType));
+    if ((!types.IsInteger(elementType) && !types.IsFloat(elementType))
+        || !std::has_single_bit(elementSize) || elementSize > 8
+        || !std::has_single_bit(count) || count > 32)
+    {
+        throw std::runtime_error("Unsupported VM vector shape");
+    }
+    return TVMInstr::MakeFormat(std::countr_zero(elementSize), std::countr_zero(count));
+}
+
+int RegisterAlignment(const TTypeTable& types, int typeId) {
+    return Is128BitInteger(types, typeId)
+        ? 16
+        : 8;
+}
+
 EKind ClassifyKind(int typeId, const TTypeTable& tt, NFFI::EStructKind& structKind) {
     EKind kind = tt.GetKind(typeId);
     structKind = (kind == EKind::Struct)
@@ -87,6 +118,88 @@ EKind ClassifyKind(int typeId, const TTypeTable& tt, NFFI::EStructKind& structKi
 }
 
 } // namespace
+
+bool TVMCompiler::CompileVectorInstruction(const TFunction& function, const TInstr& instr, TVMInstr& out) {
+    const auto& types = Module.Types;
+    int vectorType = function.GetTmpType(instr.Dest.Idx);
+    if (!types.IsVector(vectorType)) {
+        vectorType = -1;
+    }
+    for (size_t i = 0; i < instr.OperandCount; ++i) {
+        const auto& operand = instr.Operands[i];
+        const int typeId = OperandType(function, Module, operand);
+        if (types.IsVector(typeId)) {
+            vectorType = typeId;
+            if (operand.Type == TOperand::EType::Slot) {
+                throw std::runtime_error("VM vector globals are not supported yet");
+            }
+        }
+    }
+    if (instr.Op == "ste"_op && types.IsPointer(OperandType(function, Module, instr.Operands[0]))) {
+        const int pointee = types.UnderlyingType(OperandType(function, Module, instr.Operands[0]));
+        if (types.IsVector(pointee)) {
+            vectorType = pointee;
+        }
+    }
+    if (vectorType < 0) {
+        return false;
+    }
+    out.Format = VectorFormat(types, vectorType);
+    switch (instr.Op) {
+        case "lea"_op:
+            out.Op = EVMOp::Lea;
+            out.Format = 3;
+            return true;
+        case "load"_op:
+        case "lde"_op:
+            out.Op = EVMOp::Load;
+            return true;
+        case "stre"_op:
+        case "ste"_op:
+            out.Op = EVMOp::Store;
+            return true;
+        case "mov"_op:
+        case "bitcast"_op: {
+            const auto& source = instr.Operands[0];
+            const int destType = function.GetTmpType(instr.Dest.Idx);
+            const int sourceType = OperandType(function, Module, source);
+            const bool isZero = source.Type == TOperand::EType::Imm && source.Imm.Value == 0;
+            const bool compatible = instr.Op == "bitcast"_op
+                ? types.SizeInBytes(destType) == types.SizeInBytes(sourceType)
+                : destType == sourceType;
+            if ((!isZero && source.Type != TOperand::EType::Tmp) || (!isZero && !compatible)) {
+                throw std::runtime_error("Unsupported VM vector copy or cast");
+            }
+            out.Op = EVMOp::Mov;
+            return true;
+        }
+        case "+"_op:
+        case "-"_op:
+        case "*"_op: {
+            const int elementType = types.UnderlyingType(vectorType);
+            if (types.GetKind(elementType) == EKind::I1 || function.GetTmpType(instr.Dest.Idx) != vectorType) {
+                throw std::runtime_error("Unsupported VM vector arithmetic type");
+            }
+            for (size_t i = 0; i < 2; ++i) {
+                const int operandType = OperandType(function, Module, instr.Operands[i]);
+                if (operandType == elementType) {
+                    out.Format |= i == 0 ? TVMInstr::BroadcastLeft : TVMInstr::BroadcastRight;
+                } else if (operandType != vectorType) {
+                    throw std::runtime_error("VM vector arithmetic requires matching element types");
+                }
+            }
+            const bool floating = types.IsFloat(elementType);
+            switch (instr.Op) {
+                case "+"_op: out.Op = floating ? EVMOp::VFAdd : EVMOp::VIAdd; break;
+                case "-"_op: out.Op = floating ? EVMOp::VFSub : EVMOp::VISub; break;
+                case "*"_op: out.Op = floating ? EVMOp::VFMul : EVMOp::VIMul; break;
+            }
+            return true;
+        }
+        default:
+            throw std::runtime_error("Unsupported VM vector instruction: " + instr.Op.ToString());
+    }
+}
 
 NFFI::IFunction* TVMCompiler::GetOrCreateExternalThunk(int externIdx) {
     if (auto it = ExternalThunkCache.find(externIdx); it != ExternalThunkCache.end()) {
@@ -221,6 +334,9 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             funcOut.ArgByteOffsets.push_back(funcOut.LocalByteOffsets[argLocal.Idx]);
             int typeId = (argLocal.Idx < (int)function.LocalTypes.size())
                 ? function.LocalTypes[argLocal.Idx] : -1;
+            if (Module.Types.IsVector(typeId)) {
+                throw std::runtime_error("VM vector arguments are not supported yet");
+            }
             funcOut.ArgTypeIds.push_back(typeId);
         }
     }
@@ -250,18 +366,7 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
     };
 
     auto typeIdOp = [&](const TOperand& s) -> int {
-        switch (s.Type) {
-            case TOperand::EType::Tmp:
-                return typeId(s.Tmp);
-            case TOperand::EType::Imm:
-                return s.Imm.TypeId;
-            case TOperand::EType::Slot:
-                return Module.GlobalTypes[static_cast<size_t>(s.Slot.Idx)];
-            case TOperand::EType::Local:
-                return function.LocalTypes[static_cast<size_t>(s.Local.Idx)];
-            default:
-                return -1;
-        }
+        return OperandType(function, Module, s);
     };
 
     auto cmpType = [&](const TInstr& ins) -> int {
@@ -328,6 +433,10 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                     out.Operands[i + offset] = TImm{reinterpret_cast<int64_t>(pc)};
                     break;
             };
+        }
+
+        if (CompileVectorInstruction(function, ins, out)) {
+            return;
         }
 
         // TODO: check operand types
@@ -582,7 +691,8 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
                     // widens exactly like a 64-bit register does.
                     const bool signExtend = isImm ? isSignedInteger(dstType) : isSignedInteger(srcType);
                     if (is128(srcType) && !isImm) {
-                        out.Op = EVMOp::Mov128;
+                        out.Op = EVMOp::Mov;
+                        out.Format = TVMInstr::MakeFormat(4);
                     } else if (isImm) {
                         out.Op = signExtend ? EVMOp::CmovS128 : EVMOp::CmovU128;
                     } else {
@@ -619,7 +729,8 @@ void TVMCompiler::CompileUltraLow(const TFunction& function, TExecFunc& funcOut)
             case "bitcast"_op: {
                 require(ins, 1, 1);
                 if (is128(typeId(ins.Dest)) || is128(typeIdOp(ins.Operands[0]))) {
-                    out.Op = EVMOp::Mov128;
+                    out.Op = EVMOp::Mov;
+                    out.Format = TVMInstr::MakeFormat(4);
                 } else {
                     out.Op = EVMOp::Bitcast;
                 }
@@ -782,9 +893,7 @@ void TVMCompiler::AllocateRegisters(
             const int size = isStruct
                 ? 8
                 : std::max(8, Module.Types.SizeInBytes(typeId));
-            const int alignment = isStruct
-                ? 8
-                : std::max(8, Module.Types.AlignInBytes(typeId));
+            const int alignment = RegisterAlignment(Module.Types, typeId);
             if (offset > std::numeric_limits<int32_t>::max() - alignment - size) {
                 throw std::runtime_error("VM register file is too large");
             }
