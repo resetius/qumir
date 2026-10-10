@@ -1,5 +1,6 @@
 #include "eval.h"
 
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <iostream>
@@ -348,25 +349,21 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
         }
         case EVMOp::Store: {
             const size_t size = instr.SizeInBytes();
+            size_t effectiveSize = size;
             const auto& source = instr.Operands[1];
-            __int128_t immediate = 0;
             const void* value;
             if (source.Type == TVMOperand::EType::Tmp) {
                 assert(source.Tmp.Idx >= 0);
                 assert(static_cast<size_t>(source.Tmp.Idx) + size <= Runtime.Regs.Size());
                 value = Runtime.Regs.Data() + source.Tmp.Idx;
             } else if (source.Type == TVMOperand::EType::Imm) {
-                assert(size <= sizeof(immediate));
-                if (size <= sizeof(source.Imm.Value)) {
-                    value = &source.Imm.Value;
-                } else {
-                    immediate = source.Imm.Value;
-                    value = &immediate;
-                }
+                effectiveSize = std::min(size, sizeof(source.Imm.Value));
+                value = &source.Imm.Value;
             } else {
                 assert(false && "Invalid operand for store value");
                 break;
             }
+            char* destination;
             if (instr.Operands[0].Type == TVMOperand::EType::Slot) {
                 const auto& s = instr.Operands[0].Slot;
                 assert(s.Idx >= 0);
@@ -374,14 +371,20 @@ TFuture<std::optional<int64_t>> TInterpreter::DoEvalRawAsync(TFunction& function
                 if (byteOffset + size > Runtime.Globals.size()) {
                     Runtime.Globals.resize(byteOffset + size, 0);
                 }
-                std::memcpy(Runtime.Globals.data() + byteOffset, value, size);
+                destination = Runtime.Globals.data() + byteOffset;
             } else if (instr.Operands[0].Type == TVMOperand::EType::Local) {
                 const auto& l = instr.Operands[0].Local;
                 const size_t byteOffset = frame.StackBase + l.Idx; // l.Idx is byte offset
                 assert(l.Idx >= 0 && byteOffset + size <= Runtime.Stack.size());
-                std::memcpy(Runtime.Stack.data() + byteOffset, value, size);
+                destination = Runtime.Stack.data() + byteOffset;
             } else {
                 assert(false && "Invalid operand for store");
+                break;
+            }
+            std::memcpy(destination, value, effectiveSize);
+            if (effectiveSize < size) {
+                // Wide stores must retain the sign of their 64-bit immediate.
+                std::memset(destination + effectiveSize, source.Imm.Value < 0 ? 0xff : 0, size - effectiveSize);
             }
             break;
         }

@@ -264,6 +264,35 @@ TEST(VMMemory, ScalarFormatsRoundTripLocalsAndGlobals) {
     }
 }
 
+TEST(VMMemory, ImmediateStoreOverwritesTheWholeDestination) {
+    for (int64_t value : {0, 19, -17}) {
+        SCOPED_TRACE(value);
+        TVMTest vm;
+        const int i64 = vm.Module.Types.I(EKind::I64);
+        vm.Builder.NewFunction("immediate", {}, 0);
+        vm.Builder.SetReturnType(i64);
+        TExecFunc exec{
+            .UniqueId = 0,
+            .VMCode = {
+                {.Operands = {TLocal{8}, TImm{value}}, .Op = EVMOp::Store, .Format = TVMInstr::MakeFormat(4)},
+                {.Operands = {TSlot{1}, TImm{value}}, .Op = EVMOp::Store, .Format = TVMInstr::MakeFormat(4)},
+                {.Operands = {TImm{0}}, .Op = EVMOp::Ret},
+            },
+            .NumLocals = 32,
+        };
+        vm.Module.Functions[0].Exec = &exec;
+        auto& runtime = vm.Interpreter.GetRuntime();
+        runtime.Globals.assign(32, '\x5a');
+        runtime.Stack.assign(32, '\x5a');
+        ASSERT_EQ(vm.Interpreter.EvalRaw(vm.Module.Functions[0], {}, {}), 0);
+        std::vector<char> expected(32, '\x5a');
+        const __int128_t wide = value;
+        std::memcpy(expected.data() + 8, &wide, sizeof(wide));
+        EXPECT_EQ(runtime.Globals, expected);
+        EXPECT_EQ(runtime.Stack, expected);
+    }
+}
+
 TEST(VMMemory, PackedFormatsCopyTheCompletePayload) {
     struct TCase {
         uint8_t Format;
